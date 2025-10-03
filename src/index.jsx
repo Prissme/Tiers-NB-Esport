@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import ReactDOM from "react-dom/client";
 
 const players = [
   { tier: 'S', rank: 1, name: 'Bastien', score: 2400 },
@@ -62,7 +63,7 @@ const tierStyles = {
   E: 'bg-gradient-to-r from-green-700 via-green-500 to-green-300',
 };
 
-export default function DemonList() {
+export default export default function DemonList() {
   const [query, setQuery] = useState('');
   const [selectedTier, setSelectedTier] = useState('ALL');
   const [sortBy, setSortBy] = useState('rank');
@@ -121,3 +122,10 @@ export default function DemonList() {
     </div>
   );
 }
+
+// Monte le composant React dans le DOM
+ReactDOM.createRoot(document.getElementById('root')).render(
+  <React.StrictMode>
+    <DemonList />
+  </React.StrictMode>
+);
