@@ -1,5 +1,4 @@
 import React, { useState } from "react";
-import ReactDOM from "react-dom/client";
 
 const players = [
   { tier: 'S', rank: 1, name: 'Bastien', score: 2400 },
@@ -63,7 +62,7 @@ const tierStyles = {
   E: 'bg-gradient-to-r from-green-700 via-green-500 to-green-300',
 };
 
-function DemonList() {
+export default function DemonList() {
   const [query, setQuery] = useState('');
   const [selectedTier, setSelectedTier] = useState('ALL');
   const [sortBy, setSortBy] = useState('rank');
@@ -80,6 +79,8 @@ function DemonList() {
     return list;
   };
 
+  const filteredPlayers = filtered();
+
   return (
     <div className="min-h-screen bg-gray-900 text-gray-100 p-6">
       <header className="max-w-5xl mx-auto mb-8">
@@ -87,7 +88,7 @@ function DemonList() {
         <div className="flex gap-3 flex-wrap mb-3">
           <a href="https://discord.gg/prissme" target="_blank" rel="noopener noreferrer" className="px-3 py-2 bg-indigo-600 rounded hover:bg-indigo-500 transition">Discord</a>
           <a href="https://ko-fi.com/prissme" target="_blank" rel="noopener noreferrer" className="px-3 py-2 bg-yellow-500 rounded hover:bg-yellow-400 transition">Coaching 5€</a>
-          <input placeholder="Recherche..." value={query} onChange={e=>setQuery(e.target.value)} className="px-2 py-1 rounded bg-gray-800" />
+          <input placeholder="Recherche..." value={query} onChange={e=>setQuery(e.target.value)} className="px-2 py-1 rounded bg-gray-800 text-gray-100" />
           <select value={sortBy} onChange={e=>setSortBy(e.target.value)} className="px-2 py-1 rounded bg-gray-800">
             <option value="rank">Rang</option>
             <option value="score">Score</option>
@@ -98,3 +99,25 @@ function DemonList() {
           {tiers.map(t => (
             <button key={t} onClick={()=>setSelectedTier(t)} className={`px-3 py-1 rounded-full text-sm font-semibold ${selectedTier===t?'bg-indigo-600 text-white':'bg-gray-800 text-gray-300'}`}>{t}</button>
           ))}
+        </div>
+      </header>
+
+      <main className="max-w-5xl mx-auto">
+        <div className="grid gap-3">
+          {filteredPlayers.map(player => (
+            <div key={player.rank} className={`${tierStyles[player.tier]} p-4 rounded-lg shadow-lg flex items-center justify-between text-gray-900 font-bold`}>
+              <div className="flex items-center gap-4">
+                <span className="text-2xl">#{player.rank}</span>
+                <span className="text-xl">{player.name}</span>
+              </div>
+              <div className="flex items-center gap-4">
+                <span className="text-lg">{player.score} pts</span>
+                <span className="px-3 py-1 bg-white bg-opacity-40 rounded-full text-sm">Tier {player.tier}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </main>
+    </div>
+  );
+}
