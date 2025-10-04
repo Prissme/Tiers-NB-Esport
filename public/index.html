@@ -10,15 +10,6 @@
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
-    @keyframes shine {
-      0% { background-position: -200% center; }
-      100% { background-position: 200% center; }
-    }
-    .shine-effect {
-      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
-      background-size: 200% 100%;
-      animation: shine 3s infinite;
-    }
     .glass-effect {
       backdrop-filter: blur(10px);
       background: rgba(255, 255, 255, 0.05);
@@ -33,6 +24,7 @@
     const { useState } = React;
 
     const recentScrims = [
+      { winner: 'Sapeur', loser: 'Wished', score: '3-2' },
       { winner: 'Prissme', loser: 'Techwood', score: '2-0' },
       { winner: 'Prissme', loser: 'DayloXx', score: '2-0' },
       { winner: 'Itachi', loser: 'Wished', score: '3-2' },
@@ -61,38 +53,37 @@
       { tier: 'C', rank: 18, name: 'Fortissaxx', score: 1650 },
       { tier: 'C', rank: 19, name: 'Mamba', score: 1600 },
       { tier: 'C', rank: 20, name: 'Kawa', score: 1550 },
-      { tier: 'D', rank: 21, name: 'Smooth', score: 1525 },
-      { tier: 'D', rank: 22, name: 'Marlon', score: 1500 },
-      { tier: 'D', rank: 23, name: 'MomiJn', score: 1475 },
-      { tier: 'D', rank: 24, name: 'Wished', score: 1467 },
-      { tier: 'D', rank: 25, name: 'Sapeur', score: 1450 },
-      { tier: 'D', rank: 26, name: 'Loyy', score: 1425 },
-      { tier: 'D', rank: 27, name: 'DayloXx', score: 1406 },
-      { tier: 'D', rank: 28, name: 'Goshii', score: 1400 },
+      { tier: 'D', rank: 21, name: 'Sapeur', score: 1526 },
+      { tier: 'D', rank: 22, name: 'Smooth', score: 1525 },
+      { tier: 'D', rank: 23, name: 'Marlon', score: 1500 },
+      { tier: 'D', rank: 24, name: 'MomiJn', score: 1475 },
+      { tier: 'D', rank: 25, name: 'DayloXx', score: 1406 },
+      { tier: 'D', rank: 26, name: 'Goshii', score: 1400 },
+      { tier: 'D', rank: 27, name: 'Wished', score: 1396 },
+      { tier: 'D', rank: 28, name: 'Andre', score: 1380 },
       { tier: 'D', rank: 29, name: 'Maxi', score: 1368 },
-      { tier: 'D', rank: 30, name: 'Itachi', score: 1329 },
-      { tier: 'D', rank: 31, name: 'Astraaa', score: 1325 },
-      { tier: 'D', rank: 32, name: 'Nyxia', score: 1300 },
-      { tier: 'D', rank: 33, name: 'Andre', score: 1291 },
+      { tier: 'D', rank: 30, name: 'Heyko', score: 1342 },
+      { tier: 'D', rank: 31, name: 'Itachi', score: 1329 },
+      { tier: 'D', rank: 32, name: 'Astraaa', score: 1325 },
+      { tier: 'D', rank: 33, name: 'Nyxia', score: 1300 },
       { tier: 'D', rank: 34, name: 'Serpent', score: 1285 },
       { tier: 'D', rank: 35, name: 'Rash', score: 1275 },
       { tier: 'E', rank: 36, name: 'Spin', score: 1250 },
-      { tier: 'E', rank: 37, name: 'Heyko', score: 1250 },
-      { tier: 'E', rank: 38, name: 'Tht', score: 1200 },
-      { tier: 'E', rank: 39, name: 'Drxp', score: 1175 },
-      { tier: 'E', rank: 40, name: 'Fire', score: 1150 },
-      { tier: 'E', rank: 41, name: 'Scylla', score: 1125 },
-      { tier: 'E', rank: 42, name: 'Ryokk', score: 1100 },
-      { tier: 'E', rank: 43, name: 'Toupie', score: 1099 },
-      { tier: 'E', rank: 44, name: 'Fares', score: 1099 },
-      { tier: 'E', rank: 45, name: 'Melon', score: 1075 },
-      { tier: 'E', rank: 46, name: 'Zedraxx', score: 1050 },
-      { tier: 'E', rank: 47, name: 'Aben', score: 1025 },
-      { tier: 'E', rank: 48, name: 'Skor', score: 1000 },
-      { tier: 'E', rank: 49, name: 'LoniXx', score: 1000 },
-      { tier: 'E', rank: 50, name: 'Walid', score: 1000 },
-      { tier: 'No-tier', rank: 51, name: 'Kyzonn', score: 1000 },
-      { tier: 'No-tier', rank: 52, name: 'Techwood', score: 987 },
+      { tier: 'E', rank: 37, name: 'Tht', score: 1200 },
+      { tier: 'E', rank: 38, name: 'Drxp', score: 1175 },
+      { tier: 'E', rank: 39, name: 'Fire', score: 1150 },
+      { tier: 'E', rank: 40, name: 'Scylla', score: 1125 },
+      { tier: 'E', rank: 41, name: 'Ryokk', score: 1100 },
+      { tier: 'E', rank: 42, name: 'Toupie', score: 1099 },
+      { tier: 'E', rank: 43, name: 'Fares', score: 1099 },
+      { tier: 'E', rank: 44, name: 'Melon', score: 1075 },
+      { tier: 'E', rank: 45, name: 'Zedraxx', score: 1050 },
+      { tier: 'E', rank: 46, name: 'Aben', score: 1025 },
+      { tier: 'E', rank: 47, name: 'Skor', score: 1000 },
+      { tier: 'E', rank: 48, name: 'LoniXx', score: 1000 },
+      { tier: 'E', rank: 49, name: 'Walid', score: 1000 },
+      { tier: 'E', rank: 50, name: 'Kyzonn', score: 1000 },
+      { tier: 'No-tier', rank: 51, name: 'Techwood', score: 987 },
     ];
 
     const tierStyles = {
@@ -224,7 +215,7 @@
               {filteredPlayers.map(player => (
                 <div 
                   key={player.rank} 
-                  className={`${tierStyles[player.tier]} ${player.rank <= 10 ? 'border-4 border-yellow-400 shine-effect' : ''} p-5 rounded-xl shadow-2xl flex items-center justify-between text-gray-900 font-bold hover:scale-105 transition-transform`}
+                  className={`${tierStyles[player.tier]} p-5 rounded-xl shadow-2xl flex items-center justify-between text-gray-900 font-bold hover:scale-105 transition-transform`}
                 >
                   <div className="flex items-center gap-4">
                     <span className="text-3xl">{getMedal(player.rank) || `#${player.rank}`}</span>
