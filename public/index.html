@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>🏆 Nulls Brawl Esport — Top 50 Ranking</title>
+  <title>Nulls Brawl Esport — Top 50 Ranking</title>
   <meta name="description" content="Classement officiel Null's Brawl Esport. Découvrez le Top 50 des meilleurs joueurs avec leur MMR et Tier.">
   <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
@@ -25,7 +25,6 @@
       recentScrims, 
       players, 
       tierStyles, 
-      tierEmojis, 
       getMedal 
     } from './data.js';
 
@@ -50,48 +49,48 @@
 
       const filteredPlayers = filtered();
 
-      return React.createElement('div', { className: "min-h-screen bg-gradient-to-b from-gray-900 via-gray-800 to-black text-gray-100 p-6" },
-        React.createElement('header', { className: "max-w-5xl mx-auto mb-8" },
-          React.createElement('div', { className: "text-center mb-6" },
-            React.createElement('h1', { className: "text-5xl font-extrabold mb-2 bg-clip-text text-transparent bg-gradient-to-r from-yellow-400 via-orange-500 to-red-500" },
-              '🏆 Nulls Brawl Esport'
+      return React.createElement('div', { className: "min-h-screen bg-gradient-to-b from-gray-900 via-gray-800 to-black text-gray-100 p-3 sm:p-6" },
+        React.createElement('header', { className: "max-w-5xl mx-auto mb-6 sm:mb-8" },
+          React.createElement('div', { className: "text-center mb-4 sm:mb-6" },
+            React.createElement('h1', { className: "text-3xl sm:text-5xl font-extrabold mb-2 bg-clip-text text-transparent bg-gradient-to-r from-yellow-400 via-orange-500 to-red-500" },
+              'Nulls Brawl Esport'
             ),
-            React.createElement('p', { className: "text-gray-400 text-lg" }, 'Top 50 Classement Officiel')
+            React.createElement('p', { className: "text-gray-400 text-base sm:text-lg" }, 'Top 50 Classement Officiel')
           ),
           
-          React.createElement('div', { className: "glass-effect rounded-xl p-4 mb-4" },
-            React.createElement('div', { className: "flex gap-3 flex-wrap justify-center mb-3" },
+          React.createElement('div', { className: "glass-effect rounded-xl p-3 sm:p-4 mb-4" },
+            React.createElement('div', { className: "flex gap-2 sm:gap-3 flex-wrap justify-center mb-3" },
               React.createElement('a', { 
                 href: "https://discord.gg/prissme", 
                 target: "_blank", 
                 rel: "noopener noreferrer", 
-                className: "px-4 py-2 bg-indigo-600 rounded-lg hover:bg-indigo-500 transition font-semibold shadow-lg hover:shadow-indigo-500/50" 
-              }, '💬 Discord'),
+                className: "px-3 sm:px-4 py-2 bg-indigo-600 rounded-lg hover:bg-indigo-500 transition font-semibold shadow-lg hover:shadow-indigo-500/50 text-sm sm:text-base" 
+              }, 'Discord'),
               React.createElement('a', { 
                 href: "https://ko-fi.com/prissme", 
                 target: "_blank", 
                 rel: "noopener noreferrer", 
-                className: "px-4 py-2 bg-yellow-500 rounded-lg hover:bg-yellow-400 transition font-semibold shadow-lg hover:shadow-yellow-500/50 text-black" 
-              }, '⚡ Coaching 5€')
+                className: "px-3 sm:px-4 py-2 bg-yellow-500 rounded-lg hover:bg-yellow-400 transition font-semibold shadow-lg hover:shadow-yellow-500/50 text-black text-sm sm:text-base" 
+              }, 'Coaching 5€')
             ),
 
-            React.createElement('div', { className: "flex gap-3 flex-wrap justify-center items-center mb-3" },
-              React.createElement('div', { className: "relative flex-1 min-w-[200px]" },
+            React.createElement('div', { className: "flex flex-col sm:flex-row gap-2 sm:gap-3 mb-3" },
+              React.createElement('div', { className: "relative flex-1" },
                 React.createElement('input', { 
-                  placeholder: "🔍 Rechercher un joueur...", 
+                  placeholder: "Rechercher un joueur...", 
                   value: query, 
                   onChange: e => setQuery(e.target.value), 
-                  className: "w-full px-4 py-2 rounded-lg bg-gray-800/50 text-gray-100 border border-gray-700 focus:border-indigo-500 focus:outline-none" 
+                  className: "w-full px-3 sm:px-4 py-2 rounded-lg bg-gray-800/50 text-gray-100 border border-gray-700 focus:border-indigo-500 focus:outline-none text-sm sm:text-base" 
                 })
               ),
               React.createElement('select', { 
                 value: sortBy, 
                 onChange: e => setSortBy(e.target.value), 
-                className: "px-4 py-2 rounded-lg bg-gray-800/50 border border-gray-700 focus:border-indigo-500 focus:outline-none"
+                className: "px-3 sm:px-4 py-2 rounded-lg bg-gray-800/50 border border-gray-700 focus:border-indigo-500 focus:outline-none text-sm sm:text-base"
               },
-                React.createElement('option', { value: "rank" }, '📊 Par Rang'),
-                React.createElement('option', { value: "score" }, '🏅 Par Score'),
-                React.createElement('option', { value: "name" }, '🔤 Par Pseudo')
+                React.createElement('option', { value: "rank" }, 'Par Rang'),
+                React.createElement('option', { value: "score" }, 'Par Score'),
+                React.createElement('option', { value: "name" }, 'Par Pseudo')
               )
             ),
 
@@ -100,34 +99,34 @@
                 React.createElement('button', { 
                   key: t, 
                   onClick: () => setSelectedTier(t), 
-                  className: `px-4 py-2 rounded-full text-sm font-bold transition-all ${
+                  className: `px-3 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-bold transition-all ${
                     selectedTier === t
                       ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg scale-105' 
                       : 'bg-gray-800/50 text-gray-300 hover:bg-gray-700'
                   }`
-                }, `${tierEmojis[t] || ''} ${t}`)
+                }, t)
               )
             )
           )
         ),
 
-        React.createElement('section', { className: "max-w-5xl mx-auto mb-8" },
-          React.createElement('div', { className: "glass-effect rounded-xl p-6 shadow-2xl" },
-            React.createElement('h2', { className: "text-3xl font-bold mb-4 bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-400" },
-              '📊 Scrims Récents'
+        React.createElement('section', { className: "max-w-5xl mx-auto mb-6 sm:mb-8" },
+          React.createElement('div', { className: "glass-effect rounded-xl p-4 sm:p-6 shadow-2xl" },
+            React.createElement('h2', { className: "text-2xl sm:text-3xl font-bold mb-3 sm:mb-4 bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-400" },
+              'Scrims Récents'
             ),
-            React.createElement('div', { className: "space-y-3" },
+            React.createElement('div', { className: "space-y-2 sm:space-y-3" },
               recentScrims.map((scrim, index) => 
                 React.createElement('div', { 
                   key: index, 
-                  className: "bg-gray-800/50 p-4 rounded-lg flex items-center justify-between border border-gray-700 hover:border-indigo-500 transition"
+                  className: "bg-gray-800/50 p-3 sm:p-4 rounded-lg flex flex-col sm:flex-row items-start sm:items-center justify-between border border-gray-700 hover:border-indigo-500 transition gap-2 sm:gap-0"
                 },
-                  React.createElement('div', { className: "flex items-center gap-3" },
-                    React.createElement('span', { className: "text-green-400 font-bold text-lg" }, `✅ ${scrim.winner}`),
+                  React.createElement('div', { className: "flex items-center gap-2 sm:gap-3 flex-wrap text-sm sm:text-base" },
+                    React.createElement('span', { className: "text-green-400 font-bold" }, scrim.winner),
                     React.createElement('span', { className: "text-gray-500" }, 'vs'),
-                    React.createElement('span', { className: "text-red-400 font-bold text-lg" }, `❌ ${scrim.loser}`)
+                    React.createElement('span', { className: "text-red-400 font-bold" }, scrim.loser)
                   ),
-                  React.createElement('span', { className: "px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 rounded-full font-bold shadow-lg" }, scrim.score)
+                  React.createElement('span', { className: "px-3 sm:px-4 py-1.5 sm:py-2 bg-gradient-to-r from-indigo-600 to-purple-600 rounded-full font-bold shadow-lg text-sm sm:text-base" }, scrim.score)
                 )
               )
             )
@@ -135,20 +134,20 @@
         ),
 
         React.createElement('main', { className: "max-w-5xl mx-auto" },
-          React.createElement('div', { className: "grid gap-4" },
+          React.createElement('div', { className: "grid gap-3 sm:gap-4" },
             filteredPlayers.map(player => 
               React.createElement('div', { 
                 key: player.rank, 
-                className: `${tierStyles[player.tier]} p-5 rounded-xl shadow-2xl flex items-center justify-between text-gray-900 font-bold hover:scale-105 transition-transform`
+                className: `${tierStyles[player.tier]} p-3 sm:p-5 rounded-xl shadow-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between text-gray-900 font-bold hover:scale-105 transition-transform gap-2 sm:gap-0`
               },
-                React.createElement('div', { className: "flex items-center gap-4" },
-                  React.createElement('span', { className: "text-3xl" }, getMedal(player.rank) || `#${player.rank}`),
-                  React.createElement('span', { className: "text-2xl" }, player.name)
+                React.createElement('div', { className: "flex items-center gap-2 sm:gap-4 w-full sm:w-auto" },
+                  React.createElement('span', { className: "text-xl sm:text-3xl font-bold min-w-[60px] sm:min-w-[80px]" }, getMedal(player.rank)),
+                  React.createElement('span', { className: "text-lg sm:text-2xl break-all" }, player.name)
                 ),
-                React.createElement('div', { className: "flex items-center gap-4" },
-                  React.createElement('span', { className: "text-xl" }, `${player.score} pts`),
-                  React.createElement('span', { className: "px-4 py-2 bg-white bg-opacity-40 rounded-full text-base flex items-center gap-1" },
-                    `${tierEmojis[player.tier]} Tier ${player.tier}`
+                React.createElement('div', { className: "flex items-center gap-2 sm:gap-4 w-full sm:w-auto justify-between sm:justify-end" },
+                  React.createElement('span', { className: "text-base sm:text-xl" }, `${player.score} pts`),
+                  React.createElement('span', { className: "px-3 sm:px-4 py-1.5 sm:py-2 bg-white bg-opacity-40 rounded-full text-xs sm:text-base whitespace-nowrap" },
+                    `Tier ${player.tier}`
                   )
                 )
               )
@@ -156,7 +155,7 @@
           )
         ),
 
-        React.createElement('footer', { className: "max-w-5xl mx-auto mt-12 text-center text-gray-500 text-sm" },
+        React.createElement('footer', { className: "max-w-5xl mx-auto mt-8 sm:mt-12 text-center text-gray-500 text-xs sm:text-sm px-3" },
           React.createElement('p', null, '© 2025 Nulls Brawl Esport - Classement mis à jour régulièrement')
         )
       );
