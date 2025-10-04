@@ -1,11 +1,11 @@
 // Scrims récents
 export const recentScrims = [
+  { winner: 'Wished', loser: 'Saladeee', score: '3-1' },
   { winner: 'Sapeur', loser: 'Wished', score: '3-2' },
   { winner: 'Prissme', loser: 'Techwood', score: '2-0' },
   { winner: 'Prissme', loser: 'DayloXx', score: '2-0' },
   { winner: 'Itachi', loser: 'Wished', score: '3-2' },
   { winner: 'Achraff', loser: 'Wished', score: '3-1' },
-  { winner: 'DayloXx', loser: 'Wished', score: '3-1' },
 ];
 
 // Liste des joueurs
@@ -15,12 +15,12 @@ export const players = [
   { tier: 'A', rank: 3, name: 'Skusku', score: 2150 },
   { tier: 'A', rank: 4, name: 'Shido', score: 2134 },
   { tier: 'B', rank: 5, name: 'Prissme', score: 2131 },
-  { tier: 'B', rank: 6, name: 'Sparky', score: 2100 },
-  { tier: 'B', rank: 7, name: 'Mxgic', score: 2050 },
+  { tier: 'B', rank: 6, name: 'Mxgic', score: 2050 },
+  { tier: 'B', rank: 7, name: 'Sparky', score: 2004 },
   { tier: 'B', rank: 8, name: 'Fernmtzzz', score: 1950 },
   { tier: 'B', rank: 9, name: 'Achraff', score: 1900 },
   { tier: 'B', rank: 10, name: 'Levy', score: 1900 },
-  { tier: 'C', rank: 11, name: 'Saladeee', score: 1850 },
+  { tier: 'C', rank: 11, name: 'Saladeee', score: 1785 },
   { tier: 'C', rank: 12, name: 'Killer', score: 1825 },
   { tier: 'C', rank: 13, name: 'Giuk', score: 1775 },
   { tier: 'C', rank: 14, name: 'Kazuhaa', score: 1768 },
@@ -35,10 +35,10 @@ export const players = [
   { tier: 'D', rank: 23, name: 'Sapeur', score: 1526 },
   { tier: 'D', rank: 24, name: 'Smooth', score: 1525 },
   { tier: 'D', rank: 25, name: 'Marlon', score: 1500 },
-  { tier: 'D', rank: 26, name: 'MomiJn', score: 1475 },
-  { tier: 'D', rank: 27, name: 'DayloXx', score: 1406 },
-  { tier: 'D', rank: 28, name: 'Goshii', score: 1400 },
-  { tier: 'D', rank: 29, name: 'Wished', score: 1396 },
+  { tier: 'D', rank: 26, name: 'Wished', score: 1482 },
+  { tier: 'D', rank: 27, name: 'MomiJn', score: 1475 },
+  { tier: 'D', rank: 28, name: 'DayloXx', score: 1406 },
+  { tier: 'D', rank: 29, name: 'Goshii', score: 1400 },
   { tier: 'D', rank: 30, name: 'Andre', score: 1380 },
   { tier: 'D', rank: 31, name: 'Maxi', score: 1368 },
   { tier: 'D', rank: 32, name: 'Heyko', score: 1342 },
@@ -60,9 +60,10 @@ export const players = [
   { tier: 'E', rank: 48, name: 'Aben', score: 1025 },
   { tier: 'E', rank: 49, name: 'Skor', score: 1000 },
   { tier: 'E', rank: 50, name: 'LoniXx', score: 1000 },
-  { tier: 'No-tier', rank: 51, name: 'Walid', score: 1000 },
-  { tier: 'No-tier', rank: 52, name: 'Kyzonn', score: 1000 },
-  { tier: 'No-tier', rank: 53, name: 'Techwood', score: 987 },
+  { tier: 'E', rank: 51, name: 'Mehdi', score: 996 },
+  { tier: 'No-tier', rank: 52, name: 'Walid', score: 1000 },
+  { tier: 'No-tier', rank: 53, name: 'Kyzonn', score: 1000 },
+  { tier: 'No-tier', rank: 54, name: 'Techwood', score: 987 },
 ];
 
 // Configuration des tiers
