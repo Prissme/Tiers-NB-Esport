@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Nulls Brawl Esport — Top 50 Ranking</title>
+  <title>Nulls Brawl Esport - Top 50 Ranking</title>
   <meta name="description" content="Classement officiel Null's Brawl Esport. Découvrez le Top 50 des meilleurs joueurs avec leur MMR et Tier.">
   <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
@@ -122,9 +122,15 @@
                   className: "bg-gray-800/50 p-3 sm:p-4 rounded-lg flex flex-col sm:flex-row items-start sm:items-center justify-between border border-gray-700 hover:border-indigo-500 transition gap-2 sm:gap-0"
                 },
                   React.createElement('div', { className: "flex items-center gap-2 sm:gap-3 flex-wrap text-sm sm:text-base" },
-                    React.createElement('span', { className: "text-green-400 font-bold" }, scrim.winner),
+                    React.createElement('span', { className: "text-green-400 font-bold flex items-center gap-1" }, 
+                      React.createElement('span', { className: "text-green-500" }, 'W'),
+                      scrim.winner
+                    ),
                     React.createElement('span', { className: "text-gray-500" }, 'vs'),
-                    React.createElement('span', { className: "text-red-400 font-bold" }, scrim.loser)
+                    React.createElement('span', { className: "text-red-400 font-bold flex items-center gap-1" }, 
+                      React.createElement('span', { className: "text-red-500" }, 'L'),
+                      scrim.loser
+                    )
                   ),
                   React.createElement('span', { className: "px-3 sm:px-4 py-1.5 sm:py-2 bg-gradient-to-r from-indigo-600 to-purple-600 rounded-full font-bold shadow-lg text-sm sm:text-base" }, scrim.score)
                 )
