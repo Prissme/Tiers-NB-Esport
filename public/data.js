@@ -11,18 +11,25 @@ export const recentScrims = [
   { winner: 'Vortexaaa', loser: 'Wished', score: '3-2' },
 ];
 
-// Liste des joueurs (MMR mis à jour)
+// Liste des joueurs (MMR mis à jour avec ratio 1-3-6-10-15-15)
 export const players = [
+  // Tier S (1 joueur - Rang 1)
   { tier: 'S', rank: 1, name: 'Bastien', score: 2401 },
+  
+  // Tier A (3 joueurs - Rangs 2-4)
   { tier: 'A', rank: 2, name: 'Raxy', score: 2200 },
   { tier: 'A', rank: 3, name: 'Skusku', score: 2150 },
   { tier: 'A', rank: 4, name: 'Prissme', score: 2146 },
-  { tier: 'A', rank: 5, name: 'Shido', score: 2134 },
+  
+  // Tier B (6 joueurs - Rangs 5-10)
+  { tier: 'B', rank: 5, name: 'Shido', score: 2134 },
   { tier: 'B', rank: 6, name: 'Mxgic', score: 2090 },
   { tier: 'B', rank: 7, name: 'Fernmtzzz', score: 2032 },
   { tier: 'B', rank: 8, name: 'Sparky', score: 1964 },
   { tier: 'B', rank: 9, name: 'Achraff', score: 1900 },
   { tier: 'B', rank: 10, name: 'Levy', score: 1900 },
+  
+  // Tier C (10 joueurs - Rangs 11-20)
   { tier: 'C', rank: 11, name: 'Killer', score: 1825 },
   { tier: 'C', rank: 12, name: 'Saladeee', score: 1806 },
   { tier: 'C', rank: 13, name: 'Giuk', score: 1775 },
@@ -33,6 +40,8 @@ export const players = [
   { tier: 'C', rank: 18, name: 'Dodo', score: 1725 },
   { tier: 'C', rank: 19, name: 'Serpent', score: 1700 },
   { tier: 'C', rank: 20, name: 'Rujo', score: 1651 },
+  
+  // Tier D (15 joueurs - Rangs 21-35)
   { tier: 'D', rank: 21, name: 'Fortissaxx', score: 1650 },
   { tier: 'D', rank: 22, name: 'Mehdi', score: 1630 },
   { tier: 'D', rank: 23, name: 'Mamba', score: 1600 },
@@ -47,7 +56,9 @@ export const players = [
   { tier: 'D', rank: 32, name: 'Andre', score: 1447 },
   { tier: 'D', rank: 33, name: 'Wished', score: 1416 },
   { tier: 'D', rank: 34, name: 'DayloXx', score: 1406 },
-  { tier: 'E', rank: 35, name: 'Goshii', score: 1400 },
+  { tier: 'D', rank: 35, name: 'Goshii', score: 1400 },
+  
+  // Tier E (15 joueurs - Rangs 36-50)
   { tier: 'E', rank: 36, name: 'Maxi', score: 1368 },
   { tier: 'E', rank: 37, name: 'Vortexaaa', score: 1342 },
   { tier: 'E', rank: 38, name: 'Heyko', score: 1342 },
@@ -63,7 +74,9 @@ export const players = [
   { tier: 'E', rank: 48, name: 'Scylla', score: 1125 },
   { tier: 'E', rank: 49, name: 'Ryokk', score: 1100 },
   { tier: 'E', rank: 50, name: 'Akazaaa', score: 1099 },
-  { tier: 'E', rank: 51, name: 'Fares', score: 1099 },
+  
+  // No-tier (Reste - Rangs 51+)
+  { tier: 'No-tier', rank: 51, name: 'Fares', score: 1099 },
   { tier: 'No-tier', rank: 52, name: 'Melon', score: 1075 },
   { tier: 'No-tier', rank: 53, name: 'Zedraxx', score: 1050 },
   { tier: 'No-tier', rank: 54, name: 'Aben', score: 1025 },
