@@ -15,20 +15,6 @@
       background: rgba(255, 255, 255, 0.05);
       border: 1px solid rgba(255, 255, 255, 0.1);
     }
-    .avatar-img {
-      width: 48px;
-      height: 48px;
-      border-radius: 50%;
-      object-fit: cover;
-      border: 3px solid rgba(255, 255, 255, 0.3);
-      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
-    }
-    @media (max-width: 640px) {
-      .avatar-img {
-        width: 40px;
-        height: 40px;
-      }
-    }
   </style>
 </head>
 <body>
@@ -37,86 +23,64 @@
   <script type="text/babel">
     const { useState } = React;
 
-    // Données des joueurs avec IDs Discord ou URLs d'images
+    // --- Données des joueurs ---
     const players = [
-      { tier: 'S', rank: 1, name: 'Bastien', score: 2331, avatar: null },
-      { tier: 'A', rank: 2, name: 'Skusku', score: 2150, avatar: null },
-      { tier: 'A', rank: 3, name: 'Prissme', score: 2146, avatar: 'https://media.discordapp.net/attachments/1236724293631611022/1425174992240250890/20241122_072328.jpg' },
-      { tier: 'A', rank: 4, name: 'Shido', score: 2134, avatar: null },
-      { tier: 'B', rank: 5, name: 'Mxgic', score: 2108, avatar: null },
-      { tier: 'B', rank: 6, name: 'Fernmtzzz', score: 2032, avatar: null },
-      { tier: 'B', rank: 7, name: 'Sparky', score: 1964, avatar: null },
-      { tier: 'B', rank: 8, name: 'Levy', score: 1935, avatar: null },
-      { tier: 'B', rank: 9, name: 'Achraff', score: 1900, avatar: null },
-      { tier: 'B', rank: 10, name: 'Killer', score: 1825, avatar: null },
-      { tier: 'C', rank: 11, name: 'Naboo', score: 1818, avatar: null },
-      { tier: 'C', rank: 12, name: 'Saladeee', score: 1806, avatar: null },
-      { tier: 'C', rank: 13, name: 'Marlon', score: 1800, avatar: null },
-      { tier: 'C', rank: 14, name: 'Serpent', score: 1798, avatar: null },
-      { tier: 'C', rank: 15, name: 'Hutao', score: 1778, avatar: null },
-      { tier: 'C', rank: 16, name: 'Giuk', score: 1775, avatar: null },
-      { tier: 'C', rank: 17, name: 'Maxi', score: 1750, avatar: null },
-      { tier: 'C', rank: 18, name: 'Dodo', score: 1725, avatar: null },
-      { tier: 'C', rank: 19, name: 'Eren', score: 1716, avatar: null },
-      { tier: 'C', rank: 20, name: 'Kazuhaa', score: 1657, avatar: null },
-      { tier: 'D', rank: 21, name: 'Rujo', score: 1651, avatar: null },
-      { tier: 'D', rank: 22, name: 'Fortissaxx', score: 1650, avatar: null },
-      { tier: 'D', rank: 23, name: 'Wished', score: 1600, avatar: null },
-      { tier: 'D', rank: 24, name: 'Mamba', score: 1600, avatar: null },
-      { tier: 'D', rank: 25, name: 'Mehdi', score: 1579, avatar: null },
-      { tier: 'D', rank: 26, name: 'MomiJn', score: 1577, avatar: null },
-      { tier: 'D', rank: 27, name: 'Berk', score: 1569, avatar: null },
-      { tier: 'D', rank: 28, name: 'Kawa', score: 1550, avatar: null },
-      { tier: 'D', rank: 29, name: 'Sapeur', score: 1526, avatar: null },
-      { tier: 'D', rank: 30, name: 'Smooth', score: 1525, avatar: null },
-      { tier: 'D', rank: 31, name: 'Razz', score: 1495, avatar: null },
-      { tier: 'D', rank: 32, name: 'Dubi', score: 1484, avatar: null },
-      { tier: 'D', rank: 33, name: 'Anaray', score: 1484, avatar: null },
-      { tier: 'D', rank: 34, name: 'Andre', score: 1447, avatar: null },
-      { tier: 'D', rank: 35, name: 'Vortexaaa', score: 1429, avatar: null },
-      { tier: 'E', rank: 36, name: 'DayloXx', score: 1406, avatar: null },
-      { tier: 'E', rank: 37, name: 'Goshii', score: 1400, avatar: null },
-      { tier: 'E', rank: 38, name: 'Heyko', score: 1342, avatar: null },
-      { tier: 'E', rank: 39, name: 'Astraaa', score: 1325, avatar: null },
-      { tier: 'E', rank: 40, name: 'Ovni', score: 1276, avatar: null },
-      { tier: 'E', rank: 41, name: 'Rash', score: 1275, avatar: null },
-      { tier: 'E', rank: 42, name: 'Fire', score: 1271, avatar: null },
-      { tier: 'E', rank: 43, name: 'Nyxia', score: 1252, avatar: null },
-      { tier: 'E', rank: 44, name: 'Spin', score: 1250, avatar: null },
-      { tier: 'E', rank: 45, name: 'Tht', score: 1200, avatar: null },
-      { tier: 'E', rank: 46, name: 'Drxp', score: 1175, avatar: null },
-      { tier: 'E', rank: 47, name: 'Scylla', score: 1125, avatar: null },
-      { tier: 'E', rank: 48, name: 'Sank1d', score: 1108, avatar: null },
-      { tier: 'E', rank: 49, name: 'Ryokk', score: 1100, avatar: null },
-      { tier: 'E', rank: 50, name: 'Akazaaa', score: 1099, avatar: null },
-      { tier: 'No-tier', rank: 51, name: 'Fares', score: 1099, avatar: null },
-      { tier: 'No-tier', rank: 52, name: 'Melon', score: 1075, avatar: null },
-      { tier: 'No-tier', rank: 53, name: 'Zedraxx', score: 1050, avatar: null },
-      { tier: 'No-tier', rank: 54, name: 'Aben', score: 1025, avatar: null },
-      { tier: 'No-tier', rank: 55, name: 'Skor', score: 1000, avatar: null },
-      { tier: 'No-tier', rank: 56, name: 'LoniXx', score: 1000, avatar: null },
-      { tier: 'No-tier', rank: 57, name: 'Walid', score: 1000, avatar: null },
-      { tier: 'No-tier', rank: 58, name: 'Kyzonn', score: 1000, avatar: null },
-      { tier: 'No-tier', rank: 59, name: 'Techwood', score: 987, avatar: null },
+      { tier: 'S', rank: 1, name: 'Bastien', score: 2331 },
+      { tier: 'A', rank: 2, name: 'Skusku', score: 2150 },
+      { tier: 'A', rank: 3, name: 'Prissme', score: 2146 },
+      { tier: 'A', rank: 4, name: 'Shido', score: 2134 },
+      { tier: 'B', rank: 5, name: 'Mxgic', score: 2108 },
+      { tier: 'B', rank: 6, name: 'Fernmtzzz', score: 2032 },
+      { tier: 'B', rank: 7, name: 'Sparky', score: 1964 },
+      { tier: 'B', rank: 8, name: 'Levy', score: 1935 },
+      { tier: 'B', rank: 9, name: 'Achraff', score: 1900 },
+      { tier: 'B', rank: 10, name: 'Killer', score: 1825 },
+      { tier: 'C', rank: 11, name: 'Naboo', score: 1818 },
+      { tier: 'C', rank: 12, name: 'Saladeee', score: 1806 },
+      { tier: 'C', rank: 13, name: 'Marlon', score: 1800 },
+      { tier: 'C', rank: 14, name: 'Serpent', score: 1798 },
+      { tier: 'C', rank: 15, name: 'Hutao', score: 1778 },
+      { tier: 'C', rank: 16, name: 'Giuk', score: 1775 },
+      { tier: 'C', rank: 17, name: 'Maxi', score: 1750 },
+      { tier: 'C', rank: 18, name: 'Dodo', score: 1725 },
+      { tier: 'C', rank: 19, name: 'Eren', score: 1716 },
+      { tier: 'C', rank: 20, name: 'Kazuhaa', score: 1657 },
+      { tier: 'D', rank: 21, name: 'Rujo', score: 1651 },
+      { tier: 'D', rank: 22, name: 'Fortissaxx', score: 1650 },
+      { tier: 'D', rank: 23, name: 'Wished', score: 1600 },
+      { tier: 'D', rank: 24, name: 'Mamba', score: 1600 },
+      { tier: 'D', rank: 25, name: 'Mehdi', score: 1579 },
+      { tier: 'D', rank: 26, name: 'MomiJn', score: 1577 },
+      { tier: 'D', rank: 27, name: 'Berk', score: 1569 },
+      { tier: 'D', rank: 28, name: 'Kawa', score: 1550 },
+      { tier: 'D', rank: 29, name: 'Sapeur', score: 1526 },
+      { tier: 'D', rank: 30, name: 'Smooth', score: 1525 },
+      { tier: 'D', rank: 31, name: 'Razz', score: 1495 },
+      { tier: 'D', rank: 32, name: 'Dubi', score: 1484 },
+      { tier: 'D', rank: 33, name: 'Anaray', score: 1484 },
+      { tier: 'D', rank: 34, name: 'Andre', score: 1447 },
+      { tier: 'D', rank: 35, name: 'Vortexaaa', score: 1429 },
+      { tier: 'E', rank: 36, name: 'DayloXx', score: 1406 },
+      { tier: 'E', rank: 37, name: 'Goshii', score: 1400 },
+      { tier: 'E', rank: 38, name: 'Heyko', score: 1342 },
+      { tier: 'E', rank: 39, name: 'Astraaa', score: 1325 },
+      { tier: 'E', rank: 40, name: 'Ovni', score: 1276 },
+      { tier: 'E', rank: 41, name: 'Rash', score: 1275 },
+      { tier: 'E', rank: 42, name: 'Fire', score: 1271 },
+      { tier: 'E', rank: 43, name: 'Nyxia', score: 1252 },
+      { tier: 'E', rank: 44, name: 'Spin', score: 1250 },
+      { tier: 'E', rank: 45, name: 'Tht', score: 1200 },
+      { tier: 'E', rank: 46, name: 'Drxp', score: 1175 },
+      { tier: 'E', rank: 47, name: 'Scylla', score: 1125 },
+      { tier: 'E', rank: 48, name: 'Sank1d', score: 1108 },
+      { tier: 'E', rank: 49, name: 'Ryokk', score: 1100 },
+      { tier: 'E', rank: 50, name: 'Akazaaa', score: 1099 },
     ];
 
     const recentScrims = [
       { winner: 'Maxi', loser: 'Vortexaaa', score: '3-0' },
       { winner: 'Wished', loser: 'Sapeur', score: '3-0 (FF)' },
-      { winner: 'Wished', loser: 'Andre', score: '3-1' },
-      { winner: 'Wished', loser: 'Lorex', score: '3-0' },
-      { winner: 'Naboo', loser: 'Wished', score: '3-0' },
-      { winner: 'Vortexaaa', loser: 'Marlon', score: '3-2' },
-      { winner: 'Marlon', loser: 'Wished', score: '3-0' },
-      { winner: 'Fire', loser: 'Wished', score: '3-2' },
-      { winner: 'Vortexaaa', loser: 'Ovni', score: '3-2' },
-      { winner: 'Saladeee', loser: 'Dubi', score: '3-0' },
-      { winner: 'Mxgic', loser: 'Kazuhaa', score: '1-0 (FF)' },
-      { winner: 'Wished', loser: 'Saladeee', score: '3-1' },
-      { winner: 'Sapeur', loser: 'Wished', score: '3-2' },
       { winner: 'Prissme', loser: 'Techwood', score: '2-0' },
-      { winner: 'Prissme', loser: 'DayloXx', score: '2-0' },
-      { winner: 'Vortexaaa', loser: 'Wished', score: '3-2' },
     ];
 
     const tierStyles = {
@@ -134,23 +98,6 @@
       if (rank === 2) return '🥈';
       if (rank === 3) return '🥉';
       return `#${rank}`;
-    };
-
-    const Avatar = ({ avatar, name }) => {
-      const [imgSrc, setImgSrc] = useState(avatar || 'https://cdn.discordapp.com/embed/avatars/0.png');
-
-      const handleError = () => {
-        setImgSrc('https://cdn.discordapp.com/embed/avatars/0.png');
-      };
-
-      return (
-        <img 
-          src={imgSrc}
-          alt={`Avatar de ${name}`}
-          className="avatar-img"
-          onError={handleError}
-        />
-      );
     };
 
     function DemonList() {
@@ -185,38 +132,17 @@
             
             <div className="glass-effect rounded-xl p-3 sm:p-4 mb-4">
               <div className="flex gap-2 sm:gap-3 flex-wrap justify-center mb-3">
-                <a 
-                  href="https://discord.gg/prissme" 
-                  target="_blank" 
-                  rel="noopener noreferrer" 
-                  className="px-3 sm:px-4 py-2 bg-indigo-600 rounded-lg hover:bg-indigo-500 transition font-semibold shadow-lg hover:shadow-indigo-500/50 text-sm sm:text-base"
-                >
+                <a href="https://discord.gg/prissme" target="_blank" rel="noopener noreferrer" className="px-3 sm:px-4 py-2 bg-indigo-600 rounded-lg hover:bg-indigo-500 transition font-semibold shadow-lg text-sm sm:text-base">
                   Discord
                 </a>
-                <a 
-                  href="https://ko-fi.com/prissme" 
-                  target="_blank" 
-                  rel="noopener noreferrer" 
-                  className="px-3 sm:px-4 py-2 bg-yellow-500 rounded-lg hover:bg-yellow-400 transition font-semibold shadow-lg hover:shadow-yellow-500/50 text-black text-sm sm:text-base"
-                >
+                <a href="https://ko-fi.com/prissme" target="_blank" rel="noopener noreferrer" className="px-3 sm:px-4 py-2 bg-yellow-500 rounded-lg hover:bg-yellow-400 transition font-semibold shadow-lg text-black text-sm sm:text-base">
                   Coaching 5€
                 </a>
               </div>
 
               <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 mb-3">
-                <div className="relative flex-1">
-                  <input 
-                    placeholder="Rechercher un joueur..." 
-                    value={query} 
-                    onChange={e => setQuery(e.target.value)} 
-                    className="w-full px-3 sm:px-4 py-2 rounded-lg bg-gray-800/50 text-gray-100 border border-gray-700 focus:border-indigo-500 focus:outline-none text-sm sm:text-base"
-                  />
-                </div>
-                <select 
-                  value={sortBy} 
-                  onChange={e => setSortBy(e.target.value)} 
-                  className="px-3 sm:px-4 py-2 rounded-lg bg-gray-800/50 border border-gray-700 focus:border-indigo-500 focus:outline-none text-sm sm:text-base"
-                >
+                <input placeholder="Rechercher un joueur..." value={query} onChange={e => setQuery(e.target.value)} className="flex-1 px-3 sm:px-4 py-2 rounded-lg bg-gray-800/50 text-gray-100 border border-gray-700 focus:border-indigo-500 focus:outline-none text-sm sm:text-base" />
+                <select value={sortBy} onChange={e => setSortBy(e.target.value)} className="px-3 sm:px-4 py-2 rounded-lg bg-gray-800/50 border border-gray-700 focus:border-indigo-500 text-sm sm:text-base">
                   <option value="rank">Par Rang</option>
                   <option value="score">Par Score</option>
                   <option value="name">Par Pseudo</option>
@@ -224,62 +150,38 @@
               </div>
 
               <div className="flex gap-2 flex-wrap justify-center">
-                {tiers.map(t => 
-                  <button 
-                    key={t} 
-                    onClick={() => setSelectedTier(t)} 
-                    className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-bold transition-all ${
-                      selectedTier === t
-                        ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg scale-105' 
-                        : 'bg-gray-800/50 text-gray-300 hover:bg-gray-700'
-                    }`}
-                  >
+                {tiers.map(t => (
+                  <button key={t} onClick={() => setSelectedTier(t)} className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-bold transition-all ${
+                    selectedTier === t
+                      ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg scale-105' 
+                      : 'bg-gray-800/50 text-gray-300 hover:bg-gray-700'
+                  }`}>
                     {t}
                   </button>
-                )}
+                ))}
               </div>
             </div>
           </header>
 
           <section className="max-w-5xl mx-auto mb-6 sm:mb-8">
             <div className="glass-effect rounded-xl p-4 sm:p-6 shadow-2xl">
-              <div 
-                className="flex items-center justify-between mb-3 sm:mb-4 cursor-pointer select-none"
-                onClick={() => setScrimsOpen(!scrimsOpen)}
-              >
-                <h2 className="text-2xl sm:text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-400">
-                  Scrims Récents
-                </h2>
-                <button 
-                  className="text-2xl sm:text-3xl text-indigo-400 hover:text-indigo-300 transition-all duration-300"
-                  style={{ transform: scrimsOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}
-                >
-                  ▼
-                </button>
+              <div onClick={() => setScrimsOpen(!scrimsOpen)} className="flex items-center justify-between mb-3 sm:mb-4 cursor-pointer select-none">
+                <h2 className="text-2xl sm:text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-400">Scrims Récents</h2>
+                <button className="text-2xl sm:text-3xl text-indigo-400 hover:text-indigo-300 transition-all duration-300" style={{ transform: scrimsOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}>▼</button>
               </div>
+
               {scrimsOpen && (
                 <div className="space-y-2 sm:space-y-3">
-                  {recentScrims.map((scrim, index) => 
-                    <div 
-                      key={index} 
-                      className="bg-gray-800/50 p-3 sm:p-4 rounded-lg flex flex-col sm:flex-row items-start sm:items-center justify-between border border-gray-700 hover:border-indigo-500 transition gap-2 sm:gap-0"
-                    >
+                  {recentScrims.map((scrim, index) => (
+                    <div key={index} className="bg-gray-800/50 p-3 sm:p-4 rounded-lg flex flex-col sm:flex-row items-start sm:items-center justify-between border border-gray-700 hover:border-indigo-500 transition">
                       <div className="flex items-center gap-2 sm:gap-3 flex-wrap text-sm sm:text-base">
-                        <span className="text-green-400 font-bold flex items-center gap-1">
-                          <span className="text-green-500">W</span>
-                          {scrim.winner}
-                        </span>
+                        <span className="text-green-400 font-bold">W {scrim.winner}</span>
                         <span className="text-gray-500">vs</span>
-                        <span className="text-red-400 font-bold flex items-center gap-1">
-                          <span className="text-red-500">L</span>
-                          {scrim.loser}
-                        </span>
+                        <span className="text-red-400 font-bold">L {scrim.loser}</span>
                       </div>
-                      <span className="px-3 sm:px-4 py-1.5 sm:py-2 bg-gradient-to-r from-indigo-600 to-purple-600 rounded-full font-bold shadow-lg text-sm sm:text-base">
-                        {scrim.score}
-                      </span>
+                      <span className="px-3 sm:px-4 py-1.5 sm:py-2 bg-gradient-to-r from-indigo-600 to-purple-600 rounded-full font-bold shadow-lg text-sm sm:text-base">{scrim.score}</span>
                     </div>
-                  )}
+                  ))}
                 </div>
               )}
             </div>
@@ -287,26 +189,18 @@
 
           <main className="max-w-5xl mx-auto">
             <div className="grid gap-3 sm:gap-4">
-              {filteredPlayers.map(player => 
-                <div 
-                  key={player.rank} 
-                  className={`${tierStyles[player.tier]} p-3 sm:p-5 rounded-xl shadow-2xl flex items-center justify-between text-gray-900 font-bold hover:scale-105 transition-transform`}
-                >
+              {filteredPlayers.map(player => (
+                <div key={player.rank} className={`${tierStyles[player.tier]} p-3 sm:p-5 rounded-xl shadow-2xl flex items-center justify-between text-gray-900 font-bold hover:scale-105 transition-transform`}>
                   <div className="flex items-center gap-2 sm:gap-4">
-                    <span className="text-xl sm:text-3xl font-bold min-w-[50px] sm:min-w-[70px]">
-                      {getMedal(player.rank)}
-                    </span>
-                    <Avatar avatar={player.avatar} name={player.name} />
+                    <span className="text-xl sm:text-3xl font-bold min-w-[50px] sm:min-w-[70px]">{getMedal(player.rank)}</span>
                     <span className="text-lg sm:text-2xl break-all">{player.name}</span>
                   </div>
                   <div className="flex items-center gap-2 sm:gap-4">
                     <span className="text-base sm:text-xl">{player.score} pts</span>
-                    <span className="px-3 sm:px-4 py-1.5 sm:py-2 bg-white bg-opacity-40 rounded-full text-xs sm:text-base whitespace-nowrap">
-                      Tier {player.tier}
-                    </span>
+                    <span className="px-3 sm:px-4 py-1.5 sm:py-2 bg-white bg-opacity-40 rounded-full text-xs sm:text-base whitespace-nowrap">Tier {player.tier}</span>
                   </div>
                 </div>
-              )}
+              ))}
             </div>
           </main>
 
