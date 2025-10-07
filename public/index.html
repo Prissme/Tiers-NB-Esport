@@ -18,201 +18,215 @@
   </style>
 </head>
 <body>
-  <div id="root"></div>
-  
-  <script type="text/babel">
-    const { useState } = React;
+<div id="root"></div>
 
-    // --- Données des joueurs ---
-    const players = [
-      { tier: 'S', rank: 1, name: 'Bastien', score: 2331 },
-      { tier: 'A', rank: 2, name: 'Skusku', score: 2150 },
-      { tier: 'A', rank: 3, name: 'Prissme', score: 2146 },
-      { tier: 'A', rank: 4, name: 'Shido', score: 2134 },
-      { tier: 'B', rank: 5, name: 'Mxgic', score: 2108 },
-      { tier: 'B', rank: 6, name: 'Fernmtzzz', score: 2032 },
-      { tier: 'B', rank: 7, name: 'Sparky', score: 1964 },
-      { tier: 'B', rank: 8, name: 'Levy', score: 1935 },
-      { tier: 'B', rank: 9, name: 'Achraff', score: 1900 },
-      { tier: 'B', rank: 10, name: 'Killer', score: 1825 },
-      { tier: 'C', rank: 11, name: 'Naboo', score: 1818 },
-      { tier: 'C', rank: 12, name: 'Saladeee', score: 1806 },
-      { tier: 'C', rank: 13, name: 'Marlon', score: 1800 },
-      { tier: 'C', rank: 14, name: 'Serpent', score: 1798 },
-      { tier: 'C', rank: 15, name: 'Hutao', score: 1778 },
-      { tier: 'C', rank: 16, name: 'Giuk', score: 1775 },
-      { tier: 'C', rank: 17, name: 'Maxi', score: 1750 },
-      { tier: 'C', rank: 18, name: 'Dodo', score: 1725 },
-      { tier: 'C', rank: 19, name: 'Eren', score: 1716 },
-      { tier: 'C', rank: 20, name: 'Kazuhaa', score: 1657 },
-      { tier: 'D', rank: 21, name: 'Rujo', score: 1651 },
-      { tier: 'D', rank: 22, name: 'Fortissaxx', score: 1650 },
-      { tier: 'D', rank: 23, name: 'Wished', score: 1600 },
-      { tier: 'D', rank: 24, name: 'Mamba', score: 1600 },
-      { tier: 'D', rank: 25, name: 'Mehdi', score: 1579 },
-      { tier: 'D', rank: 26, name: 'MomiJn', score: 1577 },
-      { tier: 'D', rank: 27, name: 'Berk', score: 1569 },
-      { tier: 'D', rank: 28, name: 'Kawa', score: 1550 },
-      { tier: 'D', rank: 29, name: 'Sapeur', score: 1526 },
-      { tier: 'D', rank: 30, name: 'Smooth', score: 1525 },
-      { tier: 'D', rank: 31, name: 'Razz', score: 1495 },
-      { tier: 'D', rank: 32, name: 'Dubi', score: 1484 },
-      { tier: 'D', rank: 33, name: 'Anaray', score: 1484 },
-      { tier: 'D', rank: 34, name: 'Andre', score: 1447 },
-      { tier: 'D', rank: 35, name: 'Vortexaaa', score: 1429 },
-      { tier: 'E', rank: 36, name: 'DayloXx', score: 1406 },
-      { tier: 'E', rank: 37, name: 'Goshii', score: 1400 },
-      { tier: 'E', rank: 38, name: 'Heyko', score: 1342 },
-      { tier: 'E', rank: 39, name: 'Astraaa', score: 1325 },
-      { tier: 'E', rank: 40, name: 'Ovni', score: 1276 },
-      { tier: 'E', rank: 41, name: 'Rash', score: 1275 },
-      { tier: 'E', rank: 42, name: 'Fire', score: 1271 },
-      { tier: 'E', rank: 43, name: 'Nyxia', score: 1252 },
-      { tier: 'E', rank: 44, name: 'Spin', score: 1250 },
-      { tier: 'E', rank: 45, name: 'Tht', score: 1200 },
-      { tier: 'E', rank: 46, name: 'Drxp', score: 1175 },
-      { tier: 'E', rank: 47, name: 'Scylla', score: 1125 },
-      { tier: 'E', rank: 48, name: 'Sank1d', score: 1108 },
-      { tier: 'E', rank: 49, name: 'Ryokk', score: 1100 },
-      { tier: 'E', rank: 50, name: 'Akazaaa', score: 1099 },
-    ];
+<script type="text/babel">
+const { useState, useMemo } = React;
 
-    const recentScrims = [
-      { winner: 'Maxi', loser: 'Vortexaaa', score: '3-0' },
-      { winner: 'Wished', loser: 'Sapeur', score: '3-0 (FF)' },
-      { winner: 'Prissme', loser: 'Techwood', score: '2-0' },
-    ];
+// --- Données des joueurs ---
+const players = [
+  { tier: 'S', rank: 1, name: 'Bastien', score: 2331, previousScore: 2310 },
+  { tier: 'A', rank: 2, name: 'Skusku', score: 2150, previousScore: 2140 },
+  { tier: 'A', rank: 3, name: 'Prissme', score: 2146, previousScore: 2130 },
+  { tier: 'A', rank: 4, name: 'Shido', score: 2134, previousScore: 2110 },
+  { tier: 'B', rank: 5, name: 'Mxgic', score: 2108, previousScore: 2100 },
+  { tier: 'B', rank: 6, name: 'Fernmtzzz', score: 2032, previousScore: 2000 },
+  { tier: 'B', rank: 7, name: 'Sparky', score: 1964, previousScore: 1950 },
+  { tier: 'B', rank: 8, name: 'Levy', score: 1935, previousScore: 1920 },
+  { tier: 'B', rank: 9, name: 'Achraff', score: 1900, previousScore: 1895 },
+  { tier: 'B', rank: 10, name: 'Killer', score: 1825, previousScore: 1810 },
+  { tier: 'C', rank: 11, name: 'Naboo', score: 1818, previousScore: 1800 },
+  { tier: 'C', rank: 12, name: 'Saladeee', score: 1806, previousScore: 1795 },
+  { tier: 'C', rank: 13, name: 'Marlon', score: 1800, previousScore: 1790 },
+  { tier: 'C', rank: 14, name: 'Serpent', score: 1798, previousScore: 1780 },
+  { tier: 'C', rank: 15, name: 'Hutao', score: 1778, previousScore: 1760 },
+  { tier: 'C', rank: 16, name: 'Giuk', score: 1775, previousScore: 1750 },
+  { tier: 'C', rank: 17, name: 'Maxi', score: 1750, previousScore: 1720 },
+  { tier: 'C', rank: 18, name: 'Dodo', score: 1725, previousScore: 1700 },
+  { tier: 'C', rank: 19, name: 'Eren', score: 1716, previousScore: 1700 },
+  { tier: 'C', rank: 20, name: 'Kazuhaa', score: 1657, previousScore: 1650 },
+  { tier: 'D', rank: 21, name: 'Rujo', score: 1651, previousScore: 1640 },
+  { tier: 'D', rank: 22, name: 'Fortissaxx', score: 1650, previousScore: 1645 },
+  { tier: 'D', rank: 23, name: 'Wished', score: 1600, previousScore: 1580 },
+  { tier: 'D', rank: 24, name: 'Mamba', score: 1600, previousScore: 1590 },
+  { tier: 'D', rank: 25, name: 'Mehdi', score: 1579, previousScore: 1570 },
+  { tier: 'D', rank: 26, name: 'MomiJn', score: 1577, previousScore: 1560 },
+  { tier: 'D', rank: 27, name: 'Berk', score: 1569, previousScore: 1550 },
+  { tier: 'D', rank: 28, name: 'Kawa', score: 1550, previousScore: 1530 },
+  { tier: 'D', rank: 29, name: 'Sapeur', score: 1526, previousScore: 1510 },
+  { tier: 'D', rank: 30, name: 'Smooth', score: 1525, previousScore: 1500 },
+  { tier: 'D', rank: 31, name: 'Razz', score: 1495, previousScore: 1480 },
+  { tier: 'D', rank: 32, name: 'Dubi', score: 1484, previousScore: 1470 },
+  { tier: 'D', rank: 33, name: 'Anaray', score: 1484, previousScore: 1460 },
+  { tier: 'D', rank: 34, name: 'Andre', score: 1447, previousScore: 1430 },
+  { tier: 'D', rank: 35, name: 'Vortexaaa', score: 1429, previousScore: 1400 },
+  { tier: 'E', rank: 36, name: 'DayloXx', score: 1406, previousScore: 1380 },
+  { tier: 'E', rank: 37, name: 'Goshii', score: 1400, previousScore: 1375 },
+  { tier: 'E', rank: 38, name: 'Heyko', score: 1342, previousScore: 1320 },
+  { tier: 'E', rank: 39, name: 'Astraaa', score: 1325, previousScore: 1300 },
+  { tier: 'E', rank: 40, name: 'Ovni', score: 1276, previousScore: 1250 },
+  { tier: 'E', rank: 41, name: 'Rash', score: 1275, previousScore: 1250 },
+  { tier: 'E', rank: 42, name: 'Fire', score: 1271, previousScore: 1245 },
+  { tier: 'E', rank: 43, name: 'Nyxia', score: 1252, previousScore: 1230 },
+  { tier: 'E', rank: 44, name: 'Spin', score: 1250, previousScore: 1225 },
+  { tier: 'E', rank: 45, name: 'Tht', score: 1200, previousScore: 1180 },
+  { tier: 'E', rank: 46, name: 'Drxp', score: 1175, previousScore: 1150 },
+  { tier: 'E', rank: 47, name: 'Scylla', score: 1125, previousScore: 1100 },
+  { tier: 'E', rank: 48, name: 'Sank1d', score: 1108, previousScore: 1080 },
+  { tier: 'E', rank: 49, name: 'Ryokk', score: 1100, previousScore: 1075 },
+  { tier: 'E', rank: 50, name: 'Akazaaa', score: 1099, previousScore: 1070 },
+];
 
-    const tierStyles = {
-      S: 'bg-gradient-to-r from-yellow-400 via-yellow-300 to-yellow-200',
-      A: 'bg-gradient-to-r from-blue-400 via-purple-300 to-indigo-200',
-      B: 'bg-gradient-to-r from-orange-600 via-orange-400 to-orange-200',
-      C: 'bg-gradient-to-r from-pink-600 via-red-500 to-red-400',
-      D: 'bg-gradient-to-r from-blue-400 via-purple-400 to-purple-300',
-      E: 'bg-gradient-to-r from-green-700 via-green-500 to-green-300',
-      'No-tier': 'bg-gradient-to-r from-gray-600 via-gray-500 to-gray-400',
-    };
+const recentScrims = [
+  { winner: 'Maxi', loser: 'Vortexaaa', score: '3-0' },
+  { winner: 'Wished', loser: 'Sapeur', score: '3-0 (FF)' },
+  { winner: 'Prissme', loser: 'Techwood', score: '2-0' },
+];
 
-    const getMedal = (rank) => {
-      if (rank === 1) return '🥇';
-      if (rank === 2) return '🥈';
-      if (rank === 3) return '🥉';
-      return `#${rank}`;
-    };
+const tierStyles = {
+  S: 'bg-gradient-to-r from-yellow-400 via-yellow-300 to-yellow-200',
+  A: 'bg-gradient-to-r from-blue-400 via-purple-300 to-indigo-200',
+  B: 'bg-gradient-to-r from-orange-600 via-orange-400 to-orange-200',
+  C: 'bg-gradient-to-r from-pink-600 via-red-500 to-red-400',
+  D: 'bg-gradient-to-r from-blue-400 via-purple-400 to-purple-300',
+  E: 'bg-gradient-to-r from-green-700 via-green-500 to-green-300',
+  'No-tier': 'bg-gradient-to-r from-gray-600 via-gray-500 to-gray-400',
+};
 
-    function DemonList() {
-      const [query, setQuery] = useState('');
-      const [selectedTier, setSelectedTier] = useState('ALL');
-      const [sortBy, setSortBy] = useState('rank');
-      const [scrimsOpen, setScrimsOpen] = useState(true);
+const getMedal = (rank) => {
+  if (rank === 1) return '🥇';
+  if (rank === 2) return '🥈';
+  if (rank === 3) return '🥉';
+  return `#${rank}`;
+};
 
-      const tiers = ['ALL','S','A','B','C','D','E','No-tier'];
+function DemonList() {
+  const [query, setQuery] = useState('');
+  const [selectedTier, setSelectedTier] = useState('ALL');
+  const [sortBy, setSortBy] = useState('rank');
+  const [scrimsOpen, setScrimsOpen] = useState(true);
 
-      const filtered = () => {
-        let list = [...players];
-        if (selectedTier !== 'ALL') list = list.filter(p => p.tier === selectedTier);
-        if (query.trim() !== '') list = list.filter(p => p.name.toLowerCase().includes(query.toLowerCase()));
-        if (sortBy === 'rank') list.sort((a,b)=>a.rank-b.rank);
-        if (sortBy === 'score') list.sort((a,b)=>b.score-a.score);
-        if (sortBy === 'name') list.sort((a,b)=>a.name.localeCompare(b.name));
-        return list;
-      };
+  const tiers = ['ALL','S','A','B','C','D','E','No-tier'];
 
-      const filteredPlayers = filtered();
+  const filteredPlayers = useMemo(() => {
+    let list = [...players];
+    if (selectedTier !== 'ALL') list = list.filter(p => p.tier === selectedTier);
+    if (query.trim() !== '') list = list.filter(p => p.name.toLowerCase().includes(query.toLowerCase()));
+    list.sort((a,b) => {
+      if(sortBy === 'rank') return a.rank - b.rank;
+      if(sortBy === 'score') return b.score - a.score;
+      return a.name.localeCompare(b.name);
+    });
+    return list;
+  }, [query, selectedTier, sortBy]);
 
-      return (
-        <div className="min-h-screen bg-gradient-to-b from-gray-900 via-gray-800 to-black text-gray-100 p-3 sm:p-6">
-          <header className="max-w-5xl mx-auto mb-6 sm:mb-8">
-            <div className="text-center mb-4 sm:mb-6">
-              <h1 className="text-3xl sm:text-5xl font-extrabold mb-2 bg-clip-text text-transparent bg-gradient-to-r from-yellow-400 via-orange-500 to-red-500">
-                Nulls Brawl Esport
-              </h1>
-              <p className="text-gray-400 text-base sm:text-lg">Top 50 Classement Officiel</p>
-            </div>
-            
-            <div className="glass-effect rounded-xl p-3 sm:p-4 mb-4">
-              <div className="flex gap-2 sm:gap-3 flex-wrap justify-center mb-3">
-                <a href="https://discord.gg/prissme" target="_blank" rel="noopener noreferrer" className="px-3 sm:px-4 py-2 bg-indigo-600 rounded-lg hover:bg-indigo-500 transition font-semibold shadow-lg text-sm sm:text-base">
-                  Discord
-                </a>
-                <a href="https://ko-fi.com/prissme" target="_blank" rel="noopener noreferrer" className="px-3 sm:px-4 py-2 bg-yellow-500 rounded-lg hover:bg-yellow-400 transition font-semibold shadow-lg text-black text-sm sm:text-base">
-                  Coaching 5€
-                </a>
-              </div>
+  return (
+    <div className="min-h-screen bg-gradient-to-b from-gray-900 via-gray-800 to-black text-gray-100 p-3 sm:p-6">
+      
+      {/* Header */}
+      <header className="max-w-5xl mx-auto mb-6 sm:mb-8">
+        <div className="text-center mb-4 sm:mb-6">
+          <h1 className="text-3xl sm:text-5xl font-extrabold mb-2 bg-clip-text text-transparent bg-gradient-to-r from-yellow-400 via-orange-500 to-red-500">
+            Nulls Brawl Esport
+          </h1>
+          <p className="text-gray-400 text-base sm:text-lg">Top 50 Classement Officiel</p>
+        </div>
+        
+        <div className="glass-effect rounded-xl p-3 sm:p-4 mb-4">
+          <div className="flex gap-2 sm:gap-3 flex-wrap justify-center mb-3">
+            <a href="https://discord.gg/prissme" target="_blank" rel="noopener noreferrer" className="px-3 sm:px-4 py-2 bg-indigo-600 rounded-lg hover:bg-indigo-500 transition font-semibold shadow-lg text-sm sm:text-base">
+              Discord
+            </a>
+            <a href="https://ko-fi.com/prissme" target="_blank" rel="noopener noreferrer" className="px-3 sm:px-4 py-2 bg-yellow-500 rounded-lg hover:bg-yellow-400 transition font-semibold shadow-lg text-black text-sm sm:text-base">
+              Coaching 5€
+            </a>
+          </div>
 
-              <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 mb-3">
-                <input placeholder="Rechercher un joueur..." value={query} onChange={e => setQuery(e.target.value)} className="flex-1 px-3 sm:px-4 py-2 rounded-lg bg-gray-800/50 text-gray-100 border border-gray-700 focus:border-indigo-500 focus:outline-none text-sm sm:text-base" />
-                <select value={sortBy} onChange={e => setSortBy(e.target.value)} className="px-3 sm:px-4 py-2 rounded-lg bg-gray-800/50 border border-gray-700 focus:border-indigo-500 text-sm sm:text-base">
-                  <option value="rank">Par Rang</option>
-                  <option value="score">Par Score</option>
-                  <option value="name">Par Pseudo</option>
-                </select>
-              </div>
+          <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 mb-3">
+            <input placeholder="Rechercher un joueur..." value={query} onChange={e => setQuery(e.target.value)} className="flex-1 px-3 sm:px-4 py-2 rounded-lg bg-gray-800/50 text-gray-100 border border-gray-700 focus:border-indigo-500 focus:outline-none text-sm sm:text-base" />
+            <select value={sortBy} onChange={e => setSortBy(e.target.value)} className="px-3 sm:px-4 py-2 rounded-lg bg-gray-800/50 border border-gray-700 focus:border-indigo-500 text-sm sm:text-base">
+              <option value="rank">Par Rang</option>
+              <option value="score">Par Score</option>
+              <option value="name">Par Pseudo</option>
+            </select>
+          </div>
 
-              <div className="flex gap-2 flex-wrap justify-center">
-                {tiers.map(t => (
-                  <button key={t} onClick={() => setSelectedTier(t)} className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-bold transition-all ${
-                    selectedTier === t
-                      ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg scale-105' 
-                      : 'bg-gray-800/50 text-gray-300 hover:bg-gray-700'
-                  }`}>
-                    {t}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </header>
+          <div className="flex gap-2 flex-wrap justify-center">
+            {tiers.map(t => (
+              <button key={t} onClick={() => setSelectedTier(t)} className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-bold transition-all duration-300 ${
+                selectedTier === t
+                  ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg scale-105' 
+                  : 'bg-gray-800/50 text-gray-300 hover:bg-gray-700'
+              }`}>
+                {t}
+              </button>
+            ))}
+          </div>
+        </div>
+      </header>
 
-          <section className="max-w-5xl mx-auto mb-6 sm:mb-8">
-            <div className="glass-effect rounded-xl p-4 sm:p-6 shadow-2xl">
-              <div onClick={() => setScrimsOpen(!scrimsOpen)} className="flex items-center justify-between mb-3 sm:mb-4 cursor-pointer select-none">
-                <h2 className="text-2xl sm:text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-400">Scrims Récents</h2>
-                <button className="text-2xl sm:text-3xl text-indigo-400 hover:text-indigo-300 transition-all duration-300" style={{ transform: scrimsOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}>▼</button>
-              </div>
+      {/* Scrims récents */}
+      <section className="max-w-5xl mx-auto mb-6 sm:mb-8">
+        <div className="glass-effect rounded-xl p-4 sm:p-6 shadow-2xl">
+          <div onClick={() => setScrimsOpen(!scrimsOpen)} className="flex items-center justify-between mb-3 sm:mb-4 cursor-pointer select-none">
+            <h2 className="text-2xl sm:text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-400">Scrims Récents</h2>
+            <button className="text-2xl sm:text-3xl text-indigo-400 hover:text-indigo-300 transition-all duration-300" style={{ transform: scrimsOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}>▼</button>
+          </div>
 
-              {scrimsOpen && (
-                <div className="space-y-2 sm:space-y-3">
-                  {recentScrims.map((scrim, index) => (
-                    <div key={index} className="bg-gray-800/50 p-3 sm:p-4 rounded-lg flex flex-col sm:flex-row items-start sm:items-center justify-between border border-gray-700 hover:border-indigo-500 transition">
-                      <div className="flex items-center gap-2 sm:gap-3 flex-wrap text-sm sm:text-base">
-                        <span className="text-green-400 font-bold">W {scrim.winner}</span>
-                        <span className="text-gray-500">vs</span>
-                        <span className="text-red-400 font-bold">L {scrim.loser}</span>
-                      </div>
-                      <span className="px-3 sm:px-4 py-1.5 sm:py-2 bg-gradient-to-r from-indigo-600 to-purple-600 rounded-full font-bold shadow-lg text-sm sm:text-base">{scrim.score}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </section>
-
-          <main className="max-w-5xl mx-auto">
-            <div className="grid gap-3 sm:gap-4">
-              {filteredPlayers.map(player => (
-                <div key={player.rank} className={`${tierStyles[player.tier]} p-3 sm:p-5 rounded-xl shadow-2xl flex items-center justify-between text-gray-900 font-bold hover:scale-105 transition-transform`}>
-                  <div className="flex items-center gap-2 sm:gap-4">
-                    <span className="text-xl sm:text-3xl font-bold min-w-[50px] sm:min-w-[70px]">{getMedal(player.rank)}</span>
-                    <span className="text-lg sm:text-2xl break-all">{player.name}</span>
+          {scrimsOpen && (
+            <div className="space-y-2 sm:space-y-3">
+              {recentScrims.map((scrim, index) => (
+                <div key={index} className="bg-gray-800/50 p-3 sm:p-4 rounded-lg flex flex-col sm:flex-row items-start sm:items-center justify-between border border-gray-700 hover:border-indigo-500 transition">
+                  <div className="flex items-center gap-2 sm:gap-3 flex-wrap text-sm sm:text-base">
+                    <span className="text-green-400 font-bold">W {scrim.winner}</span>
+                    <span className="text-gray-500">vs</span>
+                    <span className="text-red-400 font-bold">L {scrim.loser}</span>
                   </div>
-                  <div className="flex items-center gap-2 sm:gap-4">
-                    <span className="text-base sm:text-xl">{player.score} pts</span>
-                    <span className="px-3 sm:px-4 py-1.5 sm:py-2 bg-white bg-opacity-40 rounded-full text-xs sm:text-base whitespace-nowrap">Tier {player.tier}</span>
-                  </div>
+                  <span className="px-3 sm:px-4 py-1.5 sm:py-2 bg-gradient-to-r from-indigo-600 to-purple-600 rounded-full font-bold shadow-lg text-sm sm:text-base">{scrim.score}</span>
                 </div>
               ))}
             </div>
-          </main>
-
-          <footer className="max-w-5xl mx-auto mt-8 sm:mt-12 text-center text-gray-400 text-xs sm:text-sm px-3">
-            <p>© 2025 Null's Brawl Esport – Développé par <span className="text-indigo-400 font-bold">Prissme</span></p>
-          </footer>
+          )}
         </div>
-      );
-    }
+      </section>
 
-    const root = ReactDOM.createRoot(document.getElementById('root'));
-    root.render(<DemonList />);
-  </script>
+      {/* Classement */}
+      <main className="max-w-5xl mx-auto">
+        <div className="grid gap-3 sm:gap-4">
+          {filteredPlayers.map(player => {
+            const tierClass = tierStyles[player.tier] || tierStyles['No-tier'];
+            const delta = player.previousScore !== undefined ? player.score - player.previousScore : 0;
+            return (
+              <div key={player.rank} className={`${tierClass} p-3 sm:p-5 rounded-xl shadow-2xl flex items-center justify-between text-gray-900 font-bold hover:scale-105 transition-transform`}>
+                <div className="flex items-center gap-2 sm:gap-4">
+                  <span className="text-xl sm:text-3xl font-bold min-w-[50px] sm:min-w-[70px]">{getMedal(player.rank)}</span>
+                  <span className="text-lg sm:text-2xl break-all">{player.name}</span>
+                </div>
+                <div className="flex items-center gap-2 sm:gap-4">
+                  <span className="text-base sm:text-xl">{player.score} pts</span>
+                  {delta !== 0 && (
+                    <span className={`text-sm sm:text-base font-semibold ${delta > 0 ? 'text-green-400' : 'text-red-400'}`}>
+                      ({delta > 0 ? `+${delta}` : delta})
+                    </span>
+                  )}
+                  <span className="px-3 sm:px-4 py-1.5 sm:py-2 bg-white bg-opacity-40 rounded-full text-xs sm:text-base whitespace-nowrap">Tier {player.tier}</span>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      </main>
+
+      {/* Footer */}
+      <footer className="max-w-5xl mx-auto mt-8 sm:mt-12 text-center text-gray-400 text-xs sm:text-sm px-3">
+        <p>© 2025 Null's Brawl Esport – Développé par <span className="text-indigo-400 font-bold">Prissme</span></p>
+      </footer>
+    </div>
+  );
+}
+
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(<DemonList />);
+</script>
 </body>
 </html>
