@@ -34,6 +34,7 @@
       const [query, setQuery] = useState('');
       const [selectedTier, setSelectedTier] = useState('ALL');
       const [sortBy, setSortBy] = useState('rank');
+      const [scrimsOpen, setScrimsOpen] = useState(true);
 
       const tiers = ['ALL','S','A','B','C','D','E','No-tier'];
 
@@ -112,10 +113,19 @@
 
         React.createElement('section', { className: "max-w-5xl mx-auto mb-6 sm:mb-8" },
           React.createElement('div', { className: "glass-effect rounded-xl p-4 sm:p-6 shadow-2xl" },
-            React.createElement('h2', { className: "text-2xl sm:text-3xl font-bold mb-3 sm:mb-4 bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-400" },
-              'Scrims Récents'
+            React.createElement('div', { 
+              className: "flex items-center justify-between mb-3 sm:mb-4 cursor-pointer select-none",
+              onClick: () => setScrimsOpen(!scrimsOpen)
+            },
+              React.createElement('h2', { className: "text-2xl sm:text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-400" },
+                'Scrims Récents'
+              ),
+              React.createElement('button', { 
+                className: "text-2xl sm:text-3xl text-indigo-400 hover:text-indigo-300 transition-all duration-300",
+                style: { transform: scrimsOpen ? 'rotate(180deg)' : 'rotate(0deg)' }
+              }, '▼')
             ),
-            React.createElement('div', { className: "space-y-2 sm:space-y-3" },
+            scrimsOpen && React.createElement('div', { className: "space-y-2 sm:space-y-3" },
               recentScrims.map((scrim, index) => 
                 React.createElement('div', { 
                   key: index, 
