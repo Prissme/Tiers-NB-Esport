@@ -138,7 +138,8 @@
 
     const getAvatarUrl = (discordId) => {
       if (!discordId) return 'https://cdn.discordapp.com/embed/avatars/0.png';
-      return `https://cdn.discordapp.com/avatars/${discordId}/a_0.png?size=128`;
+      // On essaie d'abord sans spécifier de hash (Discord renvoie l'avatar actuel)
+      return `https://cdn.discordapp.com/avatars/${discordId}.png?size=128`;
     };
 
     const Avatar = ({ discordId, name }) => {
