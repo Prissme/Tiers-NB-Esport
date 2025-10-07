@@ -37,67 +37,67 @@
   <script type="text/babel">
     const { useState } = React;
 
-    // Données des joueurs avec IDs Discord
+    // Données des joueurs avec IDs Discord ou URLs d'images
     const players = [
-      { tier: 'S', rank: 1, name: 'Bastien', score: 2331, discordId: null },
-      { tier: 'A', rank: 2, name: 'Skusku', score: 2150, discordId: null },
-      { tier: 'A', rank: 3, name: 'Prissme', score: 2146, discordId: '691351470272020501' },
-      { tier: 'A', rank: 4, name: 'Shido', score: 2134, discordId: null },
-      { tier: 'B', rank: 5, name: 'Mxgic', score: 2108, discordId: null },
-      { tier: 'B', rank: 6, name: 'Fernmtzzz', score: 2032, discordId: null },
-      { tier: 'B', rank: 7, name: 'Sparky', score: 1964, discordId: null },
-      { tier: 'B', rank: 8, name: 'Levy', score: 1935, discordId: null },
-      { tier: 'B', rank: 9, name: 'Achraff', score: 1900, discordId: null },
-      { tier: 'B', rank: 10, name: 'Killer', score: 1825, discordId: null },
-      { tier: 'C', rank: 11, name: 'Naboo', score: 1818, discordId: null },
-      { tier: 'C', rank: 12, name: 'Saladeee', score: 1806, discordId: null },
-      { tier: 'C', rank: 13, name: 'Marlon', score: 1800, discordId: null },
-      { tier: 'C', rank: 14, name: 'Serpent', score: 1798, discordId: null },
-      { tier: 'C', rank: 15, name: 'Hutao', score: 1778, discordId: null },
-      { tier: 'C', rank: 16, name: 'Giuk', score: 1775, discordId: null },
-      { tier: 'C', rank: 17, name: 'Maxi', score: 1750, discordId: null },
-      { tier: 'C', rank: 18, name: 'Dodo', score: 1725, discordId: null },
-      { tier: 'C', rank: 19, name: 'Eren', score: 1716, discordId: null },
-      { tier: 'C', rank: 20, name: 'Kazuhaa', score: 1657, discordId: null },
-      { tier: 'D', rank: 21, name: 'Rujo', score: 1651, discordId: null },
-      { tier: 'D', rank: 22, name: 'Fortissaxx', score: 1650, discordId: null },
-      { tier: 'D', rank: 23, name: 'Wished', score: 1600, discordId: null },
-      { tier: 'D', rank: 24, name: 'Mamba', score: 1600, discordId: null },
-      { tier: 'D', rank: 25, name: 'Mehdi', score: 1579, discordId: null },
-      { tier: 'D', rank: 26, name: 'MomiJn', score: 1577, discordId: null },
-      { tier: 'D', rank: 27, name: 'Berk', score: 1569, discordId: null },
-      { tier: 'D', rank: 28, name: 'Kawa', score: 1550, discordId: null },
-      { tier: 'D', rank: 29, name: 'Sapeur', score: 1526, discordId: null },
-      { tier: 'D', rank: 30, name: 'Smooth', score: 1525, discordId: null },
-      { tier: 'D', rank: 31, name: 'Razz', score: 1495, discordId: null },
-      { tier: 'D', rank: 32, name: 'Dubi', score: 1484, discordId: null },
-      { tier: 'D', rank: 33, name: 'Anaray', score: 1484, discordId: null },
-      { tier: 'D', rank: 34, name: 'Andre', score: 1447, discordId: null },
-      { tier: 'D', rank: 35, name: 'Vortexaaa', score: 1429, discordId: null },
-      { tier: 'E', rank: 36, name: 'DayloXx', score: 1406, discordId: null },
-      { tier: 'E', rank: 37, name: 'Goshii', score: 1400, discordId: null },
-      { tier: 'E', rank: 38, name: 'Heyko', score: 1342, discordId: null },
-      { tier: 'E', rank: 39, name: 'Astraaa', score: 1325, discordId: null },
-      { tier: 'E', rank: 40, name: 'Ovni', score: 1276, discordId: null },
-      { tier: 'E', rank: 41, name: 'Rash', score: 1275, discordId: null },
-      { tier: 'E', rank: 42, name: 'Fire', score: 1271, discordId: null },
-      { tier: 'E', rank: 43, name: 'Nyxia', score: 1252, discordId: null },
-      { tier: 'E', rank: 44, name: 'Spin', score: 1250, discordId: null },
-      { tier: 'E', rank: 45, name: 'Tht', score: 1200, discordId: null },
-      { tier: 'E', rank: 46, name: 'Drxp', score: 1175, discordId: null },
-      { tier: 'E', rank: 47, name: 'Scylla', score: 1125, discordId: null },
-      { tier: 'E', rank: 48, name: 'Sank1d', score: 1108, discordId: null },
-      { tier: 'E', rank: 49, name: 'Ryokk', score: 1100, discordId: null },
-      { tier: 'E', rank: 50, name: 'Akazaaa', score: 1099, discordId: null },
-      { tier: 'No-tier', rank: 51, name: 'Fares', score: 1099, discordId: null },
-      { tier: 'No-tier', rank: 52, name: 'Melon', score: 1075, discordId: null },
-      { tier: 'No-tier', rank: 53, name: 'Zedraxx', score: 1050, discordId: null },
-      { tier: 'No-tier', rank: 54, name: 'Aben', score: 1025, discordId: null },
-      { tier: 'No-tier', rank: 55, name: 'Skor', score: 1000, discordId: null },
-      { tier: 'No-tier', rank: 56, name: 'LoniXx', score: 1000, discordId: null },
-      { tier: 'No-tier', rank: 57, name: 'Walid', score: 1000, discordId: null },
-      { tier: 'No-tier', rank: 58, name: 'Kyzonn', score: 1000, discordId: null },
-      { tier: 'No-tier', rank: 59, name: 'Techwood', score: 987, discordId: null },
+      { tier: 'S', rank: 1, name: 'Bastien', score: 2331, avatar: null },
+      { tier: 'A', rank: 2, name: 'Skusku', score: 2150, avatar: null },
+      { tier: 'A', rank: 3, name: 'Prissme', score: 2146, avatar: 'https://media.discordapp.net/attachments/1236724293631611022/1425174992240250890/20241122_072328.jpg' },
+      { tier: 'A', rank: 4, name: 'Shido', score: 2134, avatar: null },
+      { tier: 'B', rank: 5, name: 'Mxgic', score: 2108, avatar: null },
+      { tier: 'B', rank: 6, name: 'Fernmtzzz', score: 2032, avatar: null },
+      { tier: 'B', rank: 7, name: 'Sparky', score: 1964, avatar: null },
+      { tier: 'B', rank: 8, name: 'Levy', score: 1935, avatar: null },
+      { tier: 'B', rank: 9, name: 'Achraff', score: 1900, avatar: null },
+      { tier: 'B', rank: 10, name: 'Killer', score: 1825, avatar: null },
+      { tier: 'C', rank: 11, name: 'Naboo', score: 1818, avatar: null },
+      { tier: 'C', rank: 12, name: 'Saladeee', score: 1806, avatar: null },
+      { tier: 'C', rank: 13, name: 'Marlon', score: 1800, avatar: null },
+      { tier: 'C', rank: 14, name: 'Serpent', score: 1798, avatar: null },
+      { tier: 'C', rank: 15, name: 'Hutao', score: 1778, avatar: null },
+      { tier: 'C', rank: 16, name: 'Giuk', score: 1775, avatar: null },
+      { tier: 'C', rank: 17, name: 'Maxi', score: 1750, avatar: null },
+      { tier: 'C', rank: 18, name: 'Dodo', score: 1725, avatar: null },
+      { tier: 'C', rank: 19, name: 'Eren', score: 1716, avatar: null },
+      { tier: 'C', rank: 20, name: 'Kazuhaa', score: 1657, avatar: null },
+      { tier: 'D', rank: 21, name: 'Rujo', score: 1651, avatar: null },
+      { tier: 'D', rank: 22, name: 'Fortissaxx', score: 1650, avatar: null },
+      { tier: 'D', rank: 23, name: 'Wished', score: 1600, avatar: null },
+      { tier: 'D', rank: 24, name: 'Mamba', score: 1600, avatar: null },
+      { tier: 'D', rank: 25, name: 'Mehdi', score: 1579, avatar: null },
+      { tier: 'D', rank: 26, name: 'MomiJn', score: 1577, avatar: null },
+      { tier: 'D', rank: 27, name: 'Berk', score: 1569, avatar: null },
+      { tier: 'D', rank: 28, name: 'Kawa', score: 1550, avatar: null },
+      { tier: 'D', rank: 29, name: 'Sapeur', score: 1526, avatar: null },
+      { tier: 'D', rank: 30, name: 'Smooth', score: 1525, avatar: null },
+      { tier: 'D', rank: 31, name: 'Razz', score: 1495, avatar: null },
+      { tier: 'D', rank: 32, name: 'Dubi', score: 1484, avatar: null },
+      { tier: 'D', rank: 33, name: 'Anaray', score: 1484, avatar: null },
+      { tier: 'D', rank: 34, name: 'Andre', score: 1447, avatar: null },
+      { tier: 'D', rank: 35, name: 'Vortexaaa', score: 1429, avatar: null },
+      { tier: 'E', rank: 36, name: 'DayloXx', score: 1406, avatar: null },
+      { tier: 'E', rank: 37, name: 'Goshii', score: 1400, avatar: null },
+      { tier: 'E', rank: 38, name: 'Heyko', score: 1342, avatar: null },
+      { tier: 'E', rank: 39, name: 'Astraaa', score: 1325, avatar: null },
+      { tier: 'E', rank: 40, name: 'Ovni', score: 1276, avatar: null },
+      { tier: 'E', rank: 41, name: 'Rash', score: 1275, avatar: null },
+      { tier: 'E', rank: 42, name: 'Fire', score: 1271, avatar: null },
+      { tier: 'E', rank: 43, name: 'Nyxia', score: 1252, avatar: null },
+      { tier: 'E', rank: 44, name: 'Spin', score: 1250, avatar: null },
+      { tier: 'E', rank: 45, name: 'Tht', score: 1200, avatar: null },
+      { tier: 'E', rank: 46, name: 'Drxp', score: 1175, avatar: null },
+      { tier: 'E', rank: 47, name: 'Scylla', score: 1125, avatar: null },
+      { tier: 'E', rank: 48, name: 'Sank1d', score: 1108, avatar: null },
+      { tier: 'E', rank: 49, name: 'Ryokk', score: 1100, avatar: null },
+      { tier: 'E', rank: 50, name: 'Akazaaa', score: 1099, avatar: null },
+      { tier: 'No-tier', rank: 51, name: 'Fares', score: 1099, avatar: null },
+      { tier: 'No-tier', rank: 52, name: 'Melon', score: 1075, avatar: null },
+      { tier: 'No-tier', rank: 53, name: 'Zedraxx', score: 1050, avatar: null },
+      { tier: 'No-tier', rank: 54, name: 'Aben', score: 1025, avatar: null },
+      { tier: 'No-tier', rank: 55, name: 'Skor', score: 1000, avatar: null },
+      { tier: 'No-tier', rank: 56, name: 'LoniXx', score: 1000, avatar: null },
+      { tier: 'No-tier', rank: 57, name: 'Walid', score: 1000, avatar: null },
+      { tier: 'No-tier', rank: 58, name: 'Kyzonn', score: 1000, avatar: null },
+      { tier: 'No-tier', rank: 59, name: 'Techwood', score: 987, avatar: null },
     ];
 
     const recentScrims = [
@@ -136,21 +136,11 @@
       return `#${rank}`;
     };
 
-    const getAvatarUrl = (discordId) => {
-      if (!discordId) return 'https://cdn.discordapp.com/embed/avatars/0.png';
-      // Utilise l'API Discord pour récupérer l'avatar automatiquement
-      return `https://discordlookup.mesalytic.moe/v1/user/${discordId}/avatar`;
-    };
-
-    const Avatar = ({ discordId, name }) => {
-      const [imgSrc, setImgSrc] = useState(getAvatarUrl(discordId));
-      const [hasError, setHasError] = useState(false);
+    const Avatar = ({ avatar, name }) => {
+      const [imgSrc, setImgSrc] = useState(avatar || 'https://cdn.discordapp.com/embed/avatars/0.png');
 
       const handleError = () => {
-        if (!hasError) {
-          setHasError(true);
-          setImgSrc('https://cdn.discordapp.com/embed/avatars/0.png');
-        }
+        setImgSrc('https://cdn.discordapp.com/embed/avatars/0.png');
       };
 
       return (
@@ -306,7 +296,7 @@
                     <span className="text-xl sm:text-3xl font-bold min-w-[50px] sm:min-w-[70px]">
                       {getMedal(player.rank)}
                     </span>
-                    <Avatar discordId={player.discordId} name={player.name} />
+                    <Avatar avatar={player.avatar} name={player.name} />
                     <span className="text-lg sm:text-2xl break-all">{player.name}</span>
                   </div>
                   <div className="flex items-center gap-2 sm:gap-4">
