@@ -138,8 +138,8 @@
 
     const getAvatarUrl = (discordId) => {
       if (!discordId) return 'https://cdn.discordapp.com/embed/avatars/0.png';
-      // On essaie d'abord sans spécifier de hash (Discord renvoie l'avatar actuel)
-      return `https://cdn.discordapp.com/avatars/${discordId}.png?size=128`;
+      // Utilise l'API Discord pour récupérer l'avatar automatiquement
+      return `https://discordlookup.mesalytic.moe/v1/user/${discordId}/avatar`;
     };
 
     const Avatar = ({ discordId, name }) => {
