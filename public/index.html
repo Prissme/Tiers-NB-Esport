@@ -21,67 +21,12 @@
 <div id="root"></div>
 
 <script type="text/babel">
-const { useState, useMemo } = React;
+const { useState, useEffect, useMemo } = React;
 
-// --- Données des joueurs ---
-const players = [
-  { tier: 'S', rank: 1, name: 'Bastien', score: 2331, previousScore: 2310 },
-  { tier: 'A', rank: 2, name: 'Skusku', score: 2150, previousScore: 2140 },
-  { tier: 'A', rank: 3, name: 'Prissme', score: 2146, previousScore: 2130 },
-  { tier: 'A', rank: 4, name: 'Shido', score: 2134, previousScore: 2110 },
-  { tier: 'B', rank: 5, name: 'Mxgic', score: 2108, previousScore: 2100 },
-  { tier: 'B', rank: 6, name: 'Fernmtzzz', score: 2032, previousScore: 2000 },
-  { tier: 'B', rank: 7, name: 'Sparky', score: 1964, previousScore: 1950 },
-  { tier: 'B', rank: 8, name: 'Levy', score: 1935, previousScore: 1920 },
-  { tier: 'B', rank: 9, name: 'Achraff', score: 1900, previousScore: 1895 },
-  { tier: 'B', rank: 10, name: 'Killer', score: 1825, previousScore: 1810 },
-  { tier: 'C', rank: 11, name: 'Naboo', score: 1818, previousScore: 1800 },
-  { tier: 'C', rank: 12, name: 'Saladeee', score: 1806, previousScore: 1795 },
-  { tier: 'C', rank: 13, name: 'Marlon', score: 1800, previousScore: 1790 },
-  { tier: 'C', rank: 14, name: 'Serpent', score: 1798, previousScore: 1780 },
-  { tier: 'C', rank: 15, name: 'Hutao', score: 1778, previousScore: 1760 },
-  { tier: 'C', rank: 16, name: 'Giuk', score: 1775, previousScore: 1750 },
-  { tier: 'C', rank: 17, name: 'Maxi', score: 1750, previousScore: 1720 },
-  { tier: 'C', rank: 18, name: 'Dodo', score: 1725, previousScore: 1700 },
-  { tier: 'C', rank: 19, name: 'Eren', score: 1716, previousScore: 1700 },
-  { tier: 'C', rank: 20, name: 'Kazuhaa', score: 1657, previousScore: 1650 },
-  { tier: 'D', rank: 21, name: 'Rujo', score: 1651, previousScore: 1640 },
-  { tier: 'D', rank: 22, name: 'Fortissaxx', score: 1650, previousScore: 1645 },
-  { tier: 'D', rank: 23, name: 'Wished', score: 1600, previousScore: 1580 },
-  { tier: 'D', rank: 24, name: 'Mamba', score: 1600, previousScore: 1590 },
-  { tier: 'D', rank: 25, name: 'Mehdi', score: 1579, previousScore: 1570 },
-  { tier: 'D', rank: 26, name: 'MomiJn', score: 1577, previousScore: 1560 },
-  { tier: 'D', rank: 27, name: 'Berk', score: 1569, previousScore: 1550 },
-  { tier: 'D', rank: 28, name: 'Kawa', score: 1550, previousScore: 1530 },
-  { tier: 'D', rank: 29, name: 'Sapeur', score: 1526, previousScore: 1510 },
-  { tier: 'D', rank: 30, name: 'Smooth', score: 1525, previousScore: 1500 },
-  { tier: 'D', rank: 31, name: 'Razz', score: 1495, previousScore: 1480 },
-  { tier: 'D', rank: 32, name: 'Dubi', score: 1484, previousScore: 1470 },
-  { tier: 'D', rank: 33, name: 'Anaray', score: 1484, previousScore: 1460 },
-  { tier: 'D', rank: 34, name: 'Andre', score: 1447, previousScore: 1430 },
-  { tier: 'D', rank: 35, name: 'Vortexaaa', score: 1429, previousScore: 1400 },
-  { tier: 'E', rank: 36, name: 'DayloXx', score: 1406, previousScore: 1380 },
-  { tier: 'E', rank: 37, name: 'Goshii', score: 1400, previousScore: 1375 },
-  { tier: 'E', rank: 38, name: 'Heyko', score: 1342, previousScore: 1320 },
-  { tier: 'E', rank: 39, name: 'Astraaa', score: 1325, previousScore: 1300 },
-  { tier: 'E', rank: 40, name: 'Ovni', score: 1276, previousScore: 1250 },
-  { tier: 'E', rank: 41, name: 'Rash', score: 1275, previousScore: 1250 },
-  { tier: 'E', rank: 42, name: 'Fire', score: 1271, previousScore: 1245 },
-  { tier: 'E', rank: 43, name: 'Nyxia', score: 1252, previousScore: 1230 },
-  { tier: 'E', rank: 44, name: 'Spin', score: 1250, previousScore: 1225 },
-  { tier: 'E', rank: 45, name: 'Tht', score: 1200, previousScore: 1180 },
-  { tier: 'E', rank: 46, name: 'Drxp', score: 1175, previousScore: 1150 },
-  { tier: 'E', rank: 47, name: 'Scylla', score: 1125, previousScore: 1100 },
-  { tier: 'E', rank: 48, name: 'Sank1d', score: 1108, previousScore: 1080 },
-  { tier: 'E', rank: 49, name: 'Ryokk', score: 1100, previousScore: 1075 },
-  { tier: 'E', rank: 50, name: 'Akazaaa', score: 1099, previousScore: 1070 },
-];
-
-const recentScrims = [
-  { winner: 'Maxi', loser: 'Vortexaaa', score: '3-0' },
-  { winner: 'Wished', loser: 'Sapeur', score: '3-0 (FF)' },
-  { winner: 'Prissme', loser: 'Techwood', score: '2-0' },
-];
+// Configuration API
+const API_BASE = window.location.hostname === 'localhost' 
+  ? 'http://localhost:8888/.netlify/functions'
+  : '/.netlify/functions';
 
 const tierStyles = {
   S: 'bg-gradient-to-r from-yellow-400 via-yellow-300 to-yellow-200',
@@ -101,12 +46,51 @@ const getMedal = (rank) => {
 };
 
 function DemonList() {
+  const [players, setPlayers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [query, setQuery] = useState('');
   const [selectedTier, setSelectedTier] = useState('ALL');
   const [sortBy, setSortBy] = useState('rank');
   const [scrimsOpen, setScrimsOpen] = useState(true);
 
   const tiers = ['ALL','S','A','B','C','D','E','No-tier'];
+
+  // Charger les joueurs depuis l'API
+  useEffect(() => {
+    fetchPlayers();
+  }, []);
+
+  const fetchPlayers = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const response = await fetch(`${API_BASE}/getTop50`);
+      const data = await response.json();
+      
+      if (data.ok) {
+        // Ajouter le rang et formater les données
+        const playersWithRank = data.top.map((p, index) => ({
+          rank: index + 1,
+          name: p.display_name,
+          score: p.mmr,
+          tier: p.tier || 'No-tier',
+          gamesPlayed: p.games_played,
+          wins: p.wins,
+          losses: p.losses,
+          id: p.id
+        }));
+        setPlayers(playersWithRank);
+      } else {
+        setError(data.error || 'Erreur lors du chargement');
+      }
+    } catch (err) {
+      setError('Impossible de charger les données. Vérifiez votre connexion.');
+      console.error('Fetch error:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const filteredPlayers = useMemo(() => {
     let list = [...players];
@@ -118,7 +102,31 @@ function DemonList() {
       return a.name.localeCompare(b.name);
     });
     return list;
-  }, [query, selectedTier, sortBy]);
+  }, [players, query, selectedTier, sortBy]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-gray-900 via-gray-800 to-black text-gray-100 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-indigo-500 mx-auto mb-4"></div>
+          <p className="text-xl">Chargement du classement...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-gray-900 via-gray-800 to-black text-gray-100 flex items-center justify-center p-6">
+        <div className="glass-effect rounded-xl p-8 max-w-md text-center">
+          <p className="text-red-400 text-xl mb-4">❌ {error}</p>
+          <button onClick={fetchPlayers} className="px-6 py-3 bg-indigo-600 rounded-lg hover:bg-indigo-500 transition font-semibold">
+            Réessayer
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-900 via-gray-800 to-black text-gray-100 p-3 sm:p-6">
@@ -130,6 +138,9 @@ function DemonList() {
             Nulls Brawl Esport
           </h1>
           <p className="text-gray-400 text-base sm:text-lg">Top 50 Classement Officiel</p>
+          <button onClick={fetchPlayers} className="mt-2 text-sm text-indigo-400 hover:text-indigo-300 underline">
+            🔄 Actualiser
+          </button>
         </div>
         
         <div className="glass-effect rounded-xl p-3 sm:p-4 mb-4">
@@ -165,61 +176,81 @@ function DemonList() {
         </div>
       </header>
 
-      {/* Scrims récents */}
+      {/* Stats globales */}
       <section className="max-w-5xl mx-auto mb-6 sm:mb-8">
         <div className="glass-effect rounded-xl p-4 sm:p-6 shadow-2xl">
-          <div onClick={() => setScrimsOpen(!scrimsOpen)} className="flex items-center justify-between mb-3 sm:mb-4 cursor-pointer select-none">
-            <h2 className="text-2xl sm:text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-400">Scrims Récents</h2>
-            <button className="text-2xl sm:text-3xl text-indigo-400 hover:text-indigo-300 transition-all duration-300" style={{ transform: scrimsOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}>▼</button>
-          </div>
-
-          {scrimsOpen && (
-            <div className="space-y-2 sm:space-y-3">
-              {recentScrims.map((scrim, index) => (
-                <div key={index} className="bg-gray-800/50 p-3 sm:p-4 rounded-lg flex flex-col sm:flex-row items-start sm:items-center justify-between border border-gray-700 hover:border-indigo-500 transition">
-                  <div className="flex items-center gap-2 sm:gap-3 flex-wrap text-sm sm:text-base">
-                    <span className="text-green-400 font-bold">W {scrim.winner}</span>
-                    <span className="text-gray-500">vs</span>
-                    <span className="text-red-400 font-bold">L {scrim.loser}</span>
-                  </div>
-                  <span className="px-3 sm:px-4 py-1.5 sm:py-2 bg-gradient-to-r from-indigo-600 to-purple-600 rounded-full font-bold shadow-lg text-sm sm:text-base">{scrim.score}</span>
-                </div>
-              ))}
+          <h2 className="text-2xl sm:text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-400 mb-4">
+            📊 Statistiques
+          </h2>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
+            <div className="bg-gray-800/50 p-3 sm:p-4 rounded-lg text-center">
+              <p className="text-gray-400 text-sm">Joueurs actifs</p>
+              <p className="text-2xl sm:text-3xl font-bold text-indigo-400">{players.length}</p>
             </div>
-          )}
+            <div className="bg-gray-800/50 p-3 sm:p-4 rounded-lg text-center">
+              <p className="text-gray-400 text-sm">MMR moyen</p>
+              <p className="text-2xl sm:text-3xl font-bold text-purple-400">
+                {players.length > 0 ? Math.round(players.reduce((acc, p) => acc + p.score, 0) / players.length) : 0}
+              </p>
+            </div>
+            <div className="bg-gray-800/50 p-3 sm:p-4 rounded-lg text-center">
+              <p className="text-gray-400 text-sm">Top MMR</p>
+              <p className="text-2xl sm:text-3xl font-bold text-yellow-400">
+                {players.length > 0 ? Math.max(...players.map(p => p.score)) : 0}
+              </p>
+            </div>
+            <div className="bg-gray-800/50 p-3 sm:p-4 rounded-lg text-center">
+              <p className="text-gray-400 text-sm">Parties jouées</p>
+              <p className="text-2xl sm:text-3xl font-bold text-green-400">
+                {players.reduce((acc, p) => acc + (p.gamesPlayed || 0), 0)}
+              </p>
+            </div>
+          </div>
         </div>
       </section>
 
       {/* Classement */}
       <main className="max-w-5xl mx-auto">
-        <div className="grid gap-3 sm:gap-4">
-          {filteredPlayers.map(player => {
-            const tierClass = tierStyles[player.tier] || tierStyles['No-tier'];
-            const delta = player.previousScore !== undefined ? player.score - player.previousScore : 0;
-            return (
-              <div key={player.rank} className={`${tierClass} p-3 sm:p-5 rounded-xl shadow-2xl flex items-center justify-between text-gray-900 font-bold hover:scale-105 transition-transform`}>
-                <div className="flex items-center gap-2 sm:gap-4">
-                  <span className="text-xl sm:text-3xl font-bold min-w-[50px] sm:min-w-[70px]">{getMedal(player.rank)}</span>
-                  <span className="text-lg sm:text-2xl break-all">{player.name}</span>
+        {filteredPlayers.length === 0 ? (
+          <div className="glass-effect rounded-xl p-8 text-center">
+            <p className="text-xl text-gray-400">Aucun joueur trouvé 🔍</p>
+          </div>
+        ) : (
+          <div className="grid gap-3 sm:gap-4">
+            {filteredPlayers.map(player => {
+              const tierClass = tierStyles[player.tier] || tierStyles['No-tier'];
+              const winRate = player.gamesPlayed > 0 ? Math.round((player.wins / player.gamesPlayed) * 100) : 0;
+              
+              return (
+                <div key={player.id} className={`${tierClass} p-3 sm:p-5 rounded-xl shadow-2xl text-gray-900 font-bold hover:scale-105 transition-transform`}>
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <div className="flex items-center gap-2 sm:gap-4">
+                      <span className="text-xl sm:text-3xl font-bold min-w-[50px] sm:min-w-[70px]">{getMedal(player.rank)}</span>
+                      <div>
+                        <span className="text-lg sm:text-2xl block">{player.name}</span>
+                        <span className="text-xs sm:text-sm opacity-75">
+                          {player.gamesPlayed} matchs • {winRate}% WR
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 sm:gap-4">
+                      <span className="text-base sm:text-xl">{player.score} pts</span>
+                      <span className="px-3 sm:px-4 py-1.5 sm:py-2 bg-white bg-opacity-40 rounded-full text-xs sm:text-base whitespace-nowrap">
+                        Tier {player.tier}
+                      </span>
+                    </div>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2 sm:gap-4">
-                  <span className="text-base sm:text-xl">{player.score} pts</span>
-                  {delta !== 0 && (
-                    <span className={`text-sm sm:text-base font-semibold ${delta > 0 ? 'text-green-400' : 'text-red-400'}`}>
-                      ({delta > 0 ? `+${delta}` : delta})
-                    </span>
-                  )}
-                  <span className="px-3 sm:px-4 py-1.5 sm:py-2 bg-white bg-opacity-40 rounded-full text-xs sm:text-base whitespace-nowrap">Tier {player.tier}</span>
-                </div>
-              </div>
-            )
-          })}
-        </div>
+              );
+            })}
+          </div>
+        )}
       </main>
 
       {/* Footer */}
       <footer className="max-w-5xl mx-auto mt-8 sm:mt-12 text-center text-gray-400 text-xs sm:text-sm px-3">
         <p>© 2025 Null's Brawl Esport – Développé par <span className="text-indigo-400 font-bold">Prissme</span></p>
+        <p className="mt-2 text-xs opacity-50">Données chargées en temps réel depuis Supabase</p>
       </footer>
     </div>
   );
