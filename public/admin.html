@@ -119,8 +119,14 @@
             <span class="font-bold text-lg">#${i+1} ${p.display_name}</span>
             <span class="text-gray-400 text-sm ml-2">(${p.mmr} MMR)</span>
           </div>
-          <div class="text-xs text-gray-500">
-            ID: ${p.id.slice(0,8)}...
+          <div class="flex items-center gap-3">
+            <span class="text-xs text-gray-500">ID: ${p.id.slice(0,8)}...</span>
+            <button 
+              onclick="deletePlayer('${p.id}', '${p.display_name}')" 
+              class="px-3 py-1 bg-red-600 hover:bg-red-500 rounded text-xs font-bold transition"
+            >
+              🗑️ Supprimer
+            </button>
           </div>
         </div>
       `).join('');
@@ -254,6 +260,31 @@
         }
       } catch (err) {
         resultDiv.innerHTML = `<p class="text-red-400">❌ Erreur: ${err.message}</p>`;
+      }
+    }
+
+    // Supprimer un joueur
+    async function deletePlayer(playerId, playerName) {
+      if (!confirm(`⚠️ Supprimer définitivement ${playerName} ?\n\nCette action est irréversible !`)) {
+        return;
+      }
+
+      try {
+        const res = await fetch(`${API_BASE}/deletePlayer`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ player_id: playerId })
+        });
+        const data = await res.json();
+
+        if (data.ok) {
+          alert(`✅ ${playerName} a été supprimé !`);
+          loadPlayers();
+        } else {
+          alert(`❌ Erreur: ${data.error}`);
+        }
+      } catch (err) {
+        alert(`❌ Erreur: ${err.message}`);
       }
     }
 
