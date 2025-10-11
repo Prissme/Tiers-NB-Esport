@@ -137,6 +137,13 @@
         return;
       }
 
+      // Vérifier si le joueur existe déjà
+      const existing = playersCache.find(p => p.display_name.toLowerCase() === name.toLowerCase());
+      if (existing) {
+        resultDiv.innerHTML = `<p class="text-red-400">❌ ${name} existe déjà dans la base !</p>`;
+        return;
+      }
+
       resultDiv.innerHTML = '<p class="text-yellow-400">⏳ Ajout en cours...</p>';
 
       try {
@@ -162,10 +169,13 @@
       }
     }
 
-    // Trouver l'ID d'un joueur par son pseudo
+    // Trouver l'ID d'un joueur par son pseudo (insensible à la casse et espaces)
     function findPlayerByName(name) {
-      const normalized = name.trim().toLowerCase();
-      return playersCache.find(p => p.display_name.toLowerCase() === normalized);
+      const normalized = name.trim().toLowerCase().replace(/\s+/g, '');
+      return playersCache.find(p => {
+        const playerName = p.display_name.toLowerCase().replace(/\s+/g, '');
+        return playerName === normalized || playerName.includes(normalized) || normalized.includes(playerName);
+      });
     }
 
     // Reporter un match
