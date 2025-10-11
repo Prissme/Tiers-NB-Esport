@@ -17,7 +17,7 @@ exports.handler = async (event) => {
     const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
     const body = JSON.parse(event.body || '{}');
     const { teamA = [], teamB = [], scoreA, scoreB } = body;
-    const K = body.k || 32;
+    const K = body.k || 100;
 
     if (!teamA.length || !teamB.length) {
       return {
@@ -51,18 +51,22 @@ exports.handler = async (event) => {
 
     const R_A = teamRating(teamA);
     const R_B = teamRating(teamB);
-    const E_A = expectedScore(R_A, R_B);
-    const E_B = expectedScore(R_B, R_A);
     const S_A = scoreA > scoreB ? 1 : (scoreA === scoreB ? 0.5 : 0);
     const S_B = 1 - S_A;
 
     const updates = [];
 
+    // Calcul individuel basé sur le MMR de chaque joueur vs l'équipe adverse
     for (const id of teamA) {
       const p = playersMap[id];
+      const playerMMR = p.mmr || 1000;
       const w = p.weight || 1.0;
-      const delta = K * w * (S_A - E_A);
-      const newMMR = roundMMR((p.mmr || 1000) + delta);
+      
+      // Probabilité de victoire individuelle vs l'équipe adverse
+      const E_individual = expectedScore(playerMMR, R_B);
+      const delta = K * w * (S_A - E_individual);
+      const newMMR = roundMMR(playerMMR + delta);
+      
       updates.push({
         id,
         mmr: newMMR,
@@ -74,9 +78,14 @@ exports.handler = async (event) => {
 
     for (const id of teamB) {
       const p = playersMap[id];
+      const playerMMR = p.mmr || 1000;
       const w = p.weight || 1.0;
-      const delta = K * w * (S_B - E_B);
-      const newMMR = roundMMR((p.mmr || 1000) + delta);
+      
+      // Probabilité de victoire individuelle vs l'équipe adverse
+      const E_individual = expectedScore(playerMMR, R_A);
+      const delta = K * w * (S_B - E_individual);
+      const newMMR = roundMMR(playerMMR + delta);
+      
       updates.push({
         id,
         mmr: newMMR,
