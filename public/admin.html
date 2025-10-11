@@ -148,9 +148,12 @@
         const data = await res.json();
 
         if (data.ok) {
-          resultDiv.innerHTML = `<p class="text-green-400">✅ ${name} ajouté avec 1000 MMR !</p>`;
+          resultDiv.innerHTML = `<p class="text-green-400">✅ ${name} ajouté avec 1000 MMR ! Rechargement...</p>`;
           document.getElementById('newPlayerName').value = '';
-          setTimeout(() => loadPlayers(), 1000);
+          // Recharger immédiatement pour mettre à jour le cache
+          await loadPlayers();
+          resultDiv.innerHTML = `<p class="text-green-400">✅ ${name} est maintenant disponible pour les matchs !</p>`;
+          setTimeout(() => { resultDiv.innerHTML = ''; }, 3000);
         } else {
           resultDiv.innerHTML = `<p class="text-red-400">❌ ${data.error}</p>`;
         }
