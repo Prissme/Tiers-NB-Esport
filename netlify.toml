@@ -1,6 +1,14 @@
 [build]
   publish = "public"
+  functions = "netlify/functions"
 
+# Les functions doivent être exclues des redirects
+[[redirects]]
+  from = "/.netlify/functions/*"
+  to = "/.netlify/functions/:splat"
+  status = 200
+
+# Redirection SPA pour le reste
 [[redirects]]
   from = "/*"
   to = "/index.html"
