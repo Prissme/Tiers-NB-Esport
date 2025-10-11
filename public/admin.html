@@ -1,297 +1,136 @@
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Admin Panel - Nulls Brawl</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-</head>
-<body class="bg-gray-900 text-gray-100 min-h-screen p-6">
-  <div class="max-w-4xl mx-auto">
-    <h1 class="text-4xl font-bold text-center mb-8 bg-clip-text text-transparent bg-gradient-to-r from-yellow-400 to-red-500">
-      🎮 Admin Panel
-    </h1>
+const { createClient } = require('@supabase/supabase-js');
+const { v4: uuidv4 } = require('uuid');
 
-    <!-- AJOUTER UN JOUEUR -->
-    <div class="bg-gray-800 rounded-xl p-6 mb-6 border border-gray-700">
-      <h2 class="text-2xl font-bold mb-4 text-indigo-400">➕ Ajouter un joueur</h2>
-      <div class="flex gap-3">
-        <input 
-          id="newPlayerName" 
-          type="text" 
-          placeholder="Pseudo du joueur..." 
-          class="flex-1 px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg focus:border-indigo-500 focus:outline-none"
-        />
-        <button 
-          onclick="addPlayer()" 
-          class="px-6 py-3 bg-indigo-600 hover:bg-indigo-500 rounded-lg font-bold transition"
-        >
-          Ajouter (1000 MMR)
-        </button>
-      </div>
-      <div id="addPlayerResult" class="mt-3 text-sm"></div>
-    </div>
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_KEY = process.env.SUPABASE_KEY;
 
-    <!-- REPORTER UN MATCH 3v3 -->
-    <div class="bg-gray-800 rounded-xl p-6 mb-6 border border-gray-700">
-      <h2 class="text-2xl font-bold mb-4 text-green-400">⚔️ Reporter un match 3v3</h2>
+function expectedScore(Ra, Rb) {
+  return 1 / (1 + Math.pow(10, (Rb - Ra) / 400));
+}
+
+function roundMMR(x) {
+  return Math.round(x);
+}
+
+exports.handler = async (event) => {
+  try {
+    const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+    const body = JSON.parse(event.body || '{}');
+    const { teamA = [], teamB = [], scoreA, scoreB } = body;
+    const K = body.k || 100;
+
+    if (!teamA.length || !teamB.length) {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({ ok: false, error: 'teams required' })
+      };
+    }
+
+    const ids = [...teamA, ...teamB];
+    const { data: playersRaw, error: fetchErr } = await supabase
+      .from('players')
+      .select('*')
+      .in('id', ids);
+    
+    if (fetchErr) throw fetchErr;
+
+    const playersMap = {};
+    playersRaw.forEach(p => { playersMap[p.id] = p; });
+
+    function teamRating(team) {
+      let totalWeight = 0;
+      let weightedSum = 0;
+      team.forEach(id => {
+        const p = playersMap[id];
+        const w = p?.weight || 1.0;
+        weightedSum += (p?.mmr || 1000) * w;
+        totalWeight += w;
+      });
+      return (totalWeight === 0) ? 1000 : (weightedSum / totalWeight);
+    }
+
+    const R_A = teamRating(teamA);
+    const R_B = teamRating(teamB);
+    const S_A = scoreA > scoreB ? 1 : (scoreA === scoreB ? 0.5 : 0);
+    const S_B = 1 - S_A;
+
+    const updates = [];
+
+    // NOUVELLE LOGIQUE: Calcul individuel basé sur le MMR de chaque joueur vs l'équipe adverse
+    for (const id of teamA) {
+      const p = playersMap[id];
+      const playerMMR = p.mmr || 1000;
+      const w = p.weight || 1.0;
       
-      <div class="grid md:grid-cols-2 gap-6 mb-4">
-        <!-- Team A -->
-        <div class="bg-gray-900 p-4 rounded-lg border border-green-500">
-          <h3 class="font-bold text-green-400 mb-3">🟢 Team A (Gagnants)</h3>
-          <input id="teamA1" type="text" placeholder="Joueur 1" class="w-full mb-2 px-3 py-2 bg-gray-800 border border-gray-700 rounded focus:border-green-500 focus:outline-none" />
-          <input id="teamA2" type="text" placeholder="Joueur 2" class="w-full mb-2 px-3 py-2 bg-gray-800 border border-gray-700 rounded focus:border-green-500 focus:outline-none" />
-          <input id="teamA3" type="text" placeholder="Joueur 3" class="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded focus:border-green-500 focus:outline-none" />
-          <input id="scoreA" type="number" value="2" min="0" class="w-full mt-3 px-3 py-2 bg-gray-800 border border-gray-700 rounded focus:border-green-500 focus:outline-none font-bold text-2xl text-center" />
-        </div>
+      // Probabilité de victoire individuelle vs l'équipe adverse
+      const E_individual = expectedScore(playerMMR, R_B);
+      const delta = K * w * (S_A - E_individual);
+      const newMMR = roundMMR(playerMMR + delta);
+      
+      updates.push({
+        id,
+        mmr: newMMR,
+        games_played: (p.games_played || 0) + 1,
+        wins: (p.wins || 0) + (S_A === 1 ? 1 : 0),
+        losses: (p.losses || 0) + (S_A === 0 ? 1 : 0)
+      });
+    }
 
-        <!-- Team B -->
-        <div class="bg-gray-900 p-4 rounded-lg border border-red-500">
-          <h3 class="font-bold text-red-400 mb-3">🔴 Team B (Perdants)</h3>
-          <input id="teamB1" type="text" placeholder="Joueur 1" class="w-full mb-2 px-3 py-2 bg-gray-800 border border-gray-700 rounded focus:border-red-500 focus:outline-none" />
-          <input id="teamB2" type="text" placeholder="Joueur 2" class="w-full mb-2 px-3 py-2 bg-gray-800 border border-gray-700 rounded focus:border-red-500 focus:outline-none" />
-          <input id="teamB3" type="text" placeholder="Joueur 3" class="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded focus:border-red-500 focus:outline-none" />
-          <input id="scoreB" type="number" value="1" min="0" class="w-full mt-3 px-3 py-2 bg-gray-800 border border-gray-700 rounded focus:border-red-500 focus:outline-none font-bold text-2xl text-center" />
-        </div>
-      </div>
+    for (const id of teamB) {
+      const p = playersMap[id];
+      const playerMMR = p.mmr || 1000;
+      const w = p.weight || 1.0;
+      
+      // Probabilité de victoire individuelle vs l'équipe adverse
+      const E_individual = expectedScore(playerMMR, R_A);
+      const delta = K * w * (S_B - E_individual);
+      const newMMR = roundMMR(playerMMR + delta);
+      
+      updates.push({
+        id,
+        mmr: newMMR,
+        games_played: (p.games_played || 0) + 1,
+        wins: (p.wins || 0) + (S_B === 1 ? 1 : 0),
+        losses: (p.losses || 0) + (S_B === 0 ? 1 : 0)
+      });
+    }
 
-      <button 
-        onclick="reportMatch()" 
-        class="w-full py-4 bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-500 hover:to-blue-500 rounded-lg font-bold text-xl transition"
-      >
-        🎯 Valider le match
-      </button>
-      <div id="matchResult" class="mt-3 text-sm"></div>
-    </div>
+    for (const u of updates) {
+      const { error: upErr } = await supabase.from('players').update({
+        mmr: u.mmr,
+        games_played: u.games_played,
+        wins: u.wins,
+        losses: u.losses
+      }).eq('id', u.id);
+      if (upErr) throw upErr;
+    }
 
-    <!-- LISTE DES JOUEURS -->
-    <div class="bg-gray-800 rounded-xl p-6 border border-gray-700">
-      <div class="flex items-center justify-between mb-4">
-        <h2 class="text-2xl font-bold text-purple-400">📋 Liste des joueurs</h2>
-        <button 
-          onclick="loadPlayers()" 
-          class="px-4 py-2 bg-purple-600 hover:bg-purple-500 rounded-lg font-bold transition"
-        >
-          🔄 Actualiser
-        </button>
-      </div>
-      <div id="playersList" class="space-y-2 max-h-96 overflow-y-auto">
-        <p class="text-gray-400">Chargement...</p>
-      </div>
-    </div>
-  </div>
-
-  <script>
-    const API_BASE = window.location.hostname === 'localhost' 
-      ? 'http://localhost:8888/.netlify/functions'
-      : '/.netlify/functions';
-
-    let playersCache = [];
-
-    // Charger les joueurs au démarrage
-    window.onload = () => {
-      loadPlayers();
+    const matchRow = {
+      id: uuidv4(),
+      timestamp: new Date().toISOString(),
+      teama: teamA,
+      teamb: teamB,
+      scorea: scoreA,
+      scoreb: scoreB,
+      processed: true,
+      k_factor_used: K
     };
+    
+    const { error: mErr } = await supabase.from('matches').insert([matchRow]);
+    if (mErr) throw mErr;
 
-    // Fonction pour charger tous les joueurs
-    async function loadPlayers() {
-      try {
-        const res = await fetch(`${API_BASE}/getTop50`);
-        const data = await res.json();
-        
-        if (data.ok) {
-          playersCache = data.top;
-          displayPlayers(playersCache);
-        } else {
-          document.getElementById('playersList').innerHTML = `<p class="text-red-400">❌ ${data.error}</p>`;
-        }
-      } catch (err) {
-        document.getElementById('playersList').innerHTML = `<p class="text-red-400">❌ Erreur: ${err.message}</p>`;
-      }
-    }
-
-    // Afficher la liste des joueurs
-    function displayPlayers(players) {
-      const html = players.map((p, i) => `
-        <div class="bg-gray-900 p-3 rounded-lg flex items-center justify-between border border-gray-700 hover:border-indigo-500 transition">
-          <div>
-            <span class="font-bold text-lg">#${i+1} ${p.display_name}</span>
-            <span class="text-gray-400 text-sm ml-2">(${p.mmr} MMR)</span>
-          </div>
-          <div class="flex items-center gap-3">
-            <span class="text-xs text-gray-500">ID: ${p.id.slice(0,8)}...</span>
-            <button 
-              onclick="deletePlayer('${p.id}', '${p.display_name}')" 
-              class="px-3 py-1 bg-red-600 hover:bg-red-500 rounded text-xs font-bold transition"
-            >
-              🗑️ Supprimer
-            </button>
-          </div>
-        </div>
-      `).join('');
-      document.getElementById('playersList').innerHTML = html || '<p class="text-gray-400">Aucun joueur</p>';
-    }
-
-    // Ajouter un joueur
-    async function addPlayer() {
-      const name = document.getElementById('newPlayerName').value.trim();
-      const resultDiv = document.getElementById('addPlayerResult');
-      
-      if (!name) {
-        resultDiv.innerHTML = '<p class="text-red-400">❌ Entre un pseudo !</p>';
-        return;
-      }
-
-      resultDiv.innerHTML = '<p class="text-yellow-400">⏳ Ajout en cours...</p>';
-
-      try {
-        const res = await fetch(`${API_BASE}/registerUser`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ display_name: name })
-        });
-        const data = await res.json();
-
-        if (data.ok) {
-          resultDiv.innerHTML = `<p class="text-green-400">✅ ${name} ajouté avec 1000 MMR !</p>`;
-          document.getElementById('newPlayerName').value = '';
-          setTimeout(() => loadPlayers(), 1000);
-        } else {
-          resultDiv.innerHTML = `<p class="text-red-400">❌ ${data.error}</p>`;
-        }
-      } catch (err) {
-        resultDiv.innerHTML = `<p class="text-red-400">❌ Erreur: ${err.message}</p>`;
-      }
-    }
-
-    // Trouver l'ID d'un joueur par son pseudo
-    function findPlayerByName(name) {
-      const normalized = name.trim().toLowerCase();
-      return playersCache.find(p => p.display_name.toLowerCase() === normalized);
-    }
-
-    // Reporter un match
-    async function reportMatch() {
-      const resultDiv = document.getElementById('matchResult');
-      
-      // Récupérer les pseudos
-      const teamANames = [
-        document.getElementById('teamA1').value.trim(),
-        document.getElementById('teamA2').value.trim(),
-        document.getElementById('teamA3').value.trim()
-      ].filter(n => n !== '');
-
-      const teamBNames = [
-        document.getElementById('teamB1').value.trim(),
-        document.getElementById('teamB2').value.trim(),
-        document.getElementById('teamB3').value.trim()
-      ].filter(n => n !== '');
-
-      const scoreA = parseInt(document.getElementById('scoreA').value);
-      const scoreB = parseInt(document.getElementById('scoreB').value);
-
-      // Vérifications
-      if (teamANames.length === 0 || teamBNames.length === 0) {
-        resultDiv.innerHTML = '<p class="text-red-400">❌ Remplis au moins 1 joueur par équipe !</p>';
-        return;
-      }
-
-      if (scoreA === scoreB) {
-        resultDiv.innerHTML = '<p class="text-red-400">❌ Pas de match nul autorisé !</p>';
-        return;
-      }
-
-      resultDiv.innerHTML = '<p class="text-yellow-400">⏳ Recherche des joueurs...</p>';
-
-      // Convertir pseudos en IDs
-      const teamA = [];
-      const teamB = [];
-
-      for (const name of teamANames) {
-        const player = findPlayerByName(name);
-        if (!player) {
-          resultDiv.innerHTML = `<p class="text-red-400">❌ Joueur "${name}" introuvable (Team A)</p>`;
-          return;
-        }
-        teamA.push(player.id);
-      }
-
-      for (const name of teamBNames) {
-        const player = findPlayerByName(name);
-        if (!player) {
-          resultDiv.innerHTML = `<p class="text-red-400">❌ Joueur "${name}" introuvable (Team B)</p>`;
-          return;
-        }
-        teamB.push(player.id);
-      }
-
-      resultDiv.innerHTML = '<p class="text-yellow-400">⏳ Calcul du match...</p>';
-
-      try {
-        const res = await fetch(`${API_BASE}/reportMatch`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ teamA, teamB, scoreA, scoreB })
-        });
-        const data = await res.json();
-
-        if (data.ok) {
-          // Afficher les changements de MMR
-          let changesHTML = '<div class="bg-gray-900 p-4 rounded-lg mt-3"><p class="text-green-400 font-bold mb-2">✅ Match enregistré !</p>';
-          data.updates.forEach(u => {
-            const player = playersCache.find(p => p.id === u.id);
-            const oldMMR = player ? player.mmr : 1000;
-            const delta = u.mmr - oldMMR;
-            const color = delta > 0 ? 'text-green-400' : 'text-red-400';
-            changesHTML += `<p class="${color}">${player?.display_name || 'Joueur'}: ${oldMMR} → ${u.mmr} (${delta > 0 ? '+' : ''}${delta})</p>`;
-          });
-          changesHTML += '</div>';
-          resultDiv.innerHTML = changesHTML;
-
-          // Clear les champs
-          ['teamA1','teamA2','teamA3','teamB1','teamB2','teamB3'].forEach(id => {
-            document.getElementById(id).value = '';
-          });
-
-          setTimeout(() => loadPlayers(), 2000);
-        } else {
-          resultDiv.innerHTML = `<p class="text-red-400">❌ ${data.error}</p>`;
-        }
-      } catch (err) {
-        resultDiv.innerHTML = `<p class="text-red-400">❌ Erreur: ${err.message}</p>`;
-      }
-    }
-
-    // Supprimer un joueur
-    async function deletePlayer(playerId, playerName) {
-      if (!confirm(`⚠️ Supprimer définitivement ${playerName} ?\n\nCette action est irréversible !`)) {
-        return;
-      }
-
-      try {
-        const res = await fetch(`${API_BASE}/deletePlayer`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ player_id: playerId })
-        });
-        const data = await res.json();
-
-        if (data.ok) {
-          alert(`✅ ${playerName} a été supprimé !`);
-          loadPlayers();
-        } else {
-          alert(`❌ Erreur: ${data.error}`);
-        }
-      } catch (err) {
-        alert(`❌ Erreur: ${err.message}`);
-      }
-    }
-
-    // Entrer = valider
-    document.getElementById('newPlayerName').addEventListener('keypress', (e) => {
-      if (e.key === 'Enter') addPlayer();
-    });
-  </script>
-</body>
-</html>
+    return {
+      statusCode: 200,
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*'
+      },
+      body: JSON.stringify({ ok: true, updates, match: matchRow })
+    };
+  } catch (err) {
+    return {
+      statusCode: 500,
+      body: JSON.stringify({ ok: false, error: err.message })
+    };
+  }
+};
