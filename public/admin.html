@@ -94,14 +94,14 @@
       loadPlayers();
     };
 
-    // Fonction pour charger tous les joueurs
+    // Fonction pour charger tous les joueurs (pas juste top 50)
     async function loadPlayers() {
       try {
-        const res = await fetch(`${API_BASE}/getTop50`);
+        const res = await fetch(`${API_BASE}/getAllPlayers`);
         const data = await res.json();
         
         if (data.ok) {
-          playersCache = data.top;
+          playersCache = data.players;
           displayPlayers(playersCache);
         } else {
           document.getElementById('playersList').innerHTML = `<p class="text-red-400">❌ ${data.error}</p>`;
