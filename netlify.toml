@@ -2,9 +2,9 @@
   publish = "public"
   functions = "netlify/functions"
 
-# Les functions doivent être exclues des redirects
+# Les fonctions doivent être accessibles via un alias public
 [[redirects]]
-  from = "/.netlify/functions/*"
+  from = "/api/*"
   to = "/.netlify/functions/:splat"
   status = 200
 
