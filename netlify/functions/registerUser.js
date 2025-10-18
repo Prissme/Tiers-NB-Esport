@@ -1,8 +1,13 @@
 const { createClient } = require('@supabase/supabase-js');
 const { v4: uuidv4 } = require('uuid');
+const { validateAdminToken } = require('./_shared/admin');
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_KEY = process.env.SUPABASE_KEY;
+
+function isValidDisplayName(name) {
+  return typeof name === 'string' && name.trim().length >= 3 && name.trim().length <= 24;
+}
 
 exports.handler = async (event) => {
   try {
@@ -12,8 +17,9 @@ exports.handler = async (event) => {
         persistSession: false
       }
     });
+    const headers = event?.headers || {};
     const body = JSON.parse(event.body || '{}');
-    const authHeader = event.headers.authorization || event.headers.Authorization;
+    const authHeader = headers.authorization || headers.Authorization;
 
     const basePlayer = {
       profile_image_url: body.profile_image_url || null,
@@ -23,7 +29,23 @@ exports.handler = async (event) => {
     };
 
     if (!authHeader) {
-      const display_name = body.display_name || `Player-${Math.floor(Math.random() * 10000)}`;
+      const authCheck = validateAdminToken(headers);
+      if (!authCheck.authorized) {
+        return authCheck.response;
+      }
+
+      if (body.display_name && !isValidDisplayName(body.display_name)) {
+        return {
+          statusCode: 400,
+          headers: {
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*'
+          },
+          body: JSON.stringify({ ok: false, error: 'display_name invalide' })
+        };
+      }
+
+      const display_name = body.display_name?.trim() || `Player-${Math.floor(Math.random() * 10000)}`;
 
       const newPlayer = {
         id: uuidv4(),
@@ -68,7 +90,18 @@ exports.handler = async (event) => {
     }
 
     const userId = authData.user.id;
-    const display_name = body.display_name || authData.user.user_metadata?.display_name || `Player-${Math.floor(Math.random() * 10000)}`;
+    const display_name = body.display_name?.trim() || authData.user.user_metadata?.display_name || `Player-${Math.floor(Math.random() * 10000)}`;
+
+    if (!isValidDisplayName(display_name)) {
+      return {
+        statusCode: 400,
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*'
+        },
+        body: JSON.stringify({ ok: false, error: 'display_name invalide' })
+      };
+    }
 
     const { data: existing, error: existingError } = await supabase
       .from('players')

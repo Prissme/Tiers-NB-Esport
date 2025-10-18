@@ -1,12 +1,18 @@
 const { createClient } = require('@supabase/supabase-js');
+const { validateAdminToken } = require('./_shared/admin');
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_KEY = process.env.SUPABASE_KEY;
 
-exports.handler = async () => {
+exports.handler = async (event) => {
   try {
+    const authCheck = validateAdminToken(event?.headers || {});
+    if (!authCheck.authorized) {
+      return authCheck.response;
+    }
+
     const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
-    
+
     // Récupérer TOUS les joueurs actifs (pas de limite)
     const { data, error } = await supabase
       .from('players')

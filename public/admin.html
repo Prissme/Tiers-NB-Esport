@@ -12,6 +12,31 @@
       🎮 Admin Panel
     </h1>
 
+    <div class="bg-gray-800 rounded-xl p-6 mb-6 border border-indigo-700">
+      <h2 class="text-xl font-semibold text-indigo-300 mb-3">🔐 Authentification administrateur</h2>
+      <div class="flex flex-col md:flex-row gap-3 items-stretch md:items-center">
+        <input
+          id="adminTokenInput"
+          type="password"
+          placeholder="Token administrateur"
+          class="flex-1 px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg focus:border-indigo-500 focus:outline-none"
+        />
+        <button
+          onclick="saveAdminToken()"
+          class="px-6 py-3 bg-indigo-600 hover:bg-indigo-500 rounded-lg font-bold transition"
+        >
+          Enregistrer
+        </button>
+        <button
+          onclick="clearAdminToken()"
+          class="px-4 py-3 bg-gray-700 hover:bg-gray-600 rounded-lg font-semibold transition"
+        >
+          Effacer
+        </button>
+      </div>
+      <p id="tokenStatus" class="mt-3 text-sm text-gray-300"></p>
+    </div>
+
     <!-- AJOUTER UN JOUEUR -->
     <div class="bg-gray-800 rounded-xl p-6 mb-6 border border-gray-700">
       <h2 class="text-2xl font-bold mb-4 text-indigo-400">➕ Ajouter un joueur</h2>
@@ -83,31 +108,106 @@
   </div>
 
   <script>
-    const API_BASE = window.location.hostname === 'localhost' 
+    const API_BASE = window.location.hostname === 'localhost'
       ? 'http://localhost:8888/.netlify/functions'
       : '/.netlify/functions';
 
+    let adminToken = '';
     let playersCache = [];
 
-    // Charger les joueurs au démarrage
+    function initAdminToken() {
+      adminToken = localStorage.getItem('adminToken') || '';
+      document.getElementById('adminTokenInput').value = adminToken;
+      updateTokenStatus(adminToken ? 'Token chargé depuis le navigateur.' : 'Renseigne ton token pour accéder aux actions.');
+      if (adminToken) {
+        loadPlayers();
+      } else {
+        document.getElementById('playersList').innerHTML = '<p class="text-yellow-400">🔒 Token requis pour charger les joueurs.</p>';
+      }
+    }
+
+    function saveAdminToken() {
+      adminToken = document.getElementById('adminTokenInput').value.trim();
+      if (adminToken) {
+        localStorage.setItem('adminToken', adminToken);
+        updateTokenStatus('Token enregistré localement.', 'success');
+        loadPlayers();
+      } else {
+        localStorage.removeItem('adminToken');
+        updateTokenStatus('Token vide. Merci de renseigner une valeur.', 'warning');
+        document.getElementById('playersList').innerHTML = '<p class="text-yellow-400">🔒 Token requis pour charger les joueurs.</p>';
+      }
+    }
+
+    function clearAdminToken() {
+      adminToken = '';
+      localStorage.removeItem('adminToken');
+      document.getElementById('adminTokenInput').value = '';
+      updateTokenStatus('Token supprimé du navigateur.', 'warning');
+      document.getElementById('playersList').innerHTML = '<p class="text-yellow-400">🔒 Token requis pour charger les joueurs.</p>';
+    }
+
+    function updateTokenStatus(message, tone = 'info') {
+      const status = document.getElementById('tokenStatus');
+      const colors = {
+        info: 'text-gray-300',
+        warning: 'text-yellow-400',
+        success: 'text-green-400',
+        error: 'text-red-400'
+      };
+      status.className = `mt-3 text-sm ${colors[tone] || colors.info}`;
+      status.textContent = message;
+    }
+
+    async function adminFetch(path, options = {}) {
+      if (!adminToken) {
+        throw new Error('Token administrateur requis.');
+      }
+
+      const headers = {
+        ...(options.headers || {}),
+        'X-Admin-Token': adminToken
+      };
+
+      const response = await fetch(path, { ...options, headers });
+      if (response.status === 401) {
+        updateTokenStatus('Accès refusé. Vérifie le token administrateur.', 'error');
+        throw new Error('Accès administrateur refusé.');
+      }
+      if (response.status === 500) {
+        updateTokenStatus('La configuration serveur est incomplète.', 'error');
+      }
+      return response;
+    }
+
     window.onload = () => {
-      loadPlayers();
+      initAdminToken();
     };
 
     // Fonction pour charger tous les joueurs (pas juste top 50)
     async function loadPlayers() {
       try {
-        const res = await fetch(`${API_BASE}/getAllPlayers`);
+        if (!adminToken) {
+          updateTokenStatus('Token requis pour charger les joueurs.', 'warning');
+          return;
+        }
+
+        const res = await adminFetch(`${API_BASE}/getAllPlayers`);
         const data = await res.json();
-        
+
         if (data.ok) {
           playersCache = data.players;
           displayPlayers(playersCache);
+          updateTokenStatus('Données chargées avec succès.', 'success');
         } else {
           document.getElementById('playersList').innerHTML = `<p class="text-red-400">❌ ${data.error}</p>`;
         }
       } catch (err) {
-        document.getElementById('playersList').innerHTML = `<p class="text-red-400">❌ Erreur: ${err.message}</p>`;
+        if (err.message.includes('Token administrateur')) {
+          document.getElementById('playersList').innerHTML = '<p class="text-yellow-400">🔒 Token requis pour charger les joueurs.</p>';
+        } else {
+          document.getElementById('playersList').innerHTML = `<p class="text-red-400">❌ Erreur: ${err.message}</p>`;
+        }
       }
     }
 
@@ -137,6 +237,11 @@
         return;
       }
 
+      if (name.length < 3 || name.length > 24) {
+        resultDiv.innerHTML = '<p class="text-red-400">❌ Le pseudo doit contenir entre 3 et 24 caractères.</p>';
+        return;
+      }
+
       // Vérifier si le joueur existe déjà
       const existing = playersCache.find(p => p.display_name.toLowerCase() === name.toLowerCase());
       if (existing) {
@@ -147,7 +252,7 @@
       resultDiv.innerHTML = '<p class="text-yellow-400">⏳ Ajout en cours...</p>';
 
       try {
-        const res = await fetch(`${API_BASE}/registerUser`, {
+        const res = await adminFetch(`${API_BASE}/registerUser`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ display_name: name })
@@ -236,7 +341,11 @@
       resultDiv.innerHTML = '<p class="text-yellow-400">⏳ Calcul du match...</p>';
 
       try {
-        const res = await fetch(`${API_BASE}/reportMatch`, {
+        if (!adminToken) {
+          throw new Error('Token administrateur requis.');
+        }
+
+        const res = await adminFetch(`${API_BASE}/reportMatch`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ teamA, teamB, scoreA, scoreB })
@@ -266,7 +375,11 @@
           resultDiv.innerHTML = `<p class="text-red-400">❌ ${data.error}</p>`;
         }
       } catch (err) {
-        resultDiv.innerHTML = `<p class="text-red-400">❌ Erreur: ${err.message}</p>`;
+        if (err.message.includes('Token administrateur')) {
+          resultDiv.innerHTML = '<p class="text-yellow-400">🔒 Token requis pour enregistrer un match.</p>';
+        } else {
+          resultDiv.innerHTML = `<p class="text-red-400">❌ Erreur: ${err.message}</p>`;
+        }
       }
     }
 
