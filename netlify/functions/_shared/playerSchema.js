@@ -1,22 +1,46 @@
 const OPTIONAL_PROFILE_COLUMNS = ['profile_image_url', 'bio', 'recent_scrims', 'social_links'];
+const OPTIONAL_CACHE_TTL_MS = 5 * 60 * 1000;
+
+let cachedOptionalColumns = null;
+let cachedOptionalFetchedAt = 0;
+
+function cloneToSet(columns, sourceSet) {
+  if (!sourceSet) {
+    return new Set();
+  }
+
+  return new Set(columns.filter((column) => sourceSet.has(column)));
+}
 
 async function getAvailableColumns(supabase, columns = OPTIONAL_PROFILE_COLUMNS) {
-  const available = new Set();
+  const targetColumns = Array.isArray(columns) ? columns : OPTIONAL_PROFILE_COLUMNS;
+  const now = Date.now();
 
-  await Promise.all(
-    columns.map(async (column) => {
-      const { error } = await supabase
-        .from('players')
-        .select(column)
-        .limit(1);
+  if (cachedOptionalColumns && now - cachedOptionalFetchedAt < OPTIONAL_CACHE_TTL_MS) {
+    return cloneToSet(targetColumns, cachedOptionalColumns);
+  }
 
-      if (!error) {
-        available.add(column);
-      }
-    })
+  const { data, error } = await supabase
+    .from('information_schema.columns')
+    .select('column_name')
+    .eq('table_schema', 'public')
+    .eq('table_name', 'players')
+    .in('column_name', targetColumns);
+
+  if (error || !Array.isArray(data)) {
+    return cloneToSet(targetColumns, cachedOptionalColumns);
+  }
+
+  const discovered = new Set(
+    data
+      .map((row) => row.column_name)
+      .filter((columnName) => targetColumns.includes(columnName))
   );
 
-  return available;
+  cachedOptionalColumns = new Set(discovered);
+  cachedOptionalFetchedAt = now;
+
+  return new Set(discovered);
 }
 
 function normalizeScrims(input) {
@@ -46,13 +70,13 @@ function normalizeScrims(input) {
 
 function normalizeSocialLinks(input) {
   if (!input) return {};
-  if (typeof input === 'object') {
+  if (typeof input === 'object' && !Array.isArray(input)) {
     return input;
   }
   if (typeof input === 'string') {
     try {
       const parsed = JSON.parse(input);
-      return parsed && typeof parsed === 'object' ? parsed : {};
+      return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
     } catch (err) {
       return {};
     }
