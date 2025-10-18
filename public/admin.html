@@ -37,8 +37,24 @@
       <p id="tokenStatus" class="mt-3 text-sm text-gray-300"></p>
     </div>
 
+    <!-- LISTE DES UTILISATEURS -->
+    <div class="bg-gray-800 rounded-xl p-6 mb-6 border border-cyan-500/60">
+      <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-4">
+        <h2 class="text-2xl font-bold text-cyan-300">👥 Comptes utilisateurs inscrits</h2>
+        <button
+          onclick="loadUsers()"
+          class="self-start md:self-auto px-4 py-2 bg-cyan-600 hover:bg-cyan-500 rounded-lg font-bold transition"
+        >
+          🔄 Actualiser
+        </button>
+      </div>
+      <div id="usersList" class="space-y-3 max-h-96 overflow-y-auto pr-1">
+        <p class="text-gray-400">Chargement...</p>
+      </div>
+    </div>
+
     <!-- LIER UN COMPTE UTILISATEUR À UN JOUEUR -->
-    <div class="bg-gray-800 rounded-xl p-6 mb-6 border border-purple-400">
+    <div id="linkSection" class="bg-gray-800 rounded-xl p-6 mb-6 border border-purple-400">
       <h2 class="text-2xl font-bold mb-4 text-purple-300">🔗 Lier un compte utilisateur à un joueur</h2>
       <div class="grid md:grid-cols-2 gap-4">
         <div>
@@ -147,6 +163,7 @@
 
     let adminToken = '';
     let playersCache = [];
+    let usersCache = [];
 
     function initAdminToken() {
       adminToken = localStorage.getItem('adminToken') || '';
@@ -154,8 +171,10 @@
       updateTokenStatus(adminToken ? 'Token chargé depuis le navigateur.' : 'Renseigne ton token pour accéder aux actions.');
       if (adminToken) {
         loadPlayers();
+        loadUsers();
       } else {
         document.getElementById('playersList').innerHTML = '<p class="text-yellow-400">🔒 Token requis pour charger les joueurs.</p>';
+        document.getElementById('usersList').innerHTML = '<p class="text-yellow-400">🔒 Token requis pour charger les utilisateurs.</p>';
       }
     }
 
@@ -165,10 +184,12 @@
         localStorage.setItem('adminToken', adminToken);
         updateTokenStatus('Token enregistré localement.', 'success');
         loadPlayers();
+        loadUsers();
       } else {
         localStorage.removeItem('adminToken');
         updateTokenStatus('Token vide. Merci de renseigner une valeur.', 'warning');
         document.getElementById('playersList').innerHTML = '<p class="text-yellow-400">🔒 Token requis pour charger les joueurs.</p>';
+        document.getElementById('usersList').innerHTML = '<p class="text-yellow-400">🔒 Token requis pour charger les utilisateurs.</p>';
       }
     }
 
@@ -178,6 +199,7 @@
       document.getElementById('adminTokenInput').value = '';
       updateTokenStatus('Token supprimé du navigateur.', 'warning');
       document.getElementById('playersList').innerHTML = '<p class="text-yellow-400">🔒 Token requis pour charger les joueurs.</p>';
+      document.getElementById('usersList').innerHTML = '<p class="text-yellow-400">🔒 Token requis pour charger les utilisateurs.</p>';
     }
 
     function updateTokenStatus(message, tone = 'info') {
@@ -217,6 +239,92 @@
       initAdminToken();
     };
 
+    // Fonction pour charger les utilisateurs Supabase
+    async function loadUsers() {
+      const listDiv = document.getElementById('usersList');
+
+      if (!adminToken) {
+        listDiv.innerHTML = '<p class="text-yellow-400">🔒 Token requis pour charger les utilisateurs.</p>';
+        return;
+      }
+
+      listDiv.innerHTML = '<p class="text-gray-300">⏳ Chargement des utilisateurs...</p>';
+
+      try {
+        const res = await adminFetch(`${API_BASE}/listAllUsers`);
+        const data = await res.json();
+
+        if (data.ok) {
+          usersCache = data.users || [];
+          displayUsers(usersCache);
+          updateTokenStatus('Données chargées avec succès.', 'success');
+        } else {
+          listDiv.innerHTML = `<p class="text-red-400">❌ ${data.error || 'Impossible de charger les utilisateurs.'}</p>`;
+        }
+      } catch (err) {
+        listDiv.innerHTML = `<p class="text-red-400">❌ Erreur: ${err.message}</p>`;
+      }
+    }
+
+    function displayUsers(users) {
+      const container = document.getElementById('usersList');
+
+      if (!users || users.length === 0) {
+        container.innerHTML = '<p class="text-gray-400">Aucun utilisateur inscrit pour le moment.</p>';
+        return;
+      }
+
+      container.innerHTML = users.map((user) => {
+        const confirmed = Boolean(user.email_confirmed_at);
+        const statusIcon = confirmed ? '✅' : '⏳';
+        const statusColor = confirmed ? 'text-green-400' : 'text-yellow-400';
+        const linkedPlayer = playersCache.find((p) => p.user_id === user.id);
+        const linkInfo = linkedPlayer
+          ? `<span class="text-green-400 font-medium">🔗 Lié à ${linkedPlayer.display_name}</span>`
+          : '<span class="text-gray-400">Non lié</span>';
+        const createdAt = user.created_at ? new Date(user.created_at).toLocaleString('fr-FR') : 'Inconnu';
+        const lastSignIn = user.last_sign_in_at ? new Date(user.last_sign_in_at).toLocaleString('fr-FR') : 'Jamais';
+        const safeEmail = (user.email || '').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+
+        return `
+          <div class="bg-gray-900 border border-cyan-500/40 hover:border-cyan-400 transition rounded-lg p-4">
+            <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+              <div>
+                <p class="text-lg font-semibold text-gray-100">${safeEmail || 'Email inconnu'}</p>
+                <p class="text-sm text-gray-400">Inscription: ${createdAt}</p>
+                <p class="text-sm text-gray-500">Dernière connexion: ${lastSignIn}</p>
+              </div>
+              <div class="flex items-center gap-3">
+                <span class="${statusColor} text-xl">${statusIcon}</span>
+                <div class="text-sm">${linkInfo}</div>
+                <button
+                  class="px-3 py-2 bg-purple-600 hover:bg-purple-500 rounded-lg font-semibold transition"
+                  data-email="${safeEmail}"
+                  onclick="autofillLinkForm(this.dataset.email)"
+                >
+                  Lier →
+                </button>
+              </div>
+            </div>
+            <p class="text-xs text-gray-500 mt-2">ID: ${user.id}</p>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function autofillLinkForm(email) {
+      const decodedEmail = email
+        .replace(/&quot;/g, '"')
+        .replace(/&#39;/g, "'");
+      const emailInput = document.getElementById('linkUserEmail');
+      emailInput.value = decodedEmail;
+      emailInput.focus();
+      const section = document.getElementById('linkSection');
+      if (section) {
+        section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }
+
     // Fonction pour charger tous les joueurs (pas juste top 50)
     async function loadPlayers() {
       try {
@@ -231,6 +339,9 @@
         if (data.ok) {
           playersCache = data.players;
           displayPlayers(playersCache);
+          if (usersCache.length) {
+            displayUsers(usersCache);
+          }
           updateTokenStatus('Données chargées avec succès.', 'success');
         } else {
           document.getElementById('playersList').innerHTML = `<p class="text-red-400">❌ ${data.error}</p>`;
@@ -480,6 +591,9 @@
         );
 
         resultDiv.innerHTML = `<p class="text-green-400">✅ ${linkData.player.display_name} est maintenant lié à ${userData.user.email}.</p>`;
+        if (usersCache.length) {
+          displayUsers(usersCache);
+        }
       } catch (err) {
         resultDiv.innerHTML = `<p class="text-red-400">❌ Erreur: ${err.message}</p>`;
       }
