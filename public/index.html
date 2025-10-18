@@ -525,6 +525,58 @@ function App() {
     initSupabase();
   }, []);
 
+  useEffect(() => {
+    if (!supabaseClient) return;
+    if (typeof window === 'undefined') return;
+
+    const hash = window.location.hash || '';
+    if (!hash || hash.length <= 1) return;
+
+    const params = new URLSearchParams(hash.substring(1));
+    let handled = false;
+
+    const errorDescription = params.get('error_description');
+    if (errorDescription) {
+      setAuthError(decodeURIComponent(errorDescription));
+      setAuthModalOpen(true);
+      handled = true;
+    }
+
+    const accessToken = params.get('access_token');
+    const refreshToken = params.get('refresh_token');
+    if (accessToken && refreshToken) {
+      handled = true;
+      supabaseClient.auth
+        .setSession({ access_token: accessToken, refresh_token: refreshToken })
+        .then(({ data: sessionData, error: sessionError }) => {
+          if (sessionError) {
+            setAuthError(sessionError.message || 'Impossible de finaliser la connexion.');
+            setAuthModalOpen(true);
+            return;
+          }
+
+          if (sessionData?.session) {
+            setSession(sessionData.session);
+            setAuthMessage('Inscription confirmée !');
+            setAuthModalOpen(false);
+          }
+        })
+        .catch((err) => {
+          console.error('Session from hash error:', err);
+          setAuthError(err.message || 'Impossible de finaliser la connexion.');
+          setAuthModalOpen(true);
+        })
+        .finally(() => {
+          window.location.hash = '';
+        });
+      return;
+    }
+
+    if (handled) {
+      window.location.hash = '';
+    }
+  }, [supabaseClient]);
+
   const formatProfileFromApi = useCallback((player) => {
     const formatted = formatPlayer(player);
     if (!formatted) return null;
@@ -590,10 +642,12 @@ function App() {
         setAuthModalOpen(false);
         setAuthMessage('Connexion réussie.');
       } else {
+        const emailRedirectTo = `${window.location.origin}/`;
         const { data, error: signUpError } = await supabaseClient.auth.signUp({
           email: form.email,
           password: form.password,
           options: {
+            emailRedirectTo,
             data: {
               display_name: form.displayName || null,
             },
