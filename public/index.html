@@ -24,9 +24,10 @@
 <script type="text/babel">
 const { useState, useEffect, useMemo, useCallback } = React;
 
-const API_BASE = window.location.hostname === 'localhost'
+const isLocalhost = ['localhost', '127.0.0.1'].includes(window.location.hostname);
+const API_BASE = isLocalhost
   ? 'http://localhost:8888/.netlify/functions'
-  : '/.netlify/functions';
+  : '/api';
 
 const tierStyles = {
   S: 'bg-gradient-to-r from-yellow-400 via-yellow-300 to-yellow-200',

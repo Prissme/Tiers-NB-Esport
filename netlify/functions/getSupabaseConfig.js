@@ -1,5 +1,19 @@
-const PUBLIC_SUPABASE_URL = process.env.PUBLIC_SUPABASE_URL || '';
-const PUBLIC_SUPABASE_ANON_KEY = process.env.PUBLIC_SUPABASE_ANON_KEY || '';
+const getEnv = (name) => process.env[name] || '';
+
+const PUBLIC_SUPABASE_URL =
+  getEnv('PUBLIC_SUPABASE_URL') ||
+  getEnv('SUPABASE_URL') ||
+  '';
+
+const FALLBACK_ANON_KEY =
+  getEnv('PUBLIC_SUPABASE_ANON_KEY') ||
+  getEnv('SUPABASE_ANON_KEY') ||
+  getEnv('SUPABASE_KEY') ||
+  '';
+
+const PUBLIC_SUPABASE_ANON_KEY = FALLBACK_ANON_KEY.includes('service_role')
+  ? ''
+  : FALLBACK_ANON_KEY;
 
 exports.handler = async () => {
   try {
@@ -13,7 +27,9 @@ exports.handler = async () => {
         body: JSON.stringify({
           ok: false,
           error: 'Supabase client configuration is missing.',
-          config: { supabaseUrl: PUBLIC_SUPABASE_URL || null }
+          config: {
+            supabaseUrl: PUBLIC_SUPABASE_URL || null
+          }
         })
       };
     }
