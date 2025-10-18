@@ -14,11 +14,13 @@ const jsonHeaders = {
 
 exports.handler = async (event) => {
   try {
+    // Vérification du token admin
     const authCheck = validateAdminToken(event?.headers || {});
     if (!authCheck.authorized) {
       return authCheck.response;
     }
 
+    // Vérification de la méthode HTTP
     if (event.httpMethod !== 'POST') {
       return {
         statusCode: 405,
@@ -27,7 +29,12 @@ exports.handler = async (event) => {
       };
     }
 
+    // Vérification de la configuration Supabase
     if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+      console.error('Config manquante:', {
+        hasUrl: !!SUPABASE_URL,
+        hasKey: !!SUPABASE_SERVICE_ROLE_KEY
+      });
       return {
         statusCode: 500,
         headers: jsonHeaders,
@@ -35,6 +42,7 @@ exports.handler = async (event) => {
       };
     }
 
+    // Récupération et validation de l'email
     const body = JSON.parse(event.body || '{}');
     const email = typeof body.email === 'string' ? body.email.trim().toLowerCase() : '';
 
@@ -46,6 +54,17 @@ exports.handler = async (event) => {
       };
     }
 
+    // Validation format email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return {
+        statusCode: 400,
+        headers: jsonHeaders,
+        body: JSON.stringify({ ok: false, error: 'Format d\'email invalide.' })
+      };
+    }
+
+    // Création du client Supabase avec la clé service_role
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
       auth: {
         autoRefreshToken: false,
@@ -53,22 +72,40 @@ exports.handler = async (event) => {
       }
     });
 
-    const { data, error } = await supabase.auth.admin.getUserByEmail(email);
+    // Récupération de tous les utilisateurs et recherche par email
+    const { data, error } = await supabase.auth.admin.listUsers();
 
     if (error) {
+      console.error('Erreur listUsers:', error);
       throw error;
     }
 
-    if (!data || !data.user) {
+    if (!data || !data.users) {
+      console.error('Aucune donnée utilisateur retournée');
       return {
-        statusCode: 404,
+        statusCode: 500,
         headers: jsonHeaders,
-        body: JSON.stringify({ ok: false, error: 'Utilisateur introuvable.' })
+        body: JSON.stringify({ ok: false, error: 'Erreur lors de la récupération des utilisateurs.' })
       };
     }
 
-    const { user } = data;
+    // Recherche de l'utilisateur par email (insensible à la casse)
+    const user = data.users.find(u => 
+      u.email && u.email.toLowerCase() === email
+    );
 
+    if (!user) {
+      return {
+        statusCode: 404,
+        headers: jsonHeaders,
+        body: JSON.stringify({ 
+          ok: false, 
+          error: `Aucun compte Supabase trouvé pour l'email "${email}". L'utilisateur doit d'abord s'inscrire.`
+        })
+      };
+    }
+
+    // Retour des informations de l'utilisateur
     return {
       statusCode: 200,
       headers: jsonHeaders,
@@ -77,15 +114,21 @@ exports.handler = async (event) => {
         user: {
           id: user.id,
           email: user.email,
-          created_at: user.created_at
+          created_at: user.created_at,
+          email_confirmed_at: user.email_confirmed_at,
+          last_sign_in_at: user.last_sign_in_at
         }
       })
     };
   } catch (err) {
+    console.error('Erreur getUserByEmail:', err);
     return {
       statusCode: 500,
       headers: jsonHeaders,
-      body: JSON.stringify({ ok: false, error: err.message })
+      body: JSON.stringify({ 
+        ok: false, 
+        error: err.message || 'Erreur interne du serveur.'
+      })
     };
   }
 };
