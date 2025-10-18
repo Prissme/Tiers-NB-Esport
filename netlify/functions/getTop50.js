@@ -1,7 +1,4 @@
-const { createClient } = require('@supabase/supabase-js');
-
-const SUPABASE_URL = process.env.SUPABASE_URL;
-const SUPABASE_KEY = process.env.SUPABASE_KEY;
+const { ensureSupabaseClient, DEFAULT_HEADERS } = require('./_shared/supabase');
 
 function getTierByRank(rank) {
   if (rank === 1) return 'S';
@@ -15,7 +12,10 @@ function getTierByRank(rank) {
 
 exports.handler = async () => {
   try {
-    const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+    const { client: supabase, errorResponse } = ensureSupabaseClient();
+    if (!supabase) {
+      return errorResponse;
+    }
     
     const { data, error } = await supabase
       .from('players')
@@ -34,15 +34,13 @@ exports.handler = async () => {
     
     return {
       statusCode: 200,
-      headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*'
-      },
+      headers: DEFAULT_HEADERS,
       body: JSON.stringify({ ok: true, top: playersWithTiers })
     };
   } catch (err) {
     return {
       statusCode: 500,
+      headers: DEFAULT_HEADERS,
       body: JSON.stringify({ ok: false, error: err.message })
     };
   }

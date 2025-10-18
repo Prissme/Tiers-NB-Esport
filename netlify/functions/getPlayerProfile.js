@@ -1,21 +1,22 @@
-const { createClient } = require('@supabase/supabase-js');
-
-const SUPABASE_URL = process.env.SUPABASE_URL;
-const SUPABASE_KEY = process.env.SUPABASE_KEY;
+const { ensureSupabaseClient, DEFAULT_HEADERS } = require('./_shared/supabase');
 
 exports.handler = async (event) => {
   try {
-    const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
+    const { client: supabase, errorResponse } = ensureSupabaseClient({
       auth: {
         autoRefreshToken: false,
         persistSession: false
       }
     });
+    if (!supabase) {
+      return errorResponse;
+    }
 
     const authHeader = event.headers.authorization || event.headers.Authorization;
     if (!authHeader) {
       return {
         statusCode: 401,
+        headers: DEFAULT_HEADERS,
         body: JSON.stringify({ ok: false, error: 'Authorization header missing.' })
       };
     }
@@ -24,6 +25,7 @@ exports.handler = async (event) => {
     if (!token) {
       return {
         statusCode: 401,
+        headers: DEFAULT_HEADERS,
         body: JSON.stringify({ ok: false, error: 'Access token manquant.' })
       };
     }
@@ -32,6 +34,7 @@ exports.handler = async (event) => {
     if (authError || !authData?.user) {
       return {
         statusCode: 401,
+        headers: DEFAULT_HEADERS,
         body: JSON.stringify({ ok: false, error: 'Utilisateur non authentifié.' })
       };
     }
@@ -46,15 +49,13 @@ exports.handler = async (event) => {
 
     return {
       statusCode: 200,
-      headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*'
-      },
+      headers: DEFAULT_HEADERS,
       body: JSON.stringify({ ok: true, profile: data || null })
     };
   } catch (err) {
     return {
       statusCode: 500,
+      headers: DEFAULT_HEADERS,
       body: JSON.stringify({ ok: false, error: err.message })
     };
   }

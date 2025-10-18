@@ -1,12 +1,18 @@
-const { createClient } = require('@supabase/supabase-js');
+const { validateAdminToken } = require('./_shared/admin');
+const { ensureSupabaseClient, DEFAULT_HEADERS } = require('./_shared/supabase');
 
-const SUPABASE_URL = process.env.SUPABASE_URL;
-const SUPABASE_KEY = process.env.SUPABASE_KEY;
-
-exports.handler = async () => {
+exports.handler = async (event) => {
   try {
-    const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
-    
+    const authCheck = validateAdminToken(event?.headers || {});
+    if (!authCheck.authorized) {
+      return authCheck.response;
+    }
+
+    const { client: supabase, errorResponse } = ensureSupabaseClient();
+    if (!supabase) {
+      return errorResponse;
+    }
+
     // Récupérer TOUS les joueurs actifs (pas de limite)
     const { data, error } = await supabase
       .from('players')
@@ -18,15 +24,13 @@ exports.handler = async () => {
     
     return {
       statusCode: 200,
-      headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*'
-      },
+      headers: DEFAULT_HEADERS,
       body: JSON.stringify({ ok: true, players: data })
     };
   } catch (err) {
     return {
       statusCode: 500,
+      headers: DEFAULT_HEADERS,
       body: JSON.stringify({ ok: false, error: err.message })
     };
   }

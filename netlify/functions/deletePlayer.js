@@ -1,18 +1,26 @@
-const { createClient } = require('@supabase/supabase-js');
-
-const SUPABASE_URL = process.env.SUPABASE_URL;
-const SUPABASE_KEY = process.env.SUPABASE_KEY;
+const { validateAdminToken } = require('./_shared/admin');
+const { ensureSupabaseClient, DEFAULT_HEADERS } = require('./_shared/supabase');
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 exports.handler = async (event) => {
   try {
-    const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+    const authCheck = validateAdminToken(event?.headers || {});
+    if (!authCheck.authorized) {
+      return authCheck.response;
+    }
+
+    const { client: supabase, errorResponse } = ensureSupabaseClient();
+    if (!supabase) {
+      return errorResponse;
+    }
     const body = JSON.parse(event.body || '{}');
     const { player_id } = body;
-    
-    if (!player_id) {
+
+    if (!player_id || typeof player_id !== 'string' || !UUID_REGEX.test(player_id)) {
       return {
         statusCode: 400,
-        body: JSON.stringify({ ok: false, error: 'player_id requis' })
+        headers: DEFAULT_HEADERS,
+        body: JSON.stringify({ ok: false, error: 'player_id invalide' })
       };
     }
     
@@ -25,15 +33,13 @@ exports.handler = async (event) => {
     
     return {
       statusCode: 200,
-      headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*'
-      },
+      headers: DEFAULT_HEADERS,
       body: JSON.stringify({ ok: true, message: 'Joueur supprimé' })
     };
   } catch (err) {
     return {
       statusCode: 500,
+      headers: DEFAULT_HEADERS,
       body: JSON.stringify({ ok: false, error: err.message })
     };
   }
