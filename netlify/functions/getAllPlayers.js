@@ -10,7 +10,7 @@ exports.handler = async () => {
     // Récupérer TOUS les joueurs actifs (pas de limite)
     const { data, error } = await supabase
       .from('players')
-      .select('id,display_name,mmr,weight,games_played,wins,losses')
+      .select('id,display_name,mmr,weight,games_played,wins,losses,profile_image_url,bio,recent_scrims,social_links')
       .eq('active', true)
       .order('mmr', { ascending: false });
     
