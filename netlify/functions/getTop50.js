@@ -17,15 +17,45 @@ exports.handler = async () => {
   try {
     const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
     
-    const { data, error } = await supabase
+    const extendedColumns = 'id,display_name,mmr,weight,games_played,wins,losses,tier,profile_image_url,bio,recent_scrims,social_links';
+    const baseColumns = 'id,display_name,mmr,weight,games_played,wins,losses,tier';
+
+    let { data, error } = await supabase
       .from('players')
-      .select('id,display_name,mmr,weight,games_played,wins,losses')
+      .select(extendedColumns)
       .eq('active', true)
       .order('mmr', { ascending: false })
       .limit(50);
-    
-    if (error) throw error;
-    
+
+    if (error) {
+      const message = error.message || '';
+      const missingProfileColumn = ['profile_image_url', 'bio', 'recent_scrims', 'social_links']
+        .some((column) => message.includes(column));
+
+      if (!missingProfileColumn) {
+        throw error;
+      }
+
+      const fallback = await supabase
+        .from('players')
+        .select(baseColumns)
+        .eq('active', true)
+        .order('mmr', { ascending: false })
+        .limit(50);
+
+      if (fallback.error) {
+        throw fallback.error;
+      }
+
+      data = fallback.data.map((player) => ({
+        ...player,
+        profile_image_url: null,
+        bio: null,
+        recent_scrims: null,
+        social_links: null,
+      }));
+    }
+
     // Attribuer les tiers selon le rang
     const playersWithTiers = data.map((player, index) => ({
       ...player,

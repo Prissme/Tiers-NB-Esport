@@ -8,6 +8,7 @@
   <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.0/dist/umd/supabase.min.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     .glass-effect {
@@ -21,10 +22,9 @@
 <div id="root"></div>
 
 <script type="text/babel">
-const { useState, useEffect, useMemo } = React;
+const { useState, useEffect, useMemo, useCallback } = React;
 
-// Configuration API
-const API_BASE = window.location.hostname === 'localhost' 
+const API_BASE = window.location.hostname === 'localhost'
   ? 'http://localhost:8888/.netlify/functions'
   : '/.netlify/functions';
 
@@ -38,6 +38,8 @@ const tierStyles = {
   'No-tier': 'bg-gradient-to-r from-gray-600 via-gray-500 to-gray-400',
 };
 
+const DEFAULT_AVATAR = 'https://api.dicebear.com/7.x/bottts/svg?seed=NullsEsport&backgroundColor=1f2937,111827&radius=50';
+
 const getMedal = (rank) => {
   if (rank === 1) return '🥇';
   if (rank === 2) return '🥈';
@@ -45,41 +47,432 @@ const getMedal = (rank) => {
   return `#${rank}`;
 };
 
-function DemonList() {
+const parseJsonField = (value, fallback) => {
+  if (!value) return fallback;
+  if (typeof value === 'object') return value;
+  try {
+    const parsed = JSON.parse(value);
+    if (parsed && typeof parsed === 'object') return parsed;
+    return fallback;
+  } catch (err) {
+    return fallback;
+  }
+};
+
+const parseScrims = (value) => {
+  if (!value) return [];
+  let raw = value;
+  if (typeof raw === 'string') {
+    try {
+      raw = JSON.parse(raw);
+    } catch (err) {
+      raw = raw.split('\n');
+    }
+  }
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map(item => (typeof item === 'string' ? item.trim() : ''))
+    .filter(item => item.length > 0);
+};
+
+const formatPlayer = (player, index) => {
+  if (!player) return null;
+  const recentScrims = parseScrims(player.recent_scrims);
+  const socialLinks = parseJsonField(player.social_links, {});
+
+  return {
+    ...player,
+    rank: player.rank || (typeof index === 'number' ? index + 1 : null),
+    name: player.display_name,
+    score: player.mmr,
+    tier: player.tier || 'No-tier',
+    gamesPlayed: player.games_played,
+    profileImage: player.profile_image_url || null,
+    bio: player.bio || '',
+    recentScrims,
+    socialLinks,
+  };
+};
+
+const PlayerCard = ({ player, onSelect }) => {
+  const tierClass = tierStyles[player.tier] || tierStyles['No-tier'];
+  const winRate = player.gamesPlayed > 0 ? Math.round((player.wins / player.gamesPlayed) * 100) : 0;
+  const avatar = player.profileImage || DEFAULT_AVATAR;
+
+  return (
+    <div
+      className={`${tierClass} p-3 sm:p-5 rounded-xl shadow-2xl text-gray-900 font-bold hover:scale-105 transition-transform cursor-pointer`}
+      onClick={() => onSelect(player)}
+    >
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <div className="flex items-center gap-2 sm:gap-4">
+          <span className="text-xl sm:text-3xl font-bold min-w-[50px] sm:min-w-[70px]">{getMedal(player.rank)}</span>
+          <img
+            src={avatar}
+            alt={`Avatar de ${player.name}`}
+            className="w-10 h-10 sm:w-14 sm:h-14 rounded-full border-2 border-white/50 object-cover"
+            onError={(e) => {
+              e.target.onerror = null;
+              e.target.src = DEFAULT_AVATAR;
+            }}
+          />
+          <div>
+            <span className="text-lg sm:text-2xl block">{player.name}</span>
+            <span className="text-xs sm:text-sm opacity-75">
+              {player.gamesPlayed} matchs • {winRate}% WR
+            </span>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 sm:gap-4">
+          <span className="text-base sm:text-xl">{player.score} pts</span>
+          <span className="px-3 sm:px-4 py-1.5 sm:py-2 bg-white bg-opacity-40 rounded-full text-xs sm:text-base whitespace-nowrap">
+            Tier {player.tier}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const PlayerModal = ({ player, onClose, onEdit, isOwner }) => {
+  if (!player) return null;
+  const avatar = player.profileImage || DEFAULT_AVATAR;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-3">
+      <div className="bg-gray-900 text-gray-100 rounded-2xl shadow-2xl max-w-2xl w-full p-6 relative border border-gray-700 overflow-hidden">
+        <button
+          className="absolute top-3 right-3 text-gray-400 hover:text-gray-200"
+          onClick={onClose}
+          aria-label="Fermer"
+        >
+          ✕
+        </button>
+        <div className="flex flex-col sm:flex-row gap-6">
+          <img
+            src={avatar}
+            alt={`Avatar de ${player.name}`}
+            className="w-32 h-32 rounded-2xl object-cover border-2 border-indigo-500 shadow-lg"
+            onError={(e) => {
+              e.target.onerror = null;
+              e.target.src = DEFAULT_AVATAR;
+            }}
+          />
+          <div className="flex-1 space-y-4">
+            <div>
+              <h2 className="text-2xl font-bold flex items-center gap-2">
+                {player.name}
+                <span className="px-3 py-1 rounded-full bg-indigo-600 text-xs">Tier {player.tier}</span>
+              </h2>
+              <p className="text-sm text-gray-400">MMR: {player.score} • #{player.rank}</p>
+            </div>
+
+            {player.bio && (
+              <div className="bg-gray-800/60 p-4 rounded-xl">
+                <h3 className="text-lg font-semibold text-indigo-300 mb-2">Bio</h3>
+                <p className="text-sm text-gray-300 whitespace-pre-line">{player.bio}</p>
+              </div>
+            )}
+
+            {player.recentScrims.length > 0 && (
+              <div className="bg-gray-800/60 p-4 rounded-xl">
+                <h3 className="text-lg font-semibold text-yellow-300 mb-2">Scrims récents</h3>
+                <ul className="space-y-2 text-sm text-gray-200 list-disc list-inside">
+                  {player.recentScrims.map((scrim, index) => (
+                    <li key={index}>{scrim}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {player.socialLinks && Object.keys(player.socialLinks).length > 0 && (
+              <div className="bg-gray-800/60 p-4 rounded-xl">
+                <h3 className="text-lg font-semibold text-green-300 mb-2">Réseaux</h3>
+                <div className="flex flex-wrap gap-2">
+                  {player.socialLinks.discord && (
+                    <a
+                      href={player.socialLinks.discord}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-3 py-1 bg-indigo-600 rounded-full text-sm hover:bg-indigo-500"
+                    >
+                      Discord
+                    </a>
+                  )}
+                  {player.socialLinks.twitter && (
+                    <a
+                      href={player.socialLinks.twitter}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-3 py-1 bg-sky-500 rounded-full text-sm hover:bg-sky-400"
+                    >
+                      X / Twitter
+                    </a>
+                  )}
+                  {player.socialLinks.twitch && (
+                    <a
+                      href={player.socialLinks.twitch}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-3 py-1 bg-purple-600 rounded-full text-sm hover:bg-purple-500"
+                    >
+                      Twitch
+                    </a>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {isOwner && (
+          <div className="mt-4 flex justify-end">
+            <button
+              onClick={onEdit}
+              className="px-4 py-2 bg-indigo-600 rounded-lg hover:bg-indigo-500 transition"
+            >
+              ✏️ Modifier ma carte
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+const AuthModal = ({ mode, onClose, onSubmit, switchMode, loading, error, message }) => {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [displayName, setDisplayName] = useState('');
+
+  useEffect(() => {
+    setEmail('');
+    setPassword('');
+    setDisplayName('');
+  }, [mode]);
+
+  const handleSubmit = (event) => {
+    event.preventDefault();
+    onSubmit(mode, { email, password, displayName });
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-3">
+      <div className="bg-gray-900 text-gray-100 rounded-2xl shadow-2xl w-full max-w-md p-6 border border-gray-700">
+        <button className="text-gray-400 hover:text-gray-200 float-right" onClick={onClose} aria-label="Fermer">
+          ✕
+        </button>
+        <h2 className="text-2xl font-bold mb-4">
+          {mode === 'login' ? 'Connexion' : 'Créer un compte'}
+        </h2>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm mb-1">Email</label>
+            <input
+              type="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg focus:border-indigo-500 focus:outline-none"
+            />
+          </div>
+          <div>
+            <label className="block text-sm mb-1">Mot de passe</label>
+            <input
+              type="password"
+              required
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg focus:border-indigo-500 focus:outline-none"
+            />
+          </div>
+          {mode === 'register' && (
+            <div>
+              <label className="block text-sm mb-1">Pseudo affiché</label>
+              <input
+                type="text"
+                value={displayName}
+                onChange={(e) => setDisplayName(e.target.value)}
+                placeholder="Ex: Prissme"
+                className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg focus:border-indigo-500 focus:outline-none"
+              />
+            </div>
+          )}
+
+          {error && <p className="text-sm text-red-400">{error}</p>}
+          {message && <p className="text-sm text-emerald-400">{message}</p>}
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full py-2 bg-indigo-600 hover:bg-indigo-500 rounded-lg font-semibold transition disabled:opacity-60"
+          >
+            {loading ? 'Patiente...' : mode === 'login' ? 'Se connecter' : "S'inscrire"}
+          </button>
+        </form>
+        <p className="text-sm text-gray-400 mt-4 text-center">
+          {mode === 'login' ? (
+            <>
+              Pas encore de compte ?{' '}
+              <button className="text-indigo-400 hover:text-indigo-300" onClick={() => switchMode('register')}>
+                Inscris-toi
+              </button>
+            </>
+          ) : (
+            <>
+              Déjà inscrit ?{' '}
+              <button className="text-indigo-400 hover:text-indigo-300" onClick={() => switchMode('login')}>
+                Connecte-toi
+              </button>
+            </>
+          )}
+        </p>
+      </div>
+    </div>
+  );
+};
+
+const ProfileEditor = ({ formState, onChange, onSave, onClose, saving, error, hasProfile }) => {
+  const updateField = (field) => (event) => {
+    const value = event.target.value;
+    onChange((prev) => ({ ...prev, [field]: value }));
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-3">
+      <div className="bg-gray-900 text-gray-100 rounded-2xl shadow-2xl w-full max-w-2xl p-6 border border-gray-700">
+        <button className="text-gray-400 hover:text-gray-200 float-right" onClick={onClose} aria-label="Fermer">
+          ✕
+        </button>
+        <h2 className="text-2xl font-bold mb-4">
+          {hasProfile ? 'Personnaliser ma carte' : 'Créer ma carte joueur'}
+        </h2>
+        <div className="grid sm:grid-cols-2 gap-4">
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm mb-1">Pseudo</label>
+              <input
+                type="text"
+                value={formState.display_name}
+                onChange={updateField('display_name')}
+                className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg focus:border-indigo-500 focus:outline-none"
+                placeholder="Ton pseudo"
+              />
+            </div>
+            <div>
+              <label className="block text-sm mb-1">Photo de profil (URL)</label>
+              <input
+                type="url"
+                value={formState.profile_image_url}
+                onChange={updateField('profile_image_url')}
+                className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg focus:border-indigo-500 focus:outline-none"
+                placeholder="https://..."
+              />
+            </div>
+            <div>
+              <label className="block text-sm mb-1">Discord</label>
+              <input
+                type="url"
+                value={formState.discord}
+                onChange={updateField('discord')}
+                className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg focus:border-indigo-500 focus:outline-none"
+                placeholder="https://discord.gg/..."
+              />
+            </div>
+          </div>
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm mb-1">Bio</label>
+              <textarea
+                rows="4"
+                value={formState.bio}
+                onChange={updateField('bio')}
+                className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg focus:border-indigo-500 focus:outline-none"
+                placeholder="Présente-toi en quelques lignes"
+              />
+            </div>
+            <div>
+              <label className="block text-sm mb-1">Scrims récents</label>
+              <textarea
+                rows="4"
+                value={formState.recent_scrims_text}
+                onChange={updateField('recent_scrims_text')}
+                className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg focus:border-indigo-500 focus:outline-none"
+                placeholder={'Ex:\nvs Team Alpha - Victoire 3-1\nvs Squad Beta - Défaite 1-2'}
+              />
+            </div>
+          </div>
+        </div>
+
+        {error && <p className="text-sm text-red-400 mt-4">{error}</p>}
+
+        <div className="mt-6 flex justify-end gap-3">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 bg-gray-800 rounded-lg hover:bg-gray-700 transition"
+          >
+            Annuler
+          </button>
+          <button
+            onClick={onSave}
+            disabled={saving}
+            className="px-5 py-2 bg-indigo-600 hover:bg-indigo-500 rounded-lg font-semibold transition disabled:opacity-60"
+          >
+            {saving ? 'Enregistrement...' : hasProfile ? 'Mettre à jour' : 'Créer ma carte'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+function App() {
   const [players, setPlayers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [query, setQuery] = useState('');
   const [selectedTier, setSelectedTier] = useState('ALL');
   const [sortBy, setSortBy] = useState('rank');
-  const [scrimsOpen, setScrimsOpen] = useState(true);
+  const [selectedPlayer, setSelectedPlayer] = useState(null);
+
+  const [supabaseClient, setSupabaseClient] = useState(null);
+  const [authReady, setAuthReady] = useState(false);
+  const [session, setSession] = useState(null);
+  const [profile, setProfile] = useState(null);
+  const [authModalOpen, setAuthModalOpen] = useState(false);
+  const [authMode, setAuthMode] = useState('login');
+  const [authProcessing, setAuthProcessing] = useState(false);
+  const [authError, setAuthError] = useState('');
+  const [authMessage, setAuthMessage] = useState('');
+
+  const [profileEditorOpen, setProfileEditorOpen] = useState(false);
+  const [profileForm, setProfileForm] = useState({
+    display_name: '',
+    profile_image_url: '',
+    bio: '',
+    recent_scrims_text: '',
+    discord: '',
+  });
+  const [profileSaving, setProfileSaving] = useState(false);
+  const [profileError, setProfileError] = useState('');
 
   const tiers = ['ALL','S','A','B','C','D','E','No-tier'];
 
-  // Charger les joueurs depuis l'API
-  useEffect(() => {
-    fetchPlayers();
-  }, []);
-
-  const fetchPlayers = async () => {
+  const fetchPlayers = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
       const response = await fetch(`${API_BASE}/getTop50`);
       const data = await response.json();
-      
+
       if (data.ok) {
-        // Ajouter le rang et formater les données
-        const playersWithRank = data.top.map((p, index) => ({
-          rank: index + 1,
-          name: p.display_name,
-          score: p.mmr,
-          tier: p.tier || 'No-tier',
-          gamesPlayed: p.games_played,
-          wins: p.wins,
-          losses: p.losses,
-          id: p.id
-        }));
+        const playersWithRank = data.top.map((p, index) => {
+          const formatted = formatPlayer(p, index);
+          return {
+            ...formatted,
+            rank: index + 1,
+          };
+        });
         setPlayers(playersWithRank);
       } else {
         setError(data.error || 'Erreur lors du chargement');
@@ -90,7 +483,83 @@ function DemonList() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchPlayers();
+  }, [fetchPlayers]);
+
+  useEffect(() => {
+    const initSupabase = async () => {
+      if (!window.supabase) {
+        setAuthReady(true);
+        return;
+      }
+
+      try {
+        const response = await fetch(`${API_BASE}/getSupabaseConfig`);
+        const result = await response.json();
+        if (!result.ok || !result.config?.supabaseUrl || !result.config?.supabaseAnonKey) {
+          setAuthError(result.error || 'Module de connexion indisponible.');
+          return;
+        }
+
+        const client = window.supabase.createClient(result.config.supabaseUrl, result.config.supabaseAnonKey);
+        setSupabaseClient(client);
+
+        const { data: sessionData } = await client.auth.getSession();
+        setSession(sessionData?.session || null);
+
+        client.auth.onAuthStateChange((_event, newSession) => {
+          setSession(newSession);
+        });
+      } catch (err) {
+        console.error('Erreur Supabase:', err);
+        setAuthError("Impossible d'initialiser les comptes pour le moment.");
+      } finally {
+        setAuthReady(true);
+      }
+    };
+
+    initSupabase();
+  }, []);
+
+  const formatProfileFromApi = useCallback((player) => {
+    const formatted = formatPlayer(player);
+    if (!formatted) return null;
+    return {
+      ...formatted,
+      recentScrims: formatted.recentScrims,
+      socialLinks: formatted.socialLinks,
+    };
+  }, []);
+
+  useEffect(() => {
+    const loadProfile = async () => {
+      if (!session?.access_token || !supabaseClient) {
+        setProfile(null);
+        return;
+      }
+
+      try {
+        const response = await fetch(`${API_BASE}/getPlayerProfile`, {
+          headers: {
+            Authorization: `Bearer ${session.access_token}`,
+          },
+        });
+        const result = await response.json();
+        if (result.ok && result.profile) {
+          setProfile(formatProfileFromApi(result.profile));
+        } else {
+          setProfile(null);
+        }
+      } catch (err) {
+        console.error('Erreur profil:', err);
+      }
+    };
+
+    loadProfile();
+  }, [session, supabaseClient, formatProfileFromApi]);
 
   const filteredPlayers = useMemo(() => {
     let list = [...players];
@@ -103,6 +572,144 @@ function DemonList() {
     });
     return list;
   }, [players, query, selectedTier, sortBy]);
+
+  const handleAuthSubmit = async (mode, form) => {
+    if (!supabaseClient) return;
+    setAuthProcessing(true);
+    setAuthError('');
+    setAuthMessage('');
+
+    try {
+      if (mode === 'login') {
+        const { error: signInError } = await supabaseClient.auth.signInWithPassword({
+          email: form.email,
+          password: form.password,
+        });
+        if (signInError) throw signInError;
+        setAuthModalOpen(false);
+        setAuthMessage('Connexion réussie.');
+      } else {
+        const { data, error: signUpError } = await supabaseClient.auth.signUp({
+          email: form.email,
+          password: form.password,
+          options: {
+            data: {
+              display_name: form.displayName || null,
+            },
+          },
+        });
+        if (signUpError) throw signUpError;
+
+        if (data?.session?.access_token) {
+          await syncProfile(data.session.access_token, form.displayName || undefined);
+          setAuthModalOpen(false);
+        } else {
+          setAuthMessage('Compte créé ! Vérifie tes emails pour confirmer ton inscription.');
+        }
+      }
+    } catch (err) {
+      console.error('Auth error:', err);
+      setAuthError(err.message || 'Une erreur est survenue.');
+    } finally {
+      setAuthProcessing(false);
+    }
+  };
+
+  const syncProfile = async (accessToken, displayName) => {
+    try {
+      const response = await fetch(`${API_BASE}/registerUser`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({
+          display_name: displayName,
+        }),
+      });
+      const result = await response.json();
+      if (result.ok && result.player) {
+        setProfile(formatProfileFromApi(result.player));
+        fetchPlayers();
+      }
+    } catch (err) {
+      console.error('Sync profile error:', err);
+    }
+  };
+
+  const openProfileEditor = () => {
+    if (!session?.access_token) {
+      setAuthMode('login');
+      setAuthModalOpen(true);
+      return;
+    }
+
+    setProfileForm({
+      display_name: profile?.name || '',
+      profile_image_url: profile?.profileImage || '',
+      bio: profile?.bio || '',
+      recent_scrims_text: (profile?.recentScrims || []).join('\n'),
+      discord: profile?.socialLinks?.discord || '',
+    });
+    setProfileError('');
+    setProfileEditorOpen(true);
+  };
+
+  const handleProfileSave = async () => {
+    if (!session?.access_token) return;
+    setProfileSaving(true);
+    setProfileError('');
+
+    const recentScrims = profileForm.recent_scrims_text
+      .split('\n')
+      .map(line => line.trim())
+      .filter(Boolean);
+
+    const socialLinks = {};
+    if (profileForm.discord) socialLinks.discord = profileForm.discord;
+
+    const payload = {
+      display_name: profileForm.display_name,
+      profile_image_url: profileForm.profile_image_url,
+      bio: profileForm.bio,
+      recent_scrims: recentScrims,
+      social_links: Object.keys(socialLinks).length > 0 ? socialLinks : null,
+    };
+
+    const endpoint = profile ? 'updatePlayerProfile' : 'registerUser';
+
+    try {
+      const response = await fetch(`${API_BASE}/${endpoint}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify(payload),
+      });
+      const result = await response.json();
+      if (result.ok) {
+        const updated = result.profile || result.player;
+        setProfile(formatProfileFromApi(updated));
+        setProfileEditorOpen(false);
+        fetchPlayers();
+      } else {
+        setProfileError(result.error || 'Impossible de sauvegarder le profil.');
+      }
+    } catch (err) {
+      console.error('Profile save error:', err);
+      setProfileError(err.message || 'Impossible de sauvegarder le profil.');
+    } finally {
+      setProfileSaving(false);
+    }
+  };
+
+  const handleSignOut = async () => {
+    if (!supabaseClient) return;
+    await supabaseClient.auth.signOut();
+    setProfile(null);
+    setSelectedPlayer(null);
+  };
 
   if (loading) {
     return (
@@ -130,10 +737,8 @@ function DemonList() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-900 via-gray-800 to-black text-gray-100 p-3 sm:p-6">
-      
-      {/* Header */}
-      <header className="max-w-5xl mx-auto mb-6 sm:mb-8">
-        <div className="text-center mb-4 sm:mb-6">
+      <header className="max-w-5xl mx-auto mb-6 sm:mb-8 space-y-4">
+        <div className="text-center">
           <h1 className="text-3xl sm:text-5xl font-extrabold mb-2 bg-clip-text text-transparent bg-gradient-to-r from-yellow-400 via-orange-500 to-red-500">
             Nulls Brawl Esport
           </h1>
@@ -142,9 +747,9 @@ function DemonList() {
             🔄 Actualiser
           </button>
         </div>
-        
-        <div className="glass-effect rounded-xl p-3 sm:p-4 mb-4">
-          <div className="flex gap-2 sm:gap-3 flex-wrap justify-center mb-3">
+
+        <div className="glass-effect rounded-xl p-3 sm:p-4 space-y-4">
+          <div className="flex gap-2 flex-wrap justify-center">
             <a href="https://discord.gg/prissme" target="_blank" rel="noopener noreferrer" className="px-3 sm:px-4 py-2 bg-indigo-600 rounded-lg hover:bg-indigo-500 transition font-semibold shadow-lg text-sm sm:text-base">
               Discord
             </a>
@@ -153,9 +758,18 @@ function DemonList() {
             </a>
           </div>
 
-          <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 mb-3">
-            <input placeholder="Rechercher un joueur..." value={query} onChange={e => setQuery(e.target.value)} className="flex-1 px-3 sm:px-4 py-2 rounded-lg bg-gray-800/50 text-gray-100 border border-gray-700 focus:border-indigo-500 focus:outline-none text-sm sm:text-base" />
-            <select value={sortBy} onChange={e => setSortBy(e.target.value)} className="px-3 sm:px-4 py-2 rounded-lg bg-gray-800/50 border border-gray-700 focus:border-indigo-500 text-sm sm:text-base">
+          <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
+            <input
+              placeholder="Rechercher un joueur..."
+              value={query}
+              onChange={e => setQuery(e.target.value)}
+              className="flex-1 px-3 sm:px-4 py-2 rounded-lg bg-gray-800/50 text-gray-100 border border-gray-700 focus:border-indigo-500 focus:outline-none text-sm sm:text-base"
+            />
+            <select
+              value={sortBy}
+              onChange={e => setSortBy(e.target.value)}
+              className="px-3 sm:px-4 py-2 rounded-lg bg-gray-800/50 border border-gray-700 focus:border-indigo-500 text-sm sm:text-base"
+            >
               <option value="rank">Par Rang</option>
               <option value="score">Par Score</option>
               <option value="name">Par Pseudo</option>
@@ -164,19 +778,69 @@ function DemonList() {
 
           <div className="flex gap-2 flex-wrap justify-center">
             {tiers.map(t => (
-              <button key={t} onClick={() => setSelectedTier(t)} className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-bold transition-all duration-300 ${
-                selectedTier === t
-                  ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg scale-105' 
-                  : 'bg-gray-800/50 text-gray-300 hover:bg-gray-700'
-              }`}>
+              <button
+                key={t}
+                onClick={() => setSelectedTier(t)}
+                className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-bold transition-all duration-300 ${
+                  selectedTier === t
+                    ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg scale-105'
+                    : 'bg-gray-800/50 text-gray-300 hover:bg-gray-700'
+                }`}
+              >
                 {t}
               </button>
             ))}
           </div>
         </div>
+
+        <div className="glass-effect rounded-xl p-4 sm:p-5">
+          {!authReady ? (
+            <p className="text-sm text-gray-400">Chargement du module de comptes...</p>
+          ) : session ? (
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+              <div>
+                <p className="text-sm text-gray-400">Connecté en tant que</p>
+                <p className="font-semibold">{session.user?.email}</p>
+                {profile?.name && <p className="text-xs text-gray-400">Carte: {profile.name}</p>}
+              </div>
+              <div className="flex gap-2 flex-wrap">
+                <button
+                  onClick={openProfileEditor}
+                  className="px-4 py-2 bg-indigo-600 rounded-lg hover:bg-indigo-500 transition text-sm font-semibold"
+                >
+                  {profile ? 'Modifier ma carte' : 'Créer ma carte'}
+                </button>
+                <button
+                  onClick={handleSignOut}
+                  className="px-4 py-2 bg-gray-800 rounded-lg hover:bg-gray-700 transition text-sm"
+                >
+                  Se déconnecter
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+              <div>
+                <p className="text-sm text-gray-400">
+                  Connecte-toi pour personnaliser ta carte, ajouter ta photo de profil et afficher tes derniers scrims.
+                </p>
+                {authError && <p className="text-xs text-red-400 mt-1">{authError}</p>}
+              </div>
+              <button
+                onClick={() => {
+                  setAuthMode('login');
+                  setAuthError('');
+                  setAuthModalOpen(true);
+                }}
+                className="px-4 py-2 bg-indigo-600 rounded-lg hover:bg-indigo-500 transition text-sm font-semibold"
+              >
+                Se connecter / S'inscrire
+              </button>
+            </div>
+          )}
+        </div>
       </header>
 
-      {/* Stats globales */}
       <section className="max-w-5xl mx-auto mb-6 sm:mb-8">
         <div className="glass-effect rounded-xl p-4 sm:p-6 shadow-2xl">
           <h2 className="text-2xl sm:text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-400 mb-4">
@@ -209,7 +873,6 @@ function DemonList() {
         </div>
       </section>
 
-      {/* Classement */}
       <main className="max-w-5xl mx-auto">
         {filteredPlayers.length === 0 ? (
           <div className="glass-effect rounded-xl p-8 text-center">
@@ -217,47 +880,64 @@ function DemonList() {
           </div>
         ) : (
           <div className="grid gap-3 sm:gap-4">
-            {filteredPlayers.map(player => {
-              const tierClass = tierStyles[player.tier] || tierStyles['No-tier'];
-              const winRate = player.gamesPlayed > 0 ? Math.round((player.wins / player.gamesPlayed) * 100) : 0;
-              
-              return (
-                <div key={player.id} className={`${tierClass} p-3 sm:p-5 rounded-xl shadow-2xl text-gray-900 font-bold hover:scale-105 transition-transform`}>
-                  <div className="flex items-center justify-between flex-wrap gap-2">
-                    <div className="flex items-center gap-2 sm:gap-4">
-                      <span className="text-xl sm:text-3xl font-bold min-w-[50px] sm:min-w-[70px]">{getMedal(player.rank)}</span>
-                      <div>
-                        <span className="text-lg sm:text-2xl block">{player.name}</span>
-                        <span className="text-xs sm:text-sm opacity-75">
-                          {player.gamesPlayed} matchs • {winRate}% WR
-                        </span>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2 sm:gap-4">
-                      <span className="text-base sm:text-xl">{player.score} pts</span>
-                      <span className="px-3 sm:px-4 py-1.5 sm:py-2 bg-white bg-opacity-40 rounded-full text-xs sm:text-base whitespace-nowrap">
-                        Tier {player.tier}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
+            {filteredPlayers.map(player => (
+              <PlayerCard key={player.id} player={player} onSelect={setSelectedPlayer} />
+            ))}
           </div>
         )}
       </main>
 
-      {/* Footer */}
       <footer className="max-w-5xl mx-auto mt-8 sm:mt-12 text-center text-gray-400 text-xs sm:text-sm px-3">
         <p>© 2025 Null's Brawl Esport – Développé par <span className="text-indigo-400 font-bold">Prissme</span></p>
         <p className="mt-2 text-xs opacity-50">Données chargées en temps réel depuis Supabase</p>
       </footer>
+
+      {selectedPlayer && (
+        <PlayerModal
+          player={selectedPlayer}
+          onClose={() => setSelectedPlayer(null)}
+          onEdit={() => {
+            setSelectedPlayer(null);
+            openProfileEditor();
+          }}
+          isOwner={profile?.id === selectedPlayer.id}
+        />
+      )}
+
+      {authModalOpen && (
+        <AuthModal
+          mode={authMode}
+          onClose={() => setAuthModalOpen(false)}
+          onSubmit={handleAuthSubmit}
+          switchMode={(mode) => {
+            setAuthMode(mode);
+            setAuthError('');
+            setAuthMessage('');
+          }}
+          loading={authProcessing}
+          error={authError}
+          message={authMessage}
+        />
+      )}
+
+      {profileEditorOpen && (
+        <ProfileEditor
+          formState={profileForm}
+          onChange={setProfileForm}
+          onSave={handleProfileSave}
+          onClose={() => setProfileEditorOpen(false)}
+          saving={profileSaving}
+          error={profileError}
+          hasProfile={Boolean(profile)}
+        />
+      )}
     </div>
   );
 }
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
-root.render(<DemonList />);
+root.render(<App />);
+
 </script>
 </body>
 </html>
