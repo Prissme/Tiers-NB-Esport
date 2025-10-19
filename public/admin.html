@@ -165,6 +165,15 @@
     let playersCache = [];
     let usersCache = [];
 
+    function escapeHtml(str = '') {
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
     function initAdminToken() {
       adminToken = localStorage.getItem('adminToken') || '';
       document.getElementById('adminTokenInput').value = adminToken;
@@ -279,27 +288,55 @@
         const statusIcon = confirmed ? '✅' : '⏳';
         const statusColor = confirmed ? 'text-green-400' : 'text-yellow-400';
         const linkedPlayer = playersCache.find((p) => p.user_id === user.id);
+        const linkedPlayerName = linkedPlayer ? escapeHtml(linkedPlayer.display_name || '') : '';
         const linkInfo = linkedPlayer
-          ? `<span class="text-green-400 font-medium">🔗 Lié à ${linkedPlayer.display_name}</span>`
+          ? `<span class="text-green-400 font-medium">🔗 Lié à ${linkedPlayerName}</span>`
           : '<span class="text-gray-400">Non lié</span>';
         const createdAt = user.created_at ? new Date(user.created_at).toLocaleString('fr-FR') : 'Inconnu';
         const lastSignIn = user.last_sign_in_at ? new Date(user.last_sign_in_at).toLocaleString('fr-FR') : 'Jamais';
-        const safeEmail = (user.email || '').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+        const rawEmail = user.email || '';
+        const safeEmail = escapeHtml(rawEmail);
+        const encodedEmail = encodeURIComponent(rawEmail);
+
+        const metadataDisplayName = user?.user_metadata?.display_name;
+        let rawMetadataDisplayName = '';
+        if (user?.raw_user_meta_data) {
+          if (typeof user.raw_user_meta_data === 'string') {
+            try {
+              const parsedMeta = JSON.parse(user.raw_user_meta_data);
+              rawMetadataDisplayName = parsedMeta?.display_name || '';
+            } catch (e) {
+              rawMetadataDisplayName = '';
+            }
+          } else if (typeof user.raw_user_meta_data === 'object') {
+            rawMetadataDisplayName = user.raw_user_meta_data?.display_name || '';
+          }
+        }
+
+        const displayName = metadataDisplayName || rawMetadataDisplayName || '';
+        const hasDisplayName = Boolean(displayName && displayName.trim());
+        const safeDisplayName = hasDisplayName ? escapeHtml(displayName) : '';
+        const pseudoClasses = hasDisplayName
+          ? 'text-xl font-bold text-gray-100 flex items-center gap-2'
+          : 'text-xl font-bold text-gray-400 italic flex items-center gap-2';
+        const pseudoLabel = hasDisplayName ? safeDisplayName : 'Pas de pseudo renseigné';
+        const emailLabel = safeEmail || 'Email inconnu';
 
         return `
           <div class="bg-gray-900 border border-cyan-500/40 hover:border-cyan-400 transition rounded-lg p-4">
             <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-              <div>
-                <p class="text-lg font-semibold text-gray-100">${safeEmail || 'Email inconnu'}</p>
-                <p class="text-sm text-gray-400">Inscription: ${createdAt}</p>
-                <p class="text-sm text-gray-500">Dernière connexion: ${lastSignIn}</p>
+              <div class="flex-1">
+                <p class="${pseudoClasses}"><span>🎮</span><span>${pseudoLabel}</span></p>
+                <p class="text-sm text-gray-300 break-all">${emailLabel}</p>
+                <p class="text-xs text-gray-400 mt-1">Inscription: ${createdAt}</p>
+                <p class="text-xs text-gray-500">Dernière connexion: ${lastSignIn}</p>
               </div>
               <div class="flex items-center gap-3">
                 <span class="${statusColor} text-xl">${statusIcon}</span>
                 <div class="text-sm">${linkInfo}</div>
                 <button
                   class="px-3 py-2 bg-purple-600 hover:bg-purple-500 rounded-lg font-semibold transition"
-                  data-email="${safeEmail}"
+                  data-email="${encodedEmail}"
                   onclick="autofillLinkForm(this.dataset.email)"
                 >
                   Lier →
@@ -313,9 +350,7 @@
     }
 
     function autofillLinkForm(email) {
-      const decodedEmail = email
-        .replace(/&quot;/g, '"')
-        .replace(/&#39;/g, "'");
+      const decodedEmail = email ? decodeURIComponent(email) : '';
       const emailInput = document.getElementById('linkUserEmail');
       emailInput.value = decodedEmail;
       emailInput.focus();
