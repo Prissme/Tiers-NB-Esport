@@ -59,7 +59,9 @@ exports.handler = async (event) => {
         email: user.email,
         created_at: user.created_at,
         email_confirmed_at: user.email_confirmed_at,
-        last_sign_in_at: user.last_sign_in_at
+        last_sign_in_at: user.last_sign_in_at,
+        user_metadata: user.user_metadata || null,
+        raw_user_meta_data: user.raw_user_meta_data || null
       }))
       .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
