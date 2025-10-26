@@ -76,6 +76,63 @@ const parseScrims = (value) => {
     .filter(item => item.length > 0);
 };
 
+const parsePlayersList = (value) => {
+  if (!value) return [];
+  if (Array.isArray(value)) {
+    return value.map(item => (typeof item === 'string' ? item.trim() : '')).filter(Boolean);
+  }
+  if (typeof value === 'string') {
+    try {
+      const parsed = JSON.parse(value);
+      if (Array.isArray(parsed)) {
+        return parsed.map(item => (typeof item === 'string' ? item.trim() : '')).filter(Boolean);
+      }
+    } catch (err) {
+      return value
+        .split('\n')
+        .map(item => item.trim())
+        .filter(Boolean);
+    }
+  }
+  return [];
+};
+
+const FREESCAPE_EVENT = Object.freeze({
+  slug: 'freescape-priscup-2025',
+  name: 'Freescape Cup · Série Priscup',
+  description:
+    "La Freescape Cup reprend l'esprit de Matcherino avec une page dédiée, un suivi automatique du bracket et une gestion complète des inscriptions Null's Brawl Esport.",
+  date: 'Samedi 15 mars 2025 · 20h00 CET',
+  format: '3v3 · Double élimination rapide',
+  slots: '16 équipes · 3 titulaires + 1 remplaçant',
+  prize: 'Cashprize communautaire + Rôle Freescape exclusif',
+  checkin: 'Check-in obligatoire 30 minutes avant le lancement',
+  matcherinoLink: 'https://matcherino.com/',
+  rules: [
+    'Chaque joueur doit disposer d’un compte Null\'s Brawl Esport validé.',
+    'Les équipes sont limitées à 3 titulaires et 1 remplaçant.',
+    'Le capitaine doit être présent sur le Discord pour les annonces officielles.',
+  ],
+  maps: [
+    { mode: 'Brawl Ball', name: 'Pinball Dreams' },
+    { mode: 'Gem Grab', name: 'Cristal Arc-en-ciel' },
+    { mode: 'Knockout', name: 'Belle Prairie' },
+    { mode: 'Bounty', name: 'Soleil Noir' },
+  ],
+});
+
+const FREESCAPE_FORM_DEFAULT = Object.freeze({
+  teamName: '',
+  captain: '',
+  playerTwo: '',
+  playerThree: '',
+  substitute: '',
+  discord: '',
+  matcherino: '',
+  notes: '',
+  mapPreference: '',
+});
+
 const formatPlayer = (player, index) => {
   if (!player) return null;
   const recentScrims = parseScrims(player.recent_scrims);
@@ -427,6 +484,277 @@ const ProfileEditor = ({ formState, onChange, onSave, onClose, saving, error, ha
   );
 };
 
+const FreescapeSection = ({
+  event,
+  session,
+  form,
+  onChange,
+  onSubmit,
+  onCancel,
+  registration,
+  loading,
+  submitting,
+  deleting,
+  error,
+  success,
+  onLogin,
+}) => {
+  const InfoCard = ({ icon, label, value }) => (
+    <div className="bg-gray-900/50 border border-white/5 rounded-lg p-4">
+      <div className="text-2xl mb-2">{icon}</div>
+      <p className="text-xs uppercase tracking-wide text-gray-400">{label}</p>
+      <p className="text-base sm:text-lg font-semibold text-gray-100">{value}</p>
+    </div>
+  );
+
+  return (
+    <div className="glass-effect rounded-xl p-4 sm:p-6 shadow-2xl">
+      <div className="flex flex-col lg:flex-row gap-6">
+        <div className="lg:w-1/2 space-y-5">
+          <div>
+            <p className="text-indigo-400 uppercase text-xs tracking-[0.3em]">Freescape Series</p>
+            <h2 className="text-2xl sm:text-3xl font-bold text-gray-100 mt-2">{event.name}</h2>
+            <p className="text-sm sm:text-base text-gray-300 mt-2 leading-relaxed">{event.description}</p>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3 sm:gap-4">
+            <InfoCard icon="🗓️" label="Date" value={event.date} />
+            <InfoCard icon="⚔️" label="Format" value={event.format} />
+            <InfoCard icon="👥" label="Places" value={event.slots} />
+            <InfoCard icon="🏆" label="Récompenses" value={event.prize} />
+          </div>
+
+          <div className="bg-gray-900/50 border border-white/5 rounded-lg p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-semibold text-gray-200">Rotation de maps</p>
+              <span className="text-xs text-gray-400">Sujet à ajustements</span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {event.maps.map((map) => (
+                <div
+                  key={`${map.mode}-${map.name}`}
+                  className="bg-gray-950/50 border border-indigo-500/20 rounded-lg px-3 py-2"
+                >
+                  <p className="text-xs text-indigo-300 uppercase tracking-wide">{map.mode}</p>
+                  <p className="text-sm font-semibold text-gray-100">{map.name}</p>
+                </div>
+              ))}
+            </div>
+            <p className="text-xs text-gray-400 italic">
+              Le bracket Freescape est généré automatiquement à l'heure du tournoi et se synchronise avec la page Matcherino dédiée.
+            </p>
+          </div>
+
+          <div className="bg-gray-900/50 border border-white/5 rounded-lg p-4 space-y-2">
+            <p className="text-sm font-semibold text-gray-200">À savoir</p>
+            {[event.checkin, ...event.rules].map((rule, index) => (
+              <p key={index} className="text-sm text-gray-300 flex gap-2">
+                <span className="text-indigo-400">•</span>
+                <span>{rule}</span>
+              </p>
+            ))}
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            <a
+              href={event.matcherinoLink}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 transition text-sm font-semibold"
+            >
+              Ouvrir la page Matcherino
+            </a>
+            <a
+              href="https://discord.gg/prissme"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-4 py-2 rounded-lg bg-gray-800 hover:bg-gray-700 transition text-sm font-semibold"
+            >
+              Rejoindre le Discord
+            </a>
+          </div>
+        </div>
+
+        <div className="lg:w-1/2 bg-gray-900/50 border border-white/5 rounded-lg p-4 sm:p-5 space-y-4">
+          <div>
+            <h3 className="text-xl font-semibold text-gray-100">Inscription Freescape</h3>
+            <p className="text-sm text-gray-400">Crée ta fiche d'équipe pour verrouiller ta place sur le bracket automatique.</p>
+          </div>
+
+          {loading ? (
+            <div className="text-sm text-gray-300">Chargement de ton inscription en cours...</div>
+          ) : session ? (
+            <form onSubmit={onSubmit} className="space-y-4">
+              {registration && (
+                <div className="bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-sm rounded-lg p-3">
+                  <p className="font-semibold">Tu es inscrit pour la Freescape Cup !</p>
+                  <p className="mt-1">Équipe : <span className="text-gray-100">{registration.team_name}</span></p>
+                  {registration.share_code && (
+                    <p className="mt-1 text-xs text-emerald-200">
+                      Code d'invitation : <code className="font-mono text-sm">{registration.share_code}</code>
+                    </p>
+                  )}
+                  <p className="mt-1 text-xs text-emerald-200">Modifie les informations ci-dessous pour mettre à jour ta fiche.</p>
+                </div>
+              )}
+
+              {success && (
+                <div className="bg-emerald-500/10 border border-emerald-500/30 text-emerald-200 text-sm rounded-lg p-3">
+                  {success}
+                </div>
+              )}
+
+              {error && (
+                <div className="bg-red-500/10 border border-red-500/30 text-red-200 text-sm rounded-lg p-3">
+                  {error}
+                </div>
+              )}
+
+              <div className="space-y-2">
+                <label className="text-sm text-gray-300 font-semibold">Nom d'équipe</label>
+                <input
+                  type="text"
+                  required
+                  maxLength={32}
+                  value={form.teamName}
+                  onChange={onChange('teamName')}
+                  className="w-full px-3 py-2 rounded-lg bg-gray-950/60 border border-gray-800 focus:border-indigo-500 focus:outline-none text-sm"
+                  placeholder="Ex : Freescape Titans"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <label className="text-sm text-gray-300 font-semibold">Capitaine / Brawler ID</label>
+                  <input
+                    type="text"
+                    required
+                    value={form.captain}
+                    onChange={onChange('captain')}
+                    className="w-full px-3 py-2 rounded-lg bg-gray-950/60 border border-gray-800 focus:border-indigo-500 focus:outline-none text-sm"
+                    placeholder="Pseudo du capitaine"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm text-gray-300 font-semibold">Discord / Contact</label>
+                  <input
+                    type="text"
+                    required
+                    value={form.discord}
+                    onChange={onChange('discord')}
+                    className="w-full px-3 py-2 rounded-lg bg-gray-950/60 border border-gray-800 focus:border-indigo-500 focus:outline-none text-sm"
+                    placeholder="Ex : Prissme#0001"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <label className="text-sm text-gray-300 font-semibold">Titulaire #2</label>
+                  <input
+                    type="text"
+                    required
+                    value={form.playerTwo}
+                    onChange={onChange('playerTwo')}
+                    className="w-full px-3 py-2 rounded-lg bg-gray-950/60 border border-gray-800 focus:border-indigo-500 focus:outline-none text-sm"
+                    placeholder="Pseudo du joueur"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm text-gray-300 font-semibold">Titulaire #3</label>
+                  <input
+                    type="text"
+                    required
+                    value={form.playerThree}
+                    onChange={onChange('playerThree')}
+                    className="w-full px-3 py-2 rounded-lg bg-gray-950/60 border border-gray-800 focus:border-indigo-500 focus:outline-none text-sm"
+                    placeholder="Pseudo du joueur"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <label className="text-sm text-gray-300 font-semibold">Remplaçant (optionnel)</label>
+                  <input
+                    type="text"
+                    value={form.substitute}
+                    onChange={onChange('substitute')}
+                    className="w-full px-3 py-2 rounded-lg bg-gray-950/60 border border-gray-800 focus:border-indigo-500 focus:outline-none text-sm"
+                    placeholder="Pseudo du remplaçant"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm text-gray-300 font-semibold">Lien Matcherino (optionnel)</label>
+                  <input
+                    type="url"
+                    value={form.matcherino}
+                    onChange={onChange('matcherino')}
+                    className="w-full px-3 py-2 rounded-lg bg-gray-950/60 border border-gray-800 focus:border-indigo-500 focus:outline-none text-sm"
+                    placeholder="https://matcherino.com/..."
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm text-gray-300 font-semibold">Map préférée / Notes staff</label>
+                <textarea
+                  rows="3"
+                  value={form.mapPreference}
+                  onChange={onChange('mapPreference')}
+                  className="w-full px-3 py-2 rounded-lg bg-gray-950/60 border border-gray-800 focus:border-indigo-500 focus:outline-none text-sm"
+                  placeholder="Indique ta map coup de cœur, un créneau ou un message pour l'admin."
+                ></textarea>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm text-gray-300 font-semibold">Notes additionnelles (optionnel)</label>
+                <textarea
+                  rows="3"
+                  value={form.notes}
+                  onChange={onChange('notes')}
+                  className="w-full px-3 py-2 rounded-lg bg-gray-950/60 border border-gray-800 focus:border-indigo-500 focus:outline-none text-sm"
+                  placeholder="Ajoute un lien de line-up, un coach, etc."
+                ></textarea>
+              </div>
+
+              <div className="flex flex-col sm:flex-row gap-3">
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="flex-1 px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 transition text-sm font-semibold disabled:opacity-60"
+                >
+                  {submitting ? 'Enregistrement...' : registration ? 'Mettre à jour mon inscription' : 'Valider mon inscription'}
+                </button>
+                {registration && (
+                  <button
+                    type="button"
+                    onClick={onCancel}
+                    disabled={deleting}
+                    className="px-4 py-2 rounded-lg bg-gray-800 hover:bg-gray-700 transition text-sm disabled:opacity-60"
+                  >
+                    {deleting ? 'Annulation...' : 'Annuler mon inscription'}
+                  </button>
+                )}
+              </div>
+            </form>
+          ) : (
+            <div className="space-y-4 text-sm text-gray-300">
+              <p>Connecte-toi ou crée un compte Null's Brawl Esport pour inscrire ton équipe Freescape.</p>
+              <button
+                onClick={onLogin}
+                className="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 transition text-sm font-semibold"
+              >
+                Se connecter / S'inscrire
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 function App() {
   const [players, setPlayers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -456,6 +784,14 @@ function App() {
   });
   const [profileSaving, setProfileSaving] = useState(false);
   const [profileError, setProfileError] = useState('');
+
+  const [freescapeForm, setFreescapeForm] = useState(() => ({ ...FREESCAPE_FORM_DEFAULT }));
+  const [freescapeRegistration, setFreescapeRegistration] = useState(null);
+  const [freescapeLoadingRegistration, setFreescapeLoadingRegistration] = useState(false);
+  const [freescapeSubmitting, setFreescapeSubmitting] = useState(false);
+  const [freescapeDeleting, setFreescapeDeleting] = useState(false);
+  const [freescapeError, setFreescapeError] = useState('');
+  const [freescapeSuccess, setFreescapeSuccess] = useState('');
 
   const tiers = ['ALL','S','A','B','C','D','E','No-tier'];
 
@@ -614,6 +950,94 @@ function App() {
     loadProfile();
   }, [session, supabaseClient, formatProfileFromApi]);
 
+  const freescapeField = (field) => (event) => {
+    const value = event.target.value;
+    setFreescapeForm((prev) => ({ ...prev, [field]: value }));
+    setFreescapeError('');
+    setFreescapeSuccess('');
+  };
+
+  const requireAuth = useCallback(() => {
+    setAuthMode('login');
+    setAuthModalOpen(true);
+  }, []);
+
+  const syncFreescapeFormWithProfile = useCallback(() => {
+    setFreescapeForm((prev) => ({
+      ...prev,
+      captain: prev.captain || profile?.name || '',
+      discord: prev.discord || profile?.socialLinks?.discord || '',
+    }));
+  }, [profile]);
+
+  const fetchFreescapeRegistration = useCallback(async () => {
+    if (!session?.access_token) {
+      setFreescapeRegistration(null);
+      setFreescapeSuccess('');
+      if (profile) {
+        syncFreescapeFormWithProfile();
+      } else {
+        setFreescapeForm({ ...FREESCAPE_FORM_DEFAULT });
+      }
+      return;
+    }
+
+    setFreescapeLoadingRegistration(true);
+    setFreescapeError('');
+
+    try {
+      const response = await fetch(`${API_BASE}/freescapeRegistration`, {
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      });
+      const result = await response.json();
+      if (result.ok) {
+        const registration = result.registration
+          ? {
+              ...result.registration,
+              players: parsePlayersList(result.registration.players),
+            }
+          : null;
+        setFreescapeRegistration(registration);
+        if (registration) {
+          const players = registration.players || [];
+          setFreescapeForm((prev) => ({
+            ...prev,
+            teamName: registration.team_name || '',
+            captain: registration.captain_name || players[0] || profile?.name || '',
+            playerTwo: players[1] || '',
+            playerThree: players[2] || '',
+            substitute: registration.substitute || '',
+            matcherino: registration.matcherino_link || '',
+            notes: registration.notes || '',
+            mapPreference: registration.map_preference || '',
+            discord: registration.contact || prev.discord || profile?.socialLinks?.discord || '',
+          }));
+        } else {
+          syncFreescapeFormWithProfile();
+        }
+      } else {
+        setFreescapeError(result.error || 'Impossible de charger ton inscription Freescape.');
+      }
+    } catch (err) {
+      console.error('Freescape fetch error:', err);
+      setFreescapeError(err.message || 'Impossible de charger ton inscription Freescape.');
+    } finally {
+      setFreescapeLoadingRegistration(false);
+    }
+  }, [session, profile, syncFreescapeFormWithProfile]);
+
+  useEffect(() => {
+    fetchFreescapeRegistration();
+  }, [fetchFreescapeRegistration]);
+
+  useEffect(() => {
+    if (profile && session?.access_token && !freescapeRegistration) {
+      syncFreescapeFormWithProfile();
+    }
+  }, [profile, session, freescapeRegistration, syncFreescapeFormWithProfile]);
+
   const filteredPlayers = useMemo(() => {
     let list = [...players];
     if (selectedTier !== 'ALL') list = list.filter(p => p.tier === selectedTier);
@@ -686,6 +1110,7 @@ function App() {
       if (result.ok && result.player) {
         setProfile(formatProfileFromApi(result.player));
         fetchPlayers();
+        fetchFreescapeRegistration();
       }
     } catch (err) {
       console.error('Sync profile error:', err);
@@ -748,6 +1173,7 @@ function App() {
         setProfile(formatProfileFromApi(updated));
         setProfileEditorOpen(false);
         fetchPlayers();
+        fetchFreescapeRegistration();
       } else {
         setProfileError(result.error || 'Impossible de sauvegarder le profil.');
       }
@@ -759,11 +1185,156 @@ function App() {
     }
   };
 
+  const handleFreescapeSubmit = async (event) => {
+    event.preventDefault();
+
+    if (!session?.access_token) {
+      requireAuth();
+      return;
+    }
+
+    setFreescapeError('');
+    setFreescapeSuccess('');
+
+    const teamName = freescapeForm.teamName.trim();
+    const captain = freescapeForm.captain.trim();
+    const playerTwo = freescapeForm.playerTwo.trim();
+    const playerThree = freescapeForm.playerThree.trim();
+    const contact = freescapeForm.discord.trim();
+    const substitute = freescapeForm.substitute.trim();
+    const matcherino = freescapeForm.matcherino.trim();
+    const notes = freescapeForm.notes.trim();
+    const mapPreference = freescapeForm.mapPreference.trim();
+
+    if (teamName.length < 3) {
+      setFreescapeError("Choisis un nom d'équipe d'au moins 3 caractères.");
+      return;
+    }
+
+    const players = [captain, playerTwo, playerThree]
+      .map((name) => name.replace(/\s+/g, ' ').trim())
+      .filter(Boolean);
+
+    if (players.length < 3) {
+      setFreescapeError('Indique les pseudos des trois titulaires.');
+      return;
+    }
+
+    const uniquePlayers = new Set(players.map((name) => name.toLowerCase()));
+    if (uniquePlayers.size !== players.length) {
+      setFreescapeError('Chaque titulaire doit avoir un pseudo unique.');
+      return;
+    }
+
+    if (!contact || contact.length < 3) {
+      setFreescapeError('Ajoute un contact Discord ou une méthode de contact valide.');
+      return;
+    }
+
+    const payload = {
+      team_name: teamName,
+      captain_name: players[0],
+      players,
+      contact,
+      substitute: substitute || null,
+      matcherino_link: matcherino || null,
+      notes: notes || null,
+      map_preference: mapPreference || null,
+    };
+
+    setFreescapeSubmitting(true);
+
+    try {
+      const response = await fetch(`${API_BASE}/freescapeRegistration`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify(payload),
+      });
+      const result = await response.json();
+      if (result.ok) {
+        const registration = result.registration
+          ? {
+              ...result.registration,
+              players: parsePlayersList(result.registration.players),
+            }
+          : null;
+        setFreescapeRegistration(registration);
+        if (registration) {
+          const playersFromServer = registration.players || players;
+          setFreescapeForm((prev) => ({
+            ...prev,
+            teamName: registration.team_name || teamName,
+            captain: registration.captain_name || playersFromServer[0] || captain,
+            playerTwo: playersFromServer[1] || playerTwo,
+            playerThree: playersFromServer[2] || playerThree,
+            substitute: registration.substitute || substitute,
+            matcherino: registration.matcherino_link || matcherino,
+            notes: registration.notes || notes,
+            mapPreference: registration.map_preference || mapPreference,
+            discord: registration.contact || contact,
+          }));
+        }
+        setFreescapeSuccess('Ton inscription Freescape est enregistrée !');
+      } else {
+        setFreescapeError(result.error || "Impossible d'enregistrer ton inscription Freescape.");
+      }
+    } catch (err) {
+      console.error('Freescape submit error:', err);
+      setFreescapeError(err.message || "Impossible d'enregistrer ton inscription Freescape.");
+    } finally {
+      setFreescapeSubmitting(false);
+    }
+  };
+
+  const handleFreescapeCancel = async () => {
+    if (!session?.access_token) {
+      requireAuth();
+      return;
+    }
+
+    setFreescapeError('');
+    setFreescapeSuccess('');
+    setFreescapeDeleting(true);
+
+    try {
+      const response = await fetch(`${API_BASE}/freescapeRegistration`, {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      });
+      const result = await response.json();
+      if (result.ok) {
+        setFreescapeRegistration(null);
+        setFreescapeForm({
+          ...FREESCAPE_FORM_DEFAULT,
+          captain: profile?.name || '',
+          discord: profile?.socialLinks?.discord || '',
+        });
+        setFreescapeSuccess('Ton inscription Freescape a été annulée.');
+      } else {
+        setFreescapeError(result.error || "Impossible d'annuler ton inscription.");
+      }
+    } catch (err) {
+      console.error('Freescape cancel error:', err);
+      setFreescapeError(err.message || "Impossible d'annuler ton inscription.");
+    } finally {
+      setFreescapeDeleting(false);
+    }
+  };
+
   const handleSignOut = async () => {
     if (!supabaseClient) return;
     await supabaseClient.auth.signOut();
     setProfile(null);
     setSelectedPlayer(null);
+    setFreescapeRegistration(null);
+    setFreescapeForm({ ...FREESCAPE_FORM_DEFAULT });
+    setFreescapeSuccess('');
+    setFreescapeError('');
   };
 
   if (loading) {
@@ -895,6 +1466,24 @@ function App() {
           )}
         </div>
       </header>
+
+      <section className="max-w-5xl mx-auto mb-6 sm:mb-8">
+        <FreescapeSection
+          event={FREESCAPE_EVENT}
+          session={session}
+          form={freescapeForm}
+          onChange={freescapeField}
+          onSubmit={handleFreescapeSubmit}
+          onCancel={handleFreescapeCancel}
+          registration={freescapeRegistration}
+          loading={freescapeLoadingRegistration}
+          submitting={freescapeSubmitting}
+          deleting={freescapeDeleting}
+          error={freescapeError}
+          success={freescapeSuccess}
+          onLogin={requireAuth}
+        />
+      </section>
 
       <section className="max-w-5xl mx-auto mb-6 sm:mb-8">
         <div className="glass-effect rounded-xl p-4 sm:p-6 shadow-2xl">
