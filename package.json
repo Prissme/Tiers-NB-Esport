@@ -1,9 +1,8 @@
 {
   "name": "nulls-brawl-ranking",
   "version": "1.0.0",
-  "description": "Système de ranking automatique pour Nulls Brawl Esport",
+  "description": "Classement Top 50 Null's Brawl Esport",
   "dependencies": {
-    "@supabase/supabase-js": "^2.39.0",
-    "uuid": "^9.0.1"
+    "@supabase/supabase-js": "^2.39.0"
   }
 }
