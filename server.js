@@ -155,11 +155,40 @@ async function injectAppConfig(fileBuffer) {
   return Buffer.from(`${html}\n${script}`, 'utf8');
 }
 
+const SUPABASE_URL = process.env.SUPABASE_URL || '';
+const API_BASE = process.env.API_BASE || '';
+
+const { SUPABASE_ANON_KEY: PRIMARY_SUPABASE_ANON_KEY, SUPABASE_PUBLIC_ANON_KEY, SUPABASE_PUBLIC_KEY, SUPABASE_KEY } = process.env;
+
+let resolvedAnonKey = '';
+let anonKeySource = '';
+
+if (PRIMARY_SUPABASE_ANON_KEY) {
+  resolvedAnonKey = PRIMARY_SUPABASE_ANON_KEY;
+  anonKeySource = 'SUPABASE_ANON_KEY';
+} else if (SUPABASE_PUBLIC_ANON_KEY) {
+  resolvedAnonKey = SUPABASE_PUBLIC_ANON_KEY;
+  anonKeySource = 'SUPABASE_PUBLIC_ANON_KEY';
+} else if (SUPABASE_PUBLIC_KEY) {
+  resolvedAnonKey = SUPABASE_PUBLIC_KEY;
+  anonKeySource = 'SUPABASE_PUBLIC_KEY';
+} else if (SUPABASE_KEY) {
+  resolvedAnonKey = SUPABASE_KEY;
+  anonKeySource = 'SUPABASE_KEY';
+}
+
+if (anonKeySource === 'SUPABASE_KEY') {
+  console.warn(
+    'Warning: Falling back to SUPABASE_KEY for the public Supabase client. '
+      + 'Expose only anon/public keys to the frontend. Consider setting SUPABASE_ANON_KEY instead.'
+  );
+}
+
 function buildAppConfigScript() {
   const config = {
-    supabaseUrl: process.env.SUPABASE_URL || '',
-    supabaseAnonKey: process.env.SUPABASE_ANON_KEY || '',
-    apiBase: process.env.API_BASE || ''
+    supabaseUrl: SUPABASE_URL,
+    supabaseAnonKey: resolvedAnonKey,
+    apiBase: API_BASE
   };
 
   const serializedConfig = JSON.stringify(config)
