@@ -84,7 +84,12 @@ async function serveStatic(req, res) {
   }
 
   try {
-    const fileBuffer = await fs.promises.readFile(resolvedPath);
+    let fileBuffer = await fs.promises.readFile(resolvedPath);
+
+    if (path.basename(resolvedPath) === 'index.html') {
+      fileBuffer = await injectAppConfig(fileBuffer);
+    }
+
     const contentType = getContentType(resolvedPath);
     res.writeHead(200, {
       'Content-Type': contentType,
@@ -110,20 +115,63 @@ async function serveFallbackIndex(res, method = 'GET') {
   try {
     const indexPath = path.join(PUBLIC_DIR, 'index.html');
     const fileBuffer = await fs.promises.readFile(indexPath);
+    const transformedBuffer = await injectAppConfig(fileBuffer);
     res.writeHead(200, {
       'Content-Type': 'text/html; charset=utf-8',
-      'Content-Length': fileBuffer.length
+      'Content-Length': transformedBuffer.length
     });
 
     if (method === 'HEAD') {
       res.end();
     } else {
-      res.end(fileBuffer);
+      res.end(transformedBuffer);
     }
   } catch (error) {
     console.error('Unable to load fallback index.html:', error);
     sendText(res, 500, 'Internal Server Error');
   }
+}
+
+async function injectAppConfig(fileBuffer) {
+  const html = fileBuffer.toString('utf8');
+  const script = buildAppConfigScript();
+
+  if (!script) {
+    return fileBuffer;
+  }
+
+  const closingHeadTag = '</head>';
+  if (html.includes(closingHeadTag)) {
+    const injectedHtml = html.replace(closingHeadTag, `${script}\n${closingHeadTag}`);
+    return Buffer.from(injectedHtml, 'utf8');
+  }
+
+  const closingBodyTag = '</body>';
+  if (html.includes(closingBodyTag)) {
+    const injectedHtml = html.replace(closingBodyTag, `${script}\n${closingBodyTag}`);
+    return Buffer.from(injectedHtml, 'utf8');
+  }
+
+  return Buffer.from(`${html}\n${script}`, 'utf8');
+}
+
+function buildAppConfigScript() {
+  const config = {
+    supabaseUrl: process.env.SUPABASE_URL || '',
+    supabaseAnonKey: process.env.SUPABASE_ANON_KEY || '',
+    apiBase: process.env.API_BASE || ''
+  };
+
+  const serializedConfig = JSON.stringify(config)
+    .replace(/</g, '\\u003c')
+    .replace(/>/g, '\\u003e')
+    .replace(/&/g, '\\u0026');
+
+  if (serializedConfig === undefined) {
+    return '';
+  }
+
+  return `<script>window.APP_CONFIG = Object.assign({}, window.APP_CONFIG, ${serializedConfig});</script>`;
 }
 
 function createServer() {
