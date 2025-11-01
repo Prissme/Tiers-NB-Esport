@@ -174,6 +174,21 @@ const PUBLIC_SUPABASE_KEYS = [
 const publicKeyEntry = PUBLIC_SUPABASE_KEYS.find((entry) => entry.value);
 const resolvedAnonKey = publicKeyEntry ? publicKeyEntry.value : '';
 
+  if (!publicKeyEntry && SUPABASE_KEY) {
+    console.warn(
+      'Supabase service key detected but no anon/public key configured. '
+        + 'Configure SUPABASE_ANON_KEY to allow Discord login.'
+    );
+  }
+
+  if (!publicKeyEntry) {
+    console.warn(
+      [
+        'No public Supabase anon key detected.',
+        'Set SUPABASE_ANON_KEY (or SUPABASE_PUBLIC_ANON_KEY/SUPABASE_PUBLIC_KEY) to enable client-side auth.'
+      ].join(' ')
+    );
+  }
 if (!publicKeyEntry && SUPABASE_KEY) {
   console.warn(
     'Supabase service key detected but no anon/public key configured. '
