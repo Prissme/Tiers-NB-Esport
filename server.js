@@ -172,23 +172,18 @@ const PUBLIC_SUPABASE_KEYS = [
 ];
 
 const publicKeyEntry = PUBLIC_SUPABASE_KEYS.find((entry) => entry.value);
-const resolvedAnonKey = publicKeyEntry ? publicKeyEntry.value : '';
 
-  if (!publicKeyEntry && SUPABASE_KEY) {
-    console.warn(
-      'Supabase service key detected but no anon/public key configured. '
-        + 'Configure SUPABASE_ANON_KEY to allow Discord login.'
-    );
-  }
+let resolvedAnonKey = '';
+let anonKeySource = '';
 
-  if (!publicKeyEntry) {
-    console.warn(
-      [
-        'No public Supabase anon key detected.',
-        'Set SUPABASE_ANON_KEY (or SUPABASE_PUBLIC_ANON_KEY/SUPABASE_PUBLIC_KEY) to enable client-side auth.'
-      ].join(' ')
-    );
-  }
+if (publicKeyEntry) {
+  resolvedAnonKey = publicKeyEntry.value;
+  anonKeySource = publicKeyEntry.source;
+} else if (SUPABASE_KEY) {
+  resolvedAnonKey = SUPABASE_KEY;
+  anonKeySource = 'SUPABASE_KEY';
+}
+
 if (!publicKeyEntry && SUPABASE_KEY) {
   console.warn(
     'Supabase service key detected but no anon/public key configured. '
@@ -198,24 +193,11 @@ if (!publicKeyEntry && SUPABASE_KEY) {
 
 if (!publicKeyEntry) {
   console.warn(
-    'No public Supabase anon key detected. Set SUPABASE_ANON_KEY (or SUPABASE_PUBLIC_ANON_KEY/SUPABASE_PUBLIC_KEY) to enable client-side auth.'
-const { SUPABASE_ANON_KEY: PRIMARY_SUPABASE_ANON_KEY, SUPABASE_PUBLIC_ANON_KEY, SUPABASE_PUBLIC_KEY, SUPABASE_KEY } = process.env;
-
-let resolvedAnonKey = '';
-let anonKeySource = '';
-
-if (PRIMARY_SUPABASE_ANON_KEY) {
-  resolvedAnonKey = PRIMARY_SUPABASE_ANON_KEY;
-  anonKeySource = 'SUPABASE_ANON_KEY';
-} else if (SUPABASE_PUBLIC_ANON_KEY) {
-  resolvedAnonKey = SUPABASE_PUBLIC_ANON_KEY;
-  anonKeySource = 'SUPABASE_PUBLIC_ANON_KEY';
-} else if (SUPABASE_PUBLIC_KEY) {
-  resolvedAnonKey = SUPABASE_PUBLIC_KEY;
-  anonKeySource = 'SUPABASE_PUBLIC_KEY';
-} else if (SUPABASE_KEY) {
-  resolvedAnonKey = SUPABASE_KEY;
-  anonKeySource = 'SUPABASE_KEY';
+    [
+      'No public Supabase anon key detected.',
+      'Set SUPABASE_ANON_KEY (or SUPABASE_PUBLIC_ANON_KEY/SUPABASE_PUBLIC_KEY) to enable client-side auth.'
+    ].join(' ')
+  );
 }
 
 if (anonKeySource === 'SUPABASE_KEY') {
