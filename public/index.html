@@ -335,9 +335,10 @@
     <script type="module">
       import { createClient } from 'https://esm.sh/@supabase/supabase-js@2?bundle';
 
-      const API_BASE = ['localhost', '127.0.0.1'].includes(window.location.hostname)
-        ? 'http://localhost:8888/.netlify/functions'
-        : '/api';
+      const API_BASE = (window.APP_CONFIG?.apiBase || `${window.location.origin.replace(/\/$/, '')}/api`).replace(
+        /\/$/,
+        ''
+      );
 
       const statusElement = document.getElementById('status');
       const rankingElement = document.getElementById('ranking');
