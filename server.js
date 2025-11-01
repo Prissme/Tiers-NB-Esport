@@ -158,6 +158,32 @@ async function injectAppConfig(fileBuffer) {
 const SUPABASE_URL = process.env.SUPABASE_URL || '';
 const API_BASE = process.env.API_BASE || '';
 
+const {
+  SUPABASE_ANON_KEY: PRIMARY_SUPABASE_ANON_KEY,
+  SUPABASE_PUBLIC_ANON_KEY,
+  SUPABASE_PUBLIC_KEY,
+  SUPABASE_KEY
+} = process.env;
+
+const PUBLIC_SUPABASE_KEYS = [
+  { value: PRIMARY_SUPABASE_ANON_KEY, source: 'SUPABASE_ANON_KEY' },
+  { value: SUPABASE_PUBLIC_ANON_KEY, source: 'SUPABASE_PUBLIC_ANON_KEY' },
+  { value: SUPABASE_PUBLIC_KEY, source: 'SUPABASE_PUBLIC_KEY' }
+];
+
+const publicKeyEntry = PUBLIC_SUPABASE_KEYS.find((entry) => entry.value);
+const resolvedAnonKey = publicKeyEntry ? publicKeyEntry.value : '';
+
+if (!publicKeyEntry && SUPABASE_KEY) {
+  console.warn(
+    'Supabase service key detected but no anon/public key configured. '
+      + 'Configure SUPABASE_ANON_KEY to allow Discord login.'
+  );
+}
+
+if (!publicKeyEntry) {
+  console.warn(
+    'No public Supabase anon key detected. Set SUPABASE_ANON_KEY (or SUPABASE_PUBLIC_ANON_KEY/SUPABASE_PUBLIC_KEY) to enable client-side auth.'
 const { SUPABASE_ANON_KEY: PRIMARY_SUPABASE_ANON_KEY, SUPABASE_PUBLIC_ANON_KEY, SUPABASE_PUBLIC_KEY, SUPABASE_KEY } = process.env;
 
 let resolvedAnonKey = '';
