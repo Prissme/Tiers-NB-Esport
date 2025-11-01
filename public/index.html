@@ -76,6 +76,16 @@
         padding: 2rem 1rem;
       }
 
+      .card h2 {
+        margin-top: 0;
+        font-size: 1.4rem;
+      }
+
+      .card p {
+        color: var(--muted);
+        line-height: 1.5;
+      }
+
       ol.ranking {
         list-style: none;
         margin: 0;
@@ -141,6 +151,84 @@
         letter-spacing: 0.04em;
       }
 
+      .auth-controls {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+        justify-content: center;
+        margin-top: 1rem;
+      }
+
+      button.cta {
+        background: var(--accent);
+        color: #0a0b10;
+        border: none;
+        border-radius: 999px;
+        padding: 0.6rem 1.4rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+      }
+
+      button.cta:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 12px 30px rgba(250, 204, 21, 0.25);
+      }
+
+      button.cta[disabled] {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+
+      .auth-status {
+        text-align: center;
+        font-size: 0.95rem;
+        color: var(--muted);
+      }
+
+      .admin-grid {
+        display: grid;
+        gap: 1.5rem;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        margin-bottom: 1.5rem;
+      }
+
+      .admin-grid h3 {
+        margin: 0 0 0.75rem;
+        font-size: 1.1rem;
+      }
+
+      .admin-grid select {
+        width: 100%;
+        padding: 0.55rem 0.75rem;
+        border-radius: 12px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        background: var(--bg-alt);
+        color: var(--text);
+        font-size: 0.95rem;
+      }
+
+      .admin-grid label {
+        display: block;
+        margin-bottom: 0.55rem;
+        font-size: 0.9rem;
+        color: var(--muted);
+      }
+
+      .admin-message {
+        text-align: center;
+        min-height: 1.5rem;
+        font-size: 0.9rem;
+      }
+
+      .admin-message.success {
+        color: #34d399;
+      }
+
+      .admin-message.error {
+        color: #f87171;
+      }
+
       footer {
         padding: 2rem 1.5rem 3rem;
         text-align: center;
@@ -188,6 +276,54 @@
     </header>
     <main>
       <section class="card">
+        <h2>Connexion</h2>
+        <p>
+          Connecte-toi avec ton compte Discord pour accéder aux outils réservés aux administrateurs. Les membres non
+          autorisés peuvent toujours consulter le classement mais ne pourront pas modifier les données.
+        </p>
+        <div id="auth-status" class="auth-status">Vérification de la session en cours…</div>
+        <div class="auth-controls">
+          <button id="login-discord" class="cta">Connexion Discord</button>
+          <button id="logout" class="cta" hidden>Se déconnecter</button>
+        </div>
+      </section>
+
+      <section id="admin-panel" class="card" hidden>
+        <h2>Panel administrateur</h2>
+        <p>
+          Sélectionne trois vainqueurs et trois perdants pour enregistrer un nouveau résultat. Le MMR sera ajusté selon
+          un modèle Elo pondéré (facteur K = 100) en tenant compte du poids individuel de chaque joueur et des
+          probabilités de victoire attendues.
+        </p>
+        <form id="match-form">
+          <div class="admin-grid">
+            <div>
+              <h3>Vainqueurs</h3>
+              <label for="winner-1">Vainqueur #1</label>
+              <select id="winner-1" data-role="winner"></select>
+              <label for="winner-2">Vainqueur #2</label>
+              <select id="winner-2" data-role="winner"></select>
+              <label for="winner-3">Vainqueur #3</label>
+              <select id="winner-3" data-role="winner"></select>
+            </div>
+            <div>
+              <h3>Perdants</h3>
+              <label for="loser-1">Perdant #1</label>
+              <select id="loser-1" data-role="loser"></select>
+              <label for="loser-2">Perdant #2</label>
+              <select id="loser-2" data-role="loser"></select>
+              <label for="loser-3">Perdant #3</label>
+              <select id="loser-3" data-role="loser"></select>
+            </div>
+          </div>
+          <div class="auth-controls">
+            <button type="submit" class="cta">Enregistrer le match</button>
+          </div>
+          <div id="match-status" class="admin-message" aria-live="polite"></div>
+        </form>
+      </section>
+
+      <section class="card">
         <div id="status" class="status">Chargement du classement…</div>
         <ol id="ranking" class="ranking" hidden></ol>
       </section>
@@ -196,13 +332,38 @@
       Null's Brawl Esport · Top 50 communautaire — Données fournies par Supabase
     </footer>
 
-    <script>
+    <script type="module">
+      import { createClient } from 'https://esm.sh/@supabase/supabase-js@2?bundle';
+
       const API_BASE = ['localhost', '127.0.0.1'].includes(window.location.hostname)
         ? 'http://localhost:8888/.netlify/functions'
         : '/api';
 
       const statusElement = document.getElementById('status');
       const rankingElement = document.getElementById('ranking');
+      const loginButton = document.getElementById('login-discord');
+      const logoutButton = document.getElementById('logout');
+      const authStatus = document.getElementById('auth-status');
+      const adminPanel = document.getElementById('admin-panel');
+      const matchForm = document.getElementById('match-form');
+      const matchStatus = document.getElementById('match-status');
+      const winnerSelects = Array.from(document.querySelectorAll('select[data-role="winner"]'));
+      const loserSelects = Array.from(document.querySelectorAll('select[data-role="loser"]'));
+
+      const SUPABASE_URL = window.APP_CONFIG?.supabaseUrl || '';
+      const SUPABASE_ANON_KEY = window.APP_CONFIG?.supabaseAnonKey || '';
+      let supabaseClient = null;
+      let currentSession = null;
+      let cachedPlayers = [];
+
+      if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+        authStatus.textContent =
+          'Configuration Supabase manquante. Renseigne APP_CONFIG.supabaseUrl et APP_CONFIG.supabaseAnonKey pour activer la connexion.';
+        loginButton.disabled = true;
+      } else {
+        supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        authStatus.textContent = 'Connexion non établie.';
+      }
 
       const formatRank = (rank) => {
         if (rank === 1) return '🥇';
@@ -229,7 +390,10 @@
         const name = document.createElement('h2');
         name.textContent = player.display_name;
         const subtitle = document.createElement('small');
-        subtitle.textContent = `${player.games_played || 0} matchs · ${formatWinRate(player.wins || 0, player.games_played || 0)}`;
+        subtitle.textContent = `${player.games_played || 0} matchs · ${formatWinRate(
+          player.wins || 0,
+          player.games_played || 0
+        )}`;
         info.append(name, subtitle);
 
         const stats = document.createElement('div');
@@ -276,6 +440,216 @@
           console.error(error);
           statusElement.textContent = "Une erreur est survenue lors du chargement du Top 50. Réessaie plus tard.";
         }
+      }
+
+      function buildOption(player) {
+        const option = document.createElement('option');
+        option.value = player.id;
+        const weight = player.weight ? ` · poids ${player.weight}` : '';
+        option.textContent = `${player.display_name} (${player.mmr} MMR${weight})`;
+        return option;
+      }
+
+      function populateSelects(players) {
+        const selects = [...winnerSelects, ...loserSelects];
+        selects.forEach((select) => {
+          select.innerHTML = '';
+          const placeholder = document.createElement('option');
+          placeholder.value = '';
+          placeholder.textContent = 'Sélectionne un joueur';
+          select.appendChild(placeholder);
+          players.forEach((player) => {
+            select.appendChild(buildOption(player));
+          });
+        });
+      }
+
+      function updateAuthUI(user, isAdmin) {
+        if (!user) {
+          authStatus.textContent = 'Aucune session active.';
+          loginButton.hidden = false;
+          logoutButton.hidden = true;
+          adminPanel.hidden = true;
+          matchStatus.textContent = '';
+          return;
+        }
+
+        authStatus.textContent = isAdmin
+          ? `Connecté en tant que ${user.full_name || user.email || 'admin'} — accès administrateur accordé.`
+          : `Connecté en tant que ${user.full_name || user.email || 'membre'} — accès administrateur refusé.`;
+        loginButton.hidden = true;
+        logoutButton.hidden = false;
+        adminPanel.hidden = !isAdmin;
+        if (!isAdmin) {
+          matchStatus.textContent = '';
+        }
+      }
+
+      async function fetchAdminStatus(token) {
+        try {
+          const response = await fetch(`${API_BASE}/checkAdmin`, {
+            headers: {
+              Authorization: `Bearer ${token}`
+            }
+          });
+
+          if (!response.ok) {
+            throw new Error('Statut administrateur indisponible.');
+          }
+
+          const payload = await response.json();
+          if (!payload.ok) {
+            throw new Error(payload.error || 'Statut administrateur indisponible.');
+          }
+
+          updateAuthUI(payload.user, payload.isAdmin);
+          if (payload.isAdmin) {
+            await loadPlayers(token);
+          }
+        } catch (error) {
+          console.error(error);
+          updateAuthUI(null, false);
+        }
+      }
+
+      async function loadPlayers(token) {
+        try {
+          const response = await fetch(`${API_BASE}/getPlayers`, {
+            headers: {
+              Authorization: `Bearer ${token}`
+            }
+          });
+
+          if (!response.ok) {
+            throw new Error('Impossible de charger les joueurs.');
+          }
+
+          const payload = await response.json();
+          if (!payload.ok || !Array.isArray(payload.players)) {
+            throw new Error('Réponse invalide.');
+          }
+
+          cachedPlayers = payload.players;
+          populateSelects(cachedPlayers);
+        } catch (error) {
+          console.error(error);
+          matchStatus.textContent = "Erreur lors du chargement des joueurs.";
+          matchStatus.className = 'admin-message error';
+        }
+      }
+
+      async function handleSession(session) {
+        currentSession = session;
+        if (!session) {
+          updateAuthUI(null, false);
+          return;
+        }
+        await fetchAdminStatus(session.access_token);
+      }
+
+      if (supabaseClient) {
+        supabaseClient.auth.getSession().then(({ data }) => {
+          handleSession(data.session);
+        });
+
+        supabaseClient.auth.onAuthStateChange((_event, session) => {
+          handleSession(session);
+        });
+      }
+
+      if (loginButton) {
+        loginButton.addEventListener('click', async () => {
+          if (!supabaseClient) {
+            alert('Configuration Supabase manquante.');
+            return;
+          }
+
+          loginButton.disabled = true;
+          loginButton.textContent = 'Redirection en cours…';
+          const { data, error } = await supabaseClient.auth.signInWithOAuth({
+            provider: 'discord',
+            options: {
+              redirectTo: window.location.origin
+            }
+          });
+
+          if (error) {
+            console.error(error);
+            loginButton.disabled = false;
+            loginButton.textContent = 'Connexion Discord';
+            authStatus.textContent = "La connexion a échoué. Réessaie plus tard.";
+            return;
+          }
+
+          window.location.href = data.url;
+        });
+      }
+
+      if (logoutButton) {
+        logoutButton.addEventListener('click', async () => {
+          if (!supabaseClient) return;
+          await supabaseClient.auth.signOut();
+        });
+      }
+
+      if (matchForm) {
+        matchForm.addEventListener('submit', async (event) => {
+          event.preventDefault();
+          if (!currentSession) {
+            matchStatus.textContent = 'Tu dois être connecté pour effectuer cette action.';
+            matchStatus.className = 'admin-message error';
+            return;
+          }
+
+          const winners = winnerSelects.map((select) => select.value).filter(Boolean);
+          const losers = loserSelects.map((select) => select.value).filter(Boolean);
+
+          if (winners.length !== 3 || losers.length !== 3) {
+            matchStatus.textContent = 'Sélectionne exactement trois vainqueurs et trois perdants.';
+            matchStatus.className = 'admin-message error';
+            return;
+          }
+
+          const uniqueIds = new Set([...winners, ...losers]);
+          if (uniqueIds.size !== 6) {
+            matchStatus.textContent = 'Un joueur ne peut être sélectionné qu’une seule fois.';
+            matchStatus.className = 'admin-message error';
+            return;
+          }
+
+          matchStatus.textContent = 'Enregistrement du match…';
+          matchStatus.className = 'admin-message';
+
+          try {
+            const response = await fetch(`${API_BASE}/submitMatch`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${currentSession.access_token}`
+              },
+              body: JSON.stringify({ winners, losers })
+            });
+
+            if (!response.ok) {
+              throw new Error('La mise à jour a échoué.');
+            }
+
+            const payload = await response.json();
+            if (!payload.ok) {
+              throw new Error(payload.error || 'La mise à jour a échoué.');
+            }
+
+            matchStatus.textContent = 'Match enregistré et MMR mis à jour avec succès.';
+            matchStatus.className = 'admin-message success';
+            await loadPlayers(currentSession.access_token);
+            matchForm.reset();
+            loadRanking();
+          } catch (error) {
+            console.error(error);
+            matchStatus.textContent = "Une erreur est survenue lors de l'enregistrement.";
+            matchStatus.className = 'admin-message error';
+          }
+        });
       }
 
       loadRanking();
