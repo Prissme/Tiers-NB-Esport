@@ -359,8 +359,12 @@
 
       if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
         authStatus.textContent =
-          'Configuration Supabase manquante. Renseigne APP_CONFIG.supabaseUrl et APP_CONFIG.supabaseAnonKey pour activer la connexion.';
-        loginButton.disabled = true;
+          'Configuration Supabase incomplète. Ajoute SUPABASE_URL et un anon key public (SUPABASE_ANON_KEY) pour activer la connexion Discord.';
+        if (loginButton) {
+          loginButton.disabled = true;
+          loginButton.title =
+            'Connexion indisponible : configure SUPABASE_ANON_KEY dans les variables d\'environnement pour activer Discord.';
+        }
       } else {
         supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
         authStatus.textContent = 'Connexion non établie.';
@@ -578,7 +582,13 @@
             console.error(error);
             loginButton.disabled = false;
             loginButton.textContent = 'Connexion Discord';
-            authStatus.textContent = "La connexion a échoué. Réessaie plus tard.";
+            const errorMessage = String(error.message || error.error_description || error.error || '').toLowerCase();
+            if (errorMessage.includes('provider is not enabled')) {
+              authStatus.textContent =
+                'La connexion Discord est désactivée sur Supabase. Active le fournisseur Discord dans le tableau de bord Supabase > Authentication > Providers.';
+            } else {
+              authStatus.textContent = "La connexion a échoué. Vérifie la configuration Supabase et réessaie.";
+            }
             return;
           }
 
