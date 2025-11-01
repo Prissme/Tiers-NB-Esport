@@ -393,6 +393,92 @@ async function handleSubmitMatch(req, res) {
   }
 }
 
+async function handleCreatePlayer(req, res) {
+  if (req.method !== 'POST') {
+    return sendJson(res, 405, { ok: false, error: 'method_not_allowed' });
+  }
+
+  const supabase = createSupabaseClient();
+  if (!supabase) {
+    console.error('Supabase credentials missing.');
+    return sendJson(res, 500, { ok: false, error: 'server_misconfigured' });
+  }
+
+  const token = getBearerToken(req.headers);
+  if (!token) {
+    return sendJson(res, 401, { ok: false, error: 'missing_token' });
+  }
+
+  let payload;
+  try {
+    payload = await readJsonBody(req);
+  } catch (error) {
+    if (error.message === 'invalid_json') {
+      return sendJson(res, 400, { ok: false, error: 'invalid_json' });
+    }
+
+    if (error.message === 'payload_too_large') {
+      return sendJson(res, 413, { ok: false, error: 'payload_too_large' });
+    }
+
+    console.error('Failed to parse create player payload.', error);
+    return sendJson(res, 500, { ok: false, error: 'unexpected_error' });
+  }
+
+  const rawDisplayName =
+    typeof payload?.display_name === 'string'
+      ? payload.display_name
+      : typeof payload?.displayName === 'string'
+      ? payload.displayName
+      : '';
+  const displayName = rawDisplayName.trim();
+
+  if (!displayName || displayName.length > 80) {
+    return sendJson(res, 400, { ok: false, error: 'invalid_display_name' });
+  }
+
+  let weight = Number(payload?.weight);
+  if (!Number.isFinite(weight) || weight <= 0) {
+    weight = 1;
+  } else {
+    weight = Math.round(weight * 100) / 100;
+  }
+
+  try {
+    const adminUser = await resolveAdminUser(supabase, token);
+    if (!adminUser) {
+      return sendJson(res, 403, { ok: false, error: 'forbidden' });
+    }
+
+    const { data, error } = await supabase
+      .from('players')
+      .insert({
+        display_name: displayName,
+        mmr: 1000,
+        weight,
+        wins: 0,
+        losses: 0,
+        games_played: 0,
+        active: true
+      })
+      .select('id,display_name,mmr,weight')
+      .single();
+
+    if (error) {
+      if (error.code === '23505') {
+        return sendJson(res, 409, { ok: false, error: 'duplicate_player' });
+      }
+
+      throw error;
+    }
+
+    return sendJson(res, 201, { ok: true, player: data });
+  } catch (error) {
+    console.error('Failed to create player.', error);
+    return sendJson(res, 500, { ok: false, error: 'unexpected_error' });
+  }
+}
+
 async function handleApiRequest(req, res) {
   const requestUrl = new URL(req.url, 'http://localhost');
   const pathname = requestUrl.pathname;
@@ -418,6 +504,9 @@ async function handleApiRequest(req, res) {
       return true;
     case '/api/submitMatch':
       await handleSubmitMatch(req, res);
+      return true;
+    case '/api/createPlayer':
+      await handleCreatePlayer(req, res);
       return true;
     default:
       sendJson(res, 404, { ok: false, error: 'not_found' });

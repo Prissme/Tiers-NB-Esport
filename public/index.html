@@ -198,6 +198,40 @@
         font-size: 1.1rem;
       }
 
+      .admin-tools {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: flex-end;
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+      }
+
+      .search-group {
+        flex: 1;
+        min-width: 220px;
+      }
+
+      .search-group label {
+        display: block;
+        margin-bottom: 0.55rem;
+        font-size: 0.9rem;
+        color: var(--muted);
+      }
+
+      .search-group input[type='search'] {
+        width: 100%;
+        padding: 0.55rem 0.75rem;
+        border-radius: 12px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        background: var(--bg-alt);
+        color: var(--text);
+        font-size: 0.95rem;
+      }
+
+      .search-group input[type='search']::placeholder {
+        color: var(--muted);
+      }
+
       .admin-grid select {
         width: 100%;
         padding: 0.55rem 0.75rem;
@@ -206,6 +240,11 @@
         background: var(--bg-alt);
         color: var(--text);
         font-size: 0.95rem;
+      }
+
+      .admin-grid select option {
+        color: #0a0b10;
+        background: #f7f8fa;
       }
 
       .admin-grid label {
@@ -296,6 +335,18 @@
           probabilités de victoire attendues.
         </p>
         <form id="match-form">
+          <div class="admin-tools">
+            <div class="search-group">
+              <label for="player-search">Rechercher un joueur</label>
+              <input
+                type="search"
+                id="player-search"
+                placeholder="Tape un pseudo pour filtrer la liste"
+                autocomplete="off"
+              />
+            </div>
+            <button type="button" id="add-player" class="cta">Ajouter un joueur (1000 MMR)</button>
+          </div>
           <div class="admin-grid">
             <div>
               <h3>Vainqueurs</h3>
@@ -350,6 +401,9 @@
       const matchStatus = document.getElementById('match-status');
       const winnerSelects = Array.from(document.querySelectorAll('select[data-role="winner"]'));
       const loserSelects = Array.from(document.querySelectorAll('select[data-role="loser"]'));
+      const addPlayerButton = document.getElementById('add-player');
+      const playerSearchInput = document.getElementById('player-search');
+      const addPlayerButtonInitialText = addPlayerButton?.textContent || '';
 
       const SUPABASE_URL = window.APP_CONFIG?.supabaseUrl || '';
       const SUPABASE_ANON_KEY = window.APP_CONFIG?.supabaseAnonKey || '';
@@ -382,6 +436,15 @@
         const rate = Math.round((wins / games) * 100);
         return `${rate}% WR`;
       };
+
+      const normalizeForSearch = (value) =>
+        value
+          ? value
+              .toString()
+              .normalize('NFD')
+              .replace(/[\u0300-\u036f]/g, '')
+              .toLowerCase()
+          : '';
 
       const createPlayerRow = (player, index) => {
         const li = document.createElement('li');
@@ -449,15 +512,17 @@
 
       function buildOption(player) {
         const option = document.createElement('option');
-        option.value = player.id;
+        option.value = String(player.id);
         const weight = player.weight ? ` · poids ${player.weight}` : '';
         option.textContent = `${player.display_name} (${player.mmr} MMR${weight})`;
         return option;
       }
 
-      function populateSelects(players) {
+      function populateSelects(players, { preserveSelection = false } = {}) {
         const selects = [...winnerSelects, ...loserSelects];
+        const availableIds = new Set(players.map((player) => String(player.id)));
         selects.forEach((select) => {
+          const previousValue = preserveSelection ? select.value : '';
           select.innerHTML = '';
           const placeholder = document.createElement('option');
           placeholder.value = '';
@@ -466,7 +531,30 @@
           players.forEach((player) => {
             select.appendChild(buildOption(player));
           });
+          if (preserveSelection && previousValue && availableIds.has(previousValue)) {
+            select.value = previousValue;
+          } else {
+            select.value = '';
+          }
         });
+      }
+
+      function filterPlayersBySearch(searchTerm) {
+        const normalizedSearch = normalizeForSearch(searchTerm);
+        if (!normalizedSearch) {
+          return cachedPlayers;
+        }
+
+        return cachedPlayers.filter((player) => {
+          const normalizedName = normalizeForSearch(player.display_name);
+          return normalizedName.includes(normalizedSearch);
+        });
+      }
+
+      function refreshPlayerSelects({ preserveSelection = true } = {}) {
+        const searchTerm = playerSearchInput ? playerSearchInput.value : '';
+        const filteredPlayers = filterPlayersBySearch(searchTerm);
+        populateSelects(filteredPlayers, { preserveSelection });
       }
 
       function updateAuthUI(user, isAdmin) {
@@ -535,7 +623,7 @@
           }
 
           cachedPlayers = payload.players;
-          populateSelects(cachedPlayers);
+          refreshPlayerSelects({ preserveSelection: true });
         } catch (error) {
           console.error(error);
           matchStatus.textContent = "Erreur lors du chargement des joueurs.";
@@ -559,6 +647,12 @@
 
         supabaseClient.auth.onAuthStateChange((_event, session) => {
           handleSession(session);
+        });
+      }
+
+      if (playerSearchInput) {
+        playerSearchInput.addEventListener('input', () => {
+          refreshPlayerSelects({ preserveSelection: true });
         });
       }
 
@@ -600,6 +694,90 @@
         logoutButton.addEventListener('click', async () => {
           if (!supabaseClient) return;
           await supabaseClient.auth.signOut();
+        });
+      }
+
+      if (addPlayerButton) {
+        addPlayerButton.addEventListener('click', async () => {
+          if (!currentSession) {
+            matchStatus.textContent = 'Tu dois être connecté pour ajouter un joueur.';
+            matchStatus.className = 'admin-message error';
+            return;
+          }
+
+          const displayName = window.prompt('Nom du nouveau joueur à inscrire ?');
+          if (displayName === null) {
+            return;
+          }
+
+          const trimmedName = displayName.trim();
+          if (!trimmedName) {
+            matchStatus.textContent = 'Le nom du joueur ne peut pas être vide.';
+            matchStatus.className = 'admin-message error';
+            return;
+          }
+
+          const weightInput = window.prompt('Poids du joueur (optionnel, 1 par défaut)');
+          let weightPayload;
+          if (weightInput !== null && weightInput.trim()) {
+            const normalizedWeight = weightInput.replace(',', '.').trim();
+            const parsedWeight = Number(normalizedWeight);
+            if (!Number.isFinite(parsedWeight) || parsedWeight <= 0) {
+              matchStatus.textContent = 'Le poids doit être un nombre positif.';
+              matchStatus.className = 'admin-message error';
+              return;
+            }
+            weightPayload = parsedWeight;
+          }
+
+          addPlayerButton.disabled = true;
+          addPlayerButton.textContent = 'Ajout en cours…';
+          matchStatus.textContent = 'Ajout du joueur…';
+          matchStatus.className = 'admin-message';
+
+          try {
+            const response = await fetch(`${API_BASE}/createPlayer`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${currentSession.access_token}`
+              },
+              body: JSON.stringify({
+                display_name: trimmedName,
+                ...(weightPayload ? { weight: weightPayload } : {})
+              })
+            });
+
+            const payload = await response.json().catch(() => null);
+            if (!response.ok || !payload?.ok) {
+              const errorCode = payload?.error;
+              let errorMessage = 'Impossible d’ajouter le joueur.';
+              if (errorCode === 'duplicate_player') {
+                errorMessage = 'Un joueur avec ce nom existe déjà.';
+              } else if (errorCode === 'invalid_display_name') {
+                errorMessage = 'Le nom du joueur est invalide.';
+              } else if (errorCode === 'forbidden') {
+                errorMessage = 'Tu n’as pas l’autorisation d’ajouter un joueur.';
+              }
+              throw new Error(errorMessage);
+            }
+
+            matchStatus.textContent = `Joueur « ${payload.player.display_name} » ajouté avec succès.`;
+            matchStatus.className = 'admin-message success';
+
+            await loadPlayers(currentSession.access_token);
+            loadRanking();
+          } catch (error) {
+            console.error(error);
+            matchStatus.textContent =
+              error instanceof Error && error.message
+                ? error.message
+                : "Une erreur est survenue lors de l'ajout du joueur.";
+            matchStatus.className = 'admin-message error';
+          } finally {
+            addPlayerButton.disabled = false;
+            addPlayerButton.textContent = addPlayerButtonInitialText;
+          }
         });
       }
 
