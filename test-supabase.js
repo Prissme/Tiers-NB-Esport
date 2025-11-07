@@ -1,8 +1,36 @@
 // test-supabase.js
 // Exécutez ce fichier avec: node test-supabase.js
 
-require('dotenv').config();
+const fs = require('fs');
+const path = require('path');
 const { createClient } = require('@supabase/supabase-js');
+
+// Charger le .env manuellement (comme dans server.js)
+function loadEnv() {
+  const envPath = path.join(__dirname, '.env');
+  try {
+    const buffer = fs.readFileSync(envPath, 'utf8');
+    buffer
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter((line) => line && !line.startsWith('#'))
+      .forEach((line) => {
+        const separatorIndex = line.indexOf('=');
+        if (separatorIndex === -1) return;
+        const key = line.slice(0, separatorIndex).trim();
+        const value = line.slice(separatorIndex + 1).trim();
+        if (!Object.prototype.hasOwnProperty.call(process.env, key)) {
+          process.env[key] = value;
+        }
+      });
+  } catch (error) {
+    if (error.code !== 'ENOENT') {
+      console.warn('Unable to read .env file:', error.message);
+    }
+  }
+}
+
+loadEnv();
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_KEY = process.env.SUPABASE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
