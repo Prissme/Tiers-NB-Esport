@@ -800,6 +800,13 @@
             return;
           }
 
+          const confirmationKeyword = window.prompt('Tape "RESET" pour confirmer la réinitialisation globale des MMR.');
+          if ((confirmationKeyword || '').trim().toUpperCase() !== 'RESET') {
+            matchStatus.textContent = 'Réinitialisation annulée.';
+            matchStatus.className = 'admin-message';
+            return;
+          }
+
           resetMMRButton.disabled = true;
           resetMMRButton.textContent = 'Réinitialisation…';
           matchStatus.textContent = 'Réinitialisation des MMR en cours…';
@@ -817,9 +824,10 @@
 
             if (!response.ok || !payload?.ok) {
               const errorCode = payload?.error;
-              let errorMessage = 'La réinitialisation des MMR a échoué.';
+              const detailedMessage = payload?.message;
+              let errorMessage = detailedMessage || 'La réinitialisation des MMR a échoué.';
               if (errorCode === 'forbidden') {
-                errorMessage = 'Tu n’as pas l’autorisation de réinitialiser les MMR.';
+                errorMessage = detailedMessage || 'Tu n’as pas l’autorisation de réinitialiser les MMR.';
               }
               throw new Error(errorMessage);
             }

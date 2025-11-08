@@ -554,34 +554,59 @@ async function handleResetAllMMR(req, res) {
 
   const supabase = createSupabaseClient();
   if (!supabase) {
-    console.error('Supabase credentials missing.');
+    console.error('[resetMMR] Supabase credentials missing.');
     return sendJson(res, 500, { ok: false, error: 'server_misconfigured' });
   }
 
   const token = getBearerToken(req.headers);
   if (!token) {
-    return sendJson(res, 401, { ok: false, error: 'missing_token' });
+    console.warn('[resetMMR] Missing bearer token.');
+    return sendJson(res, 401, { ok: false, error: 'missing_token', message: 'Jeton d’authentification manquant.' });
   }
 
   try {
+    console.log('[resetMMR] Reset request received. Resolving admin user.');
     const adminUser = await resolveAdminUser(supabase, token);
     if (!adminUser) {
-      return sendJson(res, 403, { ok: false, error: 'forbidden' });
+      console.warn('[resetMMR] Forbidden request: user is not an admin.');
+      return sendJson(res, 403, { ok: false, error: 'forbidden', message: 'Accès refusé.' });
     }
+
+    console.log('[resetMMR] Admin verified.', { id: adminUser.id, email: adminUser.email });
 
     const { error, count } = await supabase
       .from('players')
       .update({ mmr: 1000, wins: 0, losses: 0, games_played: 0 })
-      .select('id', { count: 'exact', head: true });
+      .eq('active', true)
+      .select('*', { count: 'exact', head: false });
 
     if (error) {
-      throw error;
+      console.error('[resetMMR] Supabase update failed.', error);
+      return sendJson(res, 500, {
+        ok: false,
+        error: 'reset_failed',
+        message: "La base de données n’a pas pu être mise à jour. Consulte les logs serveur."
+      });
     }
 
-    return sendJson(res, 200, { ok: true, updated: typeof count === 'number' ? count : null });
+    const updated = typeof count === 'number' ? count : 0;
+    if (typeof count !== 'number') {
+      console.warn('[resetMMR] Supabase did not return a count. Raw value:', count);
+    }
+
+    console.log(`[resetMMR] Reset completed. Updated ${updated} players.`);
+
+    return sendJson(res, 200, {
+      ok: true,
+      updated
+    });
   } catch (error) {
-    console.error('Failed to reset all MMR.', error);
-    return sendJson(res, 500, { ok: false, error: 'unexpected_error' });
+    console.error('[resetMMR] Unexpected failure.', error);
+    return sendJson(res, 500, {
+      ok: false,
+      error: 'unexpected_error',
+      message: "Une erreur inattendue s’est produite lors de la réinitialisation."
+    });
   }
 }
 
