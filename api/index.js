@@ -112,6 +112,13 @@ function computeDelta(player, opponents, didWin) {
   return Math.round(delta);
 }
 
+function applyValidPlayerFilters(query) {
+  return query
+    .eq('active', true)
+    .not('display_name', 'eq', 'Unknown')
+    .not('display_name', 'like', 'Unknown\\_%');
+}
+
 async function handleGetTop50(res) {
   const supabase = createSupabaseClient();
   if (!supabase) {
@@ -120,12 +127,12 @@ async function handleGetTop50(res) {
   }
 
   try {
-    const { data, error } = await supabase
-      .from('players')
-      .select(
-        'id,display_name,mmr,weight,games_played,wins,losses,profile_image_url,bio,recent_scrims,social_links'
-      )
-      .eq('active', true)
+    const selectColumns =
+      'id,display_name,mmr,weight,games_played,wins,losses,profile_image_url,bio,recent_scrims,social_links';
+
+    const baseQuery = supabase.from('players').select(selectColumns);
+
+    const { data, error } = await applyValidPlayerFilters(baseQuery)
       .order('mmr', { ascending: false })
       .limit(50);
 
