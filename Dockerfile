@@ -1,24 +1,20 @@
-# Étape 1 — Build avec Yarn 3.6 (ultra stable)
-FROM node:20-alpine AS builder
+FROM node:20-alpine
+
 WORKDIR /app
 
-# Activer Corepack et utiliser Yarn 3.6.4
+# Activer Corepack et installer Yarn 3.6
 RUN corepack enable && corepack prepare yarn@3.6.4 --activate
 
 # Copier les fichiers de dépendances
 COPY package*.json ./
 
-# Installer les dépendances sans audit ni scripts postinstall
-RUN yarn config set enableImmutableInstalls false && \
-    yarn install --no-immutable --check-cache || \
-    (echo "Retrying Yarn install..." && yarn install --no-immutable --check-cache)
+# Forcer la création du dossier node_modules (désactiver Plug’n’Play)
+RUN yarn config set nodeLinker node-modules
 
-# Étape 2 — Image finale
-FROM node:20-alpine
-WORKDIR /app
+# Installer les dépendances
+RUN yarn install --no-immutable
 
-# Copier les node_modules et le code
-COPY --from=builder /app/node_modules ./node_modules
+# Copier le reste du code
 COPY . .
 
 EXPOSE 3000
