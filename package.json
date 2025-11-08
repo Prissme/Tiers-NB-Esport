@@ -5,7 +5,9 @@
   "scripts": {
     "start": "node server.js",
     "dev": "node server.js",
-    "restore-names": "node restore-display-names.cjs"
+    "restore-names": "node restore-display-names.cjs",
+    "migrate-auth-users": "node migrate-auth-users.js",
+    "cleanup-unknown": "node cleanup-unknown.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.39.0",

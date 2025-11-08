@@ -1,0 +1,205 @@
+#!/usr/bin/env node
+
+const { createClient } = require('@supabase/supabase-js');
+
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY;
+
+if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+  console.error('❌ Variables manquantes: définis SUPABASE_URL et SUPABASE_SERVICE_ROLE_KEY.');
+  process.exit(1);
+}
+
+const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+  auth: { persistSession: false }
+});
+
+function extractDisplayName(user) {
+  if (!user) {
+    return 'Unknown';
+  }
+
+  const metadata = user.user_metadata || {};
+  const candidates = [
+    metadata.full_name,
+    metadata.name,
+    metadata.preferred_username,
+    metadata.user_name,
+    user.email ? user.email.split('@')[0] : null
+  ];
+
+  for (const candidate of candidates) {
+    if (typeof candidate === 'string') {
+      const trimmed = candidate.trim();
+      if (trimmed) {
+        return trimmed.slice(0, 80);
+      }
+    }
+  }
+
+  return user.id ? `Player_${user.id.slice(0, 8)}` : 'Unknown';
+}
+
+function createPlayerPayload(user) {
+  const discordId = user.id;
+  const name = extractDisplayName(user);
+  const finalName = typeof name === 'string' && name.trim() ? name.trim().slice(0, 80) : `Player_${discordId.slice(0, 8)}`;
+
+  return {
+    discord_id: discordId,
+    name: finalName,
+    display_name: finalName,
+    mmr: 1000,
+    weight: 1,
+    wins: 0,
+    losses: 0,
+    games_played: 0,
+    active: true
+  };
+}
+
+async function ensurePlayerForUser(user) {
+  if (!user?.id) {
+    return { status: 'skipped', reason: 'missing_id' };
+  }
+
+  const discordId = user.id;
+
+  try {
+    const { data: existing, error: selectError } = await supabase
+      .from('players')
+      .select('id')
+      .eq('discord_id', discordId)
+      .maybeSingle();
+
+    if (selectError) {
+      throw selectError;
+    }
+
+    if (existing) {
+      return { status: 'exists', playerId: existing.id };
+    }
+  } catch (error) {
+    console.error(`❌ [${discordId}] Vérification impossible: ${error.message}`);
+    return { status: 'error', error };
+  }
+
+  const basePayload = createPlayerPayload(user);
+  let insertPayload = { ...basePayload };
+
+  let insertResult = await supabase
+    .from('players')
+    .insert(insertPayload)
+    .select('id')
+    .single();
+
+  if (insertResult.error && insertResult.error.code === '42703') {
+    insertPayload = { ...basePayload };
+    delete insertPayload.display_name;
+
+    insertResult = await supabase
+      .from('players')
+      .insert(insertPayload)
+      .select('id')
+      .single();
+  }
+
+  if (insertResult.error) {
+    if (insertResult.error.code === '23505') {
+      return { status: 'exists' };
+    }
+
+    console.error(`❌ [${discordId}] Insertion impossible: ${insertResult.error.message}`);
+    return { status: 'error', error: insertResult.error };
+  }
+
+  return { status: 'created', playerId: insertResult.data?.id || null };
+}
+
+async function fetchAllUsers(perPage = 100) {
+  const users = [];
+  let page = 1;
+  let hasMore = true;
+
+  while (hasMore) {
+    const { data, error } = await supabase.auth.admin.listUsers({ page, perPage });
+
+    if (error) {
+      throw error;
+    }
+
+    const batch = data?.users || [];
+    if (batch.length === 0) {
+      break;
+    }
+
+    users.push(...batch);
+
+    if (data?.nextPage) {
+      page = data.nextPage;
+    } else if (batch.length === perPage) {
+      page += 1;
+    } else {
+      hasMore = false;
+    }
+  }
+
+  return users;
+}
+
+async function main() {
+  console.log('🚀 Migration des utilisateurs Supabase Auth vers la table players');
+
+  try {
+    const users = await fetchAllUsers();
+    console.log(`👥 ${users.length} utilisateur(s) récupéré(s).\n`);
+
+    let migrated = 0;
+    let alreadyExists = 0;
+    let skipped = 0;
+    let errors = 0;
+
+    for (const user of users) {
+      const discordId = user.id;
+      const displayName = extractDisplayName(user);
+      const result = await ensurePlayerForUser(user);
+
+      switch (result.status) {
+        case 'created':
+          migrated += 1;
+          console.log(`✅ Créé: ${displayName} (${discordId})`);
+          break;
+        case 'exists':
+          alreadyExists += 1;
+          console.log(`⏭️  Ignoré (déjà présent): ${displayName} (${discordId})`);
+          break;
+        case 'skipped':
+          skipped += 1;
+          console.log(`⚠️  Ignoré (ID manquant)`);
+          break;
+        case 'error':
+        default:
+          errors += 1;
+          console.log(`❌ Erreur pour ${discordId}: ${result.error?.message || 'inconnue'}`);
+          break;
+      }
+    }
+
+    console.log('\n═══════════════════════════════════════');
+    console.log('📊 RÉSUMÉ MIGRATION');
+    console.log(`   ✅ Créés: ${migrated}`);
+    console.log(`   ⏭️  Déjà présents: ${alreadyExists}`);
+    console.log(`   ⚠️  Ignorés: ${skipped}`);
+    console.log(`   ❌ Erreurs: ${errors}`);
+    console.log('═══════════════════════════════════════');
+
+    if (errors > 0) {
+      process.exitCode = 1;
+    }
+  } catch (error) {
+    console.error('❌ Migration interrompue:', error.message);
+    process.exit(1);
+  }
+}
+
+main();
