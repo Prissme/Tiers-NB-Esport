@@ -14,7 +14,7 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
   auth: { persistSession: false }
 });
 
-function extractDisplayName(user) {
+function extractUserName(user) {
   if (!user) {
     return 'Unknown';
   }
@@ -42,13 +42,12 @@ function extractDisplayName(user) {
 
 function createPlayerPayload(user) {
   const discordId = user.id;
-  const name = extractDisplayName(user);
+  const name = extractUserName(user);
   const finalName = typeof name === 'string' && name.trim() ? name.trim().slice(0, 80) : `Player_${discordId.slice(0, 8)}`;
 
   return {
     discord_id: discordId,
     name: finalName,
-    display_name: finalName,
     mmr: 1000,
     weight: 1,
     wins: 0,
@@ -85,24 +84,13 @@ async function ensurePlayerForUser(user) {
   }
 
   const basePayload = createPlayerPayload(user);
-  let insertPayload = { ...basePayload };
+  const insertPayload = { ...basePayload };
 
-  let insertResult = await supabase
+  const insertResult = await supabase
     .from('players')
     .insert(insertPayload)
     .select('id')
     .single();
-
-  if (insertResult.error && insertResult.error.code === '42703') {
-    insertPayload = { ...basePayload };
-    delete insertPayload.display_name;
-
-    insertResult = await supabase
-      .from('players')
-      .insert(insertPayload)
-      .select('id')
-      .single();
-  }
 
   if (insertResult.error) {
     if (insertResult.error.code === '23505') {
@@ -161,7 +149,7 @@ async function main() {
 
     for (const user of users) {
       const discordId = user.id;
-      const displayName = extractDisplayName(user);
+      const displayName = extractUserName(user);
       const result = await ensurePlayerForUser(user);
 
       switch (result.status) {
