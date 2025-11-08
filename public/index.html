@@ -346,6 +346,7 @@
               />
             </div>
             <button type="button" id="add-player" class="cta">Ajouter un joueur (1000 MMR)</button>
+            <button type="button" id="reset-mmr" class="cta">Réinitialiser tous les MMR</button>
           </div>
           <div class="admin-grid">
             <div>
@@ -402,8 +403,10 @@
       const winnerSelects = Array.from(document.querySelectorAll('select[data-role="winner"]'));
       const loserSelects = Array.from(document.querySelectorAll('select[data-role="loser"]'));
       const addPlayerButton = document.getElementById('add-player');
+      const resetMMRButton = document.getElementById('reset-mmr');
       const playerSearchInput = document.getElementById('player-search');
       const addPlayerButtonInitialText = addPlayerButton?.textContent || '';
+      const resetMMRButtonInitialText = resetMMRButton?.textContent || '';
 
       const SUPABASE_URL = window.APP_CONFIG?.supabaseUrl || '';
       const SUPABASE_ANON_KEY = window.APP_CONFIG?.supabaseAnonKey || '';
@@ -777,6 +780,68 @@
           } finally {
             addPlayerButton.disabled = false;
             addPlayerButton.textContent = addPlayerButtonInitialText;
+          }
+        });
+      }
+
+      if (resetMMRButton) {
+        resetMMRButton.addEventListener('click', async () => {
+          if (!currentSession) {
+            matchStatus.textContent = 'Tu dois être connecté pour réinitialiser les MMR.';
+            matchStatus.className = 'admin-message error';
+            return;
+          }
+
+          const confirmed = window.confirm(
+            'Es-tu sûr de vouloir réinitialiser le MMR de tous les joueurs à 1000 ? Cette action est irréversible.'
+          );
+
+          if (!confirmed) {
+            return;
+          }
+
+          resetMMRButton.disabled = true;
+          resetMMRButton.textContent = 'Réinitialisation…';
+          matchStatus.textContent = 'Réinitialisation des MMR en cours…';
+          matchStatus.className = 'admin-message';
+
+          try {
+            const response = await fetch(`${API_BASE}/resetMMR`, {
+              method: 'POST',
+              headers: {
+                Authorization: `Bearer ${currentSession.access_token}`
+              }
+            });
+
+            const payload = await response.json().catch(() => null);
+
+            if (!response.ok || !payload?.ok) {
+              const errorCode = payload?.error;
+              let errorMessage = 'La réinitialisation des MMR a échoué.';
+              if (errorCode === 'forbidden') {
+                errorMessage = 'Tu n’as pas l’autorisation de réinitialiser les MMR.';
+              }
+              throw new Error(errorMessage);
+            }
+
+            const updatedCount = typeof payload.updated === 'number' ? payload.updated : null;
+            matchStatus.textContent = updatedCount
+              ? `MMR réinitialisés pour ${updatedCount} joueur${updatedCount > 1 ? 's' : ''}.`
+              : 'Tous les MMR ont été réinitialisés.';
+            matchStatus.className = 'admin-message success';
+
+            await loadPlayers(currentSession.access_token);
+            loadRanking();
+          } catch (error) {
+            console.error(error);
+            matchStatus.textContent =
+              error instanceof Error && error.message
+                ? error.message
+                : 'La réinitialisation des MMR a échoué.';
+            matchStatus.className = 'admin-message error';
+          } finally {
+            resetMMRButton.disabled = false;
+            resetMMRButton.textContent = resetMMRButtonInitialText;
           }
         });
       }

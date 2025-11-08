@@ -18,11 +18,11 @@ const K_FACTOR = 100;
 
 const TIER_DISTRIBUTION = [
   { tier: 'S', ratio: 0.005, minCount: 1 },
-  { tier: 'A', ratio: 0.02, minCount: 0 },
-  { tier: 'B', ratio: 0.04, minCount: 0 },
-  { tier: 'C', ratio: 0.1, minCount: 0 },
-  { tier: 'D', ratio: 0.28, minCount: 0 },
-  { tier: 'E', ratio: 0.555, minCount: 0 }
+  { tier: 'A', ratio: 0.02, minCount: 1 },
+  { tier: 'B', ratio: 0.04, minCount: 1 },
+  { tier: 'C', ratio: 0.1, minCount: 1 },
+  { tier: 'D', ratio: 0.28, minCount: 1 },
+  { tier: 'E', ratio: 0.555, minCount: 1 }
 ];
 
 function createSupabaseClient() {
@@ -547,6 +547,44 @@ async function handleCreatePlayer(req, res) {
   }
 }
 
+async function handleResetAllMMR(req, res) {
+  if (req.method !== 'POST') {
+    return sendJson(res, 405, { ok: false, error: 'method_not_allowed' });
+  }
+
+  const supabase = createSupabaseClient();
+  if (!supabase) {
+    console.error('Supabase credentials missing.');
+    return sendJson(res, 500, { ok: false, error: 'server_misconfigured' });
+  }
+
+  const token = getBearerToken(req.headers);
+  if (!token) {
+    return sendJson(res, 401, { ok: false, error: 'missing_token' });
+  }
+
+  try {
+    const adminUser = await resolveAdminUser(supabase, token);
+    if (!adminUser) {
+      return sendJson(res, 403, { ok: false, error: 'forbidden' });
+    }
+
+    const { error, count } = await supabase
+      .from('players')
+      .update({ mmr: 1000, wins: 0, losses: 0, games_played: 0 })
+      .select('id', { count: 'exact', head: true });
+
+    if (error) {
+      throw error;
+    }
+
+    return sendJson(res, 200, { ok: true, updated: typeof count === 'number' ? count : null });
+  } catch (error) {
+    console.error('Failed to reset all MMR.', error);
+    return sendJson(res, 500, { ok: false, error: 'unexpected_error' });
+  }
+}
+
 async function handleApiRequest(req, res) {
   const requestUrl = new URL(req.url, 'http://localhost');
   const pathname = requestUrl.pathname;
@@ -575,6 +613,9 @@ async function handleApiRequest(req, res) {
       return true;
     case '/api/createPlayer':
       await handleCreatePlayer(req, res);
+      return true;
+    case '/api/resetMMR':
+      await handleResetAllMMR(req, res);
       return true;
     default:
       sendJson(res, 404, { ok: false, error: 'not_found' });
