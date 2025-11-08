@@ -6,7 +6,8 @@ WORKDIR /app
 COPY package*.json ./
 
 # Installer les dépendances (utilise npm install au lieu de npm ci)
-RUN npm install --production
+RUN npm install --omit=dev --legacy-peer-deps --no-audit --ignore-scripts
+
 
 # Copier le reste du code
 COPY . .
