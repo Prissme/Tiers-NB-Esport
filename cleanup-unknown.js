@@ -17,27 +17,13 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
 async function deleteUnknownPlayers() {
   console.log('🧹 Suppression des joueurs « Unknown »...');
 
-  const filters = [
-    'name.eq.Unknown',
-    "name.like.Unknown\\_%",
-    'display_name.eq.Unknown',
-    "display_name.like.Unknown\\_%"
-  ];
+  const filters = ['name.eq.Unknown', "name.like.Unknown\\_%"];
 
-  let response = await supabase
+  const response = await supabase
     .from('players')
     .delete()
     .or(filters.join(','))
     .select('id');
-
-  if (response.error && response.error.code === '42703') {
-    console.warn('⚠️  Colonne display_name indisponible, nouvelle tentative sans celle-ci.');
-    response = await supabase
-      .from('players')
-      .delete()
-      .or(['name.eq.Unknown', "name.like.Unknown\\_%"].join(','))
-      .select('id');
-  }
 
   if (response.error) {
     throw response.error;

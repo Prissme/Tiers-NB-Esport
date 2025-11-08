@@ -71,7 +71,7 @@ function getBearerToken(headers) {
   return match ? match[1].trim() : null;
 }
 
-function extractUserDisplayName(user) {
+function extractUserName(user) {
   if (!user) {
     return 'Unknown';
   }
@@ -98,14 +98,13 @@ function extractUserDisplayName(user) {
   return fallback;
 }
 
-function buildDefaultPlayerPayload(discordId, displayName) {
-  const safeName = typeof displayName === 'string' && displayName.trim() ? displayName.trim().slice(0, 80) : null;
+function buildDefaultPlayerPayload(discordId, name) {
+  const safeName = typeof name === 'string' && name.trim() ? name.trim().slice(0, 80) : null;
   const finalName = safeName || (discordId ? `Player_${discordId.slice(0, 8)}` : 'Unknown');
 
   return {
     discord_id: discordId,
     name: finalName,
-    display_name: finalName,
     mmr: 1000,
     weight: 1,
     wins: 0,
@@ -562,24 +561,13 @@ async function handleAutoRegister(req, res) {
     return sendJson(res, 200, { ok: true, alreadyExists: true, player: existingPlayer });
   }
 
-  const defaultPayload = buildDefaultPlayerPayload(discordId, extractUserDisplayName(user));
+  const defaultPayload = buildDefaultPlayerPayload(discordId, extractUserName(user));
 
   let insertResult = await supabase
     .from('players')
     .insert(defaultPayload)
     .select('id,name,mmr,weight,wins,losses,games_played,active,discord_id')
     .single();
-
-  if (insertResult.error && insertResult.error.code === '42703') {
-    const fallbackPayload = { ...defaultPayload };
-    delete fallbackPayload.display_name;
-
-    insertResult = await supabase
-      .from('players')
-      .insert(fallbackPayload)
-      .select('id,name,mmr,weight,wins,losses,games_played,active,discord_id')
-      .single();
-  }
 
   if (insertResult.error) {
     if (insertResult.error.code === '23505') {
@@ -644,8 +632,6 @@ async function handleCreatePlayer(req, res) {
   const rawName =
     typeof payload?.name === 'string'
       ? payload.name
-      : typeof payload?.display_name === 'string'
-      ? payload.display_name
       : typeof payload?.displayName === 'string'
       ? payload.displayName
       : '';

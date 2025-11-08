@@ -92,7 +92,7 @@ async function fixDisplayNames() {
       }
 
       // Utiliser le nom du CSV
-      const newName = csvPlayer.display_name || csvPlayer.name || 'Unknown';
+      const newName = csvPlayer.name || 'Unknown';
 
       if (newName === 'Unknown' || newName.startsWith('Unknown_')) {
         console.log(`⚠️  Pas de nom valide dans CSV pour: ${dbPlayer.id}`);
