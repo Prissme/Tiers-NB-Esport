@@ -5,8 +5,8 @@ WORKDIR /app
 # Copier les fichiers de dépendances
 COPY package*.json ./
 
-# Installer TOUTES les dépendances (discord.js inclus)
-RUN npm ci
+# Installer les dépendances (utilise npm install au lieu de npm ci)
+RUN npm install --production
 
 # Copier le reste du code
 COPY . .
@@ -18,5 +18,5 @@ ENV PORT=3000
 # Exposer le port
 EXPOSE 3000
 
-# Commande de démarrage par défaut (sera override par Koyeb)
+# Commande de démarrage
 CMD ["npm", "start"]
