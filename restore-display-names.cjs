@@ -1,5 +1,5 @@
 // restore-display-names.cjs
-// Script pour restaurer les pseudos depuis Discord vers Supabase
+// Script pour restaurer les noms depuis Discord vers Supabase
 
 const { Client, GatewayIntentBits } = require("discord.js");
 const { createClient } = require("@supabase/supabase-js");
@@ -46,11 +46,11 @@ client.once("ready", async () => {
   console.log(`📡 Serveur cible : ${GUILD_ID}\n`);
 
   try {
-    // 1️⃣ Récupérer les joueurs avec display_name "Unknown"
+    // 1️⃣ Récupérer les joueurs avec un nom "Unknown"
     const { data: players, error: fetchError } = await supabase
       .from("players")
-      .select("id, discord_id, display_name, name")
-      .or("display_name.eq.Unknown,display_name.ilike.Unknown_%");
+      .select("id, discord_id, name")
+      .or("name.eq.Unknown,name.ilike.Unknown_%");
 
     if (fetchError) throw fetchError;
 
@@ -85,23 +85,22 @@ client.once("ready", async () => {
       }
 
       // Utiliser displayName (pseudo serveur) ou username (pseudo global)
-      const newDisplayName = member.displayName || member.user.username;
+      const newName = member.displayName || member.user.username;
 
       // Éviter de mettre à jour avec "Unknown" à nouveau
-      if (!newDisplayName || newDisplayName === "Unknown" || newDisplayName.startsWith("Unknown_")) {
-        console.log(`⚠️  Pseudo invalide pour ${player.discord_id} : "${newDisplayName}"`);
+      if (!newName || newName === "Unknown" || newName.startsWith("Unknown_")) {
+        console.log(`⚠️  Pseudo invalide pour ${player.discord_id} : "${newName}"`);
         errors++;
         continue;
       }
 
-      console.log(`🔄 ${player.discord_id} → "${newDisplayName}"`);
+      console.log(`🔄 ${player.discord_id} → "${newName}"`);
 
       // 4️⃣ Mettre à jour Supabase
       const { error: updateError } = await supabase
         .from("players")
         .update({
-          display_name: newDisplayName,
-          name: newDisplayName
+          name: newName
         })
         .eq("discord_id", player.discord_id);
 

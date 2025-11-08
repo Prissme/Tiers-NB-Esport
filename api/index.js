@@ -16,6 +16,15 @@ const JSON_HEADERS = {
 
 const K_FACTOR = 100;
 
+const TIER_DISTRIBUTION = [
+  { tier: 'S', ratio: 0.005, minCount: 1 },
+  { tier: 'A', ratio: 0.02, minCount: 0 },
+  { tier: 'B', ratio: 0.04, minCount: 0 },
+  { tier: 'C', ratio: 0.1, minCount: 0 },
+  { tier: 'D', ratio: 0.28, minCount: 0 },
+  { tier: 'E', ratio: 0.555, minCount: 0 }
+];
+
 function createSupabaseClient() {
   if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
     return null;
@@ -83,13 +92,60 @@ async function resolveAdminUser(supabase, token) {
   return ADMIN_USER_IDS.includes(user.id) ? user : null;
 }
 
-function getTierByRank(rank) {
-  if (rank === 1) return 'S';
-  if (rank >= 2 && rank <= 4) return 'A';
-  if (rank >= 5 && rank <= 10) return 'B';
-  if (rank >= 11 && rank <= 20) return 'C';
-  if (rank >= 21 && rank <= 35) return 'D';
-  if (rank >= 36 && rank <= 50) return 'E';
+function computeTierBoundaries(totalPlayers) {
+  if (!totalPlayers || totalPlayers <= 0) {
+    return [];
+  }
+
+  let remaining = totalPlayers;
+  const boundaries = [];
+
+  for (let index = 0; index < TIER_DISTRIBUTION.length; index += 1) {
+    const distribution = TIER_DISTRIBUTION[index];
+    const isLastTier = index === TIER_DISTRIBUTION.length - 1;
+
+    let count;
+    if (isLastTier) {
+      count = remaining;
+    } else {
+      const futureMin = TIER_DISTRIBUTION.slice(index + 1).reduce(
+        (sum, entry) => sum + (entry.minCount || 0),
+        0
+      );
+
+      count = Math.floor(totalPlayers * distribution.ratio);
+      if (count < distribution.minCount) {
+        count = distribution.minCount;
+      }
+
+      const maxAllowed = remaining - futureMin;
+      if (count > maxAllowed) {
+        count = Math.max(distribution.minCount || 0, maxAllowed);
+      }
+    }
+
+    remaining -= count;
+    boundaries.push({ tier: distribution.tier, endRank: totalPlayers - remaining });
+
+    if (remaining <= 0) {
+      break;
+    }
+  }
+
+  return boundaries;
+}
+
+function getTierByRank(rank, boundaries) {
+  if (!Array.isArray(boundaries) || boundaries.length === 0) {
+    return 'No-tier';
+  }
+
+  for (const boundary of boundaries) {
+    if (rank <= boundary.endRank) {
+      return boundary.tier;
+    }
+  }
+
   return 'No-tier';
 }
 
@@ -115,8 +171,8 @@ function computeDelta(player, opponents, didWin) {
 function applyValidPlayerFilters(query) {
   return query
     .eq('active', true)
-    .not('display_name', 'eq', 'Unknown')
-    .not('display_name', 'like', 'Unknown\\_%');
+    .not('name', 'eq', 'Unknown')
+    .not('name', 'like', 'Unknown\\_%');
 }
 
 async function handleGetTop50(res) {
@@ -128,7 +184,7 @@ async function handleGetTop50(res) {
 
   try {
     const selectColumns =
-      'id,display_name,mmr,weight,games_played,wins,losses,profile_image_url,bio,recent_scrims,social_links';
+      'id,name,mmr,weight,games_played,wins,losses,profile_image_url,bio,recent_scrims,social_links';
 
     const baseQuery = supabase.from('players').select(selectColumns);
 
@@ -140,9 +196,12 @@ async function handleGetTop50(res) {
       throw error;
     }
 
+    const totalPlayers = data?.length || 0;
+    const tierBoundaries = computeTierBoundaries(totalPlayers);
+
     const playersWithTiers = (data || []).map((player, index) => ({
       ...player,
-      tier: getTierByRank(index + 1)
+      tier: getTierByRank(index + 1, tierBoundaries)
     }));
 
     return sendJson(res, 200, { ok: true, top: playersWithTiers });
@@ -219,9 +278,9 @@ async function handleGetPlayers(req, res) {
 
     const { data, error } = await supabase
       .from('players')
-      .select('id,display_name,mmr,weight')
+      .select('id,name,mmr,weight')
       .eq('active', true)
-      .order('display_name', { ascending: true });
+      .order('name', { ascending: true });
 
     if (error) {
       throw error;
@@ -432,16 +491,18 @@ async function handleCreatePlayer(req, res) {
     return sendJson(res, 500, { ok: false, error: 'unexpected_error' });
   }
 
-  const rawDisplayName =
-    typeof payload?.display_name === 'string'
+  const rawName =
+    typeof payload?.name === 'string'
+      ? payload.name
+      : typeof payload?.display_name === 'string'
       ? payload.display_name
       : typeof payload?.displayName === 'string'
       ? payload.displayName
       : '';
-  const displayName = rawDisplayName.trim();
+  const playerName = rawName.trim();
 
-  if (!displayName || displayName.length > 80) {
-    return sendJson(res, 400, { ok: false, error: 'invalid_display_name' });
+  if (!playerName || playerName.length > 80) {
+    return sendJson(res, 400, { ok: false, error: 'invalid_name' });
   }
 
   let weight = Number(payload?.weight);
@@ -459,16 +520,16 @@ async function handleCreatePlayer(req, res) {
 
     const { data, error } = await supabase
       .from('players')
-      .insert({
-        display_name: displayName,
-        mmr: 1000,
-        weight,
-        wins: 0,
-        losses: 0,
-        games_played: 0,
-        active: true
-      })
-      .select('id,display_name,mmr,weight')
+        .insert({
+          name: playerName,
+          mmr: 1000,
+          weight,
+          wins: 0,
+          losses: 0,
+          games_played: 0,
+          active: true
+        })
+      .select('id,name,mmr,weight')
       .single();
 
     if (error) {
