@@ -608,6 +608,54 @@
         }
       }
 
+      async function autoRegisterPlayer(token) {
+        if (!token || !supabaseClient || !currentSession?.user?.id) {
+          return;
+        }
+
+        const discordId = currentSession.user.id;
+        let alreadyRegistered = false;
+
+        try {
+          const { data, error } = await supabaseClient
+            .from('players')
+            .select('id')
+            .eq('discord_id', discordId)
+            .maybeSingle();
+
+          if (error) {
+            throw error;
+          }
+
+          if (data) {
+            alreadyRegistered = true;
+          }
+        } catch (error) {
+          console.warn('Impossible de vérifier le joueur existant.', error);
+        }
+
+        if (alreadyRegistered) {
+          return;
+        }
+
+        try {
+          const response = await fetch(`${API_BASE}/autoRegister`, {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${token}`
+            }
+          });
+
+          if (!response.ok) {
+            return;
+          }
+
+          await response.json().catch(() => null);
+        } catch (error) {
+          console.warn('Auto-inscription échouée.', error);
+        }
+      }
+
       async function loadPlayers(token) {
         try {
           const response = await fetch(`${API_BASE}/getPlayers`, {
@@ -641,6 +689,7 @@
           return;
         }
         await fetchAdminStatus(session.access_token);
+        await autoRegisterPlayer(session.access_token);
       }
 
       if (supabaseClient) {

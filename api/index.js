@@ -71,6 +71,50 @@ function getBearerToken(headers) {
   return match ? match[1].trim() : null;
 }
 
+function extractUserDisplayName(user) {
+  if (!user) {
+    return 'Unknown';
+  }
+
+  const metadata = user.user_metadata || {};
+  const candidates = [
+    metadata.full_name,
+    metadata.name,
+    metadata.preferred_username,
+    metadata.user_name,
+    user.email ? user.email.split('@')[0] : null
+  ];
+
+  for (const candidate of candidates) {
+    if (typeof candidate === 'string') {
+      const trimmed = candidate.trim();
+      if (trimmed) {
+        return trimmed.slice(0, 80);
+      }
+    }
+  }
+
+  const fallback = user.id ? `Player_${user.id.slice(0, 8)}` : 'Unknown';
+  return fallback;
+}
+
+function buildDefaultPlayerPayload(discordId, displayName) {
+  const safeName = typeof displayName === 'string' && displayName.trim() ? displayName.trim().slice(0, 80) : null;
+  const finalName = safeName || (discordId ? `Player_${discordId.slice(0, 8)}` : 'Unknown');
+
+  return {
+    discord_id: discordId,
+    name: finalName,
+    display_name: finalName,
+    mmr: 1000,
+    weight: 1,
+    wins: 0,
+    losses: 0,
+    games_played: 0,
+    active: true
+  };
+}
+
 async function resolveAdminUser(supabase, token) {
   if (!token) {
     return null;
@@ -459,6 +503,112 @@ async function handleSubmitMatch(req, res) {
   }
 }
 
+async function handleAutoRegister(req, res) {
+  if (req.method !== 'POST') {
+    return sendJson(res, 405, { ok: false, error: 'method_not_allowed' });
+  }
+
+  const supabase = createSupabaseClient();
+  if (!supabase) {
+    console.error('[autoRegister] Supabase credentials missing.');
+    return sendJson(res, 500, { ok: false, error: 'server_misconfigured' });
+  }
+
+  const token = getBearerToken(req.headers);
+  if (!token) {
+    return sendJson(res, 401, { ok: false, error: 'missing_token' });
+  }
+
+  let user;
+  try {
+    const {
+      data: { user: authUser },
+      error
+    } = await supabase.auth.getUser(token);
+
+    if (error || !authUser) {
+      return sendJson(res, 401, { ok: false, error: 'invalid_token' });
+    }
+
+    user = authUser;
+  } catch (error) {
+    console.error('[autoRegister] Failed to validate token.', error);
+    return sendJson(res, 500, { ok: false, error: 'unexpected_error' });
+  }
+
+  const discordId = user.id;
+  if (!discordId) {
+    return sendJson(res, 400, { ok: false, error: 'invalid_user' });
+  }
+
+  let existingPlayer = null;
+  try {
+    const { data, error } = await supabase
+      .from('players')
+      .select('id,name,mmr,weight,wins,losses,games_played,active,discord_id')
+      .eq('discord_id', discordId)
+      .maybeSingle();
+
+    if (error) {
+      throw error;
+    }
+
+    existingPlayer = data;
+  } catch (error) {
+    console.error('[autoRegister] Failed to check existing player.', error);
+  }
+
+  if (existingPlayer) {
+    return sendJson(res, 200, { ok: true, alreadyExists: true, player: existingPlayer });
+  }
+
+  const defaultPayload = buildDefaultPlayerPayload(discordId, extractUserDisplayName(user));
+
+  let insertResult = await supabase
+    .from('players')
+    .insert(defaultPayload)
+    .select('id,name,mmr,weight,wins,losses,games_played,active,discord_id')
+    .single();
+
+  if (insertResult.error && insertResult.error.code === '42703') {
+    const fallbackPayload = { ...defaultPayload };
+    delete fallbackPayload.display_name;
+
+    insertResult = await supabase
+      .from('players')
+      .insert(fallbackPayload)
+      .select('id,name,mmr,weight,wins,losses,games_played,active,discord_id')
+      .single();
+  }
+
+  if (insertResult.error) {
+    if (insertResult.error.code === '23505') {
+      console.warn('[autoRegister] Player already exists (race condition).', insertResult.error.message);
+      try {
+        const { data, error } = await supabase
+          .from('players')
+          .select('id,name,mmr,weight,wins,losses,games_played,active,discord_id')
+          .eq('discord_id', discordId)
+          .maybeSingle();
+
+        if (error) {
+          throw error;
+        }
+
+        return sendJson(res, 200, { ok: true, alreadyExists: true, player: data || null });
+      } catch (lookupError) {
+        console.error('[autoRegister] Failed to fetch player after duplicate error.', lookupError);
+        return sendJson(res, 200, { ok: true, alreadyExists: true });
+      }
+    }
+
+    console.error('[autoRegister] Failed to create player.', insertResult.error);
+    return sendJson(res, 500, { ok: false, error: 'insert_failed' });
+  }
+
+  return sendJson(res, 200, { ok: true, player: insertResult.data });
+}
+
 async function handleCreatePlayer(req, res) {
   if (req.method !== 'POST') {
     return sendJson(res, 405, { ok: false, error: 'method_not_allowed' });
@@ -638,6 +788,9 @@ async function handleApiRequest(req, res) {
       return true;
     case '/api/createPlayer':
       await handleCreatePlayer(req, res);
+      return true;
+    case '/api/autoRegister':
+      await handleAutoRegister(req, res);
       return true;
     case '/api/resetMMR':
       await handleResetAllMMR(req, res);
