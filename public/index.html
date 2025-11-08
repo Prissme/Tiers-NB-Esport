@@ -456,7 +456,7 @@
 
         const info = document.createElement('div');
         const name = document.createElement('h2');
-        name.textContent = player.display_name;
+        name.textContent = player.name;
         const subtitle = document.createElement('small');
         subtitle.textContent = `${player.games_played || 0} matchs · ${formatWinRate(
           player.wins || 0,
@@ -514,7 +514,7 @@
         const option = document.createElement('option');
         option.value = String(player.id);
         const weight = player.weight ? ` · poids ${player.weight}` : '';
-        option.textContent = `${player.display_name} (${player.mmr} MMR${weight})`;
+        option.textContent = `${player.name} (${player.mmr} MMR${weight})`;
         return option;
       }
 
@@ -546,7 +546,7 @@
         }
 
         return cachedPlayers.filter((player) => {
-          const normalizedName = normalizeForSearch(player.display_name);
+          const normalizedName = normalizeForSearch(player.name);
           return normalizedName.includes(normalizedSearch);
         });
       }
@@ -705,12 +705,12 @@
             return;
           }
 
-          const displayName = window.prompt('Nom du nouveau joueur à inscrire ?');
-          if (displayName === null) {
+          const enteredName = window.prompt('Nom du nouveau joueur à inscrire ?');
+          if (enteredName === null) {
             return;
           }
 
-          const trimmedName = displayName.trim();
+          const trimmedName = enteredName.trim();
           if (!trimmedName) {
             matchStatus.textContent = 'Le nom du joueur ne peut pas être vide.';
             matchStatus.className = 'admin-message error';
@@ -743,7 +743,7 @@
                 Authorization: `Bearer ${currentSession.access_token}`
               },
               body: JSON.stringify({
-                display_name: trimmedName,
+                name: trimmedName,
                 ...(weightPayload ? { weight: weightPayload } : {})
               })
             });
@@ -754,7 +754,7 @@
               let errorMessage = 'Impossible d’ajouter le joueur.';
               if (errorCode === 'duplicate_player') {
                 errorMessage = 'Un joueur avec ce nom existe déjà.';
-              } else if (errorCode === 'invalid_display_name') {
+              } else if (errorCode === 'invalid_name') {
                 errorMessage = 'Le nom du joueur est invalide.';
               } else if (errorCode === 'forbidden') {
                 errorMessage = 'Tu n’as pas l’autorisation d’ajouter un joueur.';
@@ -762,7 +762,7 @@
               throw new Error(errorMessage);
             }
 
-            matchStatus.textContent = `Joueur « ${payload.player.display_name} » ajouté avec succès.`;
+            matchStatus.textContent = `Joueur « ${payload.player.name} » ajouté avec succès.`;
             matchStatus.className = 'admin-message success';
 
             await loadPlayers(currentSession.access_token);

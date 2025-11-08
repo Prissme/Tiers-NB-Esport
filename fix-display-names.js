@@ -1,5 +1,5 @@
 // fix-display-names.js
-// Script pour restaurer les display_name depuis le CSV ou depuis Discord
+// Script pour restaurer les noms depuis le CSV ou depuis Discord
 
 const fs = require('fs');
 const path = require('path');
@@ -43,7 +43,7 @@ function parseCSV(csvContent) {
 }
 
 async function fixDisplayNames() {
-  console.log('🔧 Correction des display_name depuis le CSV...\n');
+  console.log('🔧 Correction des noms depuis le CSV...\n');
 
   try {
     // Lire le CSV
@@ -55,7 +55,7 @@ async function fixDisplayNames() {
     // Récupérer tous les joueurs de la DB
     const { data: dbPlayers, error: fetchError } = await supabase
       .from('players')
-      .select('id, discord_id, display_name, name');
+      .select('id, discord_id, name');
 
     if (fetchError) {
       throw new Error(`Erreur DB: ${fetchError.message}`);
@@ -79,22 +79,22 @@ async function fixDisplayNames() {
         continue;
       }
 
-      // Vérifier si le display_name est "Unknown" ou contient "Unknown_"
-      const needsUpdate = 
-        dbPlayer.display_name === 'Unknown' || 
-        dbPlayer.display_name?.startsWith('Unknown_') ||
-        !dbPlayer.display_name;
+      // Vérifier si le nom est "Unknown" ou contient "Unknown_"
+      const needsUpdate =
+        dbPlayer.name === 'Unknown' ||
+        dbPlayer.name?.startsWith('Unknown_') ||
+        !dbPlayer.name;
 
       if (!needsUpdate) {
-        console.log(`✓ ${dbPlayer.display_name} - déjà correct`);
+        console.log(`✓ ${dbPlayer.name} - déjà correct`);
         skipped++;
         continue;
       }
 
-      // Utiliser le name du CSV (dernière colonne avant display_name dans votre structure)
-      const newDisplayName = csvPlayer.display_name || csvPlayer.name || 'Unknown';
+      // Utiliser le nom du CSV
+      const newName = csvPlayer.display_name || csvPlayer.name || 'Unknown';
 
-      if (newDisplayName === 'Unknown' || newDisplayName.startsWith('Unknown_')) {
+      if (newName === 'Unknown' || newName.startsWith('Unknown_')) {
         console.log(`⚠️  Pas de nom valide dans CSV pour: ${dbPlayer.id}`);
         skipped++;
         continue;
@@ -103,9 +103,8 @@ async function fixDisplayNames() {
       // Mettre à jour
       const { error: updateError } = await supabase
         .from('players')
-        .update({ 
-          display_name: newDisplayName,
-          name: newDisplayName 
+        .update({
+          name: newName
         })
         .eq('id', dbPlayer.id);
 
@@ -113,7 +112,7 @@ async function fixDisplayNames() {
         console.error(`❌ Échec pour ${dbPlayer.id}: ${updateError.message}`);
         failed++;
       } else {
-        console.log(`✅ ${dbPlayer.id} → "${newDisplayName}"`);
+        console.log(`✅ ${dbPlayer.id} → "${newName}"`);
         updated++;
       }
     }

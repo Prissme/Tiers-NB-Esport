@@ -98,7 +98,7 @@ async function testSupabase() {
     
     const { data, error } = await supabase
       .from('players')
-      .select('id,display_name,mmr,active')
+      .select('id,name,mmr,active')
       .eq('active', true)
       .order('mmr', { ascending: false })
       .limit(5);
@@ -125,7 +125,7 @@ async function testSupabase() {
     if (data.length > 0) {
       console.log('\n   Exemple de données:');
       data.slice(0, 2).forEach((p, i) => {
-        console.log(`   ${i + 1}. ${p.display_name} - ${p.mmr} MMR`);
+        console.log(`   ${i + 1}. ${p.name} - ${p.mmr} MMR`);
       });
     } else {
       console.warn('\n⚠️  Aucun joueur actif dans la base!');
@@ -174,7 +174,7 @@ async function testServer() {
               if (data.top.length > 0) {
                 console.log('\n   Aperçu des données:');
                 data.top.slice(0, 3).forEach((p, i) => {
-                  console.log(`   #${i + 1} ${p.display_name} - ${p.mmr} MMR - Tier ${p.tier}`);
+                  console.log(`   #${i + 1} ${p.name} - ${p.mmr} MMR - Tier ${p.tier}`);
                 });
               }
             } else {
