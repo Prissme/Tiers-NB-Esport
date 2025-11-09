@@ -99,6 +99,59 @@ function extractUserName(user) {
   return fallback;
 }
 
+function extractDiscordId(user) {
+  if (!user) {
+    console.warn('[extractDiscordId] Missing user payload.');
+    return null;
+  }
+
+  const normalize = (value) => {
+    if (value === undefined || value === null) {
+      return null;
+    }
+
+    const stringValue = String(value).trim();
+    return stringValue.length > 0 ? stringValue : null;
+  };
+
+  const identities = Array.isArray(user.identities) ? user.identities : [];
+  const discordIdentity = identities.find((identity) => identity?.provider === 'discord');
+
+  if (discordIdentity) {
+    const directId = normalize(discordIdentity.id);
+    if (directId) {
+      return directId;
+    }
+
+    const identityData = discordIdentity.identity_data || {};
+    const identityDataId = normalize(identityData.sub);
+    if (identityDataId) {
+      return identityDataId;
+    }
+  }
+
+  const appMetadataId = normalize(user.app_metadata?.provider_id);
+  if (appMetadataId) {
+    return appMetadataId;
+  }
+
+  const fallbackId = normalize(user.id);
+  if (fallbackId) {
+    console.warn('[extractDiscordId] Falling back to Supabase user.id for Discord identifier.', {
+      userId: fallbackId
+    });
+    return fallbackId;
+  }
+
+  console.warn('[extractDiscordId] Unable to determine Discord ID.', {
+    user: {
+      hasIdentities: Array.isArray(user.identities) && user.identities.length > 0,
+      appMetadataKeys: user.app_metadata ? Object.keys(user.app_metadata) : []
+    }
+  });
+  return null;
+}
+
 function buildDefaultPlayerPayload(discordId, name) {
   const safeName = typeof name === 'string' && name.trim() ? name.trim().slice(0, 80) : null;
   const finalName = safeName || (discordId ? `Player_${discordId.slice(0, 8)}` : 'Unknown');
@@ -539,7 +592,7 @@ async function handleAutoRegister(req, res) {
     return sendJson(res, 500, { ok: false, error: 'unexpected_error' });
   }
 
-  const discordId = user.id;
+  const discordId = extractDiscordId(user);
   if (!discordId) {
     return sendJson(res, 400, { ok: false, error: 'invalid_user' });
   }

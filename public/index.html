@@ -581,6 +581,54 @@
         }
       }
 
+      function extractDiscordId(user) {
+        if (!user) {
+          console.warn('[extractDiscordId] Utilisateur absent dans la session.');
+          return null;
+        }
+
+        const normalize = (value) => {
+          if (value === undefined || value === null) {
+            return null;
+          }
+
+          const stringValue = String(value).trim();
+          return stringValue.length > 0 ? stringValue : null;
+        };
+
+        const identities = Array.isArray(user.identities) ? user.identities : [];
+        const discordIdentity = identities.find((identity) => identity?.provider === 'discord');
+
+        if (discordIdentity) {
+          const directId = normalize(discordIdentity.id);
+          if (directId) {
+            return directId;
+          }
+
+          const identityData = discordIdentity.identity_data || {};
+          const identityDataId = normalize(identityData.sub);
+          if (identityDataId) {
+            return identityDataId;
+          }
+        }
+
+        const appMetadataId = normalize(user.app_metadata?.provider_id);
+        if (appMetadataId) {
+          return appMetadataId;
+        }
+
+        const fallbackId = normalize(user.id);
+        if (fallbackId) {
+          console.warn('[extractDiscordId] Retour sur user.id faute de mieux.', { userId: fallbackId });
+          return fallbackId;
+        }
+
+        console.warn('[extractDiscordId] Discord ID introuvable.', {
+          hasIdentities: Array.isArray(user.identities) && user.identities.length > 0
+        });
+        return null;
+      }
+
       async function fetchAdminStatus(token) {
         try {
           const response = await fetch(`${API_BASE}/checkAdmin`, {
@@ -609,11 +657,15 @@
       }
 
       async function autoRegisterPlayer(token) {
-        if (!token || !supabaseClient || !currentSession?.user?.id) {
+        if (!token || !supabaseClient || !currentSession?.user) {
           return;
         }
 
-        const discordId = currentSession.user.id;
+        const discordId = extractDiscordId(currentSession.user);
+        if (!discordId) {
+          console.warn('Impossible de déterminer le Discord ID de la session en cours.');
+          return;
+        }
         let alreadyRegistered = false;
 
         try {
