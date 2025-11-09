@@ -40,13 +40,66 @@ function extractUserName(user) {
   return user.id ? `Player_${user.id.slice(0, 8)}` : 'Unknown';
 }
 
+function extractDiscordId(user) {
+  if (!user) {
+    console.warn('[extractDiscordId] Utilisateur manquant.');
+    return null;
+  }
+
+  const normalize = (value) => {
+    if (value === undefined || value === null) {
+      return null;
+    }
+
+    const stringValue = String(value).trim();
+    return stringValue.length > 0 ? stringValue : null;
+  };
+
+  const identities = Array.isArray(user.identities) ? user.identities : [];
+  const discordIdentity = identities.find((identity) => identity?.provider === 'discord');
+
+  if (discordIdentity) {
+    const directId = normalize(discordIdentity.id);
+    if (directId) {
+      return directId;
+    }
+
+    const identityData = discordIdentity.identity_data || {};
+    const identityDataId = normalize(identityData.sub);
+    if (identityDataId) {
+      return identityDataId;
+    }
+  }
+
+  const appMetadataId = normalize(user.app_metadata?.provider_id);
+  if (appMetadataId) {
+    return appMetadataId;
+  }
+
+  const fallbackId = normalize(user.id);
+  if (fallbackId) {
+    console.warn('[extractDiscordId] Retour vers user.id faute de mieux.', { userId: fallbackId });
+    return fallbackId;
+  }
+
+  console.warn('[extractDiscordId] Impossible de déterminer le Discord ID.', {
+    user: {
+      hasIdentities: Array.isArray(user.identities) && user.identities.length > 0,
+      appMetadataKeys: user.app_metadata ? Object.keys(user.app_metadata) : []
+    }
+  });
+  return null;
+}
+
 function createPlayerPayload(user) {
-  const discordId = user.id;
+  const discordId = extractDiscordId(user);
   const name = extractUserName(user);
-  const finalName = typeof name === 'string' && name.trim() ? name.trim().slice(0, 80) : `Player_${discordId.slice(0, 8)}`;
+  const safeDiscordId = typeof discordId === 'string' && discordId ? discordId : user.id;
+  const finalName =
+    typeof name === 'string' && name.trim() ? name.trim().slice(0, 80) : `Player_${safeDiscordId?.slice(0, 8)}`;
 
   return {
-    discord_id: discordId,
+    discord_id: safeDiscordId,
     name: finalName,
     mmr: 1000,
     weight: 1,
@@ -62,7 +115,10 @@ async function ensurePlayerForUser(user) {
     return { status: 'skipped', reason: 'missing_id' };
   }
 
-  const discordId = user.id;
+  const discordId = extractDiscordId(user);
+  if (!discordId) {
+    return { status: 'skipped', reason: 'missing_discord_id' };
+  }
 
   try {
     const { data: existing, error: selectError } = await supabase
@@ -148,7 +204,7 @@ async function main() {
     let errors = 0;
 
     for (const user of users) {
-      const discordId = user.id;
+      const discordId = extractDiscordId(user) || user.id;
       const displayName = extractUserName(user);
       const result = await ensurePlayerForUser(user);
 
@@ -163,7 +219,15 @@ async function main() {
           break;
         case 'skipped':
           skipped += 1;
-          console.log(`⚠️  Ignoré (ID manquant)`);
+          {
+            let reasonLabel = 'raison inconnue';
+            if (result.reason === 'missing_id') {
+              reasonLabel = 'ID utilisateur manquant';
+            } else if (result.reason === 'missing_discord_id') {
+              reasonLabel = 'Discord ID introuvable';
+            }
+            console.log(`⚠️  Ignoré (${reasonLabel}): ${displayName} (${discordId || 'n/a'})`);
+          }
           break;
         case 'error':
         default:
