@@ -82,6 +82,7 @@ function extractUserName(user) {
     metadata.name,
     metadata.preferred_username,
     metadata.user_name,
+    metadata.global_name,
     user.email ? user.email.split('@')[0] : null
   ];
 
@@ -212,10 +213,7 @@ function computeDelta(player, opponents, didWin) {
 }
 
 function applyValidPlayerFilters(query) {
-  return query
-    .eq('active', true)
-    .not('name', 'eq', 'Unknown')
-    .not('name', 'like', 'Unknown\\_%');
+  return query.eq('active', true);
 }
 
 async function handleGetTop50(res) {
@@ -229,6 +227,11 @@ async function handleGetTop50(res) {
     const selectColumns =
       'id,name,mmr,weight,games_played,wins,losses,profile_image_url,bio,recent_scrims,social_links';
 
+    const { count: totalPlayers } = await supabase
+      .from('players')
+      .select('*', { count: 'exact', head: true })
+      .eq('active', true);
+
     const baseQuery = supabase.from('players').select(selectColumns);
 
     const { data, error } = await applyValidPlayerFilters(baseQuery)
@@ -239,8 +242,7 @@ async function handleGetTop50(res) {
       throw error;
     }
 
-    const totalPlayers = data?.length || 0;
-    const tierBoundaries = computeTierBoundaries(totalPlayers);
+    const tierBoundaries = computeTierBoundaries(totalPlayers || 0);
 
     const playersWithTiers = (data || []).map((player, index) => ({
       ...player,
