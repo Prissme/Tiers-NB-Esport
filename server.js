@@ -36,6 +36,26 @@ function loadEnv() {
   }
 }
 
+// 🤖 LANCER LE BOT DISCORD
+function startDiscordBot() {
+  const DISCORD_BOT_TOKEN = process.env.DISCORD_BOT_TOKEN;
+  const DISCORD_GUILD_ID = process.env.DISCORD_GUILD_ID;
+
+  if (!DISCORD_BOT_TOKEN || !DISCORD_GUILD_ID) {
+    console.warn('⚠️  Discord bot disabled: DISCORD_BOT_TOKEN or DISCORD_GUILD_ID not set');
+    return;
+  }
+
+  console.log('🤖 Starting Discord bot...');
+  
+  try {
+    // Importer et lancer le bot
+    require('./discord-bot/bot.js');
+  } catch (error) {
+    console.error('❌ Failed to start Discord bot:', error.message);
+  }
+}
+
 function getContentType(filePath) {
   const extension = path.extname(filePath).toLowerCase();
   switch (extension) {
@@ -248,8 +268,12 @@ function createServer() {
 
 if (require.main === module) {
   const server = createServer();
+  
   server.listen(DEFAULT_PORT, () => {
-    console.log(`Server listening on port ${DEFAULT_PORT}`);
+    console.log(`✅ Server listening on port ${DEFAULT_PORT}`);
+    
+    // 🤖 Lancer le bot après le serveur
+    startDiscordBot();
   });
 }
 
