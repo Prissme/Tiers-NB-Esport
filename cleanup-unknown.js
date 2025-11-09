@@ -15,22 +15,73 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
 });
 
 async function deleteUnknownPlayers() {
-  console.log('🧹 Suppression des joueurs « Unknown »...');
+  console.log('🧹 Suppression des joueurs « Unknown »...\n');
 
-  const filters = ['name.eq.Unknown', "name.like.Unknown\\_%"];
+  try {
+    // Méthode 1: Supprimer ceux avec name = "Unknown"
+    const { data: deleted1, error: error1 } = await supabase
+      .from('players')
+      .delete()
+      .eq('name', 'Unknown')
+      .select('id');
 
-  const response = await supabase
-    .from('players')
-    .delete()
-    .or(filters.join(','))
-    .select('id');
+    if (error1) {
+      console.error('Erreur lors de la suppression des "Unknown":', error1);
+    } else {
+      const count1 = deleted1 ? deleted1.length : 0;
+      console.log(`✅ ${count1} joueur(s) "Unknown" supprimé(s)`);
+    }
 
-  if (response.error) {
-    throw response.error;
+    // Méthode 2: Supprimer ceux avec name qui commence par "Unknown_"
+    const { data: deleted2, error: error2 } = await supabase
+      .from('players')
+      .delete()
+      .like('name', 'Unknown\\_%')
+      .select('id');
+
+    if (error2) {
+      console.error('Erreur lors de la suppression des "Unknown_*":', error2);
+    } else {
+      const count2 = deleted2 ? deleted2.length : 0;
+      console.log(`✅ ${count2} joueur(s) "Unknown_*" supprimé(s)`);
+    }
+
+    // Méthode 3: Supprimer ceux où discord_id = id (joueurs non authentifiés)
+    const { data: allPlayers, error: error3 } = await supabase
+      .from('players')
+      .select('id, discord_id, name');
+
+    if (error3) {
+      console.error('Erreur lors de la récupération des joueurs:', error3);
+    } else {
+      const fakePlayers = allPlayers.filter(p => p.discord_id === p.id);
+      
+      if (fakePlayers.length > 0) {
+        console.log(`\n🔍 Trouvé ${fakePlayers.length} joueur(s) avec discord_id = id (non authentifiés)`);
+        
+        for (const player of fakePlayers) {
+          const { error: delError } = await supabase
+            .from('players')
+            .delete()
+            .eq('id', player.id);
+          
+          if (delError) {
+            console.error(`❌ Échec suppression ${player.name}:`, delError.message);
+          } else {
+            console.log(`   ✅ Supprimé: ${player.name} (${player.id})`);
+          }
+        }
+      } else {
+        console.log('\n✅ Aucun joueur non authentifié trouvé');
+      }
+    }
+
+    console.log('\n✨ Nettoyage terminé !');
+    
+  } catch (error) {
+    console.error('❌ Erreur:', error.message);
+    process.exit(1);
   }
-
-  const deleted = Array.isArray(response.data) ? response.data.length : 0;
-  console.log(`✅ ${deleted} joueur(s) supprimé(s).`);
 }
 
 async function main() {
