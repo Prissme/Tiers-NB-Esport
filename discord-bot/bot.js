@@ -43,6 +43,8 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
   }
 });
 
+const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 const tierRoleMap = {
   S: ROLE_TIER_S,
   A: ROLE_TIER_A,
@@ -68,6 +70,93 @@ const client = new Client({
   intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers],
   partials: [Partials.GuildMember]
 });
+
+function normalize(value) {
+  if (value === undefined || value === null) {
+    return null;
+  }
+
+  const stringValue = String(value).trim();
+  return stringValue.length > 0 ? stringValue : null;
+}
+
+function extractDiscordId(user) {
+  if (!user) {
+    return null;
+  }
+
+  const identities = Array.isArray(user.identities) ? user.identities : [];
+  const discordIdentity = identities.find((identity) => identity?.provider === 'discord');
+
+  if (discordIdentity) {
+    const directId = normalize(discordIdentity.id);
+    if (directId) {
+      return directId;
+    }
+
+    const identityData = discordIdentity.identity_data || {};
+    const identityDataId = normalize(identityData.sub);
+    if (identityDataId) {
+      return identityDataId;
+    }
+  }
+
+  const appMetadataId = normalize(user.app_metadata?.provider_id);
+  if (appMetadataId) {
+    return appMetadataId;
+  }
+
+  return normalize(user.id);
+}
+
+async function resolveDiscordIdForPlayer(player) {
+  const currentDiscordId = normalize(player.discord_id);
+  if (!currentDiscordId || !uuidRegex.test(currentDiscordId)) {
+    return currentDiscordId;
+  }
+
+  try {
+    const { data, error } = await supabase.auth.admin.getUserById(currentDiscordId);
+    if (error) {
+      console.warn(
+        `[resolveDiscordIdForPlayer] Failed to fetch auth user ${currentDiscordId} for player ${player.id}.`,
+        error
+      );
+      return currentDiscordId;
+    }
+
+    const authUser = data?.user || data || null;
+    const resolvedId = normalize(extractDiscordId(authUser));
+    if (!resolvedId || resolvedId === currentDiscordId || uuidRegex.test(resolvedId)) {
+      return currentDiscordId;
+    }
+
+    const { error: updateError } = await supabase
+      .from('players')
+      .update({ discord_id: resolvedId })
+      .eq('id', player.id);
+
+    if (updateError) {
+      console.warn(
+        `[resolveDiscordIdForPlayer] Failed to update player ${player.id} discord_id ${currentDiscordId} → ${resolvedId}.`,
+        updateError
+      );
+      return currentDiscordId;
+    }
+
+    console.log(
+      `[resolveDiscordIdForPlayer] Migrated player ${player.name || player.id} discord_id ${currentDiscordId} → ${resolvedId}.`
+    );
+    player.discord_id = resolvedId;
+    return resolvedId;
+  } catch (error) {
+    console.warn(
+      `[resolveDiscordIdForPlayer] Unexpected error while resolving discord_id for player ${player.id}.`,
+      error
+    );
+    return currentDiscordId;
+  }
+}
 
 function computeTierBoundaries(totalPlayers) {
   if (!totalPlayers || totalPlayers <= 0) {
@@ -201,7 +290,7 @@ async function syncAllRoles() {
 
   for (let index = 0; index < sortedPlayers.length; index += 1) {
     const player = sortedPlayers[index];
-    const discordId = player.discord_id;
+    const discordId = await resolveDiscordIdForPlayer(player);
     if (!discordId) {
       continue;
     }
@@ -321,15 +410,15 @@ client.once('ready', async () => {
   console.log(`✅ Bot connecté : ${client.user.tag}`);
 
   try {
-    await syncAllMemberNames();
-  } catch (error) {
-    console.error('[bot] Failed to run initial name sync.', error);
-  }
-
-  try {
     await syncAllRoles();
   } catch (error) {
     console.error('[bot] Failed to run initial role sync.', error);
+  }
+
+  try {
+    await syncAllMemberNames();
+  } catch (error) {
+    console.error('[bot] Failed to run initial name sync.', error);
   }
 
   setInterval(() => {
