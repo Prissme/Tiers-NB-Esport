@@ -565,7 +565,54 @@ async function handleAutoRegister(req, res) {
     return sendJson(res, 200, { ok: true, alreadyExists: true, player: existingPlayer });
   }
 
-  const defaultPayload = buildDefaultPlayerPayload(discordId, extractUserName(user));
+  const displayName = extractUserName(user);
+
+  const normalizedDisplayName = typeof displayName === 'string' ? displayName.toLowerCase() : '';
+
+  try {
+    const { data: allPlayers, error: allPlayersError } = await supabase
+      .from('players')
+      .select('id, name, discord_id, mmr, weight, wins, losses, games_played, active');
+
+    if (allPlayersError) {
+      throw allPlayersError;
+    }
+
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const playerWithMatchingName = (allPlayers || []).find((player) => {
+      if (!uuidRegex.test(player.discord_id || '')) {
+        return false;
+      }
+
+      const playerName = typeof player.name === 'string' ? player.name.toLowerCase() : '';
+      return playerName && playerName === normalizedDisplayName;
+    });
+
+    if (playerWithMatchingName) {
+      const { error: updateError } = await supabase
+        .from('players')
+        .update({ discord_id: discordId })
+        .eq('id', playerWithMatchingName.id);
+
+      if (updateError) {
+        throw updateError;
+      }
+
+      console.log(
+        `[autoRegister] Linked existing player "${playerWithMatchingName.name}" to Discord ID ${discordId}`
+      );
+
+      return sendJson(res, 200, {
+        ok: true,
+        linked: true,
+        player: { ...playerWithMatchingName, discord_id: discordId }
+      });
+    }
+  } catch (error) {
+    console.error('[autoRegister] Failed to link existing player by name.', error);
+  }
+
+  const defaultPayload = buildDefaultPlayerPayload(discordId, displayName);
 
   let insertResult = await supabase
     .from('players')
