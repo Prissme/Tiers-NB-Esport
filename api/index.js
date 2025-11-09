@@ -213,7 +213,9 @@ function computeDelta(player, opponents, didWin) {
 }
 
 function applyValidPlayerFilters(query) {
-  return query.eq('active', true);
+  return query
+    .eq('active', true)
+    .not('discord_id', 'is', null);
 }
 
 async function handleGetTop50(res) {
