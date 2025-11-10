@@ -47,10 +47,13 @@ function startDiscordBot() {
   }
 
   console.log('🤖 Starting Discord bot...');
-  
+
   try {
-    // Importer et lancer le bot
-    require('./discord-bot/bot.js');
+    // Importer et lancer le bot unifié
+    const { startUnifiedBot } = require('./discord-bot/unified-bot.js');
+    Promise.resolve(startUnifiedBot()).catch((error) => {
+      console.error('❌ Failed to start unified Discord bot:', error);
+    });
   } catch (error) {
     console.error('❌ Failed to start Discord bot:', error.message);
   }
