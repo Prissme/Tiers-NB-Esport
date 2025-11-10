@@ -542,12 +542,32 @@ async function startMatch(participants, fallbackChannel) {
         }
         return nextPayload;
       }
+    },
+    {
+      column: 'map_name',
+      logMessage:
+        'Database schema is missing map_name column. Falling back to match insertion using legacy map column.',
+      apply: (currentPayload) => {
+        const nextPayload = { ...currentPayload };
+        const combinedName =
+          currentPayload.map_name ||
+          (matchPayload.map_mode && matchPayload.map_name
+            ? `${matchPayload.map_mode} — ${matchPayload.map_name}`
+            : matchPayload.map_name || matchPayload.map_mode);
+        if (combinedName) {
+          nextPayload.map = combinedName;
+        }
+        delete nextPayload.map_name;
+        return nextPayload;
+      }
     }
   ];
 
   let insertedMatch = null;
   let matchError = null;
   let payloadToInsert = { ...matchPayload };
+
+  const appliedFallbacks = new Set();
 
   for (let attempt = 0; attempt <= fallbackStrategies.length; attempt += 1) {
     ({ data: insertedMatch, error: matchError } = await supabase
@@ -560,13 +580,19 @@ async function startMatch(participants, fallbackChannel) {
       break;
     }
 
-    const fallback = fallbackStrategies[attempt];
-    if (!fallback || !hasMissingColumnError(matchError, fallback.column)) {
+    const fallback = fallbackStrategies.find(
+      (strategy) =>
+        !appliedFallbacks.has(strategy.column) &&
+        hasMissingColumnError(matchError, strategy.column)
+    );
+
+    if (!fallback) {
       break;
     }
 
     warn(fallback.logMessage);
     payloadToInsert = fallback.apply(payloadToInsert);
+    appliedFallbacks.add(fallback.column);
   }
 
   if (matchError) {
