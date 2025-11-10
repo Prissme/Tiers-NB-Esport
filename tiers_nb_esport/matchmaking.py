@@ -50,6 +50,7 @@ class MatchVoteView(discord.ui.View):
         self.team2_players = team2_players
         self.team1_score = int(match_record.get("team1_score", 0))
         self.team2_score = int(match_record.get("team2_score", 0))
+        self.match_record = dict(match_record)
         self.message: Optional[discord.Message] = None
 
     async def on_timeout(self) -> None:
@@ -72,7 +73,10 @@ class MatchVoteView(discord.ui.View):
             votes[voter_id] = label
             counts = Counter(votes.values())
 
-        total_players = len(set(self.team1_ids + self.team2_ids))
+        unique_players = set(self.team1_ids + self.team2_ids)
+        total_players = len(unique_players)
+        if total_players < 2:
+            total_players = max(len(self.team1_ids) + len(self.team2_ids), 2)
         majority = total_players // 2 + 1
         top_vote: Optional[str] = None
         top_count = 0
@@ -97,33 +101,44 @@ class MatchVoteView(discord.ui.View):
                     await self.message.edit(view=self)
                 self.stop()
             else:
-                updated_match = database.record_game_result(self.match_id, top_vote)
-                if updated_match:
-                    self.team1_score = int(updated_match.get("team1_score", 0))
-                    self.team2_score = int(updated_match.get("team2_score", 0))
-                    if self.team1_score >= MAX_SERIES_WINS or self.team2_score >= MAX_SERIES_WINS:
+                if top_vote == "bleue":
+                    self.team1_score += 1
+                else:
+                    self.team2_score += 1
+
+                self.match_record["team1_score"] = self.team1_score
+                self.match_record["team2_score"] = self.team2_score
+
+                if self.team1_score >= MAX_SERIES_WINS or self.team2_score >= MAX_SERIES_WINS:
+                    updated_match = database.update_match_series_score(
+                        self.match_id, self.team1_score, self.team2_score
+                    )
+                    if updated_match:
+                        self.match_record.update(updated_match)
                         await self._refresh_message(updated_match)
-                        match_summary = elo_system.finalize_match_result(
-                            self.match_id, top_vote, interaction.guild, database
-                        )
-                        if match_summary:
-                            channel = interaction.channel or interaction.user.dm_channel
-                            if channel:
-                                await channel.send(match_summary)
-                        match_votes.pop(self.match_id, None)
-                        self.disable_all_items()
-                        if self.message:
-                            await self.message.edit(view=self)
-                        self.stop()
                     else:
-                        async with vote_lock:
-                            match_votes[self.match_id] = {}
-                        team_label = "bleue" if top_vote == "bleue" else "rouge"
-                        series_summary = (
-                            f"Manche remportée par l'équipe {team_label}. "
-                            f"Score actuel : {self.team1_score}-{self.team2_score}."
-                        )
-                        await self._refresh_message(updated_match)
+                        await self._refresh_message(self.match_record)
+                    match_summary = elo_system.finalize_match_result(
+                        self.match_id, top_vote, interaction.guild, database
+                    )
+                    if match_summary:
+                        channel = interaction.channel or interaction.user.dm_channel
+                        if channel:
+                            await channel.send(match_summary)
+                    match_votes.pop(self.match_id, None)
+                    self.disable_all_items()
+                    if self.message:
+                        await self.message.edit(view=self)
+                    self.stop()
+                else:
+                    async with vote_lock:
+                        match_votes[self.match_id] = {}
+                    team_label = "bleue" if top_vote == "bleue" else "rouge"
+                    series_summary = (
+                        f"Manche remportée par l'équipe {team_label}. "
+                        f"Score actuel : {self.team1_score}-{self.team2_score}."
+                    )
+                    await self._refresh_message(self.match_record)
 
         await interaction.response.send_message(
             f"Vote enregistré pour l'équipe {label}.", ephemeral=True

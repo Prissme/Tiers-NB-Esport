@@ -199,6 +199,24 @@ def record_game_result(match_id: int, winner_label: str) -> Optional[Dict]:
             return cur.fetchone()
 
 
+def update_match_series_score(
+    match_id: int, team1_score: int, team2_score: int
+) -> Optional[Dict]:
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                UPDATE matches
+                SET team1_score = %s,
+                    team2_score = %s
+                WHERE id = %s AND status = 'pending'
+                RETURNING *
+                """,
+                (team1_score, team2_score, match_id),
+            )
+            return cur.fetchone()
+
+
 def complete_match(match_id: int, winner_label: str) -> Optional[Dict]:
     with get_connection() as conn:
         with conn.cursor() as cur:
