@@ -478,6 +478,25 @@ async function handlePingCommand(message) {
   }
 }
 
+async function handleTierSyncCommand(message) {
+  const hasPermission = message.member?.permissions?.has(PermissionsBitField.Flags.ManageGuild);
+
+  if (!hasPermission) {
+    await message.reply({ content: "❌ Vous n'avez pas la permission d'exécuter cette commande." });
+    return;
+  }
+
+  const response = await message.reply({ content: '🔄 Synchronisation des tiers en cours…' });
+
+  try {
+    await syncTiersWithRoles();
+    await response.edit('✅ Synchronisation des tiers terminée.');
+  } catch (err) {
+    errorLog('Manual tier sync failed:', err);
+    await response.edit("❌ Impossible de synchroniser les tiers. Consultez les logs pour plus d'informations.");
+  }
+}
+
 async function handleHelpCommand(message) {
   const commands = [
     '`!join` — Rejoindre la file d\'attente',
@@ -486,6 +505,7 @@ async function handleHelpCommand(message) {
     '`!elo` — Afficher votre classement Elo',
     '`!maps` — Afficher la rotation des maps',
     '`!ping` — Mentionner le rôle de notification des matchs',
+    '`!tiers` — Synchroniser manuellement les rôles de tier avec le site',
     '`!help` — Afficher cette aide'
   ];
 
@@ -1043,6 +1063,9 @@ async function handleMessage(message) {
         break;
       case 'ping':
         await handlePingCommand(message, args);
+        break;
+      case 'tiers':
+        await handleTierSyncCommand(message, args);
         break;
       case 'help':
         await handleHelpCommand(message, args);
