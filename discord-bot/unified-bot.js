@@ -510,8 +510,7 @@ async function startMatch(participants, fallbackChannel) {
     team1_ids: teams.blue.map((player) => player.discordId),
     team2_ids: teams.red.map((player) => player.discordId),
     status: 'pending',
-    winner: null,
-    created_at: new Date().toISOString()
+    winner: null
   };
 
   const { data: insertedMatch, error: matchError } = await supabase
@@ -539,7 +538,7 @@ async function startMatch(participants, fallbackChannel) {
     matchId: insertedMatch.id,
     map,
     teams,
-    createdAt: new Date(insertedMatch.created_at || Date.now()),
+    createdAt: new Date(insertedMatch?.created_at || Date.now()),
     participants: new Set(participants.map((player) => player.discordId)),
     channelId: channel.id,
     messageId: null,
