@@ -861,14 +861,25 @@ async function syncTiersWithRoles() {
   try {
     const { data, error } = await supabase
       .from('players')
-      .select('id, discord_id, name, mmr, active')
+      .select('id, discord_id, name, mmr, solo_elo, active')
       .order('mmr', { ascending: false });
 
     if (error) {
       throw error;
     }
 
-    players = (data || []).filter((player) => player.discord_id);
+    players = (data || [])
+      .filter((player) => player.discord_id)
+      .map((player) => {
+        const soloElo = normalizeRating(player.solo_elo);
+        const mmr = normalizeRating(player.mmr);
+        return {
+          ...player,
+          solo_elo: soloElo,
+          mmr,
+          weightedScore: calculateWeightedScore(soloElo, mmr)
+        };
+      });
   } catch (err) {
     errorLog('Failed to fetch players for tier sync:', err);
     return;
@@ -880,7 +891,9 @@ async function syncTiersWithRoles() {
   }
 
   const activePlayers = players.filter((player) => player.active !== false);
-  const rankedPlayers = activePlayers.length ? activePlayers : players;
+  const rankedPlayers = (activePlayers.length ? activePlayers : players)
+    .slice()
+    .sort((a, b) => b.weightedScore - a.weightedScore);
   const totalPlayers = rankedPlayers.length;
 
   const counts = TIER_DISTRIBUTION.map((distribution) =>
