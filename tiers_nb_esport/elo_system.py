@@ -134,9 +134,15 @@ def finalize_match_result(
     db_module.apply_player_updates(updates)
     db_module.complete_match(match_id, normalized)
 
+    score = ""
+    team1_score = match.get("team1_score")
+    team2_score = match.get("team2_score")
+    if isinstance(team1_score, int) and isinstance(team2_score, int):
+        score = f" (score final {team1_score}-{team2_score})"
+
     header = (
         f"Victoire de l'équipe {'bleue' if normalized == 'bleue' else 'rouge'} "
-        f"sur {match['map_name']} ({match['map_mode']})."
+        f"sur {match['map_name']} ({match['map_mode']}){score}."
     )
 
     description_lines: List[str] = [header, "", "Changements ELO:"]

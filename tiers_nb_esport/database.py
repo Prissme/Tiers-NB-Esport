@@ -74,12 +74,26 @@ def init_db() -> None:
                     map_emoji TEXT,
                     team1_ids BIGINT[] NOT NULL,
                     team2_ids BIGINT[] NOT NULL,
+                    team1_score INTEGER NOT NULL DEFAULT 0,
+                    team2_score INTEGER NOT NULL DEFAULT 0,
                     status TEXT NOT NULL DEFAULT 'pending',
                     winner TEXT,
                     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
                     completed_at TIMESTAMPTZ
                 )
                 """,
+            )
+            cur.execute(
+                """
+                ALTER TABLE matches
+                ADD COLUMN IF NOT EXISTS team1_score INTEGER NOT NULL DEFAULT 0
+                """
+            )
+            cur.execute(
+                """
+                ALTER TABLE matches
+                ADD COLUMN IF NOT EXISTS team2_score INTEGER NOT NULL DEFAULT 0
+                """
             )
 
 
@@ -163,6 +177,22 @@ def load_match(match_id: int) -> Optional[Dict]:
                 SELECT *
                 FROM matches
                 WHERE id = %s
+                """,
+                (match_id,),
+            )
+            return cur.fetchone()
+
+
+def record_game_result(match_id: int, winner_label: str) -> Optional[Dict]:
+    column = "team1_score" if winner_label == "bleue" else "team2_score"
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                f"""
+                UPDATE matches
+                SET {column} = {column} + 1
+                WHERE id = %s AND status = 'pending'
+                RETURNING *
                 """,
                 (match_id,),
             )
