@@ -22,6 +22,7 @@ queue_lock = asyncio.Lock()
 vote_lock = asyncio.Lock()
 solo_queue: List[int] = []
 match_votes: Dict[int, Dict[int, str]] = {}
+MAX_SERIES_WINS = 2
 
 # Bot setup
 intents = discord.Intents.default()
@@ -32,16 +33,30 @@ bot = commands.Bot(command_prefix="!", intents=intents, help_command=None)
 
 
 class MatchVoteView(discord.ui.View):
-    """Interface de vote pour un match."""
+    """Interface de vote pour un match en BO3."""
 
-    def __init__(self, match_id: int, team1_ids: List[int], team2_ids: List[int]):
+    def __init__(
+        self,
+        match_id: int,
+        match_record: Dict,
+        team1_players: List[Player],
+        team2_players: List[Player],
+    ):
         super().__init__(timeout=3600)
         self.match_id = match_id
-        self.team1_ids = team1_ids
-        self.team2_ids = team2_ids
+        self.team1_ids = list(match_record["team1_ids"])
+        self.team2_ids = list(match_record["team2_ids"])
+        self.team1_players = team1_players
+        self.team2_players = team2_players
+        self.team1_score = int(match_record.get("team1_score", 0))
+        self.team2_score = int(match_record.get("team2_score", 0))
+        self.message: Optional[discord.Message] = None
 
     async def on_timeout(self) -> None:
         match_votes.pop(self.match_id, None)
+        self.disable_all_items()
+        if self.message:
+            await self.message.edit(view=self)
         self.stop()
 
     async def _register_vote(self, interaction: discord.Interaction, label: str) -> None:
@@ -64,20 +79,64 @@ class MatchVoteView(discord.ui.View):
         if counts:
             top_vote, top_count = counts.most_common(1)[0]
 
+        series_summary: Optional[str] = None
+        match_summary: Optional[str] = None
+
         if top_vote and top_count >= majority:
-            summary = elo_system.finalize_match_result(
-                self.match_id, top_vote, interaction.guild, database
-            )
-            if summary:
-                channel = interaction.channel or interaction.user.dm_channel
-                if channel:
-                    await channel.send(summary)
-            match_votes.pop(self.match_id, None)
-            self.stop()
+            if top_vote == "annulee":
+                match_summary = elo_system.finalize_match_result(
+                    self.match_id, top_vote, interaction.guild, database
+                )
+                if match_summary:
+                    channel = interaction.channel or interaction.user.dm_channel
+                    if channel:
+                        await channel.send(match_summary)
+                match_votes.pop(self.match_id, None)
+                self.disable_all_items()
+                if self.message:
+                    await self.message.edit(view=self)
+                self.stop()
+            else:
+                updated_match = database.record_game_result(self.match_id, top_vote)
+                if updated_match:
+                    self.team1_score = int(updated_match.get("team1_score", 0))
+                    self.team2_score = int(updated_match.get("team2_score", 0))
+                    if self.team1_score >= MAX_SERIES_WINS or self.team2_score >= MAX_SERIES_WINS:
+                        await self._refresh_message(updated_match)
+                        match_summary = elo_system.finalize_match_result(
+                            self.match_id, top_vote, interaction.guild, database
+                        )
+                        if match_summary:
+                            channel = interaction.channel or interaction.user.dm_channel
+                            if channel:
+                                await channel.send(match_summary)
+                        match_votes.pop(self.match_id, None)
+                        self.disable_all_items()
+                        if self.message:
+                            await self.message.edit(view=self)
+                        self.stop()
+                    else:
+                        async with vote_lock:
+                            match_votes[self.match_id] = {}
+                        team_label = "bleue" if top_vote == "bleue" else "rouge"
+                        series_summary = (
+                            f"Manche remportée par l'équipe {team_label}. "
+                            f"Score actuel : {self.team1_score}-{self.team2_score}."
+                        )
+                        await self._refresh_message(updated_match)
 
         await interaction.response.send_message(
             f"Vote enregistré pour l'équipe {label}.", ephemeral=True
         )
+
+        if series_summary and interaction.channel:
+            await interaction.channel.send(series_summary)
+
+    async def _refresh_message(self, match_record: Dict) -> None:
+        if not self.message:
+            return
+        embed = build_match_embed(match_record, self.team1_players, self.team2_players)
+        await self.message.edit(embed=embed, view=self)
 
     @discord.ui.button(label="Victoire bleue", style=discord.ButtonStyle.primary, emoji="🔵")
     async def vote_blue(
@@ -109,6 +168,22 @@ async def send_match_message(
         logger.warning("Salon de match introuvable (%s)", config.MATCH_CHANNEL_ID)
         return
 
+    embed = build_match_embed(match_record, team1_players, team2_players)
+
+    view = MatchVoteView(match_record["id"], match_record, team1_players, team2_players)
+    message = await channel.send(embed=embed, view=view)
+    view.message = message
+
+    log_channel = guild.get_channel(config.LOG_CHANNEL_ID)
+    if log_channel and log_channel != channel:
+        await log_channel.send(f"Match #{match_record['id']} créé dans {channel.mention}")
+
+
+def build_match_embed(
+    match_record: Dict,
+    team1_players: List[Player],
+    team2_players: List[Player],
+) -> discord.Embed:
     map_emoji = match_record.get("map_emoji") or "🗺️"
     embed = discord.Embed(
         title=f"Match #{match_record['id']} — {map_emoji} {match_record['map_mode']}",
@@ -122,12 +197,12 @@ async def send_match_message(
     embed.add_field(name="Équipe bleue", value="\n".join(team1_lines), inline=False)
     embed.add_field(name="Équipe rouge", value="\n".join(team2_lines), inline=False)
 
-    view = MatchVoteView(match_record["id"], match_record["team1_ids"], match_record["team2_ids"])
-    await channel.send(embed=embed, view=view)
-
-    log_channel = guild.get_channel(config.LOG_CHANNEL_ID)
-    if log_channel and log_channel != channel:
-        await log_channel.send(f"Match #{match_record['id']} créé dans {channel.mention}")
+    score_text = (
+        f"Score de la série: {int(match_record.get('team1_score', 0))}-"
+        f"{int(match_record.get('team2_score', 0))} (BO3)"
+    )
+    embed.set_footer(text=score_text)
+    return embed
 
 
 def _select_map() -> Dict[str, str]:
