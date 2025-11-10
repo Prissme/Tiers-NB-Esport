@@ -160,7 +160,7 @@ function buildDefaultPlayerPayload(discordId, name) {
     discord_id: discordId,
     name: finalName,
     mmr: 1000,
-    elo: 1000,
+    solo_elo: 1000,
     weight: 1,
     wins: 0,
     losses: 0,
@@ -281,7 +281,7 @@ async function handleGetTop50(res) {
 
   try {
     const selectColumns =
-      'id,name,mmr,elo,weight,games_played,wins,losses,profile_image_url,bio,recent_scrims,social_links';
+      'id,name,mmr,solo_elo,weight,games_played,wins,losses,profile_image_url,bio,recent_scrims,social_links';
 
     const { count: totalPlayers } = await supabase
       .from('players')
@@ -297,13 +297,13 @@ async function handleGetTop50(res) {
     }
 
     const playersWithWeightedScores = (data || []).map((player) => {
-      const elo = typeof player.elo === 'number' ? player.elo : 1000;
+      const soloElo = typeof player.solo_elo === 'number' ? player.solo_elo : 1000;
       const mmr = typeof player.mmr === 'number' ? player.mmr : 1000;
-      const weightedScore = Math.round(elo * 0.3 + mmr * 0.7);
+      const weightedScore = Math.round(soloElo * 0.3 + mmr * 0.7);
 
       return {
         ...player,
-        elo,
+        solo_elo: soloElo,
         mmr,
         weighted_score: weightedScore
       };
@@ -394,7 +394,7 @@ async function handleGetPlayers(req, res) {
 
     const { data, error } = await supabase
       .from('players')
-      .select('id,name,mmr,elo,weight')
+      .select('id,name,mmr,solo_elo,weight')
       .eq('active', true)
       .order('name', { ascending: true });
 
@@ -617,7 +617,7 @@ async function handleAutoRegister(req, res) {
   try {
     const { data, error } = await supabase
       .from('players')
-      .select('id,name,mmr,elo,weight,wins,losses,games_played,active,discord_id')
+      .select('id,name,mmr,solo_elo,weight,wins,losses,games_played,active,discord_id')
       .eq('discord_id', discordId)
       .maybeSingle();
 
@@ -641,7 +641,7 @@ async function handleAutoRegister(req, res) {
   try {
     const { data: allPlayers, error: allPlayersError } = await supabase
       .from('players')
-      .select('id, name, discord_id, mmr, elo, weight, wins, losses, games_played, active');
+      .select('id, name, discord_id, mmr, solo_elo, weight, wins, losses, games_played, active');
 
     if (allPlayersError) {
       throw allPlayersError;
@@ -686,7 +686,7 @@ async function handleAutoRegister(req, res) {
   let insertResult = await supabase
     .from('players')
     .insert(defaultPayload)
-    .select('id,name,mmr,elo,weight,wins,losses,games_played,active,discord_id')
+    .select('id,name,mmr,solo_elo,weight,wins,losses,games_played,active,discord_id')
     .single();
 
   if (insertResult.error) {
@@ -695,7 +695,7 @@ async function handleAutoRegister(req, res) {
       try {
         const { data, error } = await supabase
           .from('players')
-          .select('id,name,mmr,elo,weight,wins,losses,games_played,active,discord_id')
+          .select('id,name,mmr,solo_elo,weight,wins,losses,games_played,active,discord_id')
           .eq('discord_id', discordId)
           .maybeSingle();
 
@@ -776,17 +776,17 @@ async function handleCreatePlayer(req, res) {
 
     const { data, error } = await supabase
       .from('players')
-        .insert({
-          name: playerName,
-          mmr: 1000,
-          elo: 1000,
-          weight,
-          wins: 0,
-          losses: 0,
-          games_played: 0,
-          active: true
-        })
-      .select('id,name,mmr,elo,weight')
+      .insert({
+        name: playerName,
+        mmr: 1000,
+        solo_elo: 1000,
+        weight,
+        wins: 0,
+        losses: 0,
+        games_played: 0,
+        active: true
+      })
+      .select('id,name,mmr,solo_elo,weight')
       .single();
 
     if (error) {

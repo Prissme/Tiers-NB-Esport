@@ -471,14 +471,14 @@
         stats.className = 'stats';
 
         const score = document.createElement('span');
-        const elo = typeof player.elo === 'number' ? player.elo : 1000;
+        const soloElo = typeof player.solo_elo === 'number' ? player.solo_elo : 1000;
         const mmr = typeof player.mmr === 'number' ? player.mmr : 1000;
         const weightedScore =
           typeof player.weighted_score === 'number'
             ? player.weighted_score
-            : Math.round(elo * 0.3 + mmr * 0.7);
+            : Math.round(soloElo * 0.3 + mmr * 0.7);
         score.textContent = `${weightedScore} pts`;
-        score.title = `Elo ${Math.round(elo)} · MMR ${Math.round(mmr)}`;
+        score.title = `Elo ${Math.round(soloElo)} · MMR ${Math.round(mmr)}`;
 
         const tier = document.createElement('span');
         tier.className = 'badge';
