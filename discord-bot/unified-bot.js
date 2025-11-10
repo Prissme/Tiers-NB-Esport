@@ -134,10 +134,10 @@ function normalizeRating(value) {
   return typeof value === 'number' ? value : DEFAULT_ELO;
 }
 
-function calculateWeightedScore(elo, mmr) {
-  const safeElo = normalizeRating(elo);
+function calculateWeightedScore(soloElo, mmr) {
+  const safeSoloElo = normalizeRating(soloElo);
   const safeMmr = normalizeRating(mmr);
-  return Math.round(safeElo * 0.3 + safeMmr * 0.7);
+  return Math.round(safeSoloElo * 0.3 + safeMmr * 0.7);
 }
 
 function formatPlayerList(team) {
@@ -148,7 +148,7 @@ function formatPlayerList(team) {
   return team
     .map(
       (player, index) =>
-        `${index + 1}. <@${player.discordId}> (${Math.round(normalizeRating(player.elo))} Elo)`
+        `${index + 1}. <@${player.discordId}> (${Math.round(normalizeRating(player.soloElo))} Elo)`
     )
     .join('\n');
 }
@@ -218,7 +218,7 @@ async function getOrCreatePlayer(discordId, displayName) {
   const existing = await fetchPlayerByDiscordId(discordId);
   if (existing) {
     const mmr = normalizeRating(existing.mmr);
-    const elo = normalizeRating(existing.elo);
+    const soloElo = normalizeRating(existing.solo_elo);
 
     if (displayName && displayName !== existing.name) {
       const { error: updateError } = await supabase
@@ -231,14 +231,14 @@ async function getOrCreatePlayer(discordId, displayName) {
       }
     }
 
-    return { ...existing, mmr, elo };
+    return { ...existing, mmr, solo_elo: soloElo };
   }
 
   const insertPayload = {
     discord_id: discordId,
     name: displayName || null,
     mmr: DEFAULT_ELO,
-    elo: DEFAULT_ELO,
+    solo_elo: DEFAULT_ELO,
     wins: 0,
     losses: 0,
     games_played: 0,
@@ -269,7 +269,7 @@ function buildQueueEntry(member, playerRecord) {
     displayName: member.displayName || member.user.username,
     playerId: playerRecord.id,
     mmr: normalizeRating(playerRecord.mmr),
-    elo: normalizeRating(playerRecord.elo),
+    soloElo: normalizeRating(playerRecord.solo_elo),
     wins,
     losses,
     games,
@@ -284,7 +284,7 @@ function formatQueueStatus() {
 
   const lines = matchQueue.map((entry, index) => {
     const rank = index + 1;
-    return `${rank}. ${entry.displayName} (${Math.round(normalizeRating(entry.elo))} Elo)`;
+    return `${rank}. ${entry.displayName} (${Math.round(normalizeRating(entry.soloElo))} Elo)`;
   });
 
   return [`Joueurs dans la file (${matchQueue.length}/${MATCH_SIZE}) :`, ...lines].join('\n');
@@ -318,8 +318,8 @@ function balanceTeams(players) {
     const blue = combo;
     const red = players.filter((player) => !blue.includes(player));
 
-    const blueAvg = blue.reduce((sum, player) => sum + normalizeRating(player.elo), 0) / TEAM_SIZE;
-    const redAvg = red.reduce((sum, player) => sum + normalizeRating(player.elo), 0) / TEAM_SIZE;
+    const blueAvg = blue.reduce((sum, player) => sum + normalizeRating(player.soloElo), 0) / TEAM_SIZE;
+    const redAvg = red.reduce((sum, player) => sum + normalizeRating(player.soloElo), 0) / TEAM_SIZE;
     const diff = Math.abs(blueAvg - redAvg);
 
     if (!best || diff < best.diff) {
@@ -328,8 +328,8 @@ function balanceTeams(players) {
   }
 
   return {
-    blue: best.blue.sort((a, b) => normalizeRating(b.elo) - normalizeRating(a.elo)),
-    red: best.red.sort((a, b) => normalizeRating(b.elo) - normalizeRating(a.elo))
+    blue: best.blue.sort((a, b) => normalizeRating(b.soloElo) - normalizeRating(a.soloElo)),
+    red: best.red.sort((a, b) => normalizeRating(b.soloElo) - normalizeRating(a.soloElo))
   };
 }
 
@@ -435,14 +435,14 @@ async function handleEloCommand(message) {
   const wins = typeof player.wins === 'number' ? player.wins : 0;
   const losses = typeof player.losses === 'number' ? player.losses : 0;
   const games = typeof player.games_played === 'number' ? player.games_played : wins + losses;
-  const elo = normalizeRating(player.elo);
+  const soloElo = normalizeRating(player.solo_elo);
   const mmr = normalizeRating(player.mmr);
-  const weightedScore = calculateWeightedScore(elo, mmr);
+  const weightedScore = calculateWeightedScore(soloElo, mmr);
 
   const embed = new EmbedBuilder()
     .setTitle(`Profil Elo — ${player.name || `Joueur ${targetId}`}`)
     .addFields(
-      { name: 'Elo', value: `${Math.round(elo)}`, inline: true },
+      { name: 'Elo', value: `${Math.round(soloElo)}`, inline: true },
       { name: 'MMR', value: `${Math.round(mmr)}`, inline: true },
       { name: 'Score pondéré', value: `${weightedScore}`, inline: true },
       { name: 'Victoires', value: `${wins}`, inline: true },
@@ -601,9 +601,9 @@ async function applyMatchOutcome(state, outcome, userId) {
   }
 
   const blueAvg =
-    state.teams.blue.reduce((sum, player) => sum + normalizeRating(player.elo), 0) / TEAM_SIZE;
+    state.teams.blue.reduce((sum, player) => sum + normalizeRating(player.soloElo), 0) / TEAM_SIZE;
   const redAvg =
-    state.teams.red.reduce((sum, player) => sum + normalizeRating(player.elo), 0) / TEAM_SIZE;
+    state.teams.red.reduce((sum, player) => sum + normalizeRating(player.soloElo), 0) / TEAM_SIZE;
 
   const blueScore = outcome === 'blue' ? 1 : 0;
   const redScore = outcome === 'red' ? 1 : 0;
@@ -612,14 +612,14 @@ async function applyMatchOutcome(state, outcome, userId) {
   const changes = [];
 
   for (const player of state.teams.blue) {
-    const currentRating = normalizeRating(player.elo);
+    const currentRating = normalizeRating(player.soloElo);
     const expected = calculateExpectedScore(currentRating, redAvg);
     const newRating = Math.max(0, Math.round(currentRating + K_FACTOR * (blueScore - expected)));
     const wins = player.wins + (blueScore === 1 ? 1 : 0);
     const losses = player.losses + (blueScore === 1 ? 0 : 1);
     const games = player.games + 1;
 
-    updates.push({ id: player.playerId, elo: newRating, wins, losses, games_played: games });
+    updates.push({ id: player.playerId, solo_elo: newRating, wins, losses, games_played: games });
     changes.push({
       player,
       oldRating: currentRating,
@@ -627,21 +627,21 @@ async function applyMatchOutcome(state, outcome, userId) {
       delta: newRating - currentRating
     });
 
-    player.elo = newRating;
+    player.soloElo = newRating;
     player.wins = wins;
     player.losses = losses;
     player.games = games;
   }
 
   for (const player of state.teams.red) {
-    const currentRating = normalizeRating(player.elo);
+    const currentRating = normalizeRating(player.soloElo);
     const expected = calculateExpectedScore(currentRating, blueAvg);
     const newRating = Math.max(0, Math.round(currentRating + K_FACTOR * (redScore - expected)));
     const wins = player.wins + (redScore === 1 ? 1 : 0);
     const losses = player.losses + (redScore === 1 ? 0 : 1);
     const games = player.games + 1;
 
-    updates.push({ id: player.playerId, elo: newRating, wins, losses, games_played: games });
+    updates.push({ id: player.playerId, solo_elo: newRating, wins, losses, games_played: games });
     changes.push({
       player,
       oldRating: currentRating,
@@ -649,7 +649,7 @@ async function applyMatchOutcome(state, outcome, userId) {
       delta: newRating - currentRating
     });
 
-    player.elo = newRating;
+    player.soloElo = newRating;
     player.wins = wins;
     player.losses = losses;
     player.games = games;
@@ -659,7 +659,7 @@ async function applyMatchOutcome(state, outcome, userId) {
     const { error: playerError } = await supabase
       .from('players')
       .update({
-        elo: update.elo,
+        solo_elo: update.solo_elo,
         wins: update.wins,
         losses: update.losses,
         games_played: update.games_played
