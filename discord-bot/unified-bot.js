@@ -20,6 +20,8 @@ const DEFAULT_ELO = 1000;
 const K_FACTOR = 30;
 const ELO_DIVISOR = 400;
 const TIER_SYNC_INTERVAL_MS = 10 * 60 * 1000; // 10 minutes
+const MIN_VOTES_TO_RESOLVE = 4;
+const MAP_CHOICES_COUNT = 3;
 
 const DISCORD_BOT_TOKEN = process.env.DISCORD_BOT_TOKEN;
 const DISCORD_GUILD_ID = process.env.DISCORD_GUILD_ID;
@@ -105,7 +107,6 @@ let guild = null;
 let matchChannel = null;
 let logChannel = null;
 let tierSyncInterval = null;
-let rotationIndex = 0;
 let botStarted = false;
 
 const matchQueue = [];
@@ -124,10 +125,20 @@ function errorLog(...args) {
   console.error(LOG_PREFIX, ...args);
 }
 
-function nextRotationMap() {
-  const map = MAP_ROTATION[rotationIndex % MAP_ROTATION.length];
-  rotationIndex += 1;
-  return map;
+function pickRandomMaps(count) {
+  const available = MAP_ROTATION.slice();
+  const selections = [];
+
+  for (let i = available.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [available[i], available[j]] = [available[j], available[i]];
+  }
+
+  for (let i = 0; i < Math.min(count, available.length); i += 1) {
+    selections.push(available[i]);
+  }
+
+  return selections;
 }
 
 function normalizeRating(value) {
@@ -154,9 +165,13 @@ function formatPlayerList(team) {
 }
 
 function buildMatchEmbed(state, resultSummary = null) {
-  const { map, teams, createdAt } = state;
+  const { primaryMap, mapChoices = [], teams, createdAt, votes } = state;
+  const title = primaryMap
+    ? `${primaryMap.emoji} ${primaryMap.mode} — ${primaryMap.map}`
+    : 'Match en attente';
+
   const embed = new EmbedBuilder()
-    .setTitle(`${map.emoji} ${map.mode} — ${map.map}`)
+    .setTitle(title)
     .addFields(
       { name: 'Équipe Bleue', value: formatPlayerList(teams.blue), inline: true },
       { name: 'Équipe Rouge', value: formatPlayerList(teams.red), inline: true }
@@ -164,10 +179,28 @@ function buildMatchEmbed(state, resultSummary = null) {
     .setTimestamp(createdAt || new Date())
     .setColor(resultSummary ? resultSummary.color : 0xffc300);
 
+  if (mapChoices.length) {
+    const mapLines = mapChoices
+      .map((choice, index) => `${index + 1}. ${choice.emoji} ${choice.mode} — ${choice.map}`)
+      .join('\n');
+    embed.addFields({ name: 'Maps proposées', value: mapLines });
+  }
+
   if (resultSummary) {
     embed.addFields({ name: 'Résultat', value: resultSummary.text });
   } else {
-    embed.setFooter({ text: 'Votez pour le résultat avec les boutons ci-dessous.' });
+    if (votes) {
+      const voteLines = [
+        `🔵 Victoire Bleue : ${votes.blue.size}`,
+        `🔴 Victoire Rouge : ${votes.red.size}`,
+        `⚪ Match annulé : ${votes.cancel.size}`
+      ].join('\n');
+      embed.addFields({ name: 'Votes', value: voteLines });
+    }
+
+    embed.setFooter({
+      text: `Votez pour le résultat avec les boutons ci-dessous. (${MIN_VOTES_TO_RESOLVE} votes nécessaires)`
+    });
   }
 
   return embed;
@@ -520,13 +553,14 @@ async function handleHelpCommand(message) {
 }
 
 async function startMatch(participants, fallbackChannel) {
-  const map = nextRotationMap();
+  const mapChoices = pickRandomMaps(MAP_CHOICES_COUNT);
+  const primaryMap = mapChoices[0];
   const teams = balanceTeams(participants);
 
   const matchPayload = {
-    map_mode: map.mode,
-    map_name: map.map,
-    map_emoji: map.emoji,
+    map_mode: primaryMap?.mode || null,
+    map_name: primaryMap?.map || null,
+    map_emoji: primaryMap?.emoji || null,
     team1_ids: teams.blue.map((player) => player.discordId),
     team2_ids: teams.red.map((player) => player.discordId),
     status: 'pending',
@@ -642,13 +676,19 @@ async function startMatch(participants, fallbackChannel) {
 
   const state = {
     matchId: insertedMatch.id,
-    map,
+    mapChoices,
+    primaryMap,
     teams,
     createdAt: new Date(insertedMatch?.created_at || Date.now()),
     participants: new Set(participants.map((player) => player.discordId)),
     channelId: channel.id,
     messageId: null,
-    resolved: false
+    resolved: false,
+    votes: {
+      blue: new Set(),
+      red: new Set(),
+      cancel: new Set()
+    }
   };
 
   const messagePayload = {
@@ -663,7 +703,9 @@ async function startMatch(participants, fallbackChannel) {
 
   await sendLogMessage(
     [
-      `🆚 Nouveau match (#${state.matchId}) — ${map.emoji} ${map.mode} (${map.map})`,
+      `🆚 Nouveau match (#${state.matchId}) — ${mapChoices
+        .map((choice) => `${choice.emoji} ${choice.mode} (${choice.map})`)
+        .join(' | ')}`,
       `Bleus: ${teams.blue.map((p) => p.displayName).join(', ')}`,
       `Rouges: ${teams.red.map((p) => p.displayName).join(', ')}`
     ].join('\n')
@@ -824,7 +866,54 @@ async function handleInteraction(interaction) {
     return;
   }
 
+  const isModeratorOverride = isModerator && !isParticipant;
+
   try {
+    if (!['blue', 'red', 'cancel'].includes(outcome)) {
+      await interaction.reply({ content: 'Option de vote invalide.', ephemeral: true });
+      return;
+    }
+
+    if (!matchState.votes) {
+      matchState.votes = {
+        blue: new Set(),
+        red: new Set(),
+        cancel: new Set()
+      };
+    }
+
+    const votes = matchState.votes;
+    const allVoteSets = [votes.blue, votes.red, votes.cancel];
+
+    for (const voteSet of allVoteSets) {
+      voteSet.delete(interaction.user.id);
+    }
+
+    votes[outcome].add(interaction.user.id);
+
+    const voteCounts = {
+      blue: votes.blue.size,
+      red: votes.red.size,
+      cancel: votes.cancel.size
+    };
+
+    const hasReachedThreshold = voteCounts[outcome] >= MIN_VOTES_TO_RESOLVE;
+
+    if (!isModeratorOverride && !hasReachedThreshold) {
+      await interaction.update({
+        embeds: [buildMatchEmbed(matchState)],
+        components: [buildResultButtons(false)]
+      });
+
+      await interaction.followUp({
+        content: `Votre vote pour ${
+          outcome === 'blue' ? 'la victoire bleue' : outcome === 'red' ? 'la victoire rouge' : "l'annulation"
+        } a été pris en compte. (${voteCounts[outcome]}/${MIN_VOTES_TO_RESOLVE})`,
+        ephemeral: true
+      });
+      return;
+    }
+
     const summary = await applyMatchOutcome(matchState, outcome, interaction.user.id);
     if (!summary) {
       await interaction.reply({ content: 'Le résultat a déjà été enregistré.', ephemeral: true });
@@ -839,11 +928,11 @@ async function handleInteraction(interaction) {
       components: [buildResultButtons(true)]
     });
 
+    const mapLabel = matchState.primaryMap
+      ? `${matchState.primaryMap.emoji} ${matchState.primaryMap.mode}`
+      : 'Map inconnue';
     await sendLogMessage(
-      [
-        `✅ Match #${matchState.matchId} terminé (${matchState.map.emoji} ${matchState.map.mode})`,
-        summary.text
-      ].join('\n')
+      [`✅ Match #${matchState.matchId} terminé (${mapLabel})`, summary.text].join('\n')
     );
   } catch (err) {
     errorLog('Failed to process match result:', err);
