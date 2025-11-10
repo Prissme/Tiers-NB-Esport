@@ -6,7 +6,7 @@
     <title>Null's Brawl Esport · Top 50</title>
     <meta
       name="description"
-      content="Classement officiel Null's Brawl Esport. Consultez le Top 50 des meilleurs joueurs avec leur MMR et leur tier."
+      content="Classement officiel Null's Brawl Esport. Consultez le Top 50 avec score pondéré (30% Elo, 70% MMR) et tiers."
     />
     <style>
       :root {
@@ -309,8 +309,8 @@
     <header>
       <h1>Classement Officiel · Top 50</h1>
       <p>
-        Retrouve les 50 meilleurs joueurs Null's Brawl Esport classés par MMR. Le classement est mis à jour automatiquement à
-        partir de la base de données officielle.
+        Retrouve les 50 meilleurs joueurs Null's Brawl Esport classés par score pondéré (30% Elo matchmaking, 70% MMR panel
+        admin). Le classement est mis à jour automatiquement à partir de la base de données officielle.
       </p>
     </header>
     <main>
@@ -471,7 +471,14 @@
         stats.className = 'stats';
 
         const score = document.createElement('span');
-        score.textContent = `${player.mmr} pts`;
+        const elo = typeof player.elo === 'number' ? player.elo : 1000;
+        const mmr = typeof player.mmr === 'number' ? player.mmr : 1000;
+        const weightedScore =
+          typeof player.weighted_score === 'number'
+            ? player.weighted_score
+            : Math.round(elo * 0.3 + mmr * 0.7);
+        score.textContent = `${weightedScore} pts`;
+        score.title = `Elo ${Math.round(elo)} · MMR ${Math.round(mmr)}`;
 
         const tier = document.createElement('span');
         tier.className = 'badge';
