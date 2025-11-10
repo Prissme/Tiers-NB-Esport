@@ -560,6 +560,16 @@ async function startMatch(participants, fallbackChannel) {
         delete nextPayload.map_name;
         return nextPayload;
       }
+    },
+    {
+      column: 'map',
+      logMessage:
+        'Database schema is missing map column. Falling back to match insertion without map information.',
+      apply: (currentPayload) => {
+        const nextPayload = { ...currentPayload };
+        delete nextPayload.map;
+        return nextPayload;
+      }
     }
   ];
 
