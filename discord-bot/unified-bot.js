@@ -513,11 +513,37 @@ async function startMatch(participants, fallbackChannel) {
     winner: null
   };
 
-  const { data: insertedMatch, error: matchError } = await supabase
+  let insertedMatch = null;
+  let matchError = null;
+
+  ({ data: insertedMatch, error: matchError } = await supabase
     .from('matches')
     .insert(matchPayload)
     .select()
-    .single();
+    .single());
+
+  if (matchError) {
+    const errorMessage = matchError.message || '';
+    const errorDetails = matchError.details || '';
+    const missingMapEmoji =
+      errorMessage.toLowerCase().includes('map_emoji') ||
+      errorDetails.toLowerCase().includes('map_emoji');
+
+    if (missingMapEmoji) {
+      warn(
+        'Database schema is missing map_emoji column. Falling back to match insertion without map emoji.'
+      );
+
+      const fallbackPayload = { ...matchPayload };
+      delete fallbackPayload.map_emoji;
+
+      ({ data: insertedMatch, error: matchError } = await supabase
+        .from('matches')
+        .insert(fallbackPayload)
+        .select()
+        .single());
+    }
+  }
 
   if (matchError) {
     throw new Error(`Unable to create match record: ${matchError.message}`);
