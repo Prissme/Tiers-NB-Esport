@@ -513,36 +513,60 @@ async function startMatch(participants, fallbackChannel) {
     winner: null
   };
 
+  const hasMissingColumnError = (error, column) => {
+    const errorMessage = (error?.message || '').toLowerCase();
+    const errorDetails = (error?.details || '').toLowerCase();
+    return errorMessage.includes(column) || errorDetails.includes(column);
+  };
+
+  const fallbackStrategies = [
+    {
+      column: 'map_emoji',
+      logMessage:
+        'Database schema is missing map_emoji column. Falling back to match insertion without map emoji.',
+      apply: (currentPayload) => {
+        const nextPayload = { ...currentPayload };
+        delete nextPayload.map_emoji;
+        return nextPayload;
+      }
+    },
+    {
+      column: 'map_mode',
+      logMessage:
+        'Database schema is missing map_mode column. Falling back to match insertion without map mode.',
+      apply: (currentPayload) => {
+        const nextPayload = { ...currentPayload };
+        delete nextPayload.map_mode;
+        if (matchPayload.map_mode && matchPayload.map_name) {
+          nextPayload.map_name = `${matchPayload.map_mode} — ${matchPayload.map_name}`;
+        }
+        return nextPayload;
+      }
+    }
+  ];
+
   let insertedMatch = null;
   let matchError = null;
+  let payloadToInsert = { ...matchPayload };
 
-  ({ data: insertedMatch, error: matchError } = await supabase
-    .from('matches')
-    .insert(matchPayload)
-    .select()
-    .single());
+  for (let attempt = 0; attempt <= fallbackStrategies.length; attempt += 1) {
+    ({ data: insertedMatch, error: matchError } = await supabase
+      .from('matches')
+      .insert(payloadToInsert)
+      .select()
+      .single());
 
-  if (matchError) {
-    const errorMessage = matchError.message || '';
-    const errorDetails = matchError.details || '';
-    const missingMapEmoji =
-      errorMessage.toLowerCase().includes('map_emoji') ||
-      errorDetails.toLowerCase().includes('map_emoji');
-
-    if (missingMapEmoji) {
-      warn(
-        'Database schema is missing map_emoji column. Falling back to match insertion without map emoji.'
-      );
-
-      const fallbackPayload = { ...matchPayload };
-      delete fallbackPayload.map_emoji;
-
-      ({ data: insertedMatch, error: matchError } = await supabase
-        .from('matches')
-        .insert(fallbackPayload)
-        .select()
-        .single());
+    if (!matchError) {
+      break;
     }
+
+    const fallback = fallbackStrategies[attempt];
+    if (!fallback || !hasMissingColumnError(matchError, fallback.column)) {
+      break;
+    }
+
+    warn(fallback.logMessage);
+    payloadToInsert = fallback.apply(payloadToInsert);
   }
 
   if (matchError) {
