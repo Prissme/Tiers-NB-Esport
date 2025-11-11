@@ -85,6 +85,10 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
   auth: { persistSession: false }
 });
 
+function createSupabaseClient() {
+  return supabase;
+}
+
 const tierRoleMap = {
   S: ROLE_TIER_S,
   A: ROLE_TIER_A,
@@ -488,6 +492,61 @@ async function handleEloCommand(message) {
   await message.reply({ embeds: [embed] });
 }
 
+async function handleLeaderboardCommand(message, args) {
+  const supabaseClient = createSupabaseClient();
+  if (!supabaseClient) {
+    await message.reply({ content: 'Configuration Supabase manquante.' });
+    return;
+  }
+
+  let limit = 10;
+  if (args[0]) {
+    const parsed = parseInt(args[0], 10);
+    if (!Number.isNaN(parsed) && parsed > 0) {
+      limit = Math.min(parsed, 25);
+    }
+  }
+
+  try {
+    const { data: allPlayers, error } = await supabaseClient
+      .from('players')
+      .select('discord_id, name, solo_elo, wins, losses, games_played')
+      .eq('active', true)
+      .order('solo_elo', { ascending: false });
+
+    if (error) throw error;
+
+    if (!allPlayers || allPlayers.length === 0) {
+      await message.reply({ content: 'Aucun joueur classé pour le moment.' });
+      return;
+    }
+
+    const totalPlayers = allPlayers.length;
+    const boundaries = computeTierBoundaries(totalPlayers);
+    const topPlayers = allPlayers.slice(0, limit);
+
+    const lines = [`**🏆 Classement ELO — Top ${topPlayers.length}**\n`];
+
+    topPlayers.forEach((player, index) => {
+      const rank = index + 1;
+      const tier = getTierByRank(rank, boundaries);
+      const soloElo = normalizeRating(player.solo_elo);
+      const wins = player.wins || 0;
+      const losses = player.losses || 0;
+
+      lines.push(
+        `${rank}. **${player.name}** — ${Math.round(soloElo)} Elo — ` +
+          `${wins}V/${losses}D — Tier ${tier || 'No-tier'}`
+      );
+    });
+
+    await message.reply({ content: lines.join('\n') });
+  } catch (error) {
+    errorLog('Failed to fetch leaderboard:', error);
+    await message.reply({ content: 'Erreur lors de la récupération du classement.' });
+  }
+}
+
 async function handleMapsCommand(message) {
   const lines = [
     '🗺️ **Rotation des maps disponibles**',
@@ -535,10 +594,11 @@ async function handleHelpCommand(message) {
     '`!join` — Rejoindre la file d\'attente',
     '`!leave` — Quitter la file d\'attente',
     '`!queue` — Voir les joueurs en attente',
-    '`!elo` — Afficher votre classement Elo',
+    '`!elo [@joueur]` — Afficher le classement Elo',
+    '`!lb [nombre]` — Afficher le top classement (ex: !lb 25)',
     '`!maps` — Afficher la rotation des maps',
     '`!ping` — Mentionner le rôle de notification des matchs',
-    '`!tiers` — Synchroniser manuellement les rôles de tier avec le site',
+    '`!tiers` — Synchroniser manuellement les rôles de tier',
     '`!help` — Afficher cette aide'
   ];
 
@@ -1159,6 +1219,10 @@ async function handleMessage(message) {
         break;
       case 'elo':
         await handleEloCommand(message, args);
+        break;
+      case 'lb':
+      case 'leaderboard':
+        await handleLeaderboardCommand(message, args);
         break;
       case 'maps':
         await handleMapsCommand(message, args);
