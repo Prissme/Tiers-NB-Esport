@@ -252,6 +252,60 @@ async def create_match_if_possible(guild: discord.Guild) -> None:
     await send_match_message(guild, match_record, team1_players, team2_players)
 
 
+def compute_tier_boundaries(total_players: int) -> List[Dict[str, int]]:
+    if total_players <= 0:
+        return []
+
+    remaining = total_players
+    boundaries: List[Dict[str, int]] = []
+
+    for index, distribution in enumerate(config.TIER_DISTRIBUTION):
+        if remaining <= 0:
+            break
+
+        ratio = float(distribution.get("ratio", 0) or 0)
+        min_count = int(distribution.get("minCount", 0) or 0)
+        future_min = sum(
+            int(next_dist.get("minCount", 0) or 0)
+            for next_dist in config.TIER_DISTRIBUTION[index + 1 :]
+        )
+
+        if index == len(config.TIER_DISTRIBUTION) - 1:
+            count = remaining
+        else:
+            count = int(total_players * ratio)
+            if count < min_count:
+                count = min_count
+            max_allowed = remaining - future_min
+            if max_allowed < 0:
+                max_allowed = 0
+            if count > max_allowed:
+                count = max(min_count, max_allowed)
+
+        if count > remaining:
+            count = remaining
+
+        if count <= 0:
+            continue
+
+        remaining -= count
+        boundaries.append({"tier": distribution["tier"], "end_rank": total_players - remaining})
+
+    return boundaries
+
+
+def get_tier_by_rank(rank: int, boundaries: List[Dict[str, int]]) -> Optional[str]:
+    if rank <= 0 or not boundaries:
+        return None
+
+    for boundary in boundaries:
+        end_rank = boundary.get("end_rank")
+        if isinstance(end_rank, int) and rank <= end_rank:
+            return boundary.get("tier")
+
+    return None
+
+
 @bot.event
 async def on_ready():
     logger.info("Bot connecté en tant que %s", bot.user)
@@ -274,6 +328,11 @@ async def ping_command(ctx: commands.Context):
 @bot.command(name="join")
 async def join_queue(ctx: commands.Context):
     user_id = ctx.author.id
+    if database.player_has_pending_match(user_id):
+        await ctx.reply(
+            "Tu as déjà un match en attente de validation. Attends que le résultat soit confirmé."
+        )
+        return
     async with queue_lock:
         if user_id in solo_queue:
             await ctx.reply("Tu es déjà dans la file d'attente.")
@@ -331,6 +390,36 @@ async def show_elo(ctx: commands.Context, member: Optional[discord.Member] = Non
         f"Stats de {target.display_name}: {player.solo_elo} ELO — "
         f"{player.solo_wins}V/{player.solo_losses}D"
     )
+
+
+@bot.command(name="lb")
+async def leaderboard(ctx: commands.Context, top: Optional[int] = None):
+    top_n = top if top is not None else 10
+    try:
+        top_n = int(top_n)
+    except (TypeError, ValueError):
+        await ctx.reply("La limite doit être un nombre.")
+        return
+
+    top_n = max(1, min(25, top_n))
+
+    players, total_players = database.fetch_leaderboard(top_n)
+    if not players:
+        await ctx.reply("Aucun joueur n'est encore classé.")
+        return
+
+    boundaries = compute_tier_boundaries(total_players)
+
+    lines = [f"Classement ELO — Top {len(players)}"]
+    for index, player in enumerate(players, start=1):
+        member = ctx.guild.get_member(player.discord_id)
+        name = member.display_name if member else player.name
+        tier = get_tier_by_rank(index, boundaries) or "No-tier"
+        lines.append(
+            f"{index}. {name} — {player.solo_elo} ELO — {player.solo_wins}V/{player.solo_losses}D — Tier {tier}"
+        )
+
+    await ctx.reply("\n".join(lines))
 
 
 @bot.command(name="resetstats")

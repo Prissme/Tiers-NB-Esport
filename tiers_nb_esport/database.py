@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Dict, Iterable, List, Optional
+from typing import Dict, Iterable, List, Optional, Tuple
 from contextlib import contextmanager
 
 import psycopg2
@@ -149,6 +149,27 @@ def fetch_player(discord_id: int) -> Optional[Player]:
             return Player.from_row(row) if row else None
 
 
+def fetch_leaderboard(limit: int = 10) -> Tuple[List[Player], int]:
+    limit = max(1, int(limit))
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT *, COUNT(*) OVER() AS total_players
+                FROM players
+                ORDER BY solo_elo DESC, solo_wins DESC, solo_losses ASC, name ASC
+                LIMIT %s
+                """,
+                (limit,),
+            )
+            rows = cur.fetchall()
+    if not rows:
+        return [], 0
+    total_players = int(rows[0].get("total_players", 0))
+    players = [Player.from_row(row) for row in rows]
+    return players, total_players
+
+
 def record_match(team1_ids: List[int], team2_ids: List[int], map_info: Dict[str, str]) -> Dict:
     with get_connection() as conn:
         with conn.cursor() as cur:
@@ -248,6 +269,22 @@ def cancel_match(match_id: int) -> Optional[Dict]:
                 (match_id,),
             )
             return cur.fetchone()
+
+
+def player_has_pending_match(discord_id: int) -> bool:
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT 1
+                FROM matches
+                WHERE status = 'pending'
+                  AND (%s = ANY(team1_ids) OR %s = ANY(team2_ids))
+                LIMIT 1
+                """,
+                (discord_id, discord_id),
+            )
+            return cur.fetchone() is not None
 
 
 def apply_player_updates(updates: Iterable[Dict[str, int]]) -> None:

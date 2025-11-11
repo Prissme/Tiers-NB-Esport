@@ -16,6 +16,16 @@ DEFAULT_DIVISION = os.getenv("MATCHMAKING_DEFAULT_DIVISION", "solo")
 # ELO
 K_FACTOR = 30
 
+# Classement tiers (ratio basé sur le classement global)
+TIER_DISTRIBUTION = [
+    {"tier": "S", "ratio": 0.005, "minCount": 1},
+    {"tier": "A", "ratio": 0.02, "minCount": 1},
+    {"tier": "B", "ratio": 0.04, "minCount": 1},
+    {"tier": "C", "ratio": 0.10, "minCount": 1},
+    {"tier": "D", "ratio": 0.28, "minCount": 1},
+    {"tier": "E", "ratio": 0.555, "minCount": 1},
+]
+
 # Maps (copier MAP_ROTATION depuis main.py)
 MAP_ROTATION: List[Dict[str, Any]] = [
     {
