@@ -48,6 +48,63 @@ const TIER_DISTRIBUTION = [
   { tier: 'E', ratio: 0.555, minCount: 1 }
 ];
 
+function computeTierBoundaries(totalPlayers) {
+  if (!totalPlayers || totalPlayers <= 0) {
+    return [];
+  }
+
+  let remaining = totalPlayers;
+  const boundaries = [];
+
+  for (let index = 0; index < TIER_DISTRIBUTION.length; index += 1) {
+    const distribution = TIER_DISTRIBUTION[index];
+    const isLastTier = index === TIER_DISTRIBUTION.length - 1;
+
+    let count;
+    if (isLastTier) {
+      count = remaining;
+    } else {
+      const futureMin = TIER_DISTRIBUTION.slice(index + 1).reduce(
+        (sum, entry) => sum + (entry.minCount || 0),
+        0
+      );
+
+      count = Math.floor(totalPlayers * distribution.ratio);
+      if (count < distribution.minCount) {
+        count = distribution.minCount;
+      }
+
+      const maxAllowed = remaining - futureMin;
+      if (count > maxAllowed) {
+        count = Math.max(distribution.minCount || 0, maxAllowed);
+      }
+    }
+
+    remaining -= count;
+    boundaries.push({ tier: distribution.tier, endRank: totalPlayers - remaining });
+
+    if (remaining <= 0) {
+      break;
+    }
+  }
+
+  return boundaries;
+}
+
+function getTierByRank(rank, boundaries) {
+  if (!Array.isArray(boundaries) || boundaries.length === 0) {
+    return null;
+  }
+
+  for (const boundary of boundaries) {
+    if (rank <= boundary.endRank) {
+      return boundary.tier;
+    }
+  }
+
+  return null;
+}
+
 const MAP_ROTATION = [
   { mode: 'Razzia de gemmes', map: 'Mine hard-rock', emoji: '<:GemGrab:1436473738765008976>' },
   { mode: 'Razzia de gemmes', map: 'Tunnel de mine', emoji: '<:GemGrab:1436473738765008976>' },
