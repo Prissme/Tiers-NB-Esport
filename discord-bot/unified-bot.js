@@ -8,8 +8,11 @@ const {
   EmbedBuilder,
   Events,
   GatewayIntentBits,
+  ModalBuilder,
   Partials,
-  PermissionsBitField
+  PermissionsBitField,
+  TextInputBuilder,
+  TextInputStyle
 } = require('discord.js');
 const { createClient } = require('@supabase/supabase-js');
 
@@ -22,6 +25,7 @@ const ELO_DIVISOR = 400;
 const TIER_SYNC_INTERVAL_MS = 10 * 60 * 1000; // 10 minutes
 const MIN_VOTES_TO_RESOLVE = 4;
 const MAP_CHOICES_COUNT = 3;
+const ROOM_TIER_ORDER = ['E', 'D', 'C', 'B', 'A', 'S'];
 
 const DISCORD_BOT_TOKEN = process.env.DISCORD_BOT_TOKEN;
 const DISCORD_GUILD_ID = process.env.DISCORD_GUILD_ID;
@@ -173,6 +177,8 @@ let botStarted = false;
 const matchQueue = [];
 const queueEntries = new Map();
 const activeMatches = new Map();
+const pendingRoomForms = new Map();
+const customRooms = new Map();
 
 function log(...args) {
   console.log(LOG_PREFIX, ...args);
@@ -204,6 +210,22 @@ function pickRandomMaps(count) {
 
 function normalizeRating(value) {
   return typeof value === 'number' ? value : DEFAULT_ELO;
+}
+
+function normalizeTierInput(value) {
+  if (!value) {
+    return null;
+  }
+
+  const cleaned = value.toString().trim().toUpperCase();
+  return ROOM_TIER_ORDER.includes(cleaned) ? cleaned : null;
+}
+
+function isValidTierRange(minTier, maxTier) {
+  const minIndex = ROOM_TIER_ORDER.indexOf(minTier);
+  const maxIndex = ROOM_TIER_ORDER.indexOf(maxTier);
+
+  return minIndex !== -1 && maxIndex !== -1 && minIndex <= maxIndex;
 }
 
 function calculateWeightedScore(soloElo, mmr) {
@@ -484,7 +506,64 @@ async function sendLogMessage(content) {
   }
 }
 
-async function handleJoinCommand(message) {
+async function handleCreateRoomCommand(message) {
+  const leaderId = message.author.id;
+
+  for (const [requestId, entry] of pendingRoomForms.entries()) {
+    if (entry.leaderId === leaderId) {
+      pendingRoomForms.delete(requestId);
+    }
+  }
+
+  const requestId = `${Date.now()}-${leaderId}`;
+  pendingRoomForms.set(requestId, { leaderId, channelId: message.channel.id, createdAt: Date.now() });
+
+  const actionRow = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`room:open:${requestId}`)
+      .setLabel('Remplir le formulaire')
+      .setStyle(ButtonStyle.Primary)
+  );
+
+  await message.reply({
+    content:
+      'Cliquez sur le bouton pour renseigner le code de la room et les tiers autorisés. Seul le créateur peut remplir ce formulaire.',
+    components: [actionRow]
+  });
+}
+
+async function handleRoomJoinRequest(message, leaderUser) {
+  const room = customRooms.get(leaderUser.id);
+
+  if (!room) {
+    await message.reply({ content: `Aucune room active trouvée pour <@${leaderUser.id}>.` });
+    return;
+  }
+
+  if (room.members.has(message.author.id)) {
+    await message.reply({ content: 'Vous êtes déjà inscrit dans cette room.' });
+    return;
+  }
+
+  room.members.add(message.author.id);
+
+  const confirmationLines = [
+    `✅ <@${message.author.id}> a rejoint la room de <@${leaderUser.id}>.`,
+    `Code de la room : \`${room.code}\``,
+    `Tiers autorisés : ${room.minTier} → ${room.maxTier}`
+  ];
+
+  await message.reply({ content: confirmationLines.join('\n') });
+}
+
+async function handleJoinCommand(message, args) {
+  const mentionedUser = message.mentions.users.first();
+
+  if (mentionedUser) {
+    await handleRoomJoinRequest(message, mentionedUser);
+    return;
+  }
+
   const member = message.member || (guild ? await guild.members.fetch(message.author.id).catch(() => null) : null);
 
   if (!member) {
@@ -1084,106 +1163,258 @@ async function applyMatchOutcome(state, outcome, userId) {
 }
 
 async function handleInteraction(interaction) {
-  if (!interaction.isButton()) {
-    return;
-  }
+  if (interaction.isButton()) {
+    const [prefix, action, requestId] = interaction.customId.split(':');
 
-  const [prefix, outcome] = interaction.customId.split(':');
-  if (prefix !== 'match') {
-    return;
-  }
+    if (prefix === 'room' && action === 'open') {
+      const pending = pendingRoomForms.get(requestId);
 
-  const matchState = [...activeMatches.values()].find((state) => state.messageId === interaction.message.id);
-  if (!matchState) {
-    await interaction.reply({ content: 'Match introuvable ou déjà traité.', ephemeral: true });
-    return;
-  }
+      if (!pending) {
+        await interaction.reply({
+          content: 'Ce formulaire a expiré ou est introuvable. Relancez `!create` pour recommencer.',
+          ephemeral: true
+        });
+        return;
+      }
 
-  if (matchState.resolved) {
-    await interaction.reply({ content: 'Ce match a déjà été terminé.', ephemeral: true });
-    return;
-  }
+      if (pending.leaderId !== interaction.user.id) {
+        await interaction.reply({
+          content: 'Seul le créateur de la room peut remplir ce formulaire.',
+          ephemeral: true
+        });
+        return;
+      }
 
-  const member = interaction.member;
-  const isParticipant = matchState.participants.has(interaction.user.id);
-  const isModerator = member?.permissions?.has(PermissionsBitField.Flags.ManageGuild);
+      const modal = new ModalBuilder()
+        .setCustomId(`room:submit:${requestId}`)
+        .setTitle('Créer une room personnalisée');
 
-  if (!isParticipant && !isModerator) {
-    await interaction.reply({ content: "Seuls les joueurs du match peuvent voter.", ephemeral: true });
-    return;
-  }
+      const codeInput = new TextInputBuilder()
+        .setCustomId('roomCode')
+        .setLabel('Code de la room')
+        .setPlaceholder('Exemple : ABCD')
+        .setMaxLength(20)
+        .setRequired(true)
+        .setStyle(TextInputStyle.Short);
 
-  const isModeratorOverride = isModerator && !isParticipant;
+      const minTierInput = new TextInputBuilder()
+        .setCustomId('minTier')
+        .setLabel('Tier minimum (S/A/B/C/D/E)')
+        .setMaxLength(1)
+        .setRequired(true)
+        .setStyle(TextInputStyle.Short);
 
-  try {
-    if (!['blue', 'red', 'cancel'].includes(outcome)) {
-      await interaction.reply({ content: 'Option de vote invalide.', ephemeral: true });
+      const maxTierInput = new TextInputBuilder()
+        .setCustomId('maxTier')
+        .setLabel('Tier maximum (S/A/B/C/D/E)')
+        .setMaxLength(1)
+        .setRequired(true)
+        .setStyle(TextInputStyle.Short);
+
+      modal.addComponents(
+        new ActionRowBuilder().addComponents(codeInput),
+        new ActionRowBuilder().addComponents(minTierInput),
+        new ActionRowBuilder().addComponents(maxTierInput)
+      );
+
+      await interaction.showModal(modal);
       return;
     }
 
-    if (!matchState.votes) {
-      matchState.votes = {
-        blue: new Set(),
-        red: new Set(),
-        cancel: new Set()
+    if (prefix !== 'match') {
+      return;
+    }
+
+    const outcome = action;
+    const matchState = [...activeMatches.values()].find((state) => state.messageId === interaction.message.id);
+    if (!matchState) {
+      await interaction.reply({ content: 'Match introuvable ou déjà traité.', ephemeral: true });
+      return;
+    }
+
+    if (matchState.resolved) {
+      await interaction.reply({ content: 'Ce match a déjà été terminé.', ephemeral: true });
+      return;
+    }
+
+    const member = interaction.member;
+    const isParticipant = matchState.participants.has(interaction.user.id);
+    const isModerator = member?.permissions?.has(PermissionsBitField.Flags.ManageGuild);
+
+    if (!isParticipant && !isModerator) {
+      await interaction.reply({ content: "Seuls les joueurs du match peuvent voter.", ephemeral: true });
+      return;
+    }
+
+    const isModeratorOverride = isModerator && !isParticipant;
+
+    try {
+      if (!['blue', 'red', 'cancel'].includes(outcome)) {
+        await interaction.reply({ content: 'Option de vote invalide.', ephemeral: true });
+        return;
+      }
+
+      if (!matchState.votes) {
+        matchState.votes = {
+          blue: new Set(),
+          red: new Set(),
+          cancel: new Set()
+        };
+      }
+
+      const votes = matchState.votes;
+      const allVoteSets = [votes.blue, votes.red, votes.cancel];
+
+      for (const voteSet of allVoteSets) {
+        voteSet.delete(interaction.user.id);
+      }
+
+      votes[outcome].add(interaction.user.id);
+
+      const voteCounts = {
+        blue: votes.blue.size,
+        red: votes.red.size,
+        cancel: votes.cancel.size
       };
-    }
 
-    const votes = matchState.votes;
-    const allVoteSets = [votes.blue, votes.red, votes.cancel];
+      const hasReachedThreshold = voteCounts[outcome] >= MIN_VOTES_TO_RESOLVE;
 
-    for (const voteSet of allVoteSets) {
-      voteSet.delete(interaction.user.id);
-    }
+      if (!isModeratorOverride && !hasReachedThreshold) {
+        await interaction.update({
+          embeds: [buildMatchEmbed(matchState)],
+          components: [buildResultButtons(false)]
+        });
 
-    votes[outcome].add(interaction.user.id);
+        await interaction.followUp({
+          content: `Votre vote pour ${
+            outcome === 'blue' ? 'la victoire bleue' : outcome === 'red' ? 'la victoire rouge' : "l'annulation"
+          } a été pris en compte. (${voteCounts[outcome]}/${MIN_VOTES_TO_RESOLVE})`,
+          ephemeral: true
+        });
+        return;
+      }
 
-    const voteCounts = {
-      blue: votes.blue.size,
-      red: votes.red.size,
-      cancel: votes.cancel.size
-    };
+      const summary = await applyMatchOutcome(matchState, outcome, interaction.user.id);
+      if (!summary) {
+        await interaction.reply({ content: 'Le résultat a déjà été enregistré.', ephemeral: true });
+        return;
+      }
 
-    const hasReachedThreshold = voteCounts[outcome] >= MIN_VOTES_TO_RESOLVE;
+      matchState.resolved = true;
+      activeMatches.delete(matchState.matchId);
 
-    if (!isModeratorOverride && !hasReachedThreshold) {
       await interaction.update({
-        embeds: [buildMatchEmbed(matchState)],
-        components: [buildResultButtons(false)]
+        embeds: [buildMatchEmbed(matchState, summary)],
+        components: [buildResultButtons(true)]
       });
 
-      await interaction.followUp({
-        content: `Votre vote pour ${
-          outcome === 'blue' ? 'la victoire bleue' : outcome === 'red' ? 'la victoire rouge' : "l'annulation"
-        } a été pris en compte. (${voteCounts[outcome]}/${MIN_VOTES_TO_RESOLVE})`,
+      const mapLabel = matchState.primaryMap
+        ? `${matchState.primaryMap.emoji} ${matchState.primaryMap.mode}`
+        : 'Map inconnue';
+      await sendLogMessage(
+        [`✅ Match #${matchState.matchId} terminé (${mapLabel})`, summary.text].join('\n')
+      );
+    } catch (err) {
+      errorLog('Failed to process match result:', err);
+      await interaction.reply({ content: "Erreur lors de l'enregistrement du résultat.", ephemeral: true });
+    }
+
+    return;
+  }
+
+  if (interaction.isModalSubmit()) {
+    const [prefix, action, requestId] = interaction.customId.split(':');
+
+    if (prefix !== 'room' || action !== 'submit') {
+      return;
+    }
+
+    const pending = pendingRoomForms.get(requestId);
+
+    if (!pending) {
+      await interaction.reply({
+        content: 'Formulaire introuvable. Relancez `!create` pour créer une nouvelle room.',
         ephemeral: true
       });
       return;
     }
 
-    const summary = await applyMatchOutcome(matchState, outcome, interaction.user.id);
-    if (!summary) {
-      await interaction.reply({ content: 'Le résultat a déjà été enregistré.', ephemeral: true });
+    if (pending.leaderId !== interaction.user.id) {
+      await interaction.reply({
+        content: 'Seul le créateur de la room peut valider ce formulaire.',
+        ephemeral: true
+      });
       return;
     }
 
-    matchState.resolved = true;
-    activeMatches.delete(matchState.matchId);
+    const rawCode = interaction.fields.getTextInputValue('roomCode') || '';
+    const rawMinTier = interaction.fields.getTextInputValue('minTier') || '';
+    const rawMaxTier = interaction.fields.getTextInputValue('maxTier') || '';
 
-    await interaction.update({
-      embeds: [buildMatchEmbed(matchState, summary)],
-      components: [buildResultButtons(true)]
-    });
+    const roomCode = rawCode.trim().toUpperCase();
+    const minTier = normalizeTierInput(rawMinTier);
+    const maxTier = normalizeTierInput(rawMaxTier);
 
-    const mapLabel = matchState.primaryMap
-      ? `${matchState.primaryMap.emoji} ${matchState.primaryMap.mode}`
-      : 'Map inconnue';
-    await sendLogMessage(
-      [`✅ Match #${matchState.matchId} terminé (${mapLabel})`, summary.text].join('\n')
-    );
-  } catch (err) {
-    errorLog('Failed to process match result:', err);
-    await interaction.reply({ content: "Erreur lors de l'enregistrement du résultat.", ephemeral: true });
+    if (!roomCode) {
+      pendingRoomForms.delete(requestId);
+      await interaction.reply({ content: 'Le code de room ne peut pas être vide.', ephemeral: true });
+      return;
+    }
+
+    if (!minTier || !maxTier) {
+      pendingRoomForms.delete(requestId);
+      await interaction.reply({
+        content: 'Les tiers doivent être parmi S, A, B, C, D ou E.',
+        ephemeral: true
+      });
+      return;
+    }
+
+    if (!isValidTierRange(minTier, maxTier)) {
+      pendingRoomForms.delete(requestId);
+      await interaction.reply({
+        content: 'Le tier minimum doit être inférieur ou égal au tier maximum.',
+        ephemeral: true
+      });
+      return;
+    }
+
+    pendingRoomForms.delete(requestId);
+
+    const roomState = {
+      leaderId: pending.leaderId,
+      code: roomCode,
+      minTier,
+      maxTier,
+      channelId: pending.channelId,
+      messageId: null,
+      createdAt: new Date(),
+      members: new Set([pending.leaderId])
+    };
+
+    customRooms.set(pending.leaderId, roomState);
+
+    const embed = new EmbedBuilder()
+      .setTitle('Room personnalisée')
+      .setDescription(`Créée par <@${pending.leaderId}>`)
+      .addFields(
+        { name: 'Code de la room', value: `\`${roomCode}\``, inline: true },
+        { name: 'Tier minimum', value: minTier, inline: true },
+        { name: 'Tier maximum', value: maxTier, inline: true },
+        {
+          name: 'Comment rejoindre ?',
+          value: `Utilisez \`!join <@${pending.leaderId}>\` pour recevoir le code directement.`
+        }
+      )
+      .setColor(0x2ecc71)
+      .setTimestamp(roomState.createdAt);
+
+    await interaction.reply({ content: '✅ Room créée avec succès !', embeds: [embed] });
+
+    const replyMessage = await interaction.fetchReply().catch(() => null);
+    if (replyMessage) {
+      roomState.messageId = replyMessage.id;
+    }
   }
 }
 
@@ -1395,6 +1626,9 @@ async function handleMessage(message) {
 
   try {
     switch (command) {
+      case 'create':
+        await handleCreateRoomCommand(message, args);
+        break;
       case 'join':
         await handleJoinCommand(message, args);
         break;
