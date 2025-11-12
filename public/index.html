@@ -103,8 +103,39 @@
         padding: 1rem 1.25rem;
         border-radius: 16px;
         background: var(--bg-alt);
-        transition: transform 0.2s ease, border-color 0.2s ease;
+        transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
         border: 1px solid transparent;
+      }
+
+      .player-top {
+        background: linear-gradient(120deg, rgba(250, 204, 21, 0.14), rgba(255, 255, 255, 0.04)) var(--bg-alt);
+        padding: 1.4rem 1.5rem;
+        border: 1px solid rgba(250, 204, 21, 0.35);
+        box-shadow: 0 25px 50px rgba(5, 6, 10, 0.5);
+      }
+
+      .player-top .rank {
+        font-size: 2.15rem;
+      }
+
+      .player-top h2 {
+        font-size: 1.3rem;
+      }
+
+      .player-top .stats {
+        font-size: 1.05rem;
+      }
+
+      .player-top-1 {
+        background: linear-gradient(145deg, rgba(250, 204, 21, 0.35), rgba(250, 204, 21, 0.1));
+      }
+
+      .player-top-2 {
+        background: linear-gradient(145deg, rgba(226, 232, 240, 0.35), rgba(250, 204, 21, 0.1));
+      }
+
+      .player-top-3 {
+        background: linear-gradient(145deg, rgba(234, 179, 8, 0.25), rgba(250, 204, 21, 0.08));
       }
 
       .player:hover {
@@ -149,6 +180,12 @@
         font-size: 0.75rem;
         font-weight: 600;
         letter-spacing: 0.04em;
+      }
+
+      .badge-tier-s {
+        background: linear-gradient(90deg, #fcd34d, #fbbf24, #f59e0b);
+        color: #1f1b0d;
+        box-shadow: 0 0 12px rgba(252, 211, 77, 0.45);
       }
 
       .auth-controls {
@@ -713,6 +750,9 @@
       const createPlayerRow = (player, index) => {
         const li = document.createElement('li');
         li.className = 'player';
+        if (index < 3) {
+          li.classList.add('player-top', `player-top-${index + 1}`);
+        }
 
         const rank = document.createElement('span');
         rank.className = 'rank';
@@ -739,7 +779,11 @@
         score.title = `Elo ${Math.round(soloElo)} · MMR ${Math.round(mmr)}`;
 
         const tier = document.createElement('span');
-        tier.className = 'badge';
+        tier.classList.add('badge');
+        const tierValue = player.tier ? String(player.tier).toUpperCase() : null;
+        if (tierValue === 'S') {
+          tier.classList.add('badge-tier-s');
+        }
         tier.textContent = `Tier ${player.tier || 'No-tier'}`;
 
         stats.append(score, tier);
