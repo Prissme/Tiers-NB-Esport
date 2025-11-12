@@ -254,6 +254,190 @@
         color: var(--muted);
       }
 
+      .queue-builder {
+        display: flex;
+        flex-direction: column;
+        gap: 1.5rem;
+      }
+
+      .queue-controls {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1rem;
+        align-items: flex-end;
+      }
+
+      .queue-tier-filters {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+      }
+
+      .queue-tier-filters label {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        background: var(--bg-alt);
+        border-radius: 999px;
+        padding: 0.35rem 0.85rem;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        cursor: pointer;
+        font-size: 0.9rem;
+      }
+
+      .queue-tier-filters input[type='checkbox'] {
+        accent-color: var(--accent);
+      }
+
+      .queue-search {
+        flex: 1;
+        min-width: 220px;
+      }
+
+      .queue-search label {
+        display: block;
+        margin-bottom: 0.55rem;
+        font-size: 0.9rem;
+        color: var(--muted);
+      }
+
+      .queue-search input[type='search'] {
+        width: 100%;
+        padding: 0.55rem 0.75rem;
+        border-radius: 12px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        background: var(--bg-alt);
+        color: var(--text);
+        font-size: 0.95rem;
+      }
+
+      .queue-columns {
+        display: grid;
+        gap: 1.5rem;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      }
+
+      .queue-list h3 {
+        margin: 0 0 0.75rem;
+        font-size: 1.1rem;
+      }
+
+      .queue-items {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 0.65rem;
+      }
+
+      .queue-item {
+        display: flex;
+        justify-content: space-between;
+        gap: 0.75rem;
+        align-items: center;
+        padding: 0.75rem 1rem;
+        border-radius: 14px;
+        background: var(--bg-alt);
+        border: 1px solid transparent;
+      }
+
+      .queue-item strong {
+        display: block;
+        font-size: 1rem;
+      }
+
+      .queue-item small {
+        display: block;
+        color: var(--muted);
+        font-size: 0.85rem;
+        margin-top: 0.2rem;
+      }
+
+      .queue-info {
+        flex: 1;
+        min-width: 0;
+      }
+
+      .queue-actions {
+        display: inline-flex;
+        gap: 0.35rem;
+      }
+
+      .queue-button {
+        background: rgba(250, 204, 21, 0.18);
+        color: var(--accent);
+        border: none;
+        border-radius: 10px;
+        padding: 0.35rem 0.75rem;
+        font-size: 0.85rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background 0.2s ease, transform 0.2s ease;
+      }
+
+      .queue-button:hover {
+        background: rgba(250, 204, 21, 0.28);
+        transform: translateY(-1px);
+      }
+
+      .queue-button:disabled {
+        opacity: 0.45;
+        cursor: not-allowed;
+        transform: none;
+        background: rgba(255, 255, 255, 0.1);
+      }
+
+      .queue-button.danger {
+        background: rgba(248, 113, 113, 0.2);
+        color: #f87171;
+      }
+
+      .queue-button.danger:hover {
+        background: rgba(248, 113, 113, 0.28);
+      }
+
+      .queue-empty {
+        margin: 0;
+        color: var(--muted);
+        font-size: 0.9rem;
+      }
+
+      .queue-available-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 0.65rem 0.85rem;
+        border-radius: 12px;
+        background: rgba(255, 255, 255, 0.04);
+      }
+
+      .queue-available-item strong {
+        display: block;
+        font-size: 0.95rem;
+      }
+
+      .queue-available-item small {
+        display: block;
+        font-size: 0.8rem;
+        color: var(--muted);
+        margin-top: 0.2rem;
+      }
+
+      .queue-available-info {
+        flex: 1;
+        min-width: 0;
+      }
+
+      .queue-empty-state {
+        padding: 0.85rem 1rem;
+        border-radius: 12px;
+        background: rgba(255, 255, 255, 0.04);
+        color: var(--muted);
+        font-size: 0.9rem;
+      }
+
       .admin-message {
         text-align: center;
         min-height: 1.5rem;
@@ -301,6 +485,11 @@
           flex-wrap: wrap;
           font-size: 0.85rem;
           gap: 0.5rem 1rem;
+        }
+
+        .queue-controls {
+          flex-direction: column;
+          align-items: stretch;
         }
       }
     </style>
@@ -375,6 +564,40 @@
         </form>
       </section>
 
+      <section id="queue-builder" class="card" hidden>
+        <h2>Créer une file personnalisée</h2>
+        <p>
+          Filtre les meilleurs joueurs par tier et compose une file temporaire pour organiser rapidement des parties
+          équilibrées entre membres de niveau similaire.
+        </p>
+        <div class="queue-builder">
+          <div class="queue-controls">
+            <div id="queue-tier-filters" class="queue-tier-filters" aria-label="Filtrer par tier"></div>
+            <div class="queue-search">
+              <label for="queue-player-search">Rechercher un joueur</label>
+              <input
+                type="search"
+                id="queue-player-search"
+                placeholder="Pseudo, tier ou équipe"
+                autocomplete="off"
+              />
+            </div>
+            <button type="button" id="queue-reset" class="cta">Réinitialiser la file</button>
+          </div>
+          <div class="queue-columns">
+            <div class="queue-list" aria-live="polite">
+              <h3>Joueurs disponibles</h3>
+              <ul id="queue-available" class="queue-items"></ul>
+            </div>
+            <div class="queue-list" aria-live="polite">
+              <h3>File actuelle</h3>
+              <ul id="queue-selected" class="queue-items"></ul>
+              <p id="queue-empty" class="queue-empty">Aucun joueur sélectionné pour le moment.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
       <section class="card">
         <div id="status" class="status">Chargement du classement…</div>
         <ol id="ranking" class="ranking" hidden></ol>
@@ -407,12 +630,25 @@
       const playerSearchInput = document.getElementById('player-search');
       const addPlayerButtonInitialText = addPlayerButton?.textContent || '';
       const resetMMRButtonInitialText = resetMMRButton?.textContent || '';
+      const queueSection = document.getElementById('queue-builder');
+      const queueTierFilters = document.getElementById('queue-tier-filters');
+      const queuePlayerSearchInput = document.getElementById('queue-player-search');
+      const queueAvailableList = document.getElementById('queue-available');
+      const queueSelectedList = document.getElementById('queue-selected');
+      const queueEmptyState = document.getElementById('queue-empty');
+      const queueResetButton = document.getElementById('queue-reset');
 
       const SUPABASE_URL = window.APP_CONFIG?.supabaseUrl || '';
       const SUPABASE_ANON_KEY = window.APP_CONFIG?.supabaseAnonKey || '';
       let supabaseClient = null;
       let currentSession = null;
       let cachedPlayers = [];
+      const queueState = {
+        players: [],
+        queue: [],
+        selectedTiers: new Set(),
+        search: ''
+      };
 
       if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
         authStatus.textContent =
@@ -440,6 +676,15 @@
         return `${rate}% WR`;
       };
 
+      const getWeightedScore = (player) => {
+        const soloElo = typeof player.solo_elo === 'number' ? player.solo_elo : 1000;
+        const mmr = typeof player.mmr === 'number' ? player.mmr : 1000;
+        if (typeof player.weighted_score === 'number') {
+          return player.weighted_score;
+        }
+        return Math.round(soloElo * 0.3 + mmr * 0.7);
+      };
+
       const normalizeForSearch = (value) =>
         value
           ? value
@@ -448,6 +693,22 @@
               .replace(/[\u0300-\u036f]/g, '')
               .toLowerCase()
           : '';
+
+      const deriveQueueId = (player, index) => {
+        if (player && player.id !== undefined && player.id !== null) {
+          return `id:${player.id}`;
+        }
+        if (player && player.discord_id) {
+          return `discord:${player.discord_id}`;
+        }
+        if (player && player.name) {
+          return `name:${normalizeForSearch(player.name)}:${player.tier || 'no-tier'}`;
+        }
+        return `index:${index}`;
+      };
+
+      const resolveTierValue = (player) =>
+        player && player.tier ? String(player.tier).toUpperCase() : 'NO-TIER';
 
       const createPlayerRow = (player, index) => {
         const li = document.createElement('li');
@@ -473,10 +734,7 @@
         const score = document.createElement('span');
         const soloElo = typeof player.solo_elo === 'number' ? player.solo_elo : 1000;
         const mmr = typeof player.mmr === 'number' ? player.mmr : 1000;
-        const weightedScore =
-          typeof player.weighted_score === 'number'
-            ? player.weighted_score
-            : Math.round(soloElo * 0.3 + mmr * 0.7);
+        const weightedScore = getWeightedScore(player);
         score.textContent = `${weightedScore} pts`;
         score.title = `Elo ${Math.round(soloElo)} · MMR ${Math.round(mmr)}`;
 
@@ -489,6 +747,231 @@
         li.append(rank, info, stats);
         return li;
       };
+
+      function updateQueueEmptyState() {
+        if (!queueEmptyState) {
+          return;
+        }
+        queueEmptyState.hidden = queueState.queue.length > 0;
+      }
+
+      function moveQueueItem(fromIndex, toIndex) {
+        if (
+          fromIndex < 0 ||
+          toIndex < 0 ||
+          fromIndex >= queueState.queue.length ||
+          toIndex >= queueState.queue.length
+        ) {
+          return;
+        }
+
+        const [player] = queueState.queue.splice(fromIndex, 1);
+        queueState.queue.splice(toIndex, 0, player);
+        refreshQueueSelected();
+        refreshQueueAvailable();
+      }
+
+      function removeQueueItem(index) {
+        if (index < 0 || index >= queueState.queue.length) {
+          return;
+        }
+
+        queueState.queue.splice(index, 1);
+        refreshQueueSelected();
+        refreshQueueAvailable();
+      }
+
+      function refreshQueueSelected() {
+        if (!queueSelectedList) {
+          return;
+        }
+
+        queueSelectedList.innerHTML = '';
+
+        if (!queueState.queue.length) {
+          updateQueueEmptyState();
+          return;
+        }
+
+        queueState.queue.forEach((player, index) => {
+          const item = document.createElement('li');
+          item.className = 'queue-item';
+
+          const info = document.createElement('div');
+          info.className = 'queue-info';
+          const name = document.createElement('strong');
+          name.textContent = `${index + 1}. ${player.name}`;
+          const details = document.createElement('small');
+          details.textContent = `Tier ${player.tier || 'No-tier'} · ${getWeightedScore(player)} pts`;
+          info.append(name, details);
+
+          const actions = document.createElement('div');
+          actions.className = 'queue-actions';
+
+          const upButton = document.createElement('button');
+          upButton.type = 'button';
+          upButton.className = 'queue-button';
+          upButton.textContent = 'Monter';
+          upButton.disabled = index === 0;
+          if (!upButton.disabled) {
+            upButton.addEventListener('click', () => moveQueueItem(index, index - 1));
+          }
+
+          const downButton = document.createElement('button');
+          downButton.type = 'button';
+          downButton.className = 'queue-button';
+          downButton.textContent = 'Descendre';
+          downButton.disabled = index === queueState.queue.length - 1;
+          if (!downButton.disabled) {
+            downButton.addEventListener('click', () => moveQueueItem(index, index + 1));
+          }
+
+          const removeButton = document.createElement('button');
+          removeButton.type = 'button';
+          removeButton.className = 'queue-button danger';
+          removeButton.textContent = 'Retirer';
+          removeButton.addEventListener('click', () => removeQueueItem(index));
+
+          actions.append(upButton, downButton, removeButton);
+          item.append(info, actions);
+          queueSelectedList.appendChild(item);
+        });
+
+        updateQueueEmptyState();
+      }
+
+      function refreshQueueAvailable() {
+        if (!queueAvailableList) {
+          return;
+        }
+
+        queueAvailableList.innerHTML = '';
+
+        const normalizedSearch = normalizeForSearch(queueState.search);
+        const activeTiers = queueState.selectedTiers;
+        const queueIds = new Set(queueState.queue.map((player) => player._queueId));
+
+        const availablePlayers = queueState.players.filter((player) => {
+          if (queueIds.has(player._queueId)) {
+            return false;
+          }
+
+          const tierValue = resolveTierValue(player);
+          if (activeTiers.size > 0 && !activeTiers.has(tierValue)) {
+            return false;
+          }
+
+          if (!normalizedSearch) {
+            return true;
+          }
+
+          const searchableValues = [
+            player.name,
+            player.tier,
+            player.discord_id,
+            player.discord_tag,
+            player.team
+          ];
+          return searchableValues.some((value) => normalizeForSearch(value).includes(normalizedSearch));
+        });
+
+        if (!availablePlayers.length) {
+          const empty = document.createElement('li');
+          empty.className = 'queue-empty-state';
+          empty.textContent =
+            activeTiers.size === 0
+              ? 'Sélectionne au moins un tier pour afficher des joueurs.'
+              : 'Aucun joueur ne correspond aux filtres sélectionnés.';
+          queueAvailableList.appendChild(empty);
+          return;
+        }
+
+        availablePlayers.forEach((player) => {
+          const item = document.createElement('li');
+          item.className = 'queue-available-item';
+
+          const info = document.createElement('div');
+          info.className = 'queue-available-info';
+          const name = document.createElement('strong');
+          name.textContent = player.name;
+          const details = document.createElement('small');
+          const tierLabel = player.tier ? `Tier ${player.tier}` : 'Sans tier';
+          details.textContent = `${tierLabel} · ${getWeightedScore(player)} pts`;
+          info.append(name, details);
+
+          const addButton = document.createElement('button');
+          addButton.type = 'button';
+          addButton.className = 'queue-button';
+          addButton.textContent = 'Ajouter';
+          addButton.addEventListener('click', () => {
+            queueState.queue.push(player);
+            refreshQueueSelected();
+            refreshQueueAvailable();
+          });
+
+          item.append(info, addButton);
+          queueAvailableList.appendChild(item);
+        });
+      }
+
+      function initializeQueueBuilder(players) {
+        if (
+          !queueSection ||
+          !queueTierFilters ||
+          !queueAvailableList ||
+          !queueSelectedList ||
+          !queueEmptyState
+        ) {
+          return;
+        }
+
+        queueState.players = players.map((player, index) => ({
+          ...player,
+          _queueId: deriveQueueId(player, index)
+        }));
+        queueState.queue = [];
+        queueState.selectedTiers = new Set();
+        queueState.search = '';
+
+        if (queuePlayerSearchInput) {
+          queuePlayerSearchInput.value = '';
+        }
+
+        queueTierFilters.innerHTML = '';
+
+        const tiers = Array.from(
+          new Set(queueState.players.map((player) => resolveTierValue(player))).values()
+        ).sort((a, b) => a.localeCompare(b));
+
+        if (!tiers.length) {
+          tiers.push('NO-TIER');
+        }
+
+        tiers.forEach((tier) => {
+          queueState.selectedTiers.add(tier);
+          const label = document.createElement('label');
+          const input = document.createElement('input');
+          input.type = 'checkbox';
+          input.value = tier;
+          input.checked = true;
+          input.addEventListener('change', () => {
+            if (input.checked) {
+              queueState.selectedTiers.add(tier);
+            } else {
+              queueState.selectedTiers.delete(tier);
+            }
+            refreshQueueAvailable();
+          });
+          const span = document.createElement('span');
+          span.textContent = tier === 'NO-TIER' ? 'Sans tier' : `Tier ${tier}`;
+          label.append(input, span);
+          queueTierFilters.appendChild(label);
+        });
+
+        queueSection.hidden = false;
+        refreshQueueSelected();
+        refreshQueueAvailable();
+      }
 
       async function loadRanking() {
         try {
@@ -511,6 +994,8 @@
           payload.top.forEach((player, index) => {
             rankingElement.appendChild(createPlayerRow(player, index));
           });
+
+          initializeQueueBuilder(payload.top);
 
           statusElement.hidden = true;
           rankingElement.hidden = false;
@@ -764,6 +1249,21 @@
       if (playerSearchInput) {
         playerSearchInput.addEventListener('input', () => {
           refreshPlayerSelects({ preserveSelection: true });
+        });
+      }
+
+      if (queuePlayerSearchInput) {
+        queuePlayerSearchInput.addEventListener('input', (event) => {
+          queueState.search = event.target.value || '';
+          refreshQueueAvailable();
+        });
+      }
+
+      if (queueResetButton) {
+        queueResetButton.addEventListener('click', () => {
+          queueState.queue = [];
+          refreshQueueSelected();
+          refreshQueueAvailable();
         });
       }
 
