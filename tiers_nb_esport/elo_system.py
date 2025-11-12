@@ -14,8 +14,6 @@ def calculate_elo_change(player_elo: float, opponent_avg_elo: float, won: bool) 
     expected_score = 1 / (1 + 10 ** ((opponent_avg_elo - player_elo) / 400))
     actual_score = 1.0 if won else 0.0
     change = round(config.K_FACTOR * (actual_score - expected_score))
-    if not won and change < 0:
-        change *= 2
     return int(change)
 
 
