@@ -225,6 +225,51 @@ function formatPlayerList(team) {
     .join('\n');
 }
 
+function calculateAverageElo(team) {
+  if (!team.length) {
+    return DEFAULT_ELO;
+  }
+
+  const total = team.reduce((sum, player) => sum + normalizeRating(player.soloElo), 0);
+  return total / team.length;
+}
+
+function buildPrivateMatchEmbed(state) {
+  const { requestedBy, primaryMap, mapChoices = [], teams, createdAt } = state;
+  const title = primaryMap
+    ? `${primaryMap.emoji} ${primaryMap.mode} — ${primaryMap.map}`
+    : 'Partie privée';
+
+  const embed = new EmbedBuilder()
+    .setTitle(`Partie privée — ${title}`)
+    .setDescription(`Proposée par <@${requestedBy}>`)
+    .addFields(
+      { name: 'Équipe Bleue', value: formatPlayerList(teams.blue), inline: true },
+      { name: 'Équipe Rouge', value: formatPlayerList(teams.red), inline: true }
+    )
+    .setTimestamp(createdAt || new Date())
+    .setColor(0x9b59b6)
+    .setFooter({ text: 'Match amical — aucun résultat enregistré' });
+
+  if (mapChoices.length) {
+    const mapLines = mapChoices
+      .map((choice, index) => `${index + 1}. ${choice.emoji} ${choice.mode} — ${choice.map}`)
+      .join('\n');
+    embed.addFields({ name: 'Maps proposées', value: mapLines });
+  }
+
+  const blueAvg = calculateAverageElo(teams.blue);
+  const redAvg = calculateAverageElo(teams.red);
+  const diff = Math.abs(blueAvg - redAvg);
+
+  embed.addFields({
+    name: 'Équilibre Elo',
+    value: [`Bleus : ${Math.round(blueAvg)}`, `Rouges : ${Math.round(redAvg)}`, `Écart : ${Math.round(diff)}`].join('\n')
+  });
+
+  return embed;
+}
+
 function buildMatchEmbed(state, resultSummary = null) {
   const { primaryMap, mapChoices = [], teams, createdAt, votes } = state;
   const title = primaryMap
@@ -619,6 +664,90 @@ async function handleMapsCommand(message) {
   await message.reply({ content: lines.join('\n') });
 }
 
+async function handlePrivatePartyCommand(message) {
+  const targetGuild = message.guild || guild;
+
+  if (!targetGuild) {
+    await message.reply({ content: 'Impossible de récupérer les informations du serveur.' });
+    return;
+  }
+
+  const mentionedUsers = Array.from(message.mentions.users.values()).filter((user) => !user.bot);
+  const uniqueIds = new Set(mentionedUsers.map((user) => user.id));
+
+  if (uniqueIds.size < MATCH_SIZE && !uniqueIds.has(message.author.id)) {
+    uniqueIds.add(message.author.id);
+  }
+
+  const participantIds = Array.from(uniqueIds);
+
+  if (participantIds.length !== MATCH_SIZE) {
+    const needed = MATCH_SIZE - participantIds.length;
+    if (participantIds.length < MATCH_SIZE) {
+      await message.reply({
+        content:
+          needed === MATCH_SIZE
+            ? 'Mentionnez 5 joueurs supplémentaires pour générer une partie privée (6 joueurs au total).'
+            : `Il manque ${needed} joueur(s) pour générer une partie privée équilibrée.`
+      });
+    } else {
+      await message.reply({
+        content: 'Trop de joueurs mentionnés. Veuillez en sélectionner exactement 6 pour lancer la partie privée.'
+      });
+    }
+    return;
+  }
+
+  try {
+    const participants = await Promise.all(
+      participantIds.map(async (id) => {
+        const member = await targetGuild.members.fetch(id).catch(() => null);
+        const profile = await fetchPlayerByDiscordId(id).catch((err) => {
+          throw new Error(`Supabase error for ${id}: ${err.message}`);
+        });
+
+        const wins = typeof profile?.wins === 'number' ? profile.wins : 0;
+        const losses = typeof profile?.losses === 'number' ? profile.losses : 0;
+        const games = typeof profile?.games_played === 'number' ? profile.games_played : wins + losses;
+
+        return {
+          discordId: id,
+          displayName:
+            member?.displayName || member?.user?.username || profile?.name || `Joueur ${id}`,
+          playerId: profile?.id || null,
+          mmr: normalizeRating(profile?.mmr),
+          soloElo: normalizeRating(profile?.solo_elo),
+          wins,
+          losses,
+          games,
+          joinedAt: new Date()
+        };
+      })
+    );
+
+    const teams = balanceTeams(participants);
+    const mapChoices = pickRandomMaps(MAP_CHOICES_COUNT);
+
+    const embed = buildPrivateMatchEmbed({
+      requestedBy: message.author.id,
+      primaryMap: mapChoices[0] || null,
+      mapChoices,
+      teams,
+      createdAt: new Date()
+    });
+
+    const mentions = participantIds.map((id) => `<@${id}>`).join(' ');
+    const content = [`🎉 Partie privée générée !`, `Participants : ${mentions}`].join('\n');
+
+    await message.reply({ content, embeds: [embed] });
+  } catch (err) {
+    errorLog('Failed to create private party match:', err);
+    await message.reply({
+      content: "Impossible de générer la partie privée pour le moment. Réessayez plus tard."
+    });
+  }
+}
+
 async function handlePingCommand(message) {
   if (PING_ROLE_ID) {
     await message.channel.send({ content: `<@&${PING_ROLE_ID}>` });
@@ -654,6 +783,7 @@ async function handleHelpCommand(message) {
     '`!elo [@joueur]` — Afficher le classement Elo',
     '`!lb [nombre]` — Afficher le top classement (ex: !lb 25)',
     '`!maps` — Afficher la rotation des maps',
+    '`!pp @joueur…` — Générer une partie privée équilibrée (6 joueurs)',
     '`!ping` — Mentionner le rôle de notification des matchs',
     '`!tiers` — Synchroniser manuellement les rôles de tier',
     '`!help` — Afficher cette aide'
@@ -1283,6 +1413,9 @@ async function handleMessage(message) {
         break;
       case 'maps':
         await handleMapsCommand(message, args);
+        break;
+      case 'pp':
+        await handlePrivatePartyCommand(message, args);
         break;
       case 'ping':
         await handlePingCommand(message, args);
