@@ -484,6 +484,42 @@ async function sendLogMessage(content) {
   }
 }
 
+async function fetchPendingMatchForPlayer(discordId) {
+  const activeStatuses = ['pending', 'in_progress'];
+
+  let response;
+  try {
+    response = await supabase
+      .from('matches')
+      .select('id, status, team1_ids, team2_ids, created_at')
+      .in('status', activeStatuses)
+      .order('created_at', { ascending: false })
+      .limit(25);
+  } catch (err) {
+    throw new Error(`Failed to query pending matches for ${discordId}: ${err.message}`);
+  }
+
+  const { data, error } = response;
+
+  if (error) {
+    throw new Error(`Unable to fetch pending matches for ${discordId}: ${error.message}`);
+  }
+
+  if (!Array.isArray(data) || !data.length) {
+    return null;
+  }
+
+  const normalizedId = String(discordId);
+
+  return (
+    data.find((match) => {
+      const team1 = Array.isArray(match.team1_ids) ? match.team1_ids.map((value) => String(value)) : [];
+      const team2 = Array.isArray(match.team2_ids) ? match.team2_ids.map((value) => String(value)) : [];
+      return team1.includes(normalizedId) || team2.includes(normalizedId);
+    }) || null
+  );
+}
+
 async function handleJoinCommand(message) {
   const member = message.member || (guild ? await guild.members.fetch(message.author.id).catch(() => null) : null);
 
@@ -494,6 +530,33 @@ async function handleJoinCommand(message) {
 
   if (queueEntries.has(member.id)) {
     await message.reply({ content: 'Vous êtes déjà dans la file d\'attente.' });
+    return;
+  }
+
+  const ongoingMatch = [...activeMatches.values()].find(
+    (state) => !state.resolved && state.participants && state.participants.has(member.id)
+  );
+
+  if (ongoingMatch) {
+    await message.reply({
+      content: `❌ Vous avez déjà un match en cours (#${ongoingMatch.matchId}). Terminez-le avant de rejoindre la file.`
+    });
+    return;
+  }
+
+  try {
+    const pendingMatch = await fetchPendingMatchForPlayer(member.id);
+    if (pendingMatch) {
+      await message.reply({
+        content: `❌ Vous avez déjà un match en attente (#${pendingMatch.id}). Terminez-le avant de rejoindre la file.`
+      });
+      return;
+    }
+  } catch (err) {
+    errorLog('Failed to verify pending matches:', err);
+    await message.reply({
+      content: "❌ Impossible de vérifier vos matchs en cours. Réessayez dans quelques instants."
+    });
     return;
   }
 
