@@ -42,6 +42,13 @@ const ROLE_TIER_B = process.env.ROLE_TIER_B;
 const ROLE_TIER_C = process.env.ROLE_TIER_C;
 const ROLE_TIER_D = process.env.ROLE_TIER_D;
 const ROLE_TIER_E = process.env.ROLE_TIER_E;
+const PRIVATE_PARTY_ROLE_IDS = [
+  '1429768756380434452',
+  '1431428621959954623',
+  '1275939897961742427',
+  '1426601811946766387',
+  '1427020075910824066'
+];
 
 const TIER_DISTRIBUTION = [
   { tier: 'S', ratio: 0.005, minCount: 1 },
@@ -254,51 +261,6 @@ function formatPlayerList(team) {
         `${index + 1}. <@${player.discordId}> (${Math.round(normalizeRating(player.soloElo))} Elo)`
     )
     .join('\n');
-}
-
-function calculateAverageElo(team) {
-  if (!team.length) {
-    return DEFAULT_ELO;
-  }
-
-  const total = team.reduce((sum, player) => sum + normalizeRating(player.soloElo), 0);
-  return total / team.length;
-}
-
-function buildPrivateMatchEmbed(state) {
-  const { requestedBy, primaryMap, mapChoices = [], teams, createdAt } = state;
-  const title = primaryMap
-    ? `${primaryMap.emoji} ${primaryMap.mode} — ${primaryMap.map}`
-    : 'Partie privée';
-
-  const embed = new EmbedBuilder()
-    .setTitle(`Partie privée — ${title}`)
-    .setDescription(`Proposée par <@${requestedBy}>`)
-    .addFields(
-      { name: 'Équipe Bleue', value: formatPlayerList(teams.blue), inline: true },
-      { name: 'Équipe Rouge', value: formatPlayerList(teams.red), inline: true }
-    )
-    .setTimestamp(createdAt || new Date())
-    .setColor(0x9b59b6)
-    .setFooter({ text: 'Match amical — aucun résultat enregistré' });
-
-  if (mapChoices.length) {
-    const mapLines = mapChoices
-      .map((choice, index) => `${index + 1}. ${choice.emoji} ${choice.mode} — ${choice.map}`)
-      .join('\n');
-    embed.addFields({ name: 'Maps proposées', value: mapLines });
-  }
-
-  const blueAvg = calculateAverageElo(teams.blue);
-  const redAvg = calculateAverageElo(teams.red);
-  const diff = Math.abs(blueAvg - redAvg);
-
-  embed.addFields({
-    name: 'Équilibre Elo',
-    value: [`Bleus : ${Math.round(blueAvg)}`, `Rouges : ${Math.round(redAvg)}`, `Écart : ${Math.round(diff)}`].join('\n')
-  });
-
-  return embed;
 }
 
 function buildMatchEmbed(state, resultSummary = null) {
@@ -805,6 +767,26 @@ async function handlePrivatePartyCommand(message) {
     return;
   }
 
+  const invokingMember =
+    message.member || (guild ? await guild.members.fetch(message.author.id).catch(() => null) : null);
+
+  if (!invokingMember) {
+    await message.reply({ content: 'Impossible de vérifier vos permissions.' });
+    return;
+  }
+
+  const hasPrivatePartyRole = PRIVATE_PARTY_ROLE_IDS.some((roleId) =>
+    invokingMember.roles?.cache?.has(roleId)
+  );
+
+  if (!hasPrivatePartyRole) {
+    await message.reply({
+      content:
+        "❌ Vous n'avez pas accès à cette commande. Seuls les capitaines et modérateurs peuvent lancer une partie privée enregistrée."
+    });
+    return;
+  }
+
   const mentionedUsers = Array.from(message.mentions.users.values()).filter((user) => !user.bot);
   const uniqueIds = new Set(mentionedUsers.map((user) => user.id));
 
@@ -835,21 +817,38 @@ async function handlePrivatePartyCommand(message) {
     const participants = await Promise.all(
       participantIds.map(async (id) => {
         const member = await targetGuild.members.fetch(id).catch(() => null);
-        const profile = await fetchPlayerByDiscordId(id).catch((err) => {
-          throw new Error(`Supabase error for ${id}: ${err.message}`);
-        });
+        let playerRecord = null;
 
-        const wins = typeof profile?.wins === 'number' ? profile.wins : 0;
-        const losses = typeof profile?.losses === 'number' ? profile.losses : 0;
-        const games = typeof profile?.games_played === 'number' ? profile.games_played : wins + losses;
+        if (member) {
+          playerRecord = await getOrCreatePlayer(
+            member.id,
+            member.displayName || member.user?.username
+          );
+        } else {
+          playerRecord = await fetchPlayerByDiscordId(id);
+        }
+
+        if (!playerRecord) {
+          throw new Error(`Aucun profil joueur trouvé pour ${id}.`);
+        }
+
+        if (member) {
+          return buildQueueEntry(member, playerRecord);
+        }
+
+        const wins = typeof playerRecord.wins === 'number' ? playerRecord.wins : 0;
+        const losses = typeof playerRecord.losses === 'number' ? playerRecord.losses : 0;
+        const games =
+          typeof playerRecord.games_played === 'number'
+            ? playerRecord.games_played
+            : wins + losses;
 
         return {
           discordId: id,
-          displayName:
-            member?.displayName || member?.user?.username || profile?.name || `Joueur ${id}`,
-          playerId: profile?.id || null,
-          mmr: normalizeRating(profile?.mmr),
-          soloElo: normalizeRating(profile?.solo_elo),
+          displayName: playerRecord.name || `Joueur ${id}`,
+          playerId: playerRecord.id,
+          mmr: normalizeRating(playerRecord.mmr),
+          soloElo: normalizeRating(playerRecord.solo_elo),
           wins,
           losses,
           games,
@@ -858,21 +857,15 @@ async function handlePrivatePartyCommand(message) {
       })
     );
 
-    const teams = balanceTeams(participants);
-    const mapChoices = pickRandomMaps(MAP_CHOICES_COUNT);
+    await startMatch(participants, message.channel);
 
-    const embed = buildPrivateMatchEmbed({
-      requestedBy: message.author.id,
-      primaryMap: mapChoices[0] || null,
-      mapChoices,
-      teams,
-      createdAt: new Date()
+    const destinationChannel =
+      matchChannel && matchChannel.isTextBased() ? matchChannel : message.channel;
+    const channelText = destinationChannel ? `<#${destinationChannel.id}>` : 'ce salon';
+
+    await message.reply({
+      content: `✅ Partie privée créée ! Les votes sont ouverts dans ${channelText}.`
     });
-
-    const mentions = participantIds.map((id) => `<@${id}>`).join(' ');
-    const content = [`🎉 Partie privée générée !`, `Participants : ${mentions}`].join('\n');
-
-    await message.reply({ content, embeds: [embed] });
   } catch (err) {
     errorLog('Failed to create private party match:', err);
     await message.reply({
@@ -919,7 +912,7 @@ async function handleHelpCommand(message) {
     '`!elo [@joueur]` — Afficher le classement Elo',
     '`!lb [nombre]` — Afficher le top classement (ex: !lb 25)',
     '`!maps` — Afficher la rotation des maps',
-    '`!pp @joueur…` — Générer une partie privée équilibrée (6 joueurs)',
+    '`!pp @joueur…` — Générer une partie privée (6 joueurs, Elo comptabilisé — rôles autorisés uniquement)',
     '`!ping` — Mentionner le rôle de notification des matchs',
     '`!tiers` — Synchroniser manuellement les rôles de tier',
     '`!help` — Afficher cette aide'
