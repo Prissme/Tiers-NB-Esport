@@ -180,6 +180,15 @@ const activeMatches = new Map();
 const pendingRoomForms = new Map();
 const customRooms = new Map();
 
+function findRoomByMember(userId) {
+  for (const room of customRooms.values()) {
+    if (room.members?.has(userId)) {
+      return room;
+    }
+  }
+  return null;
+}
+
 function log(...args) {
   console.log(LOG_PREFIX, ...args);
 }
@@ -540,6 +549,10 @@ async function handleRoomJoinRequest(message, leaderUser) {
     return;
   }
 
+  if (!room.members) {
+    room.members = new Set([room.leaderId]);
+  }
+
   if (room.members.has(message.author.id)) {
     await message.reply({ content: 'Vous êtes déjà inscrit dans cette room.' });
     return;
@@ -554,6 +567,47 @@ async function handleRoomJoinRequest(message, leaderUser) {
   ];
 
   await message.reply({ content: confirmationLines.join('\n') });
+}
+
+async function handleRoomInfoCommand(message) {
+  const room = findRoomByMember(message.author.id);
+
+  if (!room) {
+    await message.reply({ content: "Vous n'êtes inscrit dans aucune room personnalisée." });
+    return;
+  }
+
+  const members = [...room.members].map((id) => `<@${id}>`).join(', ');
+  const embed = new EmbedBuilder()
+    .setTitle('Room personnalisée')
+    .setDescription(`Créée par <@${room.leaderId}>`)
+    .addFields(
+      { name: 'Code', value: `\`${room.code}\``, inline: true },
+      { name: 'Tiers', value: `${room.minTier} → ${room.maxTier}`, inline: true },
+      { name: 'Membres', value: members || '—' }
+    )
+    .setColor(0x2ecc71)
+    .setTimestamp(room.createdAt);
+
+  await message.reply({ embeds: [embed] });
+}
+
+async function handleRoomLeaveCommand(message) {
+  const room = findRoomByMember(message.author.id);
+
+  if (!room) {
+    await message.reply({ content: "Vous n'êtes inscrit dans aucune room personnalisée." });
+    return;
+  }
+
+  if (room.leaderId === message.author.id) {
+    customRooms.delete(room.leaderId);
+    await message.reply({ content: 'Vous avez fermé votre room personnalisée.' });
+    return;
+  }
+
+  room.members?.delete(message.author.id);
+  await message.reply({ content: `Vous avez quitté la room de <@${room.leaderId}>.` });
 }
 
 async function handleJoinCommand(message, args) {
@@ -856,8 +910,11 @@ async function handleTierSyncCommand(message) {
 
 async function handleHelpCommand(message) {
   const commands = [
-    '`!join` — Rejoindre la file d\'attente',
+    '`!create` — Créer un formulaire pour une room personnalisée',
+    '`!join [@chef]` — Rejoindre la file ou la room du joueur mentionné',
     '`!leave` — Quitter la file d\'attente',
+    '`!room` — Voir la room personnalisée que tu as rejointe',
+    '`!roomleave` — Quitter ta room personnalisée',
     '`!queue` — Voir les joueurs en attente',
     '`!elo [@joueur]` — Afficher le classement Elo',
     '`!lb [nombre]` — Afficher le top classement (ex: !lb 25)',
@@ -1634,6 +1691,13 @@ async function handleMessage(message) {
         break;
       case 'leave':
         await handleLeaveCommand(message, args);
+        break;
+      case 'room':
+      case 'roominfo':
+        await handleRoomInfoCommand(message);
+        break;
+      case 'roomleave':
+        await handleRoomLeaveCommand(message);
         break;
       case 'queue':
         await handleQueueCommand(message, args);
