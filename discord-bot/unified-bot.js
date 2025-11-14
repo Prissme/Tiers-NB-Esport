@@ -223,6 +223,16 @@ function findRoomByMember(userId) {
   return null;
 }
 
+function findActiveMatchByParticipant(userId) {
+  for (const matchState of activeMatches.values()) {
+    if (!matchState.resolved && matchState.participants?.has(userId)) {
+      return matchState;
+    }
+  }
+
+  return null;
+}
+
 function log(...args) {
   console.log(LOG_PREFIX, ...args);
 }
@@ -771,6 +781,18 @@ async function handleJoinCommand(message, args) {
       content: localizeText({
         fr: 'Impossible de récupérer votre profil Discord.',
         en: 'Unable to retrieve your Discord profile.'
+      })
+    });
+    return;
+  }
+
+  const activeMatch = findActiveMatchByParticipant(member.id);
+
+  if (activeMatch) {
+    await message.reply({
+      content: localizeText({
+        fr: 'Vous êtes déjà inscrit dans un match en attente. Attendez sa validation avant de rejoindre la file.',
+        en: 'You are already part of a pending match. Wait for it to be validated before joining the queue.'
       })
     });
     return;
