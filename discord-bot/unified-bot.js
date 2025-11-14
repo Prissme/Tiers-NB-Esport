@@ -180,6 +180,40 @@ const activeMatches = new Map();
 const pendingRoomForms = new Map();
 const customRooms = new Map();
 
+const LANGUAGE_FR = 'fr';
+const LANGUAGE_EN = 'en';
+const DEFAULT_LANGUAGE = LANGUAGE_FR;
+
+let currentLanguage =
+  process.env.DEFAULT_BOT_LANGUAGE && process.env.DEFAULT_BOT_LANGUAGE.toLowerCase() === LANGUAGE_EN
+    ? LANGUAGE_EN
+    : DEFAULT_LANGUAGE;
+
+function formatTemplate(template, variables = {}) {
+  if (typeof template !== 'string') {
+    return template ?? '';
+  }
+
+  return template.replace(/\{(\w+)\}/g, (_, key) => (variables[key] ?? `{${key}}`));
+}
+
+function localizeText(template, variables = {}) {
+  if (template == null) {
+    return '';
+  }
+
+  if (typeof template === 'string') {
+    return formatTemplate(template, variables);
+  }
+
+  const selected =
+    currentLanguage === LANGUAGE_EN
+      ? template.en ?? template.fr ?? ''
+      : template.fr ?? template.en ?? '';
+
+  return formatTemplate(selected, variables);
+}
+
 function findRoomByMember(userId) {
   for (const room of customRooms.values()) {
     if (room.members?.has(userId)) {
@@ -269,24 +303,44 @@ function buildPrivateMatchEmbed(state) {
   const { requestedBy, primaryMap, mapChoices = [], teams, createdAt } = state;
   const title = primaryMap
     ? `${primaryMap.emoji} ${primaryMap.mode} — ${primaryMap.map}`
-    : 'Partie privée';
+    : localizeText({ fr: 'Partie privée', en: 'Private match' });
 
   const embed = new EmbedBuilder()
-    .setTitle(`Partie privée — ${title}`)
-    .setDescription(`Proposée par <@${requestedBy}>`)
+    .setTitle(
+      localizeText({ fr: 'Partie privée — {title}', en: 'Private match — {title}' }, { title })
+    )
+    .setDescription(
+      localizeText({ fr: 'Proposée par <@{userId}>', en: 'Created by <@{userId}>' }, { userId: requestedBy })
+    )
     .addFields(
-      { name: 'Équipe Bleue', value: formatPlayerList(teams.blue), inline: true },
-      { name: 'Équipe Rouge', value: formatPlayerList(teams.red), inline: true }
+      {
+        name: localizeText({ fr: 'Équipe Bleue', en: 'Blue team' }),
+        value: formatPlayerList(teams.blue),
+        inline: true
+      },
+      {
+        name: localizeText({ fr: 'Équipe Rouge', en: 'Red team' }),
+        value: formatPlayerList(teams.red),
+        inline: true
+      }
     )
     .setTimestamp(createdAt || new Date())
     .setColor(0x9b59b6)
-    .setFooter({ text: 'Match amical — aucun résultat enregistré' });
+    .setFooter({
+      text: localizeText({
+        fr: 'Match amical — aucun résultat enregistré',
+        en: 'Friendly match — no result recorded'
+      })
+    });
 
   if (mapChoices.length) {
     const mapLines = mapChoices
       .map((choice, index) => `${index + 1}. ${choice.emoji} ${choice.mode} — ${choice.map}`)
       .join('\n');
-    embed.addFields({ name: 'Maps proposées', value: mapLines });
+    embed.addFields({
+      name: localizeText({ fr: 'Maps proposées', en: 'Suggested maps' }),
+      value: mapLines
+    });
   }
 
   const blueAvg = calculateAverageElo(teams.blue);
@@ -294,8 +348,12 @@ function buildPrivateMatchEmbed(state) {
   const diff = Math.abs(blueAvg - redAvg);
 
   embed.addFields({
-    name: 'Équilibre Elo',
-    value: [`Bleus : ${Math.round(blueAvg)}`, `Rouges : ${Math.round(redAvg)}`, `Écart : ${Math.round(diff)}`].join('\n')
+    name: localizeText({ fr: 'Équilibre Elo', en: 'Elo balance' }),
+    value: [
+      localizeText({ fr: 'Bleus : {value}', en: 'Blue: {value}' }, { value: Math.round(blueAvg) }),
+      localizeText({ fr: 'Rouges : {value}', en: 'Red: {value}' }, { value: Math.round(redAvg) }),
+      localizeText({ fr: 'Écart : {value}', en: 'Difference: {value}' }, { value: Math.round(diff) })
+    ].join('\n')
   });
 
   return embed;
@@ -305,13 +363,21 @@ function buildMatchEmbed(state, resultSummary = null) {
   const { primaryMap, mapChoices = [], teams, createdAt, votes } = state;
   const title = primaryMap
     ? `${primaryMap.emoji} ${primaryMap.mode} — ${primaryMap.map}`
-    : 'Match en attente';
+    : localizeText({ fr: 'Match en attente', en: 'Match pending' });
 
   const embed = new EmbedBuilder()
     .setTitle(title)
     .addFields(
-      { name: 'Équipe Bleue', value: formatPlayerList(teams.blue), inline: true },
-      { name: 'Équipe Rouge', value: formatPlayerList(teams.red), inline: true }
+      {
+        name: localizeText({ fr: 'Équipe Bleue', en: 'Blue team' }),
+        value: formatPlayerList(teams.blue),
+        inline: true
+      },
+      {
+        name: localizeText({ fr: 'Équipe Rouge', en: 'Red team' }),
+        value: formatPlayerList(teams.red),
+        inline: true
+      }
     )
     .setTimestamp(createdAt || new Date())
     .setColor(resultSummary ? resultSummary.color : 0xffc300);
@@ -320,23 +386,37 @@ function buildMatchEmbed(state, resultSummary = null) {
     const mapLines = mapChoices
       .map((choice, index) => `${index + 1}. ${choice.emoji} ${choice.mode} — ${choice.map}`)
       .join('\n');
-    embed.addFields({ name: 'Maps proposées', value: mapLines });
+    embed.addFields({
+      name: localizeText({ fr: 'Maps proposées', en: 'Suggested maps' }),
+      value: mapLines
+    });
   }
 
   if (resultSummary) {
-    embed.addFields({ name: 'Résultat', value: resultSummary.text });
+    embed.addFields({
+      name: localizeText({ fr: 'Résultat', en: 'Result' }),
+      value: resultSummary.text
+    });
   } else {
     if (votes) {
       const voteLines = [
-        `🔵 Victoire Bleue : ${votes.blue.size}`,
-        `🔴 Victoire Rouge : ${votes.red.size}`,
-        `⚪ Match annulé : ${votes.cancel.size}`
+        localizeText({ fr: '🔵 Victoire Bleue : {count}', en: '🔵 Blue victory: {count}' }, { count: votes.blue.size }),
+        localizeText({ fr: '🔴 Victoire Rouge : {count}', en: '🔴 Red victory: {count}' }, { count: votes.red.size }),
+        localizeText({ fr: '⚪ Match annulé : {count}', en: '⚪ Match cancelled: {count}' }, {
+          count: votes.cancel.size
+        })
       ].join('\n');
-      embed.addFields({ name: 'Votes', value: voteLines });
+      embed.addFields({ name: localizeText({ fr: 'Votes', en: 'Votes' }), value: voteLines });
     }
 
     embed.setFooter({
-      text: `Votez pour le résultat avec les boutons ci-dessous. (${MIN_VOTES_TO_RESOLVE} votes nécessaires)`
+      text: localizeText(
+        {
+          fr: 'Votez pour le résultat avec les boutons ci-dessous. ({count} votes nécessaires)',
+          en: 'Vote for the result using the buttons below. ({count} votes required)'
+        },
+        { count: MIN_VOTES_TO_RESOLVE }
+      )
     });
   }
 
@@ -347,19 +427,19 @@ function buildResultButtons(disabled = false) {
   return new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId('match:blue')
-      .setLabel('Victoire Bleue')
+      .setLabel(localizeText({ fr: 'Victoire Bleue', en: 'Blue victory' }))
       .setEmoji('🔵')
       .setStyle(ButtonStyle.Success)
       .setDisabled(disabled),
     new ButtonBuilder()
       .setCustomId('match:red')
-      .setLabel('Victoire Rouge')
+      .setLabel(localizeText({ fr: 'Victoire Rouge', en: 'Red victory' }))
       .setEmoji('🔴')
       .setStyle(ButtonStyle.Danger)
       .setDisabled(disabled),
     new ButtonBuilder()
       .setCustomId('match:cancel')
-      .setLabel('Match annulé')
+      .setLabel(localizeText({ fr: 'Match annulé', en: 'Match cancelled' }))
       .setEmoji('⚪')
       .setStyle(ButtonStyle.Secondary)
       .setDisabled(disabled)
@@ -449,15 +529,28 @@ function buildQueueEntry(member, playerRecord) {
 
 function formatQueueStatus() {
   if (!matchQueue.length) {
-    return 'La file est vide. Utilisez `!join` pour participer.';
+    return localizeText({
+      fr: 'La file est vide. Utilisez `!join` pour participer.',
+      en: 'The queue is empty. Use `!join` to participate.'
+    });
   }
 
   const lines = matchQueue.map((entry, index) => {
     const rank = index + 1;
-    return `${rank}. ${entry.displayName} (${Math.round(normalizeRating(entry.soloElo))} Elo)`;
+    return formatTemplate('{rank}. {name} ({elo} Elo)', {
+      rank,
+      name: entry.displayName,
+      elo: Math.round(normalizeRating(entry.soloElo))
+    });
   });
 
-  return [`Joueurs dans la file (${matchQueue.length}/${MATCH_SIZE}) :`, ...lines].join('\n');
+  return [
+    localizeText({
+      fr: 'Joueurs dans la file ({count}/{size}) :',
+      en: 'Players in queue ({count}/{size}):'
+    }, { count: matchQueue.length, size: MATCH_SIZE }),
+    ...lines
+  ].join('\n');
 }
 
 function computeTeamCombinations(players, teamSize) {
@@ -530,13 +623,15 @@ async function handleCreateRoomCommand(message) {
   const actionRow = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId(`room:open:${requestId}`)
-      .setLabel('Remplir le formulaire')
+      .setLabel(localizeText({ fr: 'Remplir le formulaire', en: 'Fill out the form' }))
       .setStyle(ButtonStyle.Primary)
   );
 
   await message.reply({
-    content:
-      'Cliquez sur le bouton pour renseigner le code de la room et les tiers autorisés. Seul le créateur peut remplir ce formulaire.',
+    content: localizeText({
+      fr: 'Cliquez sur le bouton pour renseigner le code de la room et les tiers autorisés. Seul le créateur peut remplir ce formulaire.',
+      en: 'Click the button to provide the room code and allowed tiers. Only the creator can submit this form.'
+    }),
     components: [actionRow]
   });
 }
@@ -545,7 +640,12 @@ async function handleRoomJoinRequest(message, leaderUser) {
   const room = customRooms.get(leaderUser.id);
 
   if (!room) {
-    await message.reply({ content: `Aucune room active trouvée pour <@${leaderUser.id}>.` });
+    await message.reply({
+      content: localizeText({
+        fr: 'Aucune room active trouvée pour <@{leaderId}>.',
+        en: 'No active room found for <@{leaderId}>.'
+      }, { leaderId: leaderUser.id })
+    });
     return;
   }
 
@@ -554,37 +654,68 @@ async function handleRoomJoinRequest(message, leaderUser) {
   }
 
   if (room.members.has(message.author.id)) {
-    await message.reply({ content: 'Vous êtes déjà inscrit dans cette room.' });
+    await message.reply({
+      content: localizeText({
+        fr: 'Vous êtes déjà inscrit dans cette room.',
+        en: 'You are already registered in this room.'
+      })
+    });
     return;
   }
 
   room.members.add(message.author.id);
 
-  const confirmationLines = [
-    `✅ <@${message.author.id}> a rejoint la room de <@${leaderUser.id}>.`,
-    `Code de la room : \`${room.code}\``,
-    `Tiers autorisés : ${room.minTier} → ${room.maxTier}`
-  ];
-
-  await message.reply({ content: confirmationLines.join('\n') });
+  await message.reply({
+    content: localizeText(
+      {
+        fr: '✅ <@{memberId}> a rejoint la room de <@{leaderId}>.\nCode de la room : `{code}`\nTiers autorisés : {minTier} → {maxTier}',
+        en: '✅ <@{memberId}> joined <@{leaderId}>\'s room.\nRoom code: `{code}`\nAllowed tiers: {minTier} → {maxTier}'
+      },
+      {
+        memberId: message.author.id,
+        leaderId: leaderUser.id,
+        code: room.code,
+        minTier: room.minTier,
+        maxTier: room.maxTier
+      }
+    )
+  });
 }
 
 async function handleRoomInfoCommand(message) {
   const room = findRoomByMember(message.author.id);
 
   if (!room) {
-    await message.reply({ content: "Vous n'êtes inscrit dans aucune room personnalisée." });
+    await message.reply({
+      content: localizeText({
+        fr: "Vous n'êtes inscrit dans aucune room personnalisée.",
+        en: 'You are not in any custom room.'
+      })
+    });
     return;
   }
 
   const members = [...room.members].map((id) => `<@${id}>`).join(', ');
   const embed = new EmbedBuilder()
-    .setTitle('Room personnalisée')
-    .setDescription(`Créée par <@${room.leaderId}>`)
+    .setTitle(localizeText({ fr: 'Room personnalisée', en: 'Custom room' }))
+    .setDescription(
+      localizeText({ fr: 'Créée par <@{leaderId}>', en: 'Created by <@{leaderId}>' }, { leaderId: room.leaderId })
+    )
     .addFields(
-      { name: 'Code', value: `\`${room.code}\``, inline: true },
-      { name: 'Tiers', value: `${room.minTier} → ${room.maxTier}`, inline: true },
-      { name: 'Membres', value: members || '—' }
+      {
+        name: localizeText({ fr: 'Code', en: 'Code' }),
+        value: `\`${room.code}\``,
+        inline: true
+      },
+      {
+        name: localizeText({ fr: 'Tiers', en: 'Tiers' }),
+        value: `${room.minTier} → ${room.maxTier}`,
+        inline: true
+      },
+      {
+        name: localizeText({ fr: 'Membres', en: 'Members' }),
+        value: members || localizeText({ fr: '—', en: '—' })
+      }
     )
     .setColor(0x2ecc71)
     .setTimestamp(room.createdAt);
@@ -596,18 +727,33 @@ async function handleRoomLeaveCommand(message) {
   const room = findRoomByMember(message.author.id);
 
   if (!room) {
-    await message.reply({ content: "Vous n'êtes inscrit dans aucune room personnalisée." });
+    await message.reply({
+      content: localizeText({
+        fr: "Vous n'êtes inscrit dans aucune room personnalisée.",
+        en: 'You are not in any custom room.'
+      })
+    });
     return;
   }
 
   if (room.leaderId === message.author.id) {
     customRooms.delete(room.leaderId);
-    await message.reply({ content: 'Vous avez fermé votre room personnalisée.' });
+    await message.reply({
+      content: localizeText({
+        fr: 'Vous avez fermé votre room personnalisée.',
+        en: 'You closed your custom room.'
+      })
+    });
     return;
   }
 
   room.members?.delete(message.author.id);
-  await message.reply({ content: `Vous avez quitté la room de <@${room.leaderId}>.` });
+  await message.reply({
+    content: localizeText(
+      { fr: 'Vous avez quitté la room de <@{leaderId}>.', en: 'You left <@{leaderId}>\'s room.' },
+      { leaderId: room.leaderId }
+    )
+  });
 }
 
 async function handleJoinCommand(message, args) {
@@ -621,12 +767,22 @@ async function handleJoinCommand(message, args) {
   const member = message.member || (guild ? await guild.members.fetch(message.author.id).catch(() => null) : null);
 
   if (!member) {
-    await message.reply({ content: "Impossible de récupérer votre profil Discord." });
+    await message.reply({
+      content: localizeText({
+        fr: 'Impossible de récupérer votre profil Discord.',
+        en: 'Unable to retrieve your Discord profile.'
+      })
+    });
     return;
   }
 
   if (queueEntries.has(member.id)) {
-    await message.reply({ content: 'Vous êtes déjà dans la file d\'attente.' });
+    await message.reply({
+      content: localizeText({
+        fr: "Vous êtes déjà dans la file d'attente.",
+        en: 'You are already in the queue.'
+      })
+    });
     return;
   }
 
@@ -635,7 +791,12 @@ async function handleJoinCommand(message, args) {
     playerRecord = await getOrCreatePlayer(member.id, member.displayName || member.user.username);
   } catch (err) {
     errorLog('Failed to join queue:', err);
-    await message.reply({ content: "Erreur lors de l\'accès à la base de données. Réessayez plus tard." });
+    await message.reply({
+      content: localizeText({
+        fr: "Erreur lors de l'accès à la base de données. Réessayez plus tard.",
+        en: 'Database error. Please try again later.'
+      })
+    });
     return;
   }
 
@@ -644,7 +805,13 @@ async function handleJoinCommand(message, args) {
   queueEntries.set(member.id, entry);
 
   await message.reply({
-    content: `✅ ${entry.displayName} a rejoint la file.\n${formatQueueStatus()}`
+    content: localizeText(
+      {
+        fr: '✅ {name} a rejoint la file.\n{status}',
+        en: '✅ {name} joined the queue.\n{status}'
+      },
+      { name: entry.displayName, status: formatQueueStatus() }
+    )
   });
 
   if (matchQueue.length >= MATCH_SIZE) {
@@ -655,7 +822,12 @@ async function handleJoinCommand(message, args) {
       await startMatch(participants, message.channel);
     } catch (err) {
       errorLog('Failed to start match:', err);
-      await message.channel.send('❌ Impossible de créer la partie. La file est réinitialisée.');
+      await message.channel.send(
+        localizeText({
+          fr: '❌ Impossible de créer la partie. La file est réinitialisée.',
+          en: '❌ Unable to create the match. The queue has been restored.'
+        })
+      );
       participants.forEach((player) => {
         matchQueue.push(player);
         queueEntries.set(player.discordId, player);
@@ -669,7 +841,12 @@ async function handleLeaveCommand(message) {
   const entry = queueEntries.get(memberId);
 
   if (!entry) {
-    await message.reply({ content: "Vous n'êtes pas dans la file." });
+    await message.reply({
+      content: localizeText({
+        fr: "Vous n'êtes pas dans la file.",
+        en: 'You are not in the queue.'
+      })
+    });
     return;
   }
 
@@ -679,7 +856,12 @@ async function handleLeaveCommand(message) {
   }
 
   queueEntries.delete(memberId);
-  await message.reply({ content: `🚪 ${entry.displayName} a quitté la file.\n${formatQueueStatus()}` });
+  await message.reply({
+    content: localizeText(
+      { fr: '🚪 {name} a quitté la file.\n{status}', en: '🚪 {name} left the queue.\n{status}' },
+      { name: entry.displayName, status: formatQueueStatus() }
+    )
+  });
 }
 
 async function handleQueueCommand(message) {
@@ -695,12 +877,22 @@ async function handleEloCommand(message) {
     player = await fetchPlayerByDiscordId(targetId);
   } catch (err) {
     errorLog('Failed to fetch player elo:', err);
-    await message.reply({ content: "Erreur lors de la récupération du classement." });
+    await message.reply({
+      content: localizeText({
+        fr: 'Erreur lors de la récupération du classement.',
+        en: 'Error while fetching rankings.'
+      })
+    });
     return;
   }
 
   if (!player) {
-    await message.reply({ content: "Aucun profil Elo trouvé pour ce joueur." });
+    await message.reply({
+      content: localizeText({
+        fr: 'Aucun profil Elo trouvé pour ce joueur.',
+        en: 'No Elo profile found for this player.'
+      })
+    });
     return;
   }
 
@@ -712,14 +904,23 @@ async function handleEloCommand(message) {
   const weightedScore = calculateWeightedScore(soloElo, mmr);
 
   const embed = new EmbedBuilder()
-    .setTitle(`Profil Elo — ${player.name || `Joueur ${targetId}`}`)
+    .setTitle(
+      localizeText({
+        fr: 'Profil Elo — {name}',
+        en: 'Elo profile — {name}'
+      }, { name: player.name || localizeText({ fr: `Joueur ${targetId}`, en: `Player ${targetId}` }) })
+    )
     .addFields(
       { name: 'Elo', value: `${Math.round(soloElo)}`, inline: true },
       { name: 'MMR', value: `${Math.round(mmr)}`, inline: true },
-      { name: 'Score pondéré', value: `${weightedScore}`, inline: true },
-      { name: 'Victoires', value: `${wins}`, inline: true },
-      { name: 'Défaites', value: `${losses}`, inline: true },
-      { name: 'Matchs joués', value: `${games}`, inline: true }
+      {
+        name: localizeText({ fr: 'Score pondéré', en: 'Weighted score' }),
+        value: `${weightedScore}`,
+        inline: true
+      },
+      { name: localizeText({ fr: 'Victoires', en: 'Wins' }), value: `${wins}`, inline: true },
+      { name: localizeText({ fr: 'Défaites', en: 'Losses' }), value: `${losses}`, inline: true },
+      { name: localizeText({ fr: 'Matchs joués', en: 'Games played' }), value: `${games}`, inline: true }
     )
     .setColor(0x5865f2)
     .setTimestamp(new Date());
@@ -730,7 +931,12 @@ async function handleEloCommand(message) {
 async function handleLeaderboardCommand(message, args) {
   const supabaseClient = createSupabaseClient();
   if (!supabaseClient) {
-    await message.reply({ content: 'Configuration Supabase manquante.' });
+    await message.reply({
+      content: localizeText({
+        fr: 'Configuration Supabase manquante.',
+        en: 'Supabase configuration is missing.'
+      })
+    });
     return;
   }
 
@@ -752,7 +958,12 @@ async function handleLeaderboardCommand(message, args) {
     if (error) throw error;
 
     if (!allPlayers || allPlayers.length === 0) {
-      await message.reply({ content: 'Aucun joueur classé pour le moment.' });
+      await message.reply({
+        content: localizeText({
+          fr: 'Aucun joueur classé pour le moment.',
+          en: 'No ranked players yet.'
+        })
+      });
       return;
     }
 
@@ -760,7 +971,12 @@ async function handleLeaderboardCommand(message, args) {
     const boundaries = computeTierBoundaries(totalPlayers);
     const topPlayers = allPlayers.slice(0, limit);
 
-    const lines = [`**🏆 Classement ELO — Top ${topPlayers.length}**\n`];
+    const lines = [
+      localizeText({
+        fr: '**🏆 Classement ELO — Top {count}**\n',
+        en: '**🏆 Elo leaderboard — Top {count}**\n'
+      }, { count: topPlayers.length })
+    ];
 
     topPlayers.forEach((player, index) => {
       const rank = index + 1;
@@ -770,29 +986,59 @@ async function handleLeaderboardCommand(message, args) {
       const losses = player.losses || 0;
 
       lines.push(
-        `${rank}. **${player.name}** — ${Math.round(soloElo)} Elo — ` +
-          `${wins}V/${losses}D — Tier ${tier || 'No-tier'}`
+        localizeText(
+          {
+            fr: '{rank}. **{name}** — {elo} Elo — {wins}V/{losses}D — Tier {tier}',
+            en: '{rank}. **{name}** — {elo} Elo — {wins}W/{losses}L — Tier {tier}'
+          },
+          {
+            rank,
+            name: player.name,
+            elo: Math.round(soloElo),
+            wins,
+            losses,
+            tier: tier || localizeText({ fr: 'Sans tier', en: 'No tier' })
+          }
+        )
       );
     });
 
     await message.reply({ content: lines.join('\n') });
   } catch (error) {
     errorLog('Failed to fetch leaderboard:', error);
-    await message.reply({ content: 'Erreur lors de la récupération du classement.' });
+    await message.reply({
+      content: localizeText({
+        fr: 'Erreur lors de la récupération du classement.',
+        en: 'Failed to retrieve leaderboard.'
+      })
+    });
   }
 }
 
 async function handleMapsCommand(message) {
-  const lines = [
+  const frenchLines = [
     '🗺️ **Rotation des maps disponibles**',
     '',
     '<:GemGrab:1436473738765008976> **Razzia de gemmes** : Mine hard-rock, Tunnel de mine, Bruissements',
     '<:Brawlball:1436473735573143562> **Brawlball** : Tir au buts, Super plage, Triple Dribble',
-    '<:KnockOut:1436473703083937914> **Hors-jeu** : Rocher de la belle, Ravin du bras d\'or, À découvert',
-    '<:Heist:1436473730812481546> **Braquage** : C\'est chaud patate, Arrêt au stand, Zone sécurisée',
+    "<:KnockOut:1436473703083937914> **Hors-jeu** : Rocher de la belle, Ravin du bras d'or, À découvert",
+    "<:Heist:1436473730812481546> **Braquage** : C'est chaud patate, Arrêt au stand, Zone sécurisée",
     '<:HotZone:1436473698491175137> **Zone réservée** : Duel de scarabées, Cercle de feu, Stratégies parallèles',
     '<:Bounty:1436473727519948962> **Prime** : Cachette secrète, Étoile filante, Mille-feuille'
   ];
+
+  const englishLines = [
+    '🗺️ **Available map rotation**',
+    '',
+    '<:GemGrab:1436473738765008976> **Gem Grab**: Hard Rock Mine, Minecart Madness, Crystal Arcade',
+    '<:Brawlball:1436473735573143562> **Brawl Ball**: Super Stadium, Sneaky Fields, Triple Dribble',
+    "<:KnockOut:1436473703083937914> **Knockout**: Belle's Rock, Goldarm Gulch, Out in the Open",
+    '<:Heist:1436473730812481546> **Heist**: Hot Potato, Pit Stop, Safe Zone',
+    '<:HotZone:1436473698491175137> **Hot Zone**: Dueling Beetles, Ring of Fire, Parallel Plays',
+    '<:Bounty:1436473727519948962> **Bounty**: Snake Prairie, Shooting Star, Layer Cake'
+  ];
+
+  const lines = currentLanguage === LANGUAGE_EN ? englishLines : frenchLines;
 
   await message.reply({ content: lines.join('\n') });
 }
@@ -801,7 +1047,12 @@ async function handlePrivatePartyCommand(message) {
   const targetGuild = message.guild || guild;
 
   if (!targetGuild) {
-    await message.reply({ content: 'Impossible de récupérer les informations du serveur.' });
+    await message.reply({
+      content: localizeText({
+        fr: 'Impossible de récupérer les informations du serveur.',
+        en: 'Unable to fetch server information.'
+      })
+    });
     return;
   }
 
@@ -820,12 +1071,24 @@ async function handlePrivatePartyCommand(message) {
       await message.reply({
         content:
           needed === MATCH_SIZE
-            ? 'Mentionnez 5 joueurs supplémentaires pour générer une partie privée (6 joueurs au total).'
-            : `Il manque ${needed} joueur(s) pour générer une partie privée équilibrée.`
+            ? localizeText({
+                fr: 'Mentionnez 5 joueurs supplémentaires pour générer une partie privée (6 joueurs au total).',
+                en: 'Mention 5 more players to generate a private match (6 players total).'
+              })
+            : localizeText(
+                {
+                  fr: 'Il manque {count} joueur(s) pour générer une partie privée équilibrée.',
+                  en: '{count} player(s) are missing to create a balanced private match.'
+                },
+                { count: needed }
+              )
       });
     } else {
       await message.reply({
-        content: 'Trop de joueurs mentionnés. Veuillez en sélectionner exactement 6 pour lancer la partie privée.'
+        content: localizeText({
+          fr: 'Trop de joueurs mentionnés. Veuillez en sélectionner exactement 6 pour lancer la partie privée.',
+          en: 'Too many players mentioned. Please select exactly 6 to create the private match.'
+        })
       });
     }
     return;
@@ -846,7 +1109,10 @@ async function handlePrivatePartyCommand(message) {
         return {
           discordId: id,
           displayName:
-            member?.displayName || member?.user?.username || profile?.name || `Joueur ${id}`,
+            member?.displayName ||
+            member?.user?.username ||
+            profile?.name ||
+            localizeText({ fr: `Joueur ${id}`, en: `Player ${id}` }),
           playerId: profile?.id || null,
           mmr: normalizeRating(profile?.mmr),
           soloElo: normalizeRating(profile?.solo_elo),
@@ -870,13 +1136,19 @@ async function handlePrivatePartyCommand(message) {
     });
 
     const mentions = participantIds.map((id) => `<@${id}>`).join(' ');
-    const content = [`🎉 Partie privée générée !`, `Participants : ${mentions}`].join('\n');
+    const content = [
+      localizeText({ fr: '🎉 Partie privée générée !', en: '🎉 Private match ready!' }),
+      localizeText({ fr: 'Participants : {mentions}', en: 'Participants: {mentions}' }, { mentions })
+    ].join('\n');
 
     await message.reply({ content, embeds: [embed] });
   } catch (err) {
     errorLog('Failed to create private party match:', err);
     await message.reply({
-      content: "Impossible de générer la partie privée pour le moment. Réessayez plus tard."
+      content: localizeText({
+        fr: 'Impossible de générer la partie privée pour le moment. Réessayez plus tard.',
+        en: 'Unable to create the private match right now. Please try again later.'
+      })
     });
   }
 }
@@ -885,7 +1157,12 @@ async function handlePingCommand(message) {
   if (PING_ROLE_ID) {
     await message.channel.send({ content: `<@&${PING_ROLE_ID}>` });
   } else {
-    await message.reply({ content: 'Aucun rôle de ping configuré.' });
+    await message.reply({
+      content: localizeText({
+        fr: 'Aucun rôle de ping configuré.',
+        en: 'No ping role configured.'
+      })
+    });
   }
 }
 
@@ -893,42 +1170,119 @@ async function handleTierSyncCommand(message) {
   const hasPermission = message.member?.permissions?.has(PermissionsBitField.Flags.ManageGuild);
 
   if (!hasPermission) {
-    await message.reply({ content: "❌ Vous n'avez pas la permission d'exécuter cette commande." });
+    await message.reply({
+      content: localizeText({
+        fr: "❌ Vous n'avez pas la permission d'exécuter cette commande.",
+        en: "❌ You don't have permission to run this command."
+      })
+    });
     return;
   }
 
-  const response = await message.reply({ content: '🔄 Synchronisation des tiers en cours…' });
+  const response = await message.reply({
+    content: localizeText({
+      fr: '🔄 Synchronisation des tiers en cours…',
+      en: '🔄 Synchronizing tiers…'
+    })
+  });
 
   try {
     await syncTiersWithRoles();
-    await response.edit('✅ Synchronisation des tiers terminée.');
+    await response.edit(
+      localizeText({ fr: '✅ Synchronisation des tiers terminée.', en: '✅ Tier synchronization complete.' })
+    );
   } catch (err) {
     errorLog('Manual tier sync failed:', err);
-    await response.edit("❌ Impossible de synchroniser les tiers. Consultez les logs pour plus d'informations.");
+    await response.edit(
+      localizeText({
+        fr: "❌ Impossible de synchroniser les tiers. Consultez les logs pour plus d'informations.",
+        en: '❌ Unable to sync tiers. Check the logs for details.'
+      })
+    );
   }
 }
 
+async function handleEnglishCommand(message, args) {
+  const option = (args[0] || '').toLowerCase();
+
+  if (['off', 'fr', 'french'].includes(option)) {
+    currentLanguage = LANGUAGE_FR;
+    await message.reply({
+      content: localizeText({
+        fr: '✅ Le bot parle à nouveau français.',
+        en: '✅ The bot is back to French.'
+      })
+    });
+    return;
+  }
+
+  if (['status', 'etat', 'état'].includes(option)) {
+    await message.reply({
+      content: localizeText(
+        {
+          fr: 'Langue actuelle : {language}.',
+          en: 'Current language: {language}.'
+        },
+        {
+          language:
+            currentLanguage === LANGUAGE_EN
+              ? localizeText({ fr: 'anglais', en: 'English' })
+              : localizeText({ fr: 'français', en: 'French' })
+        }
+      )
+    });
+    return;
+  }
+
+  currentLanguage = LANGUAGE_EN;
+  await message.reply({
+    content: localizeText({
+      fr: '✅ Le bot parle désormais anglais. Utilisez `!english off` pour revenir en français.',
+      en: '✅ The bot will now respond in English. Use `!english off` to switch back to French.'
+    })
+  });
+}
+
 async function handleHelpCommand(message) {
-  const commands = [
-    '`!create` — Créer un formulaire pour une room personnalisée',
-    '`!join [@chef]` — Rejoindre la file ou la room du joueur mentionné',
-    '`!leave` — Quitter la file d\'attente',
-    '`!room` — Voir la room personnalisée que tu as rejointe',
-    '`!roomleave` — Quitter ta room personnalisée',
-    '`!queue` — Voir les joueurs en attente',
-    '`!elo [@joueur]` — Afficher le classement Elo',
-    '`!lb [nombre]` — Afficher le top classement (ex: !lb 25)',
-    '`!maps` — Afficher la rotation des maps',
-    '`!pp @joueur…` — Générer une partie privée équilibrée (6 joueurs)',
-    '`!ping` — Mentionner le rôle de notification des matchs',
-    '`!tiers` — Synchroniser manuellement les rôles de tier',
-    '`!help` — Afficher cette aide'
-  ];
+  const commands =
+    currentLanguage === LANGUAGE_EN
+      ? [
+          '`!create` — Open the custom room form',
+          '`!join [@leader]` — Join the queue or a mentioned leader\'s room',
+          '`!leave` — Leave the queue',
+          '`!room` — View the custom room you joined',
+          '`!roomleave` — Leave your custom room',
+          '`!queue` — Show players waiting in the queue',
+          '`!elo [@player]` — Display Elo stats',
+          '`!lb [count]` — Show the leaderboard (example: !lb 25)',
+          '`!maps` — Show the current map rotation',
+          '`!pp @player…` — Build a balanced private match (6 players)',
+          '`!ping` — Mention the match notification role',
+          '`!tiers` — Manually sync tier roles',
+          '`!english [off]` — Switch the bot language to English or back to French',
+          '`!help` — Display this help'
+        ]
+      : [
+          '`!create` — Créer un formulaire pour une room personnalisée',
+          '`!join [@chef]` — Rejoindre la file ou la room du joueur mentionné',
+          '`!leave` — Quitter la file d\'attente',
+          '`!room` — Voir la room personnalisée que tu as rejointe',
+          '`!roomleave` — Quitter ta room personnalisée',
+          '`!queue` — Voir les joueurs en attente',
+          '`!elo [@joueur]` — Afficher le classement Elo',
+          '`!lb [nombre]` — Afficher le top classement (ex: !lb 25)',
+          '`!maps` — Afficher la rotation des maps',
+          '`!pp @joueur…` — Générer une partie privée équilibrée (6 joueurs)',
+          '`!ping` — Mentionner le rôle de notification des matchs',
+          '`!tiers` — Synchroniser manuellement les rôles de tier',
+          '`!english [off]` — Traduire le bot en anglais ou revenir en français',
+          '`!help` — Afficher cette aide'
+        ];
 
   await message.reply({
     embeds: [
       new EmbedBuilder()
-        .setTitle('Commandes du bot')
+        .setTitle(localizeText({ fr: 'Commandes du bot', en: 'Bot commands' }))
         .setDescription(commands.join('\n'))
         .setColor(0x00b894)
     ]
@@ -1052,7 +1406,10 @@ async function startMatch(participants, fallbackChannel) {
   }
 
   const mentions = participants.map((player) => `<@${player.discordId}>`).join(' ');
-  const contentParts = ['🎮 **Match prêt !**', mentions];
+  const contentParts = [
+    localizeText({ fr: '🎮 **Match prêt !**', en: '🎮 **Match ready!**' }),
+    mentions
+  ];
   if (PING_ROLE_ID) {
     contentParts.push(`<@&${PING_ROLE_ID}>`);
   }
@@ -1086,11 +1443,22 @@ async function startMatch(participants, fallbackChannel) {
 
   await sendLogMessage(
     [
-      `🆚 Nouveau match (#${state.matchId}) — ${mapChoices
-        .map((choice) => `${choice.emoji} ${choice.mode} (${choice.map})`)
-        .join(' | ')}`,
-      `Bleus: ${teams.blue.map((p) => p.displayName).join(', ')}`,
-      `Rouges: ${teams.red.map((p) => p.displayName).join(', ')}`
+      localizeText(
+        {
+          fr: '🆚 Nouveau match (#{id}) — {maps}',
+          en: '🆚 New match (#{id}) — {maps}'
+        },
+        {
+          id: state.matchId,
+          maps: mapChoices.map((choice) => `${choice.emoji} ${choice.mode} (${choice.map})`).join(' | ')
+        }
+      ),
+      localizeText({ fr: 'Bleus : {players}', en: 'Blue: {players}' }, {
+        players: teams.blue.map((p) => p.displayName).join(', ')
+      }),
+      localizeText({ fr: 'Rouges : {players}', en: 'Red: {players}' }, {
+        players: teams.red.map((p) => p.displayName).join(', ')
+      })
     ].join('\n')
   );
 }
@@ -1111,7 +1479,12 @@ async function applyMatchOutcome(state, outcome, userId) {
     return null;
   }
 
-  const winner = outcome === 'blue' ? 'Bleue' : outcome === 'red' ? 'Rouge' : null;
+  const winner =
+    outcome === 'blue'
+      ? localizeText({ fr: 'Bleue', en: 'Blue' })
+      : outcome === 'red'
+        ? localizeText({ fr: 'Rouge', en: 'Red' })
+        : null;
   const summary = {
     outcome,
     color:
@@ -1126,7 +1499,10 @@ async function applyMatchOutcome(state, outcome, userId) {
       completed_at: new Date().toISOString()
     });
 
-    summary.text = `Match annulé par <@${userId}>. Aucun changement de score Elo.`;
+    summary.text = localizeText({
+      fr: 'Match annulé par <@{userId}>. Aucun changement de score Elo.',
+      en: 'Match cancelled by <@{userId}>. No Elo changes applied.'
+    }, { userId });
     return summary;
   }
 
@@ -1207,7 +1583,16 @@ async function applyMatchOutcome(state, outcome, userId) {
     completed_at: new Date().toISOString()
   });
 
-  const winnerLine = `Victoire ${winner} (déclarée par <@${userId}>).`;
+  const winnerLine = localizeText(
+    {
+      fr: 'Victoire {winner} (déclarée par <@{userId}>).',
+      en: '{winner} win reported by <@{userId}>.'
+    },
+    {
+      winner,
+      userId
+    }
+  );
   const changeLines = changes
     .map((change) => {
       const symbol = change.delta > 0 ? '+' : '';
@@ -1228,7 +1613,10 @@ async function handleInteraction(interaction) {
 
       if (!pending) {
         await interaction.reply({
-          content: 'Ce formulaire a expiré ou est introuvable. Relancez `!create` pour recommencer.',
+          content: localizeText({
+            fr: 'Ce formulaire a expiré ou est introuvable. Relancez `!create` pour recommencer.',
+            en: 'This form expired or no longer exists. Run `!create` again to start over.'
+          }),
           ephemeral: true
         });
         return;
@@ -1236,7 +1624,10 @@ async function handleInteraction(interaction) {
 
       if (pending.leaderId !== interaction.user.id) {
         await interaction.reply({
-          content: 'Seul le créateur de la room peut remplir ce formulaire.',
+          content: localizeText({
+            fr: 'Seul le créateur de la room peut remplir ce formulaire.',
+            en: 'Only the room creator can complete this form.'
+          }),
           ephemeral: true
         });
         return;
@@ -1244,26 +1635,26 @@ async function handleInteraction(interaction) {
 
       const modal = new ModalBuilder()
         .setCustomId(`room:submit:${requestId}`)
-        .setTitle('Créer une room personnalisée');
+        .setTitle(localizeText({ fr: 'Créer une room personnalisée', en: 'Create a custom room' }));
 
       const codeInput = new TextInputBuilder()
         .setCustomId('roomCode')
-        .setLabel('Code de la room')
-        .setPlaceholder('Exemple : ABCD')
+        .setLabel(localizeText({ fr: 'Code de la room', en: 'Room code' }))
+        .setPlaceholder(localizeText({ fr: 'Exemple : ABCD', en: 'Example: ABCD' }))
         .setMaxLength(20)
         .setRequired(true)
         .setStyle(TextInputStyle.Short);
 
       const minTierInput = new TextInputBuilder()
         .setCustomId('minTier')
-        .setLabel('Tier minimum (S/A/B/C/D/E)')
+        .setLabel(localizeText({ fr: 'Tier minimum (S/A/B/C/D/E)', en: 'Minimum tier (S/A/B/C/D/E)' }))
         .setMaxLength(1)
         .setRequired(true)
         .setStyle(TextInputStyle.Short);
 
       const maxTierInput = new TextInputBuilder()
         .setCustomId('maxTier')
-        .setLabel('Tier maximum (S/A/B/C/D/E)')
+        .setLabel(localizeText({ fr: 'Tier maximum (S/A/B/C/D/E)', en: 'Maximum tier (S/A/B/C/D/E)' }))
         .setMaxLength(1)
         .setRequired(true)
         .setStyle(TextInputStyle.Short);
@@ -1285,12 +1676,24 @@ async function handleInteraction(interaction) {
     const outcome = action;
     const matchState = [...activeMatches.values()].find((state) => state.messageId === interaction.message.id);
     if (!matchState) {
-      await interaction.reply({ content: 'Match introuvable ou déjà traité.', ephemeral: true });
+      await interaction.reply({
+        content: localizeText({
+          fr: 'Match introuvable ou déjà traité.',
+          en: 'Match not found or already handled.'
+        }),
+        ephemeral: true
+      });
       return;
     }
 
     if (matchState.resolved) {
-      await interaction.reply({ content: 'Ce match a déjà été terminé.', ephemeral: true });
+      await interaction.reply({
+        content: localizeText({
+          fr: 'Ce match a déjà été terminé.',
+          en: 'This match has already been completed.'
+        }),
+        ephemeral: true
+      });
       return;
     }
 
@@ -1299,7 +1702,13 @@ async function handleInteraction(interaction) {
     const isModerator = member?.permissions?.has(PermissionsBitField.Flags.ManageGuild);
 
     if (!isParticipant && !isModerator) {
-      await interaction.reply({ content: "Seuls les joueurs du match peuvent voter.", ephemeral: true });
+      await interaction.reply({
+        content: localizeText({
+          fr: 'Seuls les joueurs du match peuvent voter.',
+          en: 'Only match participants can vote.'
+        }),
+        ephemeral: true
+      });
       return;
     }
 
@@ -1307,7 +1716,13 @@ async function handleInteraction(interaction) {
 
     try {
       if (!['blue', 'red', 'cancel'].includes(outcome)) {
-        await interaction.reply({ content: 'Option de vote invalide.', ephemeral: true });
+        await interaction.reply({
+          content: localizeText({
+            fr: 'Option de vote invalide.',
+            en: 'Invalid vote option.'
+          }),
+          ephemeral: true
+        });
         return;
       }
 
@@ -1343,9 +1758,22 @@ async function handleInteraction(interaction) {
         });
 
         await interaction.followUp({
-          content: `Votre vote pour ${
-            outcome === 'blue' ? 'la victoire bleue' : outcome === 'red' ? 'la victoire rouge' : "l'annulation"
-          } a été pris en compte. (${voteCounts[outcome]}/${MIN_VOTES_TO_RESOLVE})`,
+          content: localizeText(
+            {
+              fr: 'Votre vote pour {choice} a été pris en compte. ({count}/{needed})',
+              en: 'Your vote for {choice} has been recorded. ({count}/{needed})'
+            },
+            {
+              choice:
+                outcome === 'blue'
+                  ? localizeText({ fr: 'la victoire bleue', en: 'a blue win' })
+                  : outcome === 'red'
+                    ? localizeText({ fr: 'la victoire rouge', en: 'a red win' })
+                    : localizeText({ fr: "l'annulation", en: 'cancelling the match' }),
+              count: voteCounts[outcome],
+              needed: MIN_VOTES_TO_RESOLVE
+            }
+          ),
           ephemeral: true
         });
         return;
@@ -1353,7 +1781,13 @@ async function handleInteraction(interaction) {
 
       const summary = await applyMatchOutcome(matchState, outcome, interaction.user.id);
       if (!summary) {
-        await interaction.reply({ content: 'Le résultat a déjà été enregistré.', ephemeral: true });
+        await interaction.reply({
+          content: localizeText({
+            fr: 'Le résultat a déjà été enregistré.',
+            en: 'The result has already been recorded.'
+          }),
+          ephemeral: true
+        });
         return;
       }
 
@@ -1367,13 +1801,19 @@ async function handleInteraction(interaction) {
 
       const mapLabel = matchState.primaryMap
         ? `${matchState.primaryMap.emoji} ${matchState.primaryMap.mode}`
-        : 'Map inconnue';
+        : localizeText({ fr: 'Map inconnue', en: 'Unknown map' });
       await sendLogMessage(
         [`✅ Match #${matchState.matchId} terminé (${mapLabel})`, summary.text].join('\n')
       );
     } catch (err) {
       errorLog('Failed to process match result:', err);
-      await interaction.reply({ content: "Erreur lors de l'enregistrement du résultat.", ephemeral: true });
+      await interaction.reply({
+        content: localizeText({
+          fr: "Erreur lors de l'enregistrement du résultat.",
+          en: 'Error while saving the result.'
+        }),
+        ephemeral: true
+      });
     }
 
     return;
@@ -1390,7 +1830,10 @@ async function handleInteraction(interaction) {
 
     if (!pending) {
       await interaction.reply({
-        content: 'Formulaire introuvable. Relancez `!create` pour créer une nouvelle room.',
+        content: localizeText({
+          fr: 'Formulaire introuvable. Relancez `!create` pour créer une nouvelle room.',
+          en: 'Form not found. Run `!create` to start a new room.'
+        }),
         ephemeral: true
       });
       return;
@@ -1398,7 +1841,10 @@ async function handleInteraction(interaction) {
 
     if (pending.leaderId !== interaction.user.id) {
       await interaction.reply({
-        content: 'Seul le créateur de la room peut valider ce formulaire.',
+        content: localizeText({
+          fr: 'Seul le créateur de la room peut valider ce formulaire.',
+          en: 'Only the room creator can submit this form.'
+        }),
         ephemeral: true
       });
       return;
@@ -1414,14 +1860,23 @@ async function handleInteraction(interaction) {
 
     if (!roomCode) {
       pendingRoomForms.delete(requestId);
-      await interaction.reply({ content: 'Le code de room ne peut pas être vide.', ephemeral: true });
+      await interaction.reply({
+        content: localizeText({
+          fr: 'Le code de room ne peut pas être vide.',
+          en: 'The room code cannot be empty.'
+        }),
+        ephemeral: true
+      });
       return;
     }
 
     if (!minTier || !maxTier) {
       pendingRoomForms.delete(requestId);
       await interaction.reply({
-        content: 'Les tiers doivent être parmi S, A, B, C, D ou E.',
+        content: localizeText({
+          fr: 'Les tiers doivent être parmi S, A, B, C, D ou E.',
+          en: 'Tiers must be one of S, A, B, C, D, or E.'
+        }),
         ephemeral: true
       });
       return;
@@ -1430,7 +1885,10 @@ async function handleInteraction(interaction) {
     if (!isValidTierRange(minTier, maxTier)) {
       pendingRoomForms.delete(requestId);
       await interaction.reply({
-        content: 'Le tier minimum doit être inférieur ou égal au tier maximum.',
+        content: localizeText({
+          fr: 'Le tier minimum doit être inférieur ou égal au tier maximum.',
+          en: 'The minimum tier must be lower than or equal to the maximum tier.'
+        }),
         ephemeral: true
       });
       return;
@@ -1452,21 +1910,35 @@ async function handleInteraction(interaction) {
     customRooms.set(pending.leaderId, roomState);
 
     const embed = new EmbedBuilder()
-      .setTitle('Room personnalisée')
-      .setDescription(`Créée par <@${pending.leaderId}>`)
+      .setTitle(localizeText({ fr: 'Room personnalisée', en: 'Custom room' }))
+      .setDescription(
+        localizeText({ fr: 'Créée par <@{leaderId}>', en: 'Created by <@{leaderId}>' }, { leaderId: pending.leaderId })
+      )
       .addFields(
-        { name: 'Code de la room', value: `\`${roomCode}\``, inline: true },
-        { name: 'Tier minimum', value: minTier, inline: true },
-        { name: 'Tier maximum', value: maxTier, inline: true },
+        { name: localizeText({ fr: 'Code de la room', en: 'Room code' }), value: `\`${roomCode}\``, inline: true },
+        { name: localizeText({ fr: 'Tier minimum', en: 'Minimum tier' }), value: minTier, inline: true },
+        { name: localizeText({ fr: 'Tier maximum', en: 'Maximum tier' }), value: maxTier, inline: true },
         {
-          name: 'Comment rejoindre ?',
-          value: `Utilisez \`!join <@${pending.leaderId}>\` pour recevoir le code directement.`
+          name: localizeText({ fr: 'Comment rejoindre ?', en: 'How to join?' }),
+          value: localizeText(
+            {
+              fr: 'Utilisez `!join <@{leaderId}>` pour recevoir le code directement.',
+              en: 'Use `!join <@{leaderId}>` to receive the code directly.'
+            },
+            { leaderId: pending.leaderId }
+          )
         }
       )
       .setColor(0x2ecc71)
       .setTimestamp(roomState.createdAt);
 
-    await interaction.reply({ content: '✅ Room créée avec succès !', embeds: [embed] });
+    await interaction.reply({
+      content: localizeText({
+        fr: '✅ Room créée avec succès !',
+        en: '✅ Room created successfully!'
+      }),
+      embeds: [embed]
+    });
 
     const replyMessage = await interaction.fetchReply().catch(() => null);
     if (replyMessage) {
@@ -1721,6 +2193,9 @@ async function handleMessage(message) {
       case 'tiers':
         await handleTierSyncCommand(message, args);
         break;
+      case 'english':
+        await handleEnglishCommand(message, args);
+        break;
       case 'help':
         await handleHelpCommand(message, args);
         break;
@@ -1729,7 +2204,12 @@ async function handleMessage(message) {
     }
   } catch (err) {
     errorLog(`Command ${command} failed:`, err);
-    await message.reply({ content: '❌ Erreur lors de l\'exécution de la commande.' });
+    await message.reply({
+      content: localizeText({
+        fr: "❌ Erreur lors de l'exécution de la commande.",
+        en: '❌ Error while executing the command.'
+      })
+    });
   }
 }
 
