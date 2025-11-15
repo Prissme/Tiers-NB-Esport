@@ -165,6 +165,8 @@ function buildDefaultPlayerPayload(discordId, name) {
     wins: 0,
     losses: 0,
     games_played: 0,
+    win_streak: 0,
+    lose_streak: 0,
     active: true
   };
 }
@@ -281,7 +283,7 @@ async function handleGetTop50(res) {
 
   try {
     const selectColumns =
-      'id,name,mmr,solo_elo,weight,games_played,wins,losses,profile_image_url,bio,recent_scrims,social_links';
+      'id,name,mmr,solo_elo,weight,games_played,wins,losses,win_streak,lose_streak,profile_image_url,bio,recent_scrims,social_links';
 
     const { count: totalPlayers } = await supabase
       .from('players')
@@ -507,7 +509,7 @@ async function handleSubmitMatch(req, res) {
 
     const { data: players, error } = await supabase
       .from('players')
-      .select('id,mmr,weight,games_played,wins,losses')
+      .select('id,mmr,weight,games_played,wins,losses,win_streak,lose_streak')
       .in('id', Array.from(uniqueIds));
 
     if (error) {
@@ -535,7 +537,9 @@ async function handleSubmitMatch(req, res) {
         mmr: Math.max(0, Math.round(player.mmr + delta)),
         wins: (player.wins || 0) + 1,
         losses: player.losses || 0,
-        games_played: (player.games_played || 0) + 1
+        games_played: (player.games_played || 0) + 1,
+        win_streak: (player.win_streak || 0) + 1,
+        lose_streak: 0
       });
     }
 
@@ -546,7 +550,9 @@ async function handleSubmitMatch(req, res) {
         mmr: Math.max(0, Math.round(player.mmr + delta)),
         wins: player.wins || 0,
         losses: (player.losses || 0) + 1,
-        games_played: (player.games_played || 0) + 1
+        games_played: (player.games_played || 0) + 1,
+        win_streak: 0,
+        lose_streak: (player.lose_streak || 0) + 1
       });
     }
 
@@ -557,7 +563,9 @@ async function handleSubmitMatch(req, res) {
           mmr: update.mmr,
           wins: update.wins,
           losses: update.losses,
-          games_played: update.games_played
+          games_played: update.games_played,
+          win_streak: update.win_streak,
+          lose_streak: update.lose_streak
         })
         .eq('id', update.id)
     );
@@ -617,7 +625,7 @@ async function handleAutoRegister(req, res) {
   try {
     const { data, error } = await supabase
       .from('players')
-      .select('id,name,mmr,solo_elo,weight,wins,losses,games_played,active,discord_id')
+      .select('id,name,mmr,solo_elo,weight,wins,losses,win_streak,lose_streak,games_played,active,discord_id')
       .eq('discord_id', discordId)
       .maybeSingle();
 
@@ -641,7 +649,9 @@ async function handleAutoRegister(req, res) {
   try {
     const { data: allPlayers, error: allPlayersError } = await supabase
       .from('players')
-      .select('id, name, discord_id, mmr, solo_elo, weight, wins, losses, games_played, active');
+      .select(
+        'id, name, discord_id, mmr, solo_elo, weight, wins, losses, win_streak, lose_streak, games_played, active'
+      );
 
     if (allPlayersError) {
       throw allPlayersError;
@@ -686,7 +696,7 @@ async function handleAutoRegister(req, res) {
   let insertResult = await supabase
     .from('players')
     .insert(defaultPayload)
-    .select('id,name,mmr,solo_elo,weight,wins,losses,games_played,active,discord_id')
+    .select('id,name,mmr,solo_elo,weight,wins,losses,win_streak,lose_streak,games_played,active,discord_id')
     .single();
 
   if (insertResult.error) {
@@ -695,7 +705,7 @@ async function handleAutoRegister(req, res) {
       try {
         const { data, error } = await supabase
           .from('players')
-          .select('id,name,mmr,solo_elo,weight,wins,losses,games_played,active,discord_id')
+          .select('id,name,mmr,solo_elo,weight,wins,losses,win_streak,lose_streak,games_played,active,discord_id')
           .eq('discord_id', discordId)
           .maybeSingle();
 
@@ -784,6 +794,8 @@ async function handleCreatePlayer(req, res) {
         wins: 0,
         losses: 0,
         games_played: 0,
+        win_streak: 0,
+        lose_streak: 0,
         active: true
       })
       .select('id,name,mmr,solo_elo,weight')
@@ -833,7 +845,7 @@ async function handleResetAllMMR(req, res) {
 
     const { error, count } = await supabase
       .from('players')
-      .update({ mmr: 1000, wins: 0, losses: 0, games_played: 0 })
+      .update({ mmr: 1000, wins: 0, losses: 0, games_played: 0, win_streak: 0, lose_streak: 0 })
       .eq('active', true)
       .select('*', { count: 'exact', head: false });
 

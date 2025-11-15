@@ -106,6 +106,8 @@ function createPlayerPayload(user) {
     wins: 0,
     losses: 0,
     games_played: 0,
+    win_streak: 0,
+    lose_streak: 0,
     active: true
   };
 }

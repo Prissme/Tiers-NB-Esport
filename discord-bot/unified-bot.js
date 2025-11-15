@@ -287,6 +287,34 @@ function calculateWeightedScore(soloElo, mmr) {
   return Math.round(safeSoloElo * 0.3 + safeMmr * 0.7);
 }
 
+function describeStreak(winStreak, loseStreak, { short = false } = {}) {
+  const wins = Number.isFinite(winStreak) ? winStreak : 0;
+  const losses = Number.isFinite(loseStreak) ? loseStreak : 0;
+
+  if (wins > 0) {
+    const label = short
+      ? localizeText({ fr: '🔥 Winstreak ×{count}', en: '🔥 Winstreak ×{count}' }, { count: wins })
+      : localizeText(
+          { fr: '🔥 {count} victoire(s) consécutive(s)', en: '🔥 {count} win(s) in a row' },
+          { count: wins }
+        );
+    return { label, type: 'win' };
+  }
+
+  if (losses > 0) {
+    const label = short
+      ? localizeText({ fr: '💀 Lose streak ×{count}', en: '💀 Lose streak ×{count}' }, { count: losses })
+      : localizeText(
+          { fr: '💀 {count} défaite(s) consécutive(s)', en: '💀 {count} loss(es) in a row' },
+          { count: losses }
+        );
+    return { label, type: 'lose' };
+  }
+
+  const neutralLabel = localizeText({ fr: 'Série neutre', en: 'Neutral streak' });
+  return { label: neutralLabel, type: 'neutral' };
+}
+
 function formatPlayerList(team) {
   if (!team.length) {
     return '—';
@@ -502,6 +530,8 @@ async function getOrCreatePlayer(discordId, displayName) {
     wins: 0,
     losses: 0,
     games_played: 0,
+    win_streak: 0,
+    lose_streak: 0,
     active: true
   };
 
@@ -523,6 +553,8 @@ function buildQueueEntry(member, playerRecord) {
   const wins = typeof playerRecord.wins === 'number' ? playerRecord.wins : 0;
   const losses = typeof playerRecord.losses === 'number' ? playerRecord.losses : 0;
   const games = typeof playerRecord.games_played === 'number' ? playerRecord.games_played : wins + losses;
+  const winStreak = typeof playerRecord.win_streak === 'number' ? playerRecord.win_streak : 0;
+  const loseStreak = typeof playerRecord.lose_streak === 'number' ? playerRecord.lose_streak : 0;
 
   return {
     discordId: member.id,
@@ -533,6 +565,8 @@ function buildQueueEntry(member, playerRecord) {
     wins,
     losses,
     games,
+    winStreak,
+    loseStreak,
     joinedAt: new Date()
   };
 }
@@ -921,6 +955,9 @@ async function handleEloCommand(message) {
   const wins = typeof player.wins === 'number' ? player.wins : 0;
   const losses = typeof player.losses === 'number' ? player.losses : 0;
   const games = typeof player.games_played === 'number' ? player.games_played : wins + losses;
+  const winStreak = typeof player.win_streak === 'number' ? player.win_streak : 0;
+  const loseStreak = typeof player.lose_streak === 'number' ? player.lose_streak : 0;
+  const streakInfo = describeStreak(winStreak, loseStreak);
   const soloElo = normalizeRating(player.solo_elo);
   const mmr = normalizeRating(player.mmr);
   const weightedScore = calculateWeightedScore(soloElo, mmr);
@@ -940,9 +977,12 @@ async function handleEloCommand(message) {
         value: `${weightedScore}`,
         inline: true
       },
-      { name: localizeText({ fr: 'Victoires', en: 'Wins' }), value: `${wins}`, inline: true },
-      { name: localizeText({ fr: 'Défaites', en: 'Losses' }), value: `${losses}`, inline: true },
-      { name: localizeText({ fr: 'Matchs joués', en: 'Games played' }), value: `${games}`, inline: true }
+      { name: localizeText({ fr: 'Matchs joués', en: 'Games played' }), value: `${games}`, inline: true },
+      {
+        name: localizeText({ fr: 'Série en cours', en: 'Current streak' }),
+        value: streakInfo.label,
+        inline: true
+      }
     )
     .setColor(0x5865f2)
     .setTimestamp(new Date());
@@ -973,7 +1013,7 @@ async function handleLeaderboardCommand(message, args) {
   try {
     const { data: allPlayers, error } = await supabaseClient
       .from('players')
-      .select('discord_id, name, solo_elo, wins, losses, games_played')
+      .select('discord_id, name, solo_elo, wins, losses, win_streak, lose_streak, games_played')
       .eq('active', true)
       .order('solo_elo', { ascending: false });
 
@@ -1004,21 +1044,21 @@ async function handleLeaderboardCommand(message, args) {
       const rank = index + 1;
       const tier = getTierByRank(rank, boundaries);
       const soloElo = normalizeRating(player.solo_elo);
-      const wins = player.wins || 0;
-      const losses = player.losses || 0;
+      const winStreak = typeof player.win_streak === 'number' ? player.win_streak : 0;
+      const loseStreak = typeof player.lose_streak === 'number' ? player.lose_streak : 0;
+      const streakInfo = describeStreak(winStreak, loseStreak, { short: true });
 
       lines.push(
         localizeText(
           {
-            fr: '{rank}. **{name}** — {elo} Elo — {wins}V/{losses}D — Tier {tier}',
-            en: '{rank}. **{name}** — {elo} Elo — {wins}W/{losses}L — Tier {tier}'
+            fr: '{rank}. **{name}** — {elo} Elo — {streak} — Tier {tier}',
+            en: '{rank}. **{name}** — {elo} Elo — {streak} — Tier {tier}'
           },
           {
             rank,
             name: player.name,
             elo: Math.round(soloElo),
-            wins,
-            losses,
+            streak: streakInfo.label,
             tier: tier || localizeText({ fr: 'Sans tier', en: 'No tier' })
           }
         )
@@ -1546,8 +1586,18 @@ async function applyMatchOutcome(state, outcome, userId) {
     const wins = player.wins + (blueScore === 1 ? 1 : 0);
     const losses = player.losses + (blueScore === 1 ? 0 : 1);
     const games = player.games + 1;
+    const winStreak = blueScore === 1 ? (player.winStreak || 0) + 1 : 0;
+    const loseStreak = blueScore === 1 ? 0 : (player.loseStreak || 0) + 1;
 
-    updates.push({ id: player.playerId, solo_elo: newRating, wins, losses, games_played: games });
+    updates.push({
+      id: player.playerId,
+      solo_elo: newRating,
+      wins,
+      losses,
+      games_played: games,
+      win_streak: winStreak,
+      lose_streak: loseStreak
+    });
     changes.push({
       player,
       oldRating: currentRating,
@@ -1559,6 +1609,8 @@ async function applyMatchOutcome(state, outcome, userId) {
     player.wins = wins;
     player.losses = losses;
     player.games = games;
+    player.winStreak = winStreak;
+    player.loseStreak = loseStreak;
   }
 
   for (const player of state.teams.red) {
@@ -1568,8 +1620,18 @@ async function applyMatchOutcome(state, outcome, userId) {
     const wins = player.wins + (redScore === 1 ? 1 : 0);
     const losses = player.losses + (redScore === 1 ? 0 : 1);
     const games = player.games + 1;
+    const winStreak = redScore === 1 ? (player.winStreak || 0) + 1 : 0;
+    const loseStreak = redScore === 1 ? 0 : (player.loseStreak || 0) + 1;
 
-    updates.push({ id: player.playerId, solo_elo: newRating, wins, losses, games_played: games });
+    updates.push({
+      id: player.playerId,
+      solo_elo: newRating,
+      wins,
+      losses,
+      games_played: games,
+      win_streak: winStreak,
+      lose_streak: loseStreak
+    });
     changes.push({
       player,
       oldRating: currentRating,
@@ -1581,17 +1643,21 @@ async function applyMatchOutcome(state, outcome, userId) {
     player.wins = wins;
     player.losses = losses;
     player.games = games;
+    player.winStreak = winStreak;
+    player.loseStreak = loseStreak;
   }
 
   for (const update of updates) {
     const { error: playerError } = await supabase
       .from('players')
-      .update({
-        solo_elo: update.solo_elo,
-        wins: update.wins,
-        losses: update.losses,
-        games_played: update.games_played
-      })
+        .update({
+          solo_elo: update.solo_elo,
+          wins: update.wins,
+          losses: update.losses,
+          games_played: update.games_played,
+          win_streak: update.win_streak,
+          lose_streak: update.lose_streak
+        })
       .eq('id', update.id);
 
     if (playerError) {
