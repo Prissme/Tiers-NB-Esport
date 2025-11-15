@@ -163,6 +163,20 @@ function createSupabaseClient() {
   return supabase;
 }
 
+async function verifySupabaseConnection() {
+  try {
+    log('Testing Supabase connectivity...');
+    const { error } = await supabase.from('players').select('id').limit(1);
+    if (error) {
+      throw error;
+    }
+    log('Supabase connection verified.');
+  } catch (err) {
+    errorLog('Supabase connection check failed:', err);
+    throw err;
+  }
+}
+
 const tierRoleMap = {
   S: ROLE_TIER_S,
   A: ROLE_TIER_A,
@@ -2536,6 +2550,13 @@ async function startUnifiedBot() {
   }
 
   botStarted = true;
+
+  try {
+    await verifySupabaseConnection();
+  } catch (err) {
+    botStarted = false;
+    throw err;
+  }
 
   client = new Client({
     intents: [
