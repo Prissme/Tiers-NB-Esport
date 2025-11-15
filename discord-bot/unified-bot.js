@@ -22,7 +22,10 @@ const MATCH_SIZE = TEAM_SIZE * 2;
 const DEFAULT_ELO = 1000;
 const ELO_DIVISOR = 400;
 const TIER_SYNC_INTERVAL_MS = 10 * 60 * 1000; // 10 minutes
-const MIN_VOTES_TO_RESOLVE = 4;
+const MIN_VOTES_TO_RESOLVE = Math.max(
+  1,
+  Number.parseInt(process.env.MIN_VOTES_TO_RESOLVE || '5', 10)
+);
 const MAP_CHOICES_COUNT = 3;
 const ROOM_TIER_ORDER = ['E', 'D', 'C', 'B', 'A', 'S'];
 const BEST_OF_VALUES = [1, 3, 5];
@@ -108,6 +111,15 @@ function getTierByRank(rank, boundaries) {
   }
 
   return null;
+}
+
+function getVotesRequired(state = null) {
+  const participantCount = state?.participants?.size;
+  if (!participantCount || Number.isNaN(participantCount)) {
+    return MIN_VOTES_TO_RESOLVE;
+  }
+
+  return Math.max(1, Math.min(participantCount, MIN_VOTES_TO_RESOLVE));
 }
 
 const MAP_ROTATION = [
@@ -474,6 +486,7 @@ function buildPrivateMatchEmbed(state) {
 
 function buildMatchEmbed(state, resultSummary = null) {
   const { primaryMap, mapChoices = [], teams, createdAt, votes } = state;
+  const votesRequired = getVotesRequired(state);
   const title = primaryMap
     ? `${primaryMap.emoji} ${primaryMap.mode} — ${primaryMap.map}`
     : localizeText({ fr: 'Match en attente', en: 'Match pending' });
@@ -541,7 +554,7 @@ function buildMatchEmbed(state, resultSummary = null) {
           fr: 'Votez pour le résultat avec les boutons ci-dessous. ({count} votes nécessaires)',
           en: 'Vote for the result using the buttons below. ({count} votes required)'
         },
-        { count: MIN_VOTES_TO_RESOLVE }
+        { count: votesRequired }
       )
     });
   }
@@ -2018,7 +2031,8 @@ async function handleInteraction(interaction) {
         cancel: votes.cancel.size
       };
 
-      const hasReachedThreshold = voteCounts[outcome] >= MIN_VOTES_TO_RESOLVE;
+      const votesRequired = getVotesRequired(matchState);
+      const hasReachedThreshold = voteCounts[outcome] >= votesRequired;
 
       if (!isModeratorOverride && !hasReachedThreshold) {
         await interaction.update({
@@ -2040,7 +2054,7 @@ async function handleInteraction(interaction) {
                     ? localizeText({ fr: 'la victoire rouge', en: 'a red win' })
                     : localizeText({ fr: "l'annulation", en: 'cancelling the match' }),
               count: voteCounts[outcome],
-              needed: MIN_VOTES_TO_RESOLVE
+              needed: votesRequired
             }
           ),
           ephemeral: true
