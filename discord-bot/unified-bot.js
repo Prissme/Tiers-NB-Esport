@@ -349,16 +349,8 @@ function normalizeBestOfInput(value) {
   return null;
 }
 
-function getKFactorForBestOf(bestOf) {
-  if (bestOf === 1) {
-    return 10;
-  }
-
-  if (bestOf === 5) {
-    return 25;
-  }
-
-  return 15;
+function getKFactorForBestOf() {
+  return 30;
 }
 
 function isValidTierRange(minTier, maxTier) {
