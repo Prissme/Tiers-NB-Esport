@@ -16,7 +16,7 @@ const JSON_HEADERS = {
   'Access-Control-Allow-Methods': 'GET,POST,OPTIONS'
 };
 
-const K_FACTOR = 100;
+const K_FACTOR = 30;
 
 const TIER_DISTRIBUTION = [
   { tier: 'S', ratio: 0.005, minCount: 1 },
