@@ -20,12 +20,13 @@ const LOG_PREFIX = '[UnifiedBot]';
 const TEAM_SIZE = 3;
 const MATCH_SIZE = TEAM_SIZE * 2;
 const DEFAULT_ELO = 1000;
-const K_FACTOR = 30;
 const ELO_DIVISOR = 400;
 const TIER_SYNC_INTERVAL_MS = 10 * 60 * 1000; // 10 minutes
 const MIN_VOTES_TO_RESOLVE = 4;
 const MAP_CHOICES_COUNT = 3;
 const ROOM_TIER_ORDER = ['E', 'D', 'C', 'B', 'A', 'S'];
+const BEST_OF_VALUES = [1, 3, 5];
+const DEFAULT_MATCH_BEST_OF = normalizeBestOfInput(process.env.DEFAULT_MATCH_BEST_OF) || 3;
 
 const DISCORD_BOT_TOKEN = process.env.DISCORD_BOT_TOKEN;
 const DISCORD_GUILD_ID = process.env.DISCORD_GUILD_ID;
@@ -159,6 +160,23 @@ const tierRoleMap = {
   E: ROLE_TIER_E
 };
 
+function getMemberTier(member) {
+  const roleCache = member?.roles?.cache;
+  if (!roleCache) {
+    return null;
+  }
+
+  for (let index = ROOM_TIER_ORDER.length - 1; index >= 0; index -= 1) {
+    const tier = ROOM_TIER_ORDER[index];
+    const roleId = tierRoleMap[tier];
+    if (roleId && roleCache.has(roleId)) {
+      return tier;
+    }
+  }
+
+  return null;
+}
+
 const missingRoles = Object.entries(tierRoleMap)
   .filter(([, roleId]) => !roleId)
   .map(([tier]) => tier);
@@ -274,11 +292,68 @@ function normalizeTierInput(value) {
   return ROOM_TIER_ORDER.includes(cleaned) ? cleaned : null;
 }
 
+function normalizeBestOfInput(value) {
+  if (value == null) {
+    return null;
+  }
+
+  if (typeof value === 'number' && BEST_OF_VALUES.includes(value)) {
+    return value;
+  }
+
+  const text = value.toString().trim().toUpperCase();
+  if (!text) {
+    return null;
+  }
+
+  const numeric = parseInt(text, 10);
+  if (!Number.isNaN(numeric) && BEST_OF_VALUES.includes(numeric)) {
+    return numeric;
+  }
+
+  if (text.startsWith('BO')) {
+    const suffix = parseInt(text.slice(2), 10);
+    if (!Number.isNaN(suffix) && BEST_OF_VALUES.includes(suffix)) {
+      return suffix;
+    }
+  }
+
+  return null;
+}
+
+function getKFactorForBestOf(bestOf) {
+  if (bestOf === 1) {
+    return 10;
+  }
+
+  if (bestOf === 5) {
+    return 25;
+  }
+
+  return 15;
+}
+
 function isValidTierRange(minTier, maxTier) {
   const minIndex = ROOM_TIER_ORDER.indexOf(minTier);
   const maxIndex = ROOM_TIER_ORDER.indexOf(maxTier);
 
   return minIndex !== -1 && maxIndex !== -1 && minIndex <= maxIndex;
+}
+
+function isTierWithinRange(playerTier, minTier, maxTier) {
+  if (!playerTier || !minTier || !maxTier) {
+    return false;
+  }
+
+  const playerIndex = ROOM_TIER_ORDER.indexOf(playerTier);
+  const minIndex = ROOM_TIER_ORDER.indexOf(minTier);
+  const maxIndex = ROOM_TIER_ORDER.indexOf(maxTier);
+
+  if (playerIndex === -1 || minIndex === -1 || maxIndex === -1) {
+    return false;
+  }
+
+  return playerIndex >= minIndex && playerIndex <= maxIndex;
 }
 
 function calculateWeightedScore(soloElo, mmr) {
@@ -427,6 +502,19 @@ function buildMatchEmbed(state, resultSummary = null) {
     embed.addFields({
       name: localizeText({ fr: 'Maps proposées', en: 'Suggested maps' }),
       value: mapLines
+    });
+  }
+
+  const bestOf = state.bestOf || DEFAULT_MATCH_BEST_OF;
+  const kFactor = state.kFactor || getKFactorForBestOf(bestOf);
+  if (bestOf) {
+    embed.addFields({
+      name: localizeText({ fr: 'Format', en: 'Format' }),
+      value: localizeText(
+        { fr: 'Bo{bestOf} — Facteur K {kFactor}', en: 'Bo{bestOf} — K-factor {kFactor}' },
+        { bestOf, kFactor }
+      ),
+      inline: true
     });
   }
 
@@ -707,20 +795,66 @@ async function handleRoomJoinRequest(message, leaderUser) {
     return;
   }
 
+  const guildContext = message.guild || guild;
+  const member =
+    message.member ||
+    (guildContext ? await guildContext.members.fetch(message.author.id).catch(() => null) : null);
+
+  if (!member) {
+    await message.reply({
+      content: localizeText({
+        fr: 'Impossible de vérifier votre tier. Réessayez dans un instant.',
+        en: 'Unable to verify your tier. Please try again shortly.'
+      })
+    });
+    return;
+  }
+
+  const playerTier = getMemberTier(member);
+  if (!playerTier) {
+    await message.reply({
+      content: localizeText({
+        fr: '❌ Aucun rôle de tier détecté. Synchronisez vos rôles (`!tiers`) pour rejoindre cette room.',
+        en: '❌ No tier role detected. Sync your roles (`!tiers`) to join this room.'
+      })
+    });
+    return;
+  }
+
+  const roomBestOf = room.bestOf || DEFAULT_MATCH_BEST_OF;
+  const roomKFactor = room.kFactor || getKFactorForBestOf(roomBestOf);
+  room.bestOf = roomBestOf;
+  room.kFactor = roomKFactor;
+
+  if (!isTierWithinRange(playerTier, room.minTier, room.maxTier)) {
+    await message.reply({
+      content: localizeText(
+        {
+          fr: '❌ Cette room accepte uniquement les joueurs entre {minTier} et {maxTier}. Ton tier actuel : {currentTier}.',
+          en: '❌ This room only accepts players between {minTier} and {maxTier}. Your current tier: {currentTier}.'
+        },
+        { minTier: room.minTier, maxTier: room.maxTier, currentTier: playerTier }
+      )
+    });
+    return;
+  }
+
   room.members.add(message.author.id);
 
   await message.reply({
     content: localizeText(
       {
-        fr: '✅ <@{memberId}> a rejoint la room de <@{leaderId}>.\nCode de la room : `{code}`\nTiers autorisés : {minTier} → {maxTier}',
-        en: '✅ <@{memberId}> joined <@{leaderId}>\'s room.\nRoom code: `{code}`\nAllowed tiers: {minTier} → {maxTier}'
+        fr: '✅ <@{memberId}> a rejoint la room de <@{leaderId}>.\nCode de la room : `{code}`\nTiers autorisés : {minTier} → {maxTier}\nFormat : Bo{bestOf} — Facteur K {kFactor}',
+        en: '✅ <@{memberId}> joined <@{leaderId}>\'s room.\nRoom code: `{code}`\nAllowed tiers: {minTier} → {maxTier}\nFormat: Bo{bestOf} — K-factor {kFactor}'
       },
       {
         memberId: message.author.id,
         leaderId: leaderUser.id,
         code: room.code,
         minTier: room.minTier,
-        maxTier: room.maxTier
+        maxTier: room.maxTier,
+        bestOf: roomBestOf,
+        kFactor: roomKFactor
       }
     )
   });
@@ -740,6 +874,10 @@ async function handleRoomInfoCommand(message) {
   }
 
   const members = [...room.members].map((id) => `<@${id}>`).join(', ');
+  const bestOf = room.bestOf || DEFAULT_MATCH_BEST_OF;
+  const kFactor = room.kFactor || getKFactorForBestOf(bestOf);
+  room.bestOf = bestOf;
+  room.kFactor = kFactor;
   const embed = new EmbedBuilder()
     .setTitle(localizeText({ fr: 'Room personnalisée', en: 'Custom room' }))
     .setDescription(
@@ -754,6 +892,14 @@ async function handleRoomInfoCommand(message) {
       {
         name: localizeText({ fr: 'Tiers', en: 'Tiers' }),
         value: `${room.minTier} → ${room.maxTier}`,
+        inline: true
+      },
+      {
+        name: localizeText({ fr: 'Format', en: 'Format' }),
+        value: localizeText(
+          { fr: 'Bo{bestOf} — Facteur K {kFactor}', en: 'Bo{bestOf} — K-factor {kFactor}' },
+          { bestOf, kFactor }
+        ),
         inline: true
       },
       {
@@ -1355,6 +1501,8 @@ async function startMatch(participants, fallbackChannel) {
   const mapChoices = pickRandomMaps(MAP_CHOICES_COUNT);
   const primaryMap = mapChoices[0];
   const teams = balanceTeams(participants);
+  const bestOf = DEFAULT_MATCH_BEST_OF;
+  const kFactor = getKFactorForBestOf(bestOf);
 
   const matchPayload = {
     map_mode: primaryMap?.mode || null,
@@ -1363,7 +1511,9 @@ async function startMatch(participants, fallbackChannel) {
     team1_ids: teams.blue.map((player) => player.discordId),
     team2_ids: teams.red.map((player) => player.discordId),
     status: 'pending',
-    winner: null
+    winner: null,
+    best_of: bestOf,
+    k_factor: kFactor
   };
 
   const hasMissingColumnError = (error, column) => {
@@ -1373,6 +1523,24 @@ async function startMatch(participants, fallbackChannel) {
   };
 
   const fallbackStrategies = [
+    {
+      column: 'best_of',
+      logMessage: 'Database schema is missing best_of column. Falling back without storing the format.',
+      apply: (currentPayload) => {
+        const nextPayload = { ...currentPayload };
+        delete nextPayload.best_of;
+        return nextPayload;
+      }
+    },
+    {
+      column: 'k_factor',
+      logMessage: 'Database schema is missing k_factor column. Falling back without storing the K factor.',
+      apply: (currentPayload) => {
+        const nextPayload = { ...currentPayload };
+        delete nextPayload.k_factor;
+        return nextPayload;
+      }
+    },
     {
       column: 'map_emoji',
       logMessage:
@@ -1481,6 +1649,8 @@ async function startMatch(participants, fallbackChannel) {
     mapChoices,
     primaryMap,
     teams,
+    bestOf,
+    kFactor,
     createdAt: new Date(insertedMatch?.created_at || Date.now()),
     participants: new Set(participants.map((player) => player.discordId)),
     channelId: channel.id,
@@ -1575,6 +1745,8 @@ async function applyMatchOutcome(state, outcome, userId) {
 
   const blueScore = outcome === 'blue' ? 1 : 0;
   const redScore = outcome === 'red' ? 1 : 0;
+  const matchBestOf = state.bestOf || DEFAULT_MATCH_BEST_OF;
+  const matchKFactor = state.kFactor || getKFactorForBestOf(matchBestOf);
 
   const updates = [];
   const changes = [];
@@ -1582,7 +1754,7 @@ async function applyMatchOutcome(state, outcome, userId) {
   for (const player of state.teams.blue) {
     const currentRating = normalizeRating(player.soloElo);
     const expected = calculateExpectedScore(currentRating, redAvg);
-    const newRating = Math.max(0, Math.round(currentRating + K_FACTOR * (blueScore - expected)));
+    const newRating = Math.max(0, Math.round(currentRating + matchKFactor * (blueScore - expected)));
     const wins = player.wins + (blueScore === 1 ? 1 : 0);
     const losses = player.losses + (blueScore === 1 ? 0 : 1);
     const games = player.games + 1;
@@ -1616,7 +1788,7 @@ async function applyMatchOutcome(state, outcome, userId) {
   for (const player of state.teams.red) {
     const currentRating = normalizeRating(player.soloElo);
     const expected = calculateExpectedScore(currentRating, blueAvg);
-    const newRating = Math.max(0, Math.round(currentRating + K_FACTOR * (redScore - expected)));
+    const newRating = Math.max(0, Math.round(currentRating + matchKFactor * (redScore - expected)));
     const wins = player.wins + (redScore === 1 ? 1 : 0);
     const losses = player.losses + (redScore === 1 ? 0 : 1);
     const games = player.games + 1;
@@ -1747,10 +1919,19 @@ async function handleInteraction(interaction) {
         .setRequired(true)
         .setStyle(TextInputStyle.Short);
 
+      const bestOfInput = new TextInputBuilder()
+        .setCustomId('bestOf')
+        .setLabel(localizeText({ fr: 'Format (bo1/bo3/bo5)', en: 'Format (bo1/bo3/bo5)' }))
+        .setPlaceholder(localizeText({ fr: 'Exemple : bo3', en: 'Example: bo3' }))
+        .setMaxLength(3)
+        .setRequired(true)
+        .setStyle(TextInputStyle.Short);
+
       modal.addComponents(
         new ActionRowBuilder().addComponents(codeInput),
         new ActionRowBuilder().addComponents(minTierInput),
-        new ActionRowBuilder().addComponents(maxTierInput)
+        new ActionRowBuilder().addComponents(maxTierInput),
+        new ActionRowBuilder().addComponents(bestOfInput)
       );
 
       await interaction.showModal(modal);
@@ -1941,10 +2122,12 @@ async function handleInteraction(interaction) {
     const rawCode = interaction.fields.getTextInputValue('roomCode') || '';
     const rawMinTier = interaction.fields.getTextInputValue('minTier') || '';
     const rawMaxTier = interaction.fields.getTextInputValue('maxTier') || '';
+    const rawBestOf = interaction.fields.getTextInputValue('bestOf') || '';
 
     const roomCode = rawCode.trim().toUpperCase();
     const minTier = normalizeTierInput(rawMinTier);
     const maxTier = normalizeTierInput(rawMaxTier);
+    const bestOf = normalizeBestOfInput(rawBestOf);
 
     if (!roomCode) {
       pendingRoomForms.delete(requestId);
@@ -1982,6 +2165,18 @@ async function handleInteraction(interaction) {
       return;
     }
 
+    if (!bestOf) {
+      pendingRoomForms.delete(requestId);
+      await interaction.reply({
+        content: localizeText({
+          fr: 'Le format doit être bo1, bo3 ou bo5.',
+          en: 'The format must be bo1, bo3, or bo5.'
+        }),
+        ephemeral: true
+      });
+      return;
+    }
+
     pendingRoomForms.delete(requestId);
 
     const roomState = {
@@ -1989,6 +2184,8 @@ async function handleInteraction(interaction) {
       code: roomCode,
       minTier,
       maxTier,
+      bestOf,
+      kFactor: getKFactorForBestOf(bestOf),
       channelId: pending.channelId,
       messageId: null,
       createdAt: new Date(),
@@ -2006,6 +2203,14 @@ async function handleInteraction(interaction) {
         { name: localizeText({ fr: 'Code de la room', en: 'Room code' }), value: `\`${roomCode}\``, inline: true },
         { name: localizeText({ fr: 'Tier minimum', en: 'Minimum tier' }), value: minTier, inline: true },
         { name: localizeText({ fr: 'Tier maximum', en: 'Maximum tier' }), value: maxTier, inline: true },
+        {
+          name: localizeText({ fr: 'Format', en: 'Format' }),
+          value: localizeText(
+            { fr: 'Bo{bestOf} — Facteur K {kFactor}', en: 'Bo{bestOf} — K-factor {kFactor}' },
+            { bestOf, kFactor: roomState.kFactor }
+          ),
+          inline: true
+        },
         {
           name: localizeText({ fr: 'Comment rejoindre ?', en: 'How to join?' }),
           value: localizeText(
