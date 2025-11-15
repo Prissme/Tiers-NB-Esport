@@ -1,6 +1,8 @@
 // debug-api.js
 // Exécutez avec: node debug-api.js
 
+require('./ensure-fetch');
+
 const fs = require('fs');
 const path = require('path');
 const http = require('http');

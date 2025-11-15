@@ -1,5 +1,7 @@
 'use strict';
 
+require('../ensure-fetch');
+
 const {
   ActionRowBuilder,
   ButtonBuilder,

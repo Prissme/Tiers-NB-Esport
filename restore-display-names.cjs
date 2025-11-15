@@ -2,6 +2,8 @@
 // Script pour restaurer les noms depuis Discord vers Supabase
 
 const { Client, GatewayIntentBits } = require("discord.js");
+require('./ensure-fetch');
+
 const { createClient } = require("@supabase/supabase-js");
 
 // ⚙️ Configuration
