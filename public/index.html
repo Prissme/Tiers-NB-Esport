@@ -169,6 +169,24 @@
         font-size: 0.95rem;
       }
 
+      .streak {
+        font-size: 0.85rem;
+        font-weight: 600;
+      }
+
+      .streak-win {
+        color: #34d399;
+      }
+
+      .streak-lose {
+        color: #f87171;
+      }
+
+      .streak-neutral {
+        color: var(--muted);
+        font-weight: 500;
+      }
+
       .badge {
         display: inline-flex;
         align-items: center;
@@ -472,12 +490,6 @@
         return `#${rank}`;
       };
 
-      const formatWinRate = (wins, games) => {
-        if (!games) return '0% WR';
-        const rate = Math.round((wins / games) * 100);
-        return `${rate}% WR`;
-      };
-
       const getWeightedScore = (player) => {
         const soloElo = typeof player.solo_elo === 'number' ? player.solo_elo : 1000;
         const mmr = typeof player.mmr === 'number' ? player.mmr : 1000;
@@ -485,6 +497,37 @@
           return player.weighted_score;
         }
         return Math.round(soloElo * 0.3 + mmr * 0.7);
+      };
+
+      const getStreakInfo = (player) => {
+        const winStreak = Number.isFinite(player?.win_streak) ? player.win_streak : Number(player?.win_streak) || 0;
+        const loseStreak = Number.isFinite(player?.lose_streak)
+          ? player.lose_streak
+          : Number(player?.lose_streak) || 0;
+
+        if (winStreak > 0) {
+          const plural = winStreak > 1 ? 's' : '';
+          return {
+            text: `${winStreak} victoire${plural} d'affilée`,
+            badge: `🔥 Winstreak ×${winStreak}`,
+            className: 'streak streak-win'
+          };
+        }
+
+        if (loseStreak > 0) {
+          const plural = loseStreak > 1 ? 's' : '';
+          return {
+            text: `${loseStreak} défaite${plural} d'affilée`,
+            badge: `💀 Lose streak ×${loseStreak}`,
+            className: 'streak streak-lose'
+          };
+        }
+
+        return {
+          text: 'Série neutre',
+          badge: 'Série neutre',
+          className: 'streak streak-neutral'
+        };
       };
 
       const normalizeForSearch = (value) =>
@@ -511,10 +554,8 @@
         const name = document.createElement('h2');
         name.textContent = player.name;
         const subtitle = document.createElement('small');
-        subtitle.textContent = `${player.games_played || 0} matchs · ${formatWinRate(
-          player.wins || 0,
-          player.games_played || 0
-        )}`;
+        const streakInfo = getStreakInfo(player);
+        subtitle.textContent = `${player.games_played || 0} matchs · ${streakInfo.text}`;
         info.append(name, subtitle);
 
         const stats = document.createElement('div');
@@ -535,7 +576,11 @@
         }
         tier.textContent = `Tier ${player.tier || 'No-tier'}`;
 
-        stats.append(score, tier);
+        const streakBadge = document.createElement('span');
+        streakBadge.className = streakInfo.className;
+        streakBadge.textContent = streakInfo.badge;
+
+        stats.append(score, tier, streakBadge);
 
         li.append(rank, info, stats);
         return li;
