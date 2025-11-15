@@ -43,6 +43,20 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
   }
 });
 
+async function verifySupabaseConnection() {
+  try {
+    console.log('[bot] Vérification de la connexion à Supabase...');
+    const { error } = await supabase.from('players').select('id').limit(1);
+    if (error) {
+      throw error;
+    }
+    console.log('[bot] Connexion à Supabase vérifiée.');
+  } catch (error) {
+    console.error('[bot] Impossible de joindre Supabase.', error);
+    throw error;
+  }
+}
+
 const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const tierRoleMap = {
@@ -444,7 +458,14 @@ client.on('guildMemberAdd', (member) => {
   }
 });
 
-client.login(DISCORD_BOT_TOKEN).catch((error) => {
-  console.error('[bot] Failed to login to Discord.', error);
-  process.exit(1);
-});
+async function startBot() {
+  try {
+    await verifySupabaseConnection();
+    await client.login(DISCORD_BOT_TOKEN);
+  } catch (error) {
+    console.error('[bot] Échec du démarrage du bot.', error);
+    process.exit(1);
+  }
+}
+
+startBot();
