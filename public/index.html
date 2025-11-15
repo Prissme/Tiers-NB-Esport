@@ -924,6 +924,9 @@
             return;
           }
 
+          const discordId = window.prompt('Discord ID du joueur (optionnel, laisser vide si inconnu)');
+          const trimmedDiscordId = discordId ? discordId.trim() : null;
+
           const weightInput = window.prompt('Poids du joueur (optionnel, 1 par défaut)');
           let weightPayload;
           if (weightInput !== null && weightInput.trim()) {
@@ -951,6 +954,7 @@
               },
               body: JSON.stringify({
                 name: trimmedName,
+                discord_id: trimmedDiscordId,
                 ...(weightPayload ? { weight: weightPayload } : {})
               })
             });
