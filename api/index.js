@@ -1,3 +1,5 @@
+require('../ensure-fetch');
+
 const { createClient } = require('@supabase/supabase-js');
 
 const SUPABASE_URL = process.env.SUPABASE_URL;

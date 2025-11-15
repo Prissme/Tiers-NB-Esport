@@ -3,6 +3,8 @@
 
 const fs = require('fs');
 const path = require('path');
+require('./ensure-fetch');
+
 const { createClient } = require('@supabase/supabase-js');
 
 // Configuration

@@ -1,3 +1,5 @@
+require('../ensure-fetch');
+
 const { Client, GatewayIntentBits, Partials } = require('discord.js');
 const { createClient } = require('@supabase/supabase-js');
 
