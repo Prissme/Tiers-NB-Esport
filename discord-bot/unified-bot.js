@@ -2033,8 +2033,9 @@ async function handleInteraction(interaction) {
 
       const votesRequired = getVotesRequired(matchState);
       const hasReachedThreshold = voteCounts[outcome] >= votesRequired;
+      const shouldResolve = isModeratorOverride || hasReachedThreshold;
 
-      if (!isModeratorOverride && !hasReachedThreshold) {
+      if (!shouldResolve) {
         await interaction.update({
           embeds: [buildMatchEmbed(matchState)],
           components: [buildResultButtons(false)]
@@ -2062,9 +2063,11 @@ async function handleInteraction(interaction) {
         return;
       }
 
+      await interaction.deferUpdate();
+
       const summary = await applyMatchOutcome(matchState, outcome, interaction.user.id);
       if (!summary) {
-        await interaction.reply({
+        await interaction.followUp({
           content: localizeText({
             fr: 'Le résultat a déjà été enregistré.',
             en: 'The result has already been recorded.'
@@ -2077,7 +2080,7 @@ async function handleInteraction(interaction) {
       matchState.resolved = true;
       activeMatches.delete(matchState.matchId);
 
-      await interaction.update({
+      await interaction.editReply({
         embeds: [buildMatchEmbed(matchState, summary)],
         components: [buildResultButtons(true)]
       });
@@ -2090,13 +2093,19 @@ async function handleInteraction(interaction) {
       );
     } catch (err) {
       errorLog('Failed to process match result:', err);
-      await interaction.reply({
+      const errorResponse = {
         content: localizeText({
           fr: "Erreur lors de l'enregistrement du résultat.",
           en: 'Error while saving the result.'
         }),
         ephemeral: true
-      });
+      };
+
+      if (interaction.deferred || interaction.replied) {
+        await interaction.followUp(errorResponse);
+      } else {
+        await interaction.reply(errorResponse);
+      }
     }
 
     return;
