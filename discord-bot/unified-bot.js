@@ -13,6 +13,7 @@ const {
   ModalBuilder,
   Partials,
   PermissionsBitField,
+  StringSelectMenuBuilder,
   TextInputBuilder,
   TextInputStyle
 } = require('discord.js');
@@ -29,6 +30,8 @@ const MIN_VOTES_TO_RESOLVE = Math.max(
   Number.parseInt(process.env.MIN_VOTES_TO_RESOLVE || '5', 10)
 );
 const MAP_CHOICES_COUNT = 3;
+const DODGE_VOTES_REQUIRED = 5;
+const DODGE_ELO_PENALTY = 30;
 const ROOM_TIER_ORDER = ['E', 'D', 'C', 'B', 'A', 'S'];
 const BEST_OF_VALUES = [1, 3, 5];
 const DEFAULT_MATCH_BEST_OF = normalizeBestOfInput(process.env.DEFAULT_MATCH_BEST_OF) || 3;
@@ -550,6 +553,110 @@ function calculateAverageElo(team) {
   return total / team.length;
 }
 
+function findPlayerInTeams(teams, discordId) {
+  return teams.blue.find((player) => player.discordId === discordId) ||
+    teams.red.find((player) => player.discordId === discordId) ||
+    null;
+}
+
+function formatDodgeVoteLines(state) {
+  const { dodgeVotes, teams } = state;
+
+  if (!dodgeVotes) {
+    return [];
+  }
+
+  const entries = Array.isArray(dodgeVotes)
+    ? dodgeVotes
+    : dodgeVotes instanceof Map
+      ? [...dodgeVotes.entries()]
+      : Object.entries(dodgeVotes);
+
+  const lines = [];
+
+  for (const [targetId, voters] of entries) {
+    const voteCount = voters instanceof Set ? voters.size : Array.isArray(voters) ? voters.length : 0;
+    if (!voteCount) {
+      continue;
+    }
+
+    const player = findPlayerInTeams(teams, targetId);
+    const playerLabel = player?.displayName || `<@${targetId}>`;
+
+    lines.push(
+      localizeText({ fr: '{name} : {count} vote(s)', en: '{name}: {count} vote(s)' }, {
+        name: playerLabel,
+        count: voteCount
+      })
+    );
+  }
+
+  return lines;
+}
+
+function buildDodgeSelectMenu(state) {
+  const options = [...state.teams.blue, ...state.teams.red].map((player) => ({
+    label: player.displayName || `<@${player.discordId}>`,
+    value: player.discordId,
+    description: localizeText({ fr: '{elo} Elo', en: '{elo} Elo' }, {
+      elo: Math.round(normalizeRating(player.soloElo))
+    })
+  }));
+
+  const select = new StringSelectMenuBuilder()
+    .setCustomId(`match:dodge-select:${state.matchId}`)
+    .setPlaceholder(localizeText({ fr: 'Qui a dodge ?', en: 'Who dodged?' }))
+    .addOptions(options.slice(0, 25));
+
+  return new ActionRowBuilder().addComponents(select);
+}
+
+async function applyDodgePenalty(targetPlayer) {
+  if (!targetPlayer?.playerId) {
+    return { success: false, reason: 'missing-profile' };
+  }
+
+  const currentRating = normalizeRating(targetPlayer.soloElo);
+  const newRating = Math.max(0, currentRating - DODGE_ELO_PENALTY);
+
+  const { error } = await supabase
+    .from('players')
+    .update({ solo_elo: newRating })
+    .eq('id', targetPlayer.playerId);
+
+  if (error) {
+    throw new Error(`Unable to apply dodge penalty to ${targetPlayer.playerId}: ${error.message}`);
+  }
+
+  targetPlayer.soloElo = newRating;
+
+  await sendLogMessage(
+    localizeText(
+      {
+        fr: '🚫 {name} perd {penalty} Elo (5 votes dodge).',
+        en: '🚫 {name} loses {penalty} Elo (5 dodge votes).'
+      },
+      { name: targetPlayer.displayName || `<@${targetPlayer.discordId}>`, penalty: DODGE_ELO_PENALTY }
+    )
+  );
+
+  return { success: true, newRating };
+}
+
+async function refreshMatchMessage(matchState, client) {
+  const channel = await client.channels.fetch(matchState.channelId).catch(() => null);
+  if (!channel || !channel.isTextBased()) {
+    return;
+  }
+
+  const message = await channel.messages.fetch(matchState.messageId).catch(() => null);
+  if (!message) {
+    return;
+  }
+
+  await message.edit({ embeds: [buildMatchEmbed(matchState)], components: [buildResultButtons(false)] });
+}
+
 function buildPrivateMatchEmbed(state) {
   const { requestedBy, primaryMap, mapChoices = [], teams, createdAt } = state;
   const title = primaryMap
@@ -657,6 +764,14 @@ function buildMatchEmbed(state, resultSummary = null) {
     });
   }
 
+  const dodgeVoteEntries = formatDodgeVoteLines(state);
+  if (dodgeVoteEntries.length) {
+    embed.addFields({
+      name: localizeText({ fr: 'Votes dodge', en: 'Dodge votes' }),
+      value: dodgeVoteEntries.join('\n')
+    });
+  }
+
   if (resultSummary) {
     embed.addFields({
       name: localizeText({ fr: 'Résultat', en: 'Result' }),
@@ -701,6 +816,12 @@ function buildResultButtons(disabled = false) {
       .setLabel(localizeText({ fr: 'Victoire Rouge', en: 'Red victory' }))
       .setEmoji('🔴')
       .setStyle(ButtonStyle.Danger)
+      .setDisabled(disabled),
+    new ButtonBuilder()
+      .setCustomId('match:dodge')
+      .setLabel(localizeText({ fr: 'Vote dodge', en: 'Vote dodge' }))
+      .setEmoji('⚠️')
+      .setStyle(ButtonStyle.Secondary)
       .setDisabled(disabled),
     new ButtonBuilder()
       .setCustomId('match:cancel')
@@ -824,46 +945,23 @@ function formatQueueStatus() {
   ].join('\n');
 }
 
-function computeTeamCombinations(players, teamSize) {
-  const results = [];
+function shufflePlayers(players) {
+  const shuffled = [...players];
 
-  function helper(start, combo) {
-    if (combo.length === teamSize) {
-      results.push(combo.slice());
-      return;
-    }
-
-    for (let i = start; i < players.length; i += 1) {
-      combo.push(players[i]);
-      helper(i + 1, combo);
-      combo.pop();
-    }
+  for (let index = shuffled.length - 1; index > 0; index -= 1) {
+    const swapIndex = Math.floor(Math.random() * (index + 1));
+    [shuffled[index], shuffled[swapIndex]] = [shuffled[swapIndex], shuffled[index]];
   }
 
-  helper(0, []);
-  return results;
+  return shuffled;
 }
 
-function balanceTeams(players) {
-  const combinations = computeTeamCombinations(players, TEAM_SIZE);
-  let best = null;
-
-  for (const combo of combinations) {
-    const blue = combo;
-    const red = players.filter((player) => !blue.includes(player));
-
-    const blueAvg = blue.reduce((sum, player) => sum + normalizeRating(player.soloElo), 0) / TEAM_SIZE;
-    const redAvg = red.reduce((sum, player) => sum + normalizeRating(player.soloElo), 0) / TEAM_SIZE;
-    const diff = Math.abs(blueAvg - redAvg);
-
-    if (!best || diff < best.diff) {
-      best = { blue: [...blue], red: [...red], diff };
-    }
-  }
+function assignRandomTeams(players) {
+  const shuffled = shufflePlayers(players);
 
   return {
-    blue: best.blue.sort((a, b) => normalizeRating(b.soloElo) - normalizeRating(a.soloElo)),
-    red: best.red.sort((a, b) => normalizeRating(b.soloElo) - normalizeRating(a.soloElo))
+    blue: shuffled.slice(0, TEAM_SIZE),
+    red: shuffled.slice(TEAM_SIZE, TEAM_SIZE * 2)
   };
 }
 
@@ -1442,8 +1540,8 @@ async function handlePrivatePartyCommand(message) {
               })
             : localizeText(
                 {
-                  fr: 'Il manque {count} joueur(s) pour générer une partie privée équilibrée.',
-                  en: '{count} player(s) are missing to create a balanced private match.'
+                  fr: 'Il manque {count} joueur(s) pour générer une partie privée aléatoire.',
+                  en: '{count} player(s) are missing to create a random private match.'
                 },
                 { count: needed }
               )
@@ -1489,7 +1587,7 @@ async function handlePrivatePartyCommand(message) {
       })
     );
 
-    const teams = balanceTeams(participants);
+    const teams = assignRandomTeams(participants);
     const mapChoices = pickRandomMaps(MAP_CHOICES_COUNT);
 
     const embed = buildPrivateMatchEmbed({
@@ -1621,7 +1719,7 @@ async function handleHelpCommand(message) {
           '`!elo [@player]` — Display Elo stats',
           '`!lb [count]` — Show the leaderboard (example: !lb 25)',
           '`!maps` — Show the current map rotation',
-          '`!pp @player…` — Build a balanced private match (6 players)',
+          '`!pp @player…` — Build a random private match (6 players)',
           '`!ping` — Mention the match notification role',
           '`!tiers` — Manually sync tier roles',
           '`!english [off]` — Switch the bot language to English or back to French',
@@ -1637,7 +1735,7 @@ async function handleHelpCommand(message) {
           '`!elo [@joueur]` — Afficher le classement Elo',
           '`!lb [nombre]` — Afficher le top classement (ex: !lb 25)',
           '`!maps` — Afficher la rotation des maps',
-          '`!pp @joueur…` — Générer une partie privée équilibrée (6 joueurs)',
+          '`!pp @joueur…` — Générer une partie privée aléatoire (6 joueurs)',
           '`!ping` — Mentionner le rôle de notification des matchs',
           '`!tiers` — Synchroniser manuellement les rôles de tier',
           '`!english [off]` — Traduire le bot en anglais ou revenir en français',
@@ -1657,7 +1755,7 @@ async function handleHelpCommand(message) {
 async function startMatch(participants, fallbackChannel) {
   const mapChoices = pickRandomMaps(MAP_CHOICES_COUNT);
   const primaryMap = mapChoices[0];
-  const teams = balanceTeams(participants);
+  const teams = assignRandomTeams(participants);
   const bestOf = DEFAULT_MATCH_BEST_OF;
   const kFactor = getKFactorForBestOf(bestOf);
 
@@ -1813,6 +1911,8 @@ async function startMatch(participants, fallbackChannel) {
     channelId: channel.id,
     messageId: null,
     resolved: false,
+    dodgeVotes: new Map(),
+    penalizedDodges: new Set(),
     votes: {
       blue: new Set(),
       red: new Set(),
@@ -2141,6 +2241,18 @@ async function handleInteraction(interaction) {
     const isModeratorOverride = isModerator && !isParticipant;
 
     try {
+      if (outcome === 'dodge') {
+        await interaction.reply({
+          content: localizeText({
+            fr: 'Sélectionnez le joueur qui a dodge le match.',
+            en: 'Select the player who dodged the match.'
+          }),
+          components: [buildDodgeSelectMenu(matchState)],
+          ephemeral: true
+        });
+        return;
+      }
+
       if (!['blue', 'red', 'cancel'].includes(outcome)) {
         await interaction.reply({
           content: localizeText({
@@ -2252,6 +2364,156 @@ async function handleInteraction(interaction) {
       }
     }
 
+    return;
+  }
+
+  if (interaction.isStringSelectMenu()) {
+    const [prefix, action, matchId] = interaction.customId.split(':');
+
+    if (prefix !== 'match' || action !== 'dodge-select') {
+      return;
+    }
+
+    const matchState = activeMatches.get(Number.parseInt(matchId, 10));
+
+    if (!matchState) {
+      await interaction.reply({
+        content: localizeText({ fr: 'Match introuvable ou expiré.', en: 'Match not found or expired.' }),
+        ephemeral: true
+      });
+      return;
+    }
+
+    if (matchState.resolved) {
+      await interaction.reply({
+        content: localizeText({ fr: 'Le match est déjà validé.', en: 'The match is already resolved.' }),
+        ephemeral: true
+      });
+      return;
+    }
+
+    const member = interaction.member;
+    const isParticipant = matchState.participants.has(interaction.user.id);
+    const isModerator = member?.permissions?.has(PermissionsBitField.Flags.ManageGuild);
+
+    if (!isParticipant && !isModerator) {
+      await interaction.reply({
+        content: localizeText({
+          fr: 'Seuls les joueurs du match peuvent voter.',
+          en: 'Only match participants can vote.'
+        }),
+        ephemeral: true
+      });
+      return;
+    }
+
+    const targetId = interaction.values?.[0];
+    if (!targetId) {
+      await interaction.reply({
+        content: localizeText({ fr: 'Sélection invalide.', en: 'Invalid selection.' }),
+        ephemeral: true
+      });
+      return;
+    }
+
+    if (!matchState.participants.has(targetId)) {
+      await interaction.reply({
+        content: localizeText({ fr: 'Ce joueur ne fait pas partie du match.', en: 'This player is not in the match.' }),
+        ephemeral: true
+      });
+      return;
+    }
+
+    let previousTarget = null;
+    for (const [candidateId, voteSet] of matchState.dodgeVotes.entries()) {
+      if (voteSet.has(interaction.user.id)) {
+        previousTarget = candidateId;
+
+        if (candidateId !== targetId) {
+          voteSet.delete(interaction.user.id);
+        }
+      }
+    }
+
+    const voterSet = matchState.dodgeVotes.get(targetId) || new Set();
+
+    if (previousTarget === targetId && voterSet.has(interaction.user.id)) {
+      await interaction.reply({
+        content: localizeText({
+          fr: 'Vous avez déjà voté pour ce joueur.',
+          en: 'You have already voted for this player.'
+        }),
+        ephemeral: true
+      });
+      return;
+    }
+
+    voterSet.add(interaction.user.id);
+    matchState.dodgeVotes.set(targetId, voterSet);
+
+    const voteCount = voterSet.size;
+    const player = findPlayerInTeams(matchState.teams, targetId);
+    const remaining = Math.max(0, DODGE_VOTES_REQUIRED - voteCount);
+    let penaltyMessage = '';
+
+    if (voteCount >= DODGE_VOTES_REQUIRED && !matchState.penalizedDodges.has(targetId)) {
+      try {
+        const result = await applyDodgePenalty(player);
+        matchState.penalizedDodges.add(targetId);
+
+        if (result.success) {
+          penaltyMessage = localizeText(
+            {
+              fr: '{name} perd {penalty} Elo pour dodge.',
+              en: '{name} loses {penalty} Elo for dodging.'
+            },
+            {
+              name: player?.displayName || `<@${targetId}>`,
+              penalty: DODGE_ELO_PENALTY
+            }
+          );
+        } else {
+          penaltyMessage = localizeText({
+            fr: 'Impossible de pénaliser ce joueur (profil manquant).',
+            en: 'Unable to penalize this player (missing profile).'
+          });
+        }
+      } catch (err) {
+        errorLog('Failed to apply dodge penalty:', err);
+        penaltyMessage = localizeText({
+          fr: 'Erreur lors de l\'application de la pénalité.',
+          en: 'Error while applying the penalty.'
+        });
+      }
+    }
+
+    await refreshMatchMessage(matchState, interaction.client);
+
+    const voteLine = localizeText(
+      {
+        fr: 'Vote enregistré contre {name}. ({count}/{needed} votes)',
+        en: 'Vote recorded against {name}. ({count}/{needed} votes)'
+      },
+      {
+        name: player?.displayName || `<@${targetId}>`,
+        count: voteCount,
+        needed: DODGE_VOTES_REQUIRED
+      }
+    );
+
+    const followupLines = [voteLine];
+    if (penaltyMessage) {
+      followupLines.push(penaltyMessage);
+    } else if (remaining > 0) {
+      followupLines.push(
+        localizeText(
+          { fr: '{remaining} vote(s) restants.', en: '{remaining} vote(s) remaining.' },
+          { remaining }
+        )
+      );
+    }
+
+    await interaction.reply({ content: followupLines.join('\n'), ephemeral: true });
     return;
   }
 
