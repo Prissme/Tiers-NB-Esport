@@ -58,12 +58,14 @@ const TIER_DISTRIBUTION = [
   { tier: 'E', ratio: 0.555, minCount: 1 }
 ];
 
-const SITE_TIER_BRACKETS = [
-  { min: 980, label: 'Wished V' },
-  { min: 960, label: 'Wished IV' },
-  { min: 940, label: 'Wished III' },
-  { min: 920, label: 'Wished II' },
-  { min: 900, label: 'Wished I' },
+const UNRANKED_ELO_THRESHOLD = 1000;
+
+const WISHED_RANK_BRACKETS = [
+  { min: 980, label: 'Wished 5' },
+  { min: 960, label: 'Wished 4' },
+  { min: 940, label: 'Wished 3' },
+  { min: 920, label: 'Wished 2' },
+  { min: 900, label: 'Wished 1' },
   { min: -Infinity, label: 'Wished 0' }
 ];
 
@@ -320,16 +322,56 @@ function normalizeRating(value) {
   return typeof value === 'number' ? value : DEFAULT_ELO;
 }
 
-function getSiteTierByElo(rating) {
-  const normalized = Math.min(normalizeRating(rating), 999);
+function getWishedRankByElo(rating) {
+  const normalized = normalizeRating(rating);
 
-  for (const bracket of SITE_TIER_BRACKETS) {
+  if (normalized >= UNRANKED_ELO_THRESHOLD) {
+    return null;
+  }
+
+  for (const bracket of WISHED_RANK_BRACKETS) {
     if (normalized >= bracket.min) {
       return bracket.label;
     }
   }
 
-  return SITE_TIER_BRACKETS[SITE_TIER_BRACKETS.length - 1].label;
+  return WISHED_RANK_BRACKETS[WISHED_RANK_BRACKETS.length - 1].label;
+}
+
+function getWishedRankProgress(rating) {
+  const normalized = normalizeRating(rating);
+
+  if (normalized >= UNRANKED_ELO_THRESHOLD) {
+    return { current: null, next: null, remaining: null };
+  }
+
+  for (let index = 0; index < WISHED_RANK_BRACKETS.length; index += 1) {
+    const bracket = WISHED_RANK_BRACKETS[index];
+
+    if (normalized >= bracket.min) {
+      const nextBracket = index === 0 ? null : WISHED_RANK_BRACKETS[index - 1];
+      const remaining = nextBracket ? Math.max(0, nextBracket.min - normalized) : null;
+
+      return { current: bracket, next: nextBracket, remaining };
+    }
+  }
+
+  const fallback = WISHED_RANK_BRACKETS[WISHED_RANK_BRACKETS.length - 1];
+  const nextBracket = WISHED_RANK_BRACKETS[WISHED_RANK_BRACKETS.length - 2] || null;
+  return {
+    current: fallback,
+    next: nextBracket,
+    remaining: nextBracket ? Math.max(0, nextBracket.min - normalized) : null
+  };
+}
+
+function getTierLabelByRank(rank, totalPlayers) {
+  if (!rank || !totalPlayers) {
+    return null;
+  }
+
+  const boundaries = computeTierBoundaries(totalPlayers);
+  return getTierByRank(rank, boundaries);
 }
 
 function normalizeTierInput(value) {
@@ -1151,8 +1193,6 @@ async function handleEloCommand(message) {
   const mmr = normalizeRating(player.mmr);
   const weightedScore = calculateWeightedScore(soloElo, mmr);
 
-  const tier = getSiteTierByElo(soloElo);
-
   let totalPlayers = null;
   let rank = null;
 
@@ -1181,7 +1221,7 @@ async function handleEloCommand(message) {
     warn('Unable to compute ranking for player', targetId, ':', rankError.message);
   }
 
-  const tierLabel = tier || localizeText({ fr: 'Sans tier', en: 'No tier' });
+  const tierLabel = getTierLabelByRank(rank, totalPlayers) || localizeText({ fr: 'Sans tier', en: 'No tier' });
   const siteRankLabel =
     rank && totalPlayers
       ? localizeText(
@@ -1189,8 +1229,8 @@ async function handleEloCommand(message) {
           { rank, total: totalPlayers }
         )
       : localizeText({ fr: 'Non classé', en: 'Unranked' });
-  const wishedEmoji = '<:Wished:1439415315720175636>';
-  const rankBadge = soloElo < 1000 ? wishedEmoji : localizeText({ fr: '—', en: '—' });
+  const wishedRankLabel =
+    getWishedRankByElo(soloElo) || localizeText({ fr: 'Non classé', en: 'Unranked' });
 
   const embed = new EmbedBuilder()
     .setTitle(
@@ -1225,7 +1265,7 @@ async function handleEloCommand(message) {
       },
       {
         name: localizeText({ fr: 'Rang', en: 'Rank' }),
-        value: rankBadge,
+        value: wishedRankLabel,
         inline: true
       }
     )
@@ -1233,6 +1273,64 @@ async function handleEloCommand(message) {
     .setTimestamp(new Date());
 
   await message.reply({ embeds: [embed] });
+}
+
+async function handleRankCommand(message) {
+  const mention = message.mentions.users.first();
+  const targetId = mention ? mention.id : message.author.id;
+
+  let player;
+  try {
+    player = await fetchPlayerByDiscordId(targetId);
+  } catch (err) {
+    errorLog('Failed to fetch player rank:', err);
+    await message.reply({
+      content: localizeText({ fr: 'Erreur lors de la récupération du rang.', en: 'Error while fetching rank.' })
+    });
+    return;
+  }
+
+  if (!player) {
+    await message.reply({
+      content: localizeText({ fr: 'Aucun profil trouvé pour ce joueur.', en: 'No profile found for this player.' })
+    });
+    return;
+  }
+
+  const soloElo = normalizeRating(player.solo_elo);
+  const progress = getWishedRankProgress(soloElo);
+  const currentLabel = progress.current?.label;
+
+  const lines = [
+    localizeText({ fr: 'Elo actuel : {elo}', en: 'Current Elo: {elo}' }, { elo: Math.round(soloElo) })
+  ];
+
+  if (!currentLabel) {
+    lines.push(
+      localizeText({
+        fr: "Au-dessus de {threshold} Elo, aucun rang Wished n'est attribué.",
+        en: 'Above {threshold} Elo, no Wished rank is assigned.'
+      }, { threshold: UNRANKED_ELO_THRESHOLD })
+    );
+  } else {
+    lines.push(localizeText({ fr: 'Rang actuel : {rank}', en: 'Current rank: {rank}' }, { rank: currentLabel }));
+
+    if (progress.next) {
+      lines.push(
+        localizeText(
+          {
+            fr: 'Prochain rang : {next} — encore {remaining} Elo.',
+            en: 'Next rank: {next} — {remaining} Elo to go.'
+          },
+          { next: progress.next.label, remaining: progress.remaining ?? 0 }
+        )
+      );
+    } else {
+      lines.push(localizeText({ fr: 'Rang maximal atteint.', en: 'Highest Wished rank reached.' }));
+    }
+  }
+
+  await message.reply({ content: lines.join('\n') });
 }
 
 async function handleLeaderboardCommand(message, args) {
@@ -1276,6 +1374,7 @@ async function handleLeaderboardCommand(message, args) {
 
     const totalPlayers = allPlayers.length;
     const topPlayers = allPlayers.slice(0, limit);
+    const tierBoundaries = computeTierBoundaries(totalPlayers);
 
     const lines = [
       localizeText({
@@ -1302,7 +1401,8 @@ async function handleLeaderboardCommand(message, args) {
             name: player.name,
             elo: Math.round(soloElo),
             streak: streakInfo.label,
-            tier: getSiteTierByElo(soloElo) || localizeText({ fr: 'Sans tier', en: 'No tier' })
+            tier:
+              getTierByRank(rank, tierBoundaries) || localizeText({ fr: 'Sans tier', en: 'No tier' })
           }
         )
       );
@@ -1559,6 +1659,7 @@ async function handleHelpCommand(message) {
           '`!roomleave` — Leave your custom room',
           '`!queue` — Show players waiting in the queue',
           '`!elo [@player]` — Display Elo stats',
+          '`!rank [@player]` — Show Wished rank progress',
           '`!lb [count]` — Show the leaderboard (example: !lb 25)',
           '`!maps` — Show the current map rotation',
           '`!pp @player…` — Build a balanced private match (6 players)',
@@ -1575,6 +1676,7 @@ async function handleHelpCommand(message) {
           '`!roomleave` — Quitter ta room personnalisée',
           '`!queue` — Voir les joueurs en attente',
           '`!elo [@joueur]` — Afficher le classement Elo',
+          '`!rank [@joueur]` — Afficher la progression Wished',
           '`!lb [nombre]` — Afficher le top classement (ex: !lb 25)',
           '`!maps` — Afficher la rotation des maps',
           '`!pp @joueur…` — Générer une partie privée équilibrée (6 joueurs)',
@@ -2576,6 +2678,9 @@ async function handleMessage(message) {
         break;
       case 'elo':
         await handleEloCommand(message, args);
+        break;
+      case 'rank':
+        await handleRankCommand(message, args);
         break;
       case 'lb':
       case 'leaderboard':
