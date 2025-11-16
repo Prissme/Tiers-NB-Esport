@@ -1125,9 +1125,55 @@ async function handleEloCommand(message) {
   const winStreak = typeof player.win_streak === 'number' ? player.win_streak : 0;
   const loseStreak = typeof player.lose_streak === 'number' ? player.lose_streak : 0;
   const streakInfo = describeStreak(winStreak, loseStreak);
+  const rawSoloElo = typeof player.solo_elo === 'number' ? player.solo_elo : DEFAULT_ELO;
   const soloElo = normalizeRating(player.solo_elo);
   const mmr = normalizeRating(player.mmr);
   const weightedScore = calculateWeightedScore(soloElo, mmr);
+
+  let totalPlayers = null;
+  let rank = null;
+  let tier = null;
+
+  try {
+    const { count: totalCount, error: totalError } = await supabase
+      .from('players')
+      .select('*', { count: 'exact', head: true })
+      .eq('active', true);
+
+    if (totalError) throw totalError;
+
+    totalPlayers = totalCount || 0;
+
+    if (totalPlayers > 0) {
+      const { count: higherCount, error: rankError } = await supabase
+        .from('players')
+        .select('*', { count: 'exact', head: true })
+        .eq('active', true)
+        .gt('solo_elo', rawSoloElo);
+
+      if (rankError) throw rankError;
+
+      rank = typeof higherCount === 'number' ? higherCount + 1 : null;
+
+      const boundaries = computeTierBoundaries(totalPlayers);
+      if (rank) {
+        tier = getTierByRank(rank, boundaries);
+      }
+    }
+  } catch (rankError) {
+    warn('Unable to compute ranking for player', targetId, ':', rankError.message);
+  }
+
+  const tierLabel = tier || localizeText({ fr: 'Sans tier', en: 'No tier' });
+  const siteRankLabel =
+    rank && totalPlayers
+      ? localizeText(
+          { fr: '#{rank} sur {total}', en: '#{rank} of {total}' },
+          { rank, total: totalPlayers }
+        )
+      : localizeText({ fr: 'Non classé', en: 'Unranked' });
+  const wishedEmoji = '<:Wished:1439415315720175636>';
+  const rankBadge = soloElo < 1000 ? wishedEmoji : localizeText({ fr: '—', en: '—' });
 
   const embed = new EmbedBuilder()
     .setTitle(
@@ -1148,6 +1194,21 @@ async function handleEloCommand(message) {
       {
         name: localizeText({ fr: 'Série en cours', en: 'Current streak' }),
         value: streakInfo.label,
+        inline: true
+      },
+      {
+        name: localizeText({ fr: 'Tier', en: 'Tier' }),
+        value: tierLabel,
+        inline: true
+      },
+      {
+        name: localizeText({ fr: 'Classement site', en: 'Website rank' }),
+        value: siteRankLabel,
+        inline: true
+      },
+      {
+        name: localizeText({ fr: 'Rang', en: 'Rank' }),
+        value: rankBadge,
         inline: true
       }
     )
