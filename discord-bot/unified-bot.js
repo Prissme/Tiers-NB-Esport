@@ -58,7 +58,7 @@ const TIER_DISTRIBUTION = [
   { tier: 'E', ratio: 0.555, minCount: 1 }
 ];
 
-const UNRANKED_ELO_THRESHOLD = 1000;
+const UNRANKED_ELO_THRESHOLD = 1100;
 
 const TIER_EMOJIS = {
   S: '<:tiers:1382755986120638505>',
@@ -69,9 +69,15 @@ const TIER_EMOJIS = {
   E: '<:tiere:1382755993695555626>'
 };
 
+const BRONZE_EMOJI = '<:Bronze:1439605520729116702>';
 const WISHED_EMOJI = '<:Wished:1439415315720175636>';
 
 const WISHED_RANK_BRACKETS = [
+  { min: 1080, label: 'Bronze 5' },
+  { min: 1060, label: 'Bronze 4' },
+  { min: 1040, label: 'Bronze 3' },
+  { min: 1020, label: 'Bronze 2' },
+  { min: 1000, label: 'Bronze 1' },
   { min: 980, label: 'Wished 5' },
   { min: 960, label: 'Wished 4' },
   { min: 940, label: 'Wished 3' },
@@ -349,33 +355,6 @@ function getWishedRankByElo(rating) {
   return WISHED_RANK_BRACKETS[WISHED_RANK_BRACKETS.length - 1].label;
 }
 
-function getWishedRankProgress(rating) {
-  const normalized = normalizeRating(rating);
-
-  if (normalized >= UNRANKED_ELO_THRESHOLD) {
-    return { current: null, next: null, remaining: null };
-  }
-
-  for (let index = 0; index < WISHED_RANK_BRACKETS.length; index += 1) {
-    const bracket = WISHED_RANK_BRACKETS[index];
-
-    if (normalized >= bracket.min) {
-      const nextBracket = index === 0 ? null : WISHED_RANK_BRACKETS[index - 1];
-      const remaining = nextBracket ? Math.max(0, nextBracket.min - normalized) : null;
-
-      return { current: bracket, next: nextBracket, remaining };
-    }
-  }
-
-  const fallback = WISHED_RANK_BRACKETS[WISHED_RANK_BRACKETS.length - 1];
-  const nextBracket = WISHED_RANK_BRACKETS[WISHED_RANK_BRACKETS.length - 2] || null;
-  return {
-    current: fallback,
-    next: nextBracket,
-    remaining: nextBracket ? Math.max(0, nextBracket.min - normalized) : null
-  };
-}
-
 function getTierLabelByRank(rank, totalPlayers) {
   if (!rank || !totalPlayers) {
     return null;
@@ -407,7 +386,9 @@ function formatWishedRankLabel(label) {
   const romanNumerals = ['0', 'I', 'II', 'III', 'IV', 'V'];
   const numeral = romanNumerals[value] || String(value);
 
-  return `${WISHED_EMOJI} ${numeral}`;
+  const emoji = label.toLowerCase().startsWith('bronze') ? BRONZE_EMOJI : WISHED_EMOJI;
+
+  return `${emoji} ${numeral}`;
 }
 
 async function getSiteRankingInfo(targetDiscordId) {
@@ -1312,64 +1293,6 @@ async function handleEloCommand(message) {
   await message.reply({ embeds: [embed] });
 }
 
-async function handleRankCommand(message) {
-  const mention = message.mentions.users.first();
-  const targetId = mention ? mention.id : message.author.id;
-
-  let player;
-  try {
-    player = await fetchPlayerByDiscordId(targetId);
-  } catch (err) {
-    errorLog('Failed to fetch player rank:', err);
-    await message.reply({
-      content: localizeText({ fr: 'Erreur lors de la récupération du rang.', en: 'Error while fetching rank.' })
-    });
-    return;
-  }
-
-  if (!player) {
-    await message.reply({
-      content: localizeText({ fr: 'Aucun profil trouvé pour ce joueur.', en: 'No profile found for this player.' })
-    });
-    return;
-  }
-
-  const soloElo = normalizeRating(player.solo_elo);
-  const progress = getWishedRankProgress(soloElo);
-  const currentLabel = progress.current?.label;
-
-  const lines = [
-    localizeText({ fr: 'Elo actuel : {elo}', en: 'Current Elo: {elo}' }, { elo: Math.round(soloElo) })
-  ];
-
-  if (!currentLabel) {
-    lines.push(
-      localizeText({
-        fr: "Au-dessus de {threshold} Elo, aucun rang Wished n'est attribué.",
-        en: 'Above {threshold} Elo, no Wished rank is assigned.'
-      }, { threshold: UNRANKED_ELO_THRESHOLD })
-    );
-  } else {
-    lines.push(localizeText({ fr: 'Rang actuel : {rank}', en: 'Current rank: {rank}' }, { rank: currentLabel }));
-
-    if (progress.next) {
-      lines.push(
-        localizeText(
-          {
-            fr: 'Prochain rang : {next} — encore {remaining} Elo.',
-            en: 'Next rank: {next} — {remaining} Elo to go.'
-          },
-          { next: progress.next.label, remaining: progress.remaining ?? 0 }
-        )
-      );
-    } else {
-      lines.push(localizeText({ fr: 'Rang maximal atteint.', en: 'Highest Wished rank reached.' }));
-    }
-  }
-
-  await message.reply({ content: lines.join('\n') });
-}
-
 async function handleLeaderboardCommand(message, args) {
   const supabaseClient = createSupabaseClient();
   if (!supabaseClient) {
@@ -1696,7 +1619,6 @@ async function handleHelpCommand(message) {
           '`!roomleave` — Leave your custom room',
           '`!queue` — Show players waiting in the queue',
           '`!elo [@player]` — Display Elo stats',
-          '`!rank [@player]` — Show Wished rank progress',
           '`!lb [count]` — Show the leaderboard (example: !lb 25)',
           '`!maps` — Show the current map rotation',
           '`!pp @player…` — Build a balanced private match (6 players)',
@@ -1713,7 +1635,6 @@ async function handleHelpCommand(message) {
           '`!roomleave` — Quitter ta room personnalisée',
           '`!queue` — Voir les joueurs en attente',
           '`!elo [@joueur]` — Afficher le classement Elo',
-          '`!rank [@joueur]` — Afficher la progression Wished',
           '`!lb [nombre]` — Afficher le top classement (ex: !lb 25)',
           '`!maps` — Afficher la rotation des maps',
           '`!pp @joueur…` — Générer une partie privée équilibrée (6 joueurs)',
@@ -2715,9 +2636,6 @@ async function handleMessage(message) {
         break;
       case 'elo':
         await handleEloCommand(message, args);
-        break;
-      case 'rank':
-        await handleRankCommand(message, args);
         break;
       case 'lb':
       case 'leaderboard':
