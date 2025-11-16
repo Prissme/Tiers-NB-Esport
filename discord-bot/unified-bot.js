@@ -60,6 +60,17 @@ const TIER_DISTRIBUTION = [
 
 const UNRANKED_ELO_THRESHOLD = 1000;
 
+const TIER_EMOJIS = {
+  S: '<:tiers:1382755986120638505>',
+  A: '<:tiera:1382755988494352555>',
+  B: '<:tierb:1382755990352695456>',
+  C: '<:tierc:1382755992126881932>',
+  D: '<:tierd:1382755995524141106>',
+  E: '<:tiere:1382755993695555626>'
+};
+
+const WISHED_EMOJI = '<:Wished:1439415315720175636>';
+
 const WISHED_RANK_BRACKETS = [
   { min: 980, label: 'Wished 5' },
   { min: 960, label: 'Wished 4' },
@@ -372,6 +383,69 @@ function getTierLabelByRank(rank, totalPlayers) {
 
   const boundaries = computeTierBoundaries(totalPlayers);
   return getTierByRank(rank, boundaries);
+}
+
+function formatTierEmoji(tier) {
+  if (!tier) {
+    return null;
+  }
+
+  return TIER_EMOJIS[tier] || tier;
+}
+
+function formatWishedRankLabel(label) {
+  if (!label) {
+    return null;
+  }
+
+  const match = label.match(/(\d+)/);
+  if (!match) {
+    return label;
+  }
+
+  const value = Number.parseInt(match[1], 10);
+  const romanNumerals = ['0', 'I', 'II', 'III', 'IV', 'V'];
+  const numeral = romanNumerals[value] || String(value);
+
+  return `${WISHED_EMOJI} ${numeral}`;
+}
+
+async function getSiteRankingInfo(targetDiscordId) {
+  try {
+    const { data, error } = await supabase
+      .from('players')
+      .select('discord_id, mmr, solo_elo')
+      .eq('active', true)
+      .not('discord_id', 'is', null);
+
+    if (error) {
+      throw error;
+    }
+
+    const targetIdText = targetDiscordId?.toString();
+
+    const rankedPlayers = (data || [])
+      .map((entry) => {
+        const soloElo = normalizeRating(entry.solo_elo);
+        const mmr = normalizeRating(entry.mmr);
+
+        return {
+          discord_id: entry.discord_id,
+          weightedScore: calculateWeightedScore(soloElo, mmr)
+        };
+      })
+      .sort((a, b) => b.weightedScore - a.weightedScore);
+
+    const totalPlayers = rankedPlayers.length;
+    const playerIndex = rankedPlayers.findIndex((entry) => entry.discord_id?.toString() === targetIdText);
+    const rank = playerIndex === -1 ? null : playerIndex + 1;
+    const tier = rank ? getTierByRank(rank, computeTierBoundaries(totalPlayers)) : null;
+
+    return { rank, tier, totalPlayers };
+  } catch (err) {
+    warn('Unable to compute site ranking info:', err.message);
+    return { rank: null, tier: null, totalPlayers: null };
+  }
 }
 
 function normalizeTierInput(value) {
@@ -1158,6 +1232,8 @@ async function handleEloCommand(message) {
   const mention = message.mentions.users.first();
   const targetId = mention ? mention.id : message.author.id;
 
+  const siteRanking = await getSiteRankingInfo(targetId);
+
   let player;
   try {
     player = await fetchPlayerByDiscordId(targetId);
@@ -1184,53 +1260,25 @@ async function handleEloCommand(message) {
 
   const wins = typeof player.wins === 'number' ? player.wins : 0;
   const losses = typeof player.losses === 'number' ? player.losses : 0;
-  const games = typeof player.games_played === 'number' ? player.games_played : wins + losses;
   const winStreak = typeof player.win_streak === 'number' ? player.win_streak : 0;
   const loseStreak = typeof player.lose_streak === 'number' ? player.lose_streak : 0;
   const streakInfo = describeStreak(winStreak, loseStreak);
-  const rawSoloElo = typeof player.solo_elo === 'number' ? player.solo_elo : DEFAULT_ELO;
   const soloElo = normalizeRating(player.solo_elo);
   const mmr = normalizeRating(player.mmr);
-  const weightedScore = calculateWeightedScore(soloElo, mmr);
-
-  let totalPlayers = null;
-  let rank = null;
-
-  try {
-    const { count: totalCount, error: totalError } = await supabase
-      .from('players')
-      .select('*', { count: 'exact', head: true })
-      .eq('active', true);
-
-    if (totalError) throw totalError;
-
-    totalPlayers = totalCount || 0;
-
-    if (totalPlayers > 0) {
-      const { count: higherCount, error: rankError } = await supabase
-        .from('players')
-        .select('*', { count: 'exact', head: true })
-        .eq('active', true)
-        .gt('solo_elo', rawSoloElo);
-
-      if (rankError) throw rankError;
-
-      rank = typeof higherCount === 'number' ? higherCount + 1 : null;
-    }
-  } catch (rankError) {
-    warn('Unable to compute ranking for player', targetId, ':', rankError.message);
-  }
-
-  const tierLabel = getTierLabelByRank(rank, totalPlayers) || localizeText({ fr: 'Sans tier', en: 'No tier' });
-  const siteRankLabel =
-    rank && totalPlayers
-      ? localizeText(
-          { fr: '#{rank} sur {total}', en: '#{rank} of {total}' },
-          { rank, total: totalPlayers }
-        )
-      : localizeText({ fr: 'Non classé', en: 'Unranked' });
+  const { tier: siteTier, rank: siteRank } = siteRanking;
+  const tierEmoji = formatTierEmoji(siteTier);
+  const tierLabel = siteTier
+    ? localizeText(
+        { fr: '{emoji} — #{rank} sur le site', en: '{emoji} — #{rank} on the site' },
+        {
+          emoji: tierEmoji || siteTier,
+          rank: siteRank || '?'
+        }
+      )
+    : localizeText({ fr: 'Sans tier', en: 'No tier' });
   const wishedRankLabel =
-    getWishedRankByElo(soloElo) || localizeText({ fr: 'Non classé', en: 'Unranked' });
+    formatWishedRankLabel(getWishedRankByElo(soloElo)) ||
+    localizeText({ fr: 'Non classé', en: 'Unranked' });
 
   const embed = new EmbedBuilder()
     .setTitle(
@@ -1243,12 +1291,6 @@ async function handleEloCommand(message) {
       { name: 'Elo', value: `${Math.round(soloElo)}`, inline: true },
       { name: 'MMR', value: `${Math.round(mmr)}`, inline: true },
       {
-        name: localizeText({ fr: 'Score pondéré', en: 'Weighted score' }),
-        value: `${weightedScore}`,
-        inline: true
-      },
-      { name: localizeText({ fr: 'Matchs joués', en: 'Games played' }), value: `${games}`, inline: true },
-      {
         name: localizeText({ fr: 'Série en cours', en: 'Current streak' }),
         value: streakInfo.label,
         inline: true
@@ -1256,11 +1298,6 @@ async function handleEloCommand(message) {
       {
         name: localizeText({ fr: 'Tier', en: 'Tier' }),
         value: tierLabel,
-        inline: true
-      },
-      {
-        name: localizeText({ fr: 'Classement site', en: 'Website rank' }),
-        value: siteRankLabel,
         inline: true
       },
       {
