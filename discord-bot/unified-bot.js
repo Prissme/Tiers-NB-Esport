@@ -58,6 +58,15 @@ const TIER_DISTRIBUTION = [
   { tier: 'E', ratio: 0.555, minCount: 1 }
 ];
 
+const SITE_TIER_BRACKETS = [
+  { min: 980, label: 'Wished V' },
+  { min: 960, label: 'Wished IV' },
+  { min: 940, label: 'Wished III' },
+  { min: 920, label: 'Wished II' },
+  { min: 900, label: 'Wished I' },
+  { min: -Infinity, label: 'Wished 0' }
+];
+
 function computeTierBoundaries(totalPlayers) {
   if (!totalPlayers || totalPlayers <= 0) {
     return [];
@@ -309,6 +318,18 @@ function pickRandomMaps(count) {
 
 function normalizeRating(value) {
   return typeof value === 'number' ? value : DEFAULT_ELO;
+}
+
+function getSiteTierByElo(rating) {
+  const normalized = Math.min(normalizeRating(rating), 999);
+
+  for (const bracket of SITE_TIER_BRACKETS) {
+    if (normalized >= bracket.min) {
+      return bracket.label;
+    }
+  }
+
+  return SITE_TIER_BRACKETS[SITE_TIER_BRACKETS.length - 1].label;
 }
 
 function normalizeTierInput(value) {
@@ -1130,9 +1151,10 @@ async function handleEloCommand(message) {
   const mmr = normalizeRating(player.mmr);
   const weightedScore = calculateWeightedScore(soloElo, mmr);
 
+  const tier = getSiteTierByElo(soloElo);
+
   let totalPlayers = null;
   let rank = null;
-  let tier = null;
 
   try {
     const { count: totalCount, error: totalError } = await supabase
@@ -1154,11 +1176,6 @@ async function handleEloCommand(message) {
       if (rankError) throw rankError;
 
       rank = typeof higherCount === 'number' ? higherCount + 1 : null;
-
-      const boundaries = computeTierBoundaries(totalPlayers);
-      if (rank) {
-        tier = getTierByRank(rank, boundaries);
-      }
     }
   } catch (rankError) {
     warn('Unable to compute ranking for player', targetId, ':', rankError.message);
@@ -1258,7 +1275,6 @@ async function handleLeaderboardCommand(message, args) {
     }
 
     const totalPlayers = allPlayers.length;
-    const boundaries = computeTierBoundaries(totalPlayers);
     const topPlayers = allPlayers.slice(0, limit);
 
     const lines = [
@@ -1270,7 +1286,6 @@ async function handleLeaderboardCommand(message, args) {
 
     topPlayers.forEach((player, index) => {
       const rank = index + 1;
-      const tier = getTierByRank(rank, boundaries);
       const soloElo = normalizeRating(player.solo_elo);
       const winStreak = typeof player.win_streak === 'number' ? player.win_streak : 0;
       const loseStreak = typeof player.lose_streak === 'number' ? player.lose_streak : 0;
@@ -1287,7 +1302,7 @@ async function handleLeaderboardCommand(message, args) {
             name: player.name,
             elo: Math.round(soloElo),
             streak: streakInfo.label,
-            tier: tier || localizeText({ fr: 'Sans tier', en: 'No tier' })
+            tier: getSiteTierByElo(soloElo) || localizeText({ fr: 'Sans tier', en: 'No tier' })
           }
         )
       );
