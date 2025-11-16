@@ -27,15 +27,6 @@ const TIER_DISTRIBUTION = [
   { tier: 'E', ratio: 0.555, minCount: 1 }
 ];
 
-const SITE_TIER_BRACKETS = [
-  { min: 980, label: 'Wished V' },
-  { min: 960, label: 'Wished IV' },
-  { min: 940, label: 'Wished III' },
-  { min: 920, label: 'Wished II' },
-  { min: 900, label: 'Wished I' },
-  { min: -Infinity, label: 'Wished 0' }
-];
-
 function createSupabaseClient() {
   if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
     return null;
@@ -260,18 +251,6 @@ function getTierByRank(rank, boundaries) {
   return 'No-tier';
 }
 
-function getSiteTierByElo(rating) {
-  const normalized = Math.min(typeof rating === 'number' ? rating : DEFAULT_ELO, 999);
-
-  for (const bracket of SITE_TIER_BRACKETS) {
-    if (normalized >= bracket.min) {
-      return bracket.label;
-    }
-  }
-
-  return SITE_TIER_BRACKETS[SITE_TIER_BRACKETS.length - 1].label;
-}
-
 function weightedAverage(players) {
   const totalWeight = players.reduce((acc, player) => acc + (player.weight || 1), 0) || players.length || 1;
   const weightedSum = players.reduce((acc, player) => acc + player.mmr * (player.weight || 1), 0);
@@ -338,9 +317,11 @@ async function handleGetTop50(res) {
       (a, b) => b.weighted_score - a.weighted_score
     );
 
+    const tierBoundaries = computeTierBoundaries(totalPlayers || playersWithWeightedScores.length);
+
     const playersWithTiers = sortedByWeightedScore.slice(0, 50).map((player, index) => ({
       ...player,
-      tier: getSiteTierByElo(player.solo_elo)
+      tier: getTierByRank(index + 1, tierBoundaries)
     }));
 
     return sendJson(res, 200, { ok: true, top: playersWithTiers });
