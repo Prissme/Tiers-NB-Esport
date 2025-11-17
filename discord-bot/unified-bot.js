@@ -520,7 +520,7 @@ function describeStreak(winStreak, loseStreak, { short = false } = {}) {
 
   if (wins > 0) {
     const label = short
-      ? localizeText({ fr: '🔥 Winstreak ×{count}', en: '🔥 Winstreak ×{count}' }, { count: wins })
+      ? localizeText({ fr: '🔥 x{count}', en: '🔥 x{count}' }, { count: wins })
       : localizeText(
           { fr: '🔥 {count} victoire(s) consécutive(s)', en: '🔥 {count} win(s) in a row' },
           { count: wins }
@@ -530,7 +530,7 @@ function describeStreak(winStreak, loseStreak, { short = false } = {}) {
 
   if (losses > 0) {
     const label = short
-      ? localizeText({ fr: '💀 Lose streak ×{count}', en: '💀 Lose streak ×{count}' }, { count: losses })
+      ? localizeText({ fr: '💀 x{count}', en: '💀 x{count}' }, { count: losses })
       : localizeText(
           { fr: '💀 {count} défaite(s) consécutive(s)', en: '💀 {count} loss(es) in a row' },
           { count: losses }
@@ -1441,9 +1441,7 @@ async function handleLeaderboardCommand(message, args) {
       return;
     }
 
-    const totalPlayers = allPlayers.length;
     const topPlayers = allPlayers.slice(0, limit);
-    const tierBoundaries = computeTierBoundaries(totalPlayers);
 
     const lines = [
       localizeText({
@@ -1462,16 +1460,14 @@ async function handleLeaderboardCommand(message, args) {
       lines.push(
         localizeText(
           {
-            fr: '{rank}. **{name}** — {elo} Elo — {streak} — Tier {tier}',
-            en: '{rank}. **{name}** — {elo} Elo — {streak} — Tier {tier}'
+            fr: '{rank}. **{name}** — {elo} Elo — {streak}',
+            en: '{rank}. **{name}** — {elo} Elo — {streak}'
           },
           {
             rank,
             name: player.name,
             elo: Math.round(soloElo),
-            streak: streakInfo.label,
-            tier:
-              getTierByRank(rank, tierBoundaries) || localizeText({ fr: 'Sans tier', en: 'No tier' })
+            streak: streakInfo.label
           }
         )
       );
