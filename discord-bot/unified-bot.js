@@ -6,6 +6,7 @@ const {
   ActionRowBuilder,
   ButtonBuilder,
   ButtonStyle,
+  ChannelType,
   Client,
   EmbedBuilder,
   Events,
@@ -35,7 +36,7 @@ const DODGE_ELO_PENALTY = 30;
 const ROOM_TIER_ORDER = ['E', 'D', 'C', 'B', 'A', 'S'];
 const BEST_OF_VALUES = [1, 3, 5];
 const DEFAULT_MATCH_BEST_OF = normalizeBestOfInput(process.env.DEFAULT_MATCH_BEST_OF) || 1;
-const MAX_QUEUE_ELO_DIFFERENCE = 100;
+const MAX_QUEUE_ELO_DIFFERENCE = 140;
 
 const DISCORD_BOT_TOKEN = process.env.DISCORD_BOT_TOKEN;
 const DISCORD_GUILD_ID = process.env.DISCORD_GUILD_ID;
@@ -1276,20 +1277,7 @@ async function handleJoinCommand(message, args) {
   const eloRange = computeQueueEloRange([...matchQueue, entry]);
 
   if (eloRange.diff >= MAX_QUEUE_ELO_DIFFERENCE) {
-    await message.reply({
-      content: localizeText(
-        {
-          fr: '❌ Impossible de rejoindre la file : la différence entre le plus haut et le plus bas Elo ({diff}) dépasse la limite de {limit}. (Actuellement {min} → {max})',
-          en: '❌ Unable to join the queue: the gap between the highest and lowest Elo ({diff}) exceeds the {limit} limit. (Currently {min} → {max})'
-        },
-        {
-          diff: Math.round(eloRange.diff),
-          limit: MAX_QUEUE_ELO_DIFFERENCE,
-          min: Math.round(eloRange.min),
-          max: Math.round(eloRange.max)
-        }
-      )
-    });
+    await message.reply({ content: 'Skill issue' });
     return;
   }
 
@@ -1363,6 +1351,7 @@ async function handleQueueCommand(message) {
 async function handleEloCommand(message) {
   const mention = message.mentions.users.first();
   const targetId = mention ? mention.id : message.author.id;
+  const targetUser = mention || message.author;
 
   const siteRanking = await getSiteRankingInfo(targetId);
 
@@ -1439,6 +1428,7 @@ async function handleEloCommand(message) {
       }
     )
     .setColor(0x5865f2)
+    .setThumbnail(targetUser.displayAvatarURL({ size: 256 }))
     .setTimestamp(new Date());
 
   await message.reply({ embeds: [embed] });
@@ -1498,16 +1488,18 @@ async function handleLeaderboardCommand(message, args) {
       const winStreak = typeof player.win_streak === 'number' ? player.win_streak : 0;
       const loseStreak = typeof player.lose_streak === 'number' ? player.lose_streak : 0;
       const streakInfo = describeStreak(winStreak, loseStreak, { short: true });
+      const wishedRank = formatWishedRankLabel(getWishedRankByElo(soloElo));
+      const displayName = wishedRank ? `${wishedRank} **${player.name}**` : `**${player.name}**`;
 
       lines.push(
         localizeText(
           {
-            fr: '{rank}. **{name}** — {elo} Elo — {streak}',
-            en: '{rank}. **{name}** — {elo} Elo — {streak}'
+            fr: '{rank}. {name} — {elo} Elo — {streak}',
+            en: '{rank}. {name} — {elo} Elo — {streak}'
           },
           {
             rank,
-            name: player.name,
+            name: displayName,
             elo: Math.round(soloElo),
             streak: streakInfo.label
           }
@@ -1801,12 +1793,88 @@ async function handleHelpCommand(message) {
   });
 }
 
+async function createLobbyRoleForMatch(guildContext, matchId, participantIds) {
+  if (!guildContext?.roles) {
+    return null;
+  }
+
+  try {
+    const role = await guildContext.roles.create({
+      name: localizeText({ fr: `Match #${matchId}`, en: `Match #${matchId}` }),
+      mentionable: true,
+      reason: `Lobby role for match #${matchId}`
+    });
+
+    for (const discordId of participantIds) {
+      const member = await guildContext.members.fetch(discordId).catch(() => null);
+      if (member) {
+        await member.roles.add(role, 'Match lobby role');
+      }
+    }
+
+    return role;
+  } catch (err) {
+    warn('Unable to create or assign lobby role:', err.message);
+    return null;
+  }
+}
+
+async function addMembersToThread(thread, participantIds) {
+  if (!thread?.members) {
+    return;
+  }
+
+  for (const discordId of participantIds) {
+    await thread.members.add(discordId).catch(() => null);
+  }
+}
+
+async function createMatchThread(channel, matchId, lobbyRole, participantIds) {
+  if (!channel?.threads?.create) {
+    return null;
+  }
+
+  const threadName = localizeText({ fr: `Match #${matchId}`, en: `Match #${matchId}` });
+  try {
+    const thread = await channel.threads.create({
+      name: threadName,
+      autoArchiveDuration: 1440,
+      invitable: false,
+      type: ChannelType.PrivateThread,
+      reason: `Discussion for match #${matchId}`
+    });
+
+    await addMembersToThread(thread, participantIds);
+
+    await thread.send({
+      content: lobbyRole
+        ? localizeText(
+            {
+              fr: `<@&${lobbyRole.id}> Voici le fil pour votre match. Seuls les joueurs ajoutés peuvent parler ici.`,
+              en: `<@&${lobbyRole.id}> Here is your match thread. Only added players can chat here.`
+            }
+          )
+        : localizeText({
+            fr: 'Voici le fil pour votre match. Seuls les joueurs ajoutés peuvent parler ici.',
+            en: 'Here is your match thread. Only added players can chat here.'
+          })
+    });
+
+    return thread;
+  } catch (err) {
+    warn('Unable to create match thread:', err.message);
+    return null;
+  }
+}
+
 async function startMatch(participants, fallbackChannel) {
   const mapChoices = pickRandomMaps(MAP_CHOICES_COUNT);
   const primaryMap = mapChoices[0];
   const teams = assignRandomTeams(participants);
   const bestOf = DEFAULT_MATCH_BEST_OF;
   const kFactor = getKFactorForBestOf(bestOf);
+
+  const guildContext = fallbackChannel?.guild || guild;
 
   const matchPayload = {
     map_mode: primaryMap?.mode || null,
@@ -1819,6 +1887,8 @@ async function startMatch(participants, fallbackChannel) {
     best_of: bestOf,
     k_factor: kFactor
   };
+
+  const participantIds = participants.map((player) => player.discordId);
 
   const hasMissingColumnError = (error, column) => {
     const errorMessage = (error?.message || '').toLowerCase();
@@ -1934,6 +2004,8 @@ async function startMatch(participants, fallbackChannel) {
     throw new Error(`Unable to create match record: ${matchError.message}`);
   }
 
+  const lobbyRole = await createLobbyRoleForMatch(guildContext, insertedMatch.id, participantIds);
+
   const channel = matchChannel && matchChannel.isTextBased() ? matchChannel : fallbackChannel;
   if (!channel || !channel.isTextBased()) {
     throw new Error('No valid text channel available to announce the match.');
@@ -1959,6 +2031,8 @@ async function startMatch(participants, fallbackChannel) {
     participants: new Set(participants.map((player) => player.discordId)),
     channelId: channel.id,
     messageId: null,
+    threadId: null,
+    lobbyRoleId: lobbyRole?.id || null,
     resolved: false,
     dodgeVotes: new Map(),
     penalizedDodges: new Set(),
@@ -1977,6 +2051,10 @@ async function startMatch(participants, fallbackChannel) {
 
   const sentMessage = await channel.send(messagePayload);
   state.messageId = sentMessage.id;
+  const matchThread = await createMatchThread(channel, state.matchId, lobbyRole, participantIds);
+  if (matchThread) {
+    state.threadId = matchThread.id;
+  }
   activeMatches.set(state.matchId, state);
 
   await sendLogMessage(
