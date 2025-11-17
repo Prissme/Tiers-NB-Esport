@@ -29,12 +29,12 @@ const MIN_VOTES_TO_RESOLVE = Math.max(
   1,
   Number.parseInt(process.env.MIN_VOTES_TO_RESOLVE || '5', 10)
 );
-const MAP_CHOICES_COUNT = 3;
+const MAP_CHOICES_COUNT = 1;
 const DODGE_VOTES_REQUIRED = 5;
 const DODGE_ELO_PENALTY = 30;
 const ROOM_TIER_ORDER = ['E', 'D', 'C', 'B', 'A', 'S'];
 const BEST_OF_VALUES = [1, 3, 5];
-const DEFAULT_MATCH_BEST_OF = normalizeBestOfInput(process.env.DEFAULT_MATCH_BEST_OF) || 3;
+const DEFAULT_MATCH_BEST_OF = normalizeBestOfInput(process.env.DEFAULT_MATCH_BEST_OF) || 1;
 
 const DISCORD_BOT_TOKEN = process.env.DISCORD_BOT_TOKEN;
 const DISCORD_GUILD_ID = process.env.DISCORD_GUILD_ID;
@@ -61,7 +61,7 @@ const TIER_DISTRIBUTION = [
   { tier: 'E', ratio: 0.555, minCount: 1 }
 ];
 
-const UNRANKED_ELO_THRESHOLD = 1100;
+const UNRANKED_ELO_THRESHOLD = 1226;
 
 const TIER_EMOJIS = {
   S: '<:tiers:1382755986120638505>',
@@ -73,9 +73,15 @@ const TIER_EMOJIS = {
 };
 
 const BRONZE_EMOJI = '<:Bronze:1439605520729116702>';
+const SILVER_EMOJI = '<:Silver:1439995612069101681>';
 const WISHED_EMOJI = '<:Wished:1439415315720175636>';
 
 const WISHED_RANK_BRACKETS = [
+  { min: 1200, label: 'Silver 5' },
+  { min: 1175, label: 'Silver 4' },
+  { min: 1150, label: 'Silver 3' },
+  { min: 1125, label: 'Silver 2' },
+  { min: 1100, label: 'Silver 1' },
   { min: 1080, label: 'Bronze 5' },
   { min: 1060, label: 'Bronze 4' },
   { min: 1040, label: 'Bronze 3' },
@@ -389,7 +395,12 @@ function formatWishedRankLabel(label) {
   const romanNumerals = ['0', 'I', 'II', 'III', 'IV', 'V'];
   const numeral = romanNumerals[value] || String(value);
 
-  const emoji = label.toLowerCase().startsWith('bronze') ? BRONZE_EMOJI : WISHED_EMOJI;
+  const lowerLabel = label.toLowerCase();
+  const emoji = lowerLabel.startsWith('silver')
+    ? SILVER_EMOJI
+    : lowerLabel.startsWith('bronze')
+      ? BRONZE_EMOJI
+      : WISHED_EMOJI;
 
   return `${emoji} ${numeral}`;
 }
