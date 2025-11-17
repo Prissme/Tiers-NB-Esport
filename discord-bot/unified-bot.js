@@ -36,7 +36,7 @@ const DODGE_ELO_PENALTY = 30;
 const ROOM_TIER_ORDER = ['E', 'D', 'C', 'B', 'A', 'S'];
 const BEST_OF_VALUES = [1, 3, 5];
 const DEFAULT_MATCH_BEST_OF = normalizeBestOfInput(process.env.DEFAULT_MATCH_BEST_OF) || 1;
-const MAX_QUEUE_ELO_DIFFERENCE = 100;
+const MAX_QUEUE_ELO_DIFFERENCE = 140;
 
 const DISCORD_BOT_TOKEN = process.env.DISCORD_BOT_TOKEN;
 const DISCORD_GUILD_ID = process.env.DISCORD_GUILD_ID;
@@ -1277,20 +1277,7 @@ async function handleJoinCommand(message, args) {
   const eloRange = computeQueueEloRange([...matchQueue, entry]);
 
   if (eloRange.diff >= MAX_QUEUE_ELO_DIFFERENCE) {
-    await message.reply({
-      content: localizeText(
-        {
-          fr: '❌ Impossible de rejoindre la file : la différence entre le plus haut et le plus bas Elo ({diff}) dépasse la limite de {limit}. (Actuellement {min} → {max})',
-          en: '❌ Unable to join the queue: the gap between the highest and lowest Elo ({diff}) exceeds the {limit} limit. (Currently {min} → {max})'
-        },
-        {
-          diff: Math.round(eloRange.diff),
-          limit: MAX_QUEUE_ELO_DIFFERENCE,
-          min: Math.round(eloRange.min),
-          max: Math.round(eloRange.max)
-        }
-      )
-    });
+    await message.reply({ content: 'Skill issue' });
     return;
   }
 
