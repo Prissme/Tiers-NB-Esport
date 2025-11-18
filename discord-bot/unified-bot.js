@@ -1867,6 +1867,44 @@ async function createMatchThread(channel, matchId, lobbyRole, participantIds) {
   }
 }
 
+async function cleanupMatchResources(state) {
+  if (!state) {
+    return;
+  }
+
+  const guildContext = guild;
+
+  if (!guildContext) {
+    warn('Cannot clean up match resources: guild not resolved yet.');
+    return;
+  }
+
+  if (state.threadId) {
+    let thread = guildContext.channels?.cache?.get(state.threadId) || null;
+
+    if (!thread) {
+      thread = await guildContext.channels.fetch(state.threadId).catch(() => null);
+    }
+
+    if (thread?.isThread?.()) {
+      await thread.delete('Match resolved — removing private thread').catch((err) => {
+        warn('Unable to delete match thread:', err?.message || err);
+      });
+    }
+  }
+
+  if (state.lobbyRoleId) {
+    const role = guildContext.roles?.cache?.get(state.lobbyRoleId) ||
+      (await guildContext.roles.fetch(state.lobbyRoleId).catch(() => null));
+
+    if (role) {
+      await role.delete('Match resolved — removing temporary lobby role').catch((err) => {
+        warn('Unable to delete lobby role:', err?.message || err);
+      });
+    }
+  }
+}
+
 async function startMatch(participants, fallbackChannel) {
   const mapChoices = pickRandomMaps(MAP_CHOICES_COUNT);
   const primaryMap = mapChoices[0];
@@ -2467,6 +2505,8 @@ async function handleInteraction(interaction) {
         embeds: [buildMatchEmbed(matchState, summary)],
         components: [buildResultButtons(true)]
       });
+
+      await cleanupMatchResources(matchState);
 
       const mapLabel = matchState.primaryMap
         ? `${matchState.primaryMap.emoji} ${matchState.primaryMap.mode}`
