@@ -259,7 +259,8 @@ let logChannel = null;
 let tierSyncInterval = null;
 let botStarted = false;
 
-const matchQueue = [];
+const QUEUE_COUNT = 2;
+const matchQueues = Array.from({ length: QUEUE_COUNT }, () => []);
 const queueEntries = new Map();
 const activeMatches = new Map();
 const pendingRoomForms = new Map();
@@ -953,30 +954,52 @@ function computeQueueEloRange(entries) {
   return { min, max, diff: max - min };
 }
 
+function computeQueueAverageElo(entries) {
+  if (!entries?.length) {
+    return null;
+  }
+
+  const total = entries.reduce((sum, entry) => sum + normalizeRating(entry.soloElo), 0);
+  return total / entries.length;
+}
+
 function formatQueueStatus() {
-  if (!matchQueue.length) {
+  const hasEntries = matchQueues.some((queue) => queue.length);
+
+  if (!hasEntries) {
     return localizeText({
-      fr: 'La file est vide. Utilisez `!join` pour participer.',
-      en: 'The queue is empty. Use `!join` to participate.'
+      fr: 'Les files sont vides. Utilisez `!join` pour participer.',
+      en: 'Queues are empty. Use `!join` to participate.'
     });
   }
 
-  const lines = matchQueue.map((entry, index) => {
-    const rank = index + 1;
-    return formatTemplate('{rank}. {name} ({elo} Elo)', {
-      rank,
-      name: entry.displayName,
-      elo: Math.round(normalizeRating(entry.soloElo))
+  const sections = matchQueues.map((queue, index) => {
+    if (!queue.length) {
+      return localizeText(
+        { fr: 'File {id} vide.', en: 'Queue {id} is empty.' },
+        { id: index + 1 }
+      );
+    }
+
+    const lines = queue.map((entry, playerIndex) => {
+      const rank = playerIndex + 1;
+      return formatTemplate('{rank}. {name} ({elo} Elo)', {
+        rank,
+        name: entry.displayName,
+        elo: Math.round(normalizeRating(entry.soloElo))
+      });
     });
+
+    return [
+      localizeText(
+        { fr: 'File {id} ({count}/{size}) :', en: 'Queue {id} ({count}/{size}):' },
+        { id: index + 1, count: queue.length, size: MATCH_SIZE }
+      ),
+      ...lines
+    ].join('\n');
   });
 
-  return [
-    localizeText({
-      fr: 'Joueurs dans la file ({count}/{size}) :',
-      en: 'Players in queue ({count}/{size}):'
-    }, { count: matchQueue.length, size: MATCH_SIZE }),
-    ...lines
-  ].join('\n');
+  return sections.join('\n\n');
 }
 
 function shufflePlayers(players) {
@@ -1274,28 +1297,61 @@ async function handleJoinCommand(message, args) {
   }
 
   const entry = buildQueueEntry(member, playerRecord);
-  const eloRange = computeQueueEloRange([...matchQueue, entry]);
+  const requestedQueueIndex = args.length ? Number.parseInt(args[0], 10) - 1 : null;
+
+  if (requestedQueueIndex != null && (Number.isNaN(requestedQueueIndex) || requestedQueueIndex < 0 || requestedQueueIndex >= QUEUE_COUNT)) {
+    await message.reply({
+      content: localizeText({
+        fr: `Numéro de file invalide. Choisissez entre 1 et ${QUEUE_COUNT}.`,
+        en: `Invalid queue number. Choose between 1 and ${QUEUE_COUNT}.`
+      })
+    });
+    return;
+  }
+
+  const entryElo = normalizeRating(entry.soloElo);
+  let targetQueueIndex = requestedQueueIndex;
+
+  if (targetQueueIndex == null) {
+    let bestIndex = 0;
+    let bestDiff = Infinity;
+
+    matchQueues.forEach((queue, index) => {
+      const average = computeQueueAverageElo(queue);
+      const diff = average == null ? Infinity : Math.abs(average - entryElo);
+
+      if (diff < bestDiff || (diff === bestDiff && queue.length < matchQueues[bestIndex].length)) {
+        bestIndex = index;
+        bestDiff = diff;
+      }
+    });
+
+    targetQueueIndex = bestDiff === Infinity ? 0 : bestIndex;
+  }
+
+  const targetQueue = matchQueues[targetQueueIndex];
+  const eloRange = computeQueueEloRange([...targetQueue, entry]);
 
   if (eloRange.diff >= MAX_QUEUE_ELO_DIFFERENCE) {
     await message.reply({ content: 'Skill issue' });
     return;
   }
 
-  matchQueue.push(entry);
-  queueEntries.set(member.id, entry);
+  targetQueue.push(entry);
+  queueEntries.set(member.id, { entry, queueIndex: targetQueueIndex });
 
   await message.reply({
     content: localizeText(
       {
-        fr: '✅ {name} a rejoint la file.\n{status}',
-        en: '✅ {name} joined the queue.\n{status}'
+        fr: '✅ {name} a rejoint la file {queue}.\n{status}',
+        en: '✅ {name} joined queue {queue}.\n{status}'
       },
-      { name: entry.displayName, status: formatQueueStatus() }
+      { name: entry.displayName, queue: targetQueueIndex + 1, status: formatQueueStatus() }
     )
   });
 
-  if (matchQueue.length >= MATCH_SIZE) {
-    const participants = matchQueue.splice(0, MATCH_SIZE);
+  if (targetQueue.length >= MATCH_SIZE) {
+    const participants = targetQueue.splice(0, MATCH_SIZE);
     participants.forEach((player) => queueEntries.delete(player.discordId));
 
     try {
@@ -1309,8 +1365,8 @@ async function handleJoinCommand(message, args) {
         })
       );
       participants.forEach((player) => {
-        matchQueue.push(player);
-        queueEntries.set(player.discordId, player);
+        targetQueue.push(player);
+        queueEntries.set(player.discordId, { entry: player, queueIndex: targetQueueIndex });
       });
     }
   }
@@ -1318,9 +1374,9 @@ async function handleJoinCommand(message, args) {
 
 async function handleLeaveCommand(message) {
   const memberId = message.author.id;
-  const entry = queueEntries.get(memberId);
+  const queueEntry = queueEntries.get(memberId);
 
-  if (!entry) {
+  if (!queueEntry) {
     await message.reply({
       content: localizeText({
         fr: "Vous n'êtes pas dans la file.",
@@ -1330,16 +1386,21 @@ async function handleLeaveCommand(message) {
     return;
   }
 
-  const index = matchQueue.findIndex((player) => player.discordId === memberId);
+  const { entry, queueIndex } = queueEntry;
+  const queue = matchQueues[queueIndex];
+  const index = queue.findIndex((player) => player.discordId === memberId);
   if (index !== -1) {
-    matchQueue.splice(index, 1);
+    queue.splice(index, 1);
   }
 
   queueEntries.delete(memberId);
   await message.reply({
     content: localizeText(
-      { fr: '🚪 {name} a quitté la file.\n{status}', en: '🚪 {name} left the queue.\n{status}' },
-      { name: entry.displayName, status: formatQueueStatus() }
+      {
+        fr: '🚪 {name} a quitté la file {queue}.\n{status}',
+        en: '🚪 {name} left queue {queue}.\n{status}'
+      },
+      { name: entry.displayName, queue: queueIndex + 1, status: formatQueueStatus() }
     )
   });
 }
@@ -1751,7 +1812,7 @@ async function handleHelpCommand(message) {
   const commands =
     currentLanguage === LANGUAGE_EN
       ? [
-          '`!join [@leader]` — Join the queue or a mentioned leader\'s room',
+          '`!join [queueNumber|@leader]` — Join the closest Elo queue, pick a queue (1 or 2), or join a mentioned leader\'s room',
           '`!leave` — Leave the queue',
           '`!room` — View the custom room you joined',
           '`!roomleave` — Leave your custom room',
@@ -1766,7 +1827,7 @@ async function handleHelpCommand(message) {
           '`!help` — Display this help'
         ]
       : [
-          '`!join [@chef]` — Rejoindre la file ou la room du joueur mentionné',
+          '`!join [numéro_de_file|@chef]` — Rejoindre la file la plus proche de ton Elo, choisir la file 1 ou 2, ou rejoindre la room du joueur mentionné',
           '`!leave` — Quitter la file d\'attente',
           '`!room` — Voir la room personnalisée que tu as rejointe',
           '`!roomleave` — Quitter ta room personnalisée',
