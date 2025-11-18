@@ -1751,32 +1751,30 @@ async function handleHelpCommand(message) {
   const commands =
     currentLanguage === LANGUAGE_EN
       ? [
-          '`!create` — Open the custom room form',
           '`!join [@leader]` — Join the queue or a mentioned leader\'s room',
           '`!leave` — Leave the queue',
           '`!room` — View the custom room you joined',
           '`!roomleave` — Leave your custom room',
           '`!queue` — Show players waiting in the queue',
+          '`!file` — Show players waiting in the queue (FR alias)',
           '`!elo [@player]` — Display Elo stats',
           '`!lb [count]` — Show the leaderboard (example: !lb 25)',
           '`!maps` — Show the current map rotation',
-          '`!pp @player…` — Build a random private match (6 players)',
           '`!ping` — Mention the match notification role',
           '`!tiers` — Manually sync tier roles',
           '`!english [off]` — Switch the bot language to English or back to French',
           '`!help` — Display this help'
         ]
       : [
-          '`!create` — Créer un formulaire pour une room personnalisée',
           '`!join [@chef]` — Rejoindre la file ou la room du joueur mentionné',
           '`!leave` — Quitter la file d\'attente',
           '`!room` — Voir la room personnalisée que tu as rejointe',
           '`!roomleave` — Quitter ta room personnalisée',
           '`!queue` — Voir les joueurs en attente',
+          '`!file` — Voir les joueurs en attente',
           '`!elo [@joueur]` — Afficher le classement Elo',
           '`!lb [nombre]` — Afficher le top classement (ex: !lb 25)',
           '`!maps` — Afficher la rotation des maps',
-          '`!pp @joueur…` — Générer une partie privée aléatoire (6 joueurs)',
           '`!ping` — Mentionner le rôle de notification des matchs',
           '`!tiers` — Synchroniser manuellement les rôles de tier',
           '`!english [off]` — Traduire le bot en anglais ou revenir en français',
@@ -2296,8 +2294,8 @@ async function handleInteraction(interaction) {
       if (!pending) {
         await interaction.reply({
           content: localizeText({
-            fr: 'Ce formulaire a expiré ou est introuvable. Relancez `!create` pour recommencer.',
-            en: 'This form expired or no longer exists. Run `!create` again to start over.'
+            fr: 'Ce formulaire a expiré ou est introuvable. Demandez à rouvrir une nouvelle demande.',
+            en: 'This form expired or no longer exists. Please ask for a new request to be opened.'
           }),
           ephemeral: true
         });
@@ -2696,8 +2694,8 @@ async function handleInteraction(interaction) {
     if (!pending) {
       await interaction.reply({
         content: localizeText({
-          fr: 'Formulaire introuvable. Relancez `!create` pour créer une nouvelle room.',
-          en: 'Form not found. Run `!create` to start a new room.'
+          fr: 'Formulaire introuvable. Demandez au staff de créer une nouvelle room.',
+          en: 'Form not found. Please ask the staff to open a new room form.'
         }),
         ephemeral: true
       });
@@ -3044,9 +3042,6 @@ async function handleMessage(message) {
 
   try {
     switch (command) {
-      case 'create':
-        await handleCreateRoomCommand(message, args);
-        break;
       case 'join':
         await handleJoinCommand(message, args);
         break;
@@ -3061,6 +3056,7 @@ async function handleMessage(message) {
         await handleRoomLeaveCommand(message);
         break;
       case 'queue':
+      case 'file':
         await handleQueueCommand(message, args);
         break;
       case 'elo':
@@ -3072,9 +3068,6 @@ async function handleMessage(message) {
         break;
       case 'maps':
         await handleMapsCommand(message, args);
-        break;
-      case 'pp':
-        await handlePrivatePartyCommand(message, args);
         break;
       case 'ping':
         await handlePingCommand(message, args);
