@@ -259,7 +259,11 @@ let logChannel = null;
 let tierSyncInterval = null;
 let botStarted = false;
 
-const QUEUE_COUNT = 2;
+const QUEUE_CONFIGS = [
+  { maxEloDifference: MAX_QUEUE_ELO_DIFFERENCE },
+  { maxEloDifference: null }
+];
+const QUEUE_COUNT = QUEUE_CONFIGS.length;
 const matchQueues = Array.from({ length: QUEUE_COUNT }, () => []);
 const queueEntries = new Map();
 const activeMatches = new Map();
@@ -974,10 +978,20 @@ function formatQueueStatus() {
   }
 
   const sections = matchQueues.map((queue, index) => {
+    const queueConfig = QUEUE_CONFIGS[index];
+    const limitDescription = queueConfig.maxEloDifference
+      ? localizeText(
+          {
+            fr: ` (écart max ${queueConfig.maxEloDifference})`,
+            en: ` (max diff ${queueConfig.maxEloDifference})`
+          }
+        )
+      : localizeText({ fr: ' (sans limite de rang)', en: ' (no Elo limit)' });
+
     if (!queue.length) {
       return localizeText(
-        { fr: 'File {id} vide.', en: 'Queue {id} is empty.' },
-        { id: index + 1 }
+        { fr: 'File {id}{note} vide.', en: 'Queue {id}{note} is empty.' },
+        { id: index + 1, note: limitDescription }
       );
     }
 
@@ -992,8 +1006,11 @@ function formatQueueStatus() {
 
     return [
       localizeText(
-        { fr: 'File {id} ({count}/{size}) :', en: 'Queue {id} ({count}/{size}):' },
-        { id: index + 1, count: queue.length, size: MATCH_SIZE }
+        {
+          fr: 'File {id}{note} ({count}/{size}) :',
+          en: 'Queue {id}{note} ({count}/{size}):'
+        },
+        { id: index + 1, note: limitDescription, count: queue.length, size: MATCH_SIZE }
       ),
       ...lines
     ].join('\n');
@@ -1313,27 +1330,55 @@ async function handleJoinCommand(message, args) {
   let targetQueueIndex = requestedQueueIndex;
 
   if (targetQueueIndex == null) {
-    let bestIndex = 0;
+    let bestIndex = null;
     let bestDiff = Infinity;
 
     matchQueues.forEach((queue, index) => {
+      const queueConfig = QUEUE_CONFIGS[index];
       const average = computeQueueAverageElo(queue);
       const diff = average == null ? Infinity : Math.abs(average - entryElo);
+      const eloRange = computeQueueEloRange([...queue, entry]);
+      const exceedsLimit =
+        queueConfig.maxEloDifference != null && eloRange.diff >= queueConfig.maxEloDifference;
 
-      if (diff < bestDiff || (diff === bestDiff && queue.length < matchQueues[bestIndex].length)) {
+      if (exceedsLimit) {
+        return;
+      }
+
+      if (
+        diff < bestDiff ||
+        (diff === bestDiff && (bestIndex == null || queue.length < matchQueues[bestIndex].length))
+      ) {
         bestIndex = index;
         bestDiff = diff;
       }
     });
 
-    targetQueueIndex = bestDiff === Infinity ? 0 : bestIndex;
+    if (bestIndex == null) {
+      const unlimitedIndex = QUEUE_CONFIGS.findIndex((config) => config.maxEloDifference == null);
+      targetQueueIndex = unlimitedIndex !== -1 ? unlimitedIndex : 0;
+    } else {
+      targetQueueIndex = bestIndex;
+    }
   }
 
   const targetQueue = matchQueues[targetQueueIndex];
+  const targetQueueConfig = QUEUE_CONFIGS[targetQueueIndex];
   const eloRange = computeQueueEloRange([...targetQueue, entry]);
 
-  if (eloRange.diff >= MAX_QUEUE_ELO_DIFFERENCE) {
-    await message.reply({ content: 'Skill issue' });
+  if (targetQueueConfig.maxEloDifference != null && eloRange.diff >= targetQueueConfig.maxEloDifference) {
+    await message.reply({
+      content: localizeText(
+        {
+          fr: `❌ L'écart Elo dépasse la limite de la file ${targetQueueIndex + 1} (max ${
+            targetQueueConfig.maxEloDifference
+          }). Utilise \`!join 2\` pour une file sans limite.`,
+          en: `❌ Elo gap exceeds queue ${targetQueueIndex + 1}'s limit (max ${
+            targetQueueConfig.maxEloDifference
+          }). Use \`!join 2\` for the unlimited queue.`
+        }
+      )
+    });
     return;
   }
 
