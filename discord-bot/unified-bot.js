@@ -350,6 +350,19 @@ function normalizeRating(value) {
   return typeof value === 'number' ? value : DEFAULT_ELO;
 }
 
+function normalizePb(value) {
+  if (typeof value === 'number') {
+    return Math.max(0, Math.floor(value));
+  }
+
+  const parsed = Number.parseFloat(value);
+  if (Number.isNaN(parsed) || !Number.isFinite(parsed)) {
+    return 0;
+  }
+
+  return Math.max(0, Math.floor(parsed));
+}
+
 function getWishedRankByElo(rating) {
   const normalized = normalizeRating(rating);
 
@@ -1747,6 +1760,157 @@ async function handleEnglishCommand(message, args) {
   });
 }
 
+async function handleStealCommand(message) {
+  const targetUser = message.mentions.users.first();
+
+  if (!targetUser) {
+    await message.reply({
+      content: localizeText({
+        fr: 'Mentionne une cible : `e!voler @joueur`.',
+        en: 'Mention a target: `e!voler @player`.'
+      })
+    });
+    return;
+  }
+
+  if (targetUser.bot) {
+    await message.reply({
+      content: localizeText({
+        fr: 'Voler un bot ne sert à rien !',
+        en: 'Stealing from a bot will not work!'
+      })
+    });
+    return;
+  }
+
+  if (targetUser.id === message.author.id) {
+    await message.reply({
+      content: localizeText({
+        fr: 'Tu ne peux pas te voler toi-même.',
+        en: "You can't steal from yourself."
+      })
+    });
+    return;
+  }
+
+  let thiefRecord;
+  try {
+    thiefRecord = await getOrCreatePlayer(
+      message.author.id,
+      message.member?.displayName || message.author.username
+    );
+  } catch (err) {
+    errorLog('Unable to resolve thief profile for steal command:', err);
+    await message.reply({
+      content: localizeText({
+        fr: "Impossible de récupérer ton profil pour le moment.",
+        en: 'Unable to retrieve your profile right now.'
+      })
+    });
+    return;
+  }
+
+  let victimRecord;
+  try {
+    victimRecord = await fetchPlayerByDiscordId(targetUser.id);
+  } catch (err) {
+    errorLog('Unable to fetch target profile for steal command:', err);
+    await message.reply({
+      content: localizeText({
+        fr: 'Impossible de récupérer le profil de ta cible.',
+        en: 'Unable to fetch your target profile.'
+      })
+    });
+    return;
+  }
+
+  if (!victimRecord) {
+    await message.reply({
+      content: localizeText({
+        fr: "Ce joueur n'a pas de profil enregistré.",
+        en: 'This player does not have a registered profile.'
+      })
+    });
+    return;
+  }
+
+  const thiefPb = normalizePb(thiefRecord?.pb);
+  const victimPb = normalizePb(victimRecord?.pb);
+
+  if (victimPb <= 0) {
+    await message.reply({
+      content: localizeText({
+        fr: "Ce joueur n'a pas de PB à voler.",
+        en: 'This player has no PB to steal.'
+      })
+    });
+    return;
+  }
+
+  const success = Math.random() < 0.5;
+  if (!success) {
+    await message.reply({
+      content: localizeText({
+        fr: '😶 Raté ! Tu repars les mains vides.',
+        en: '😶 Failed! You walk away empty-handed.'
+      })
+    });
+    return;
+  }
+
+  const stolenAmount = Math.max(1, Math.floor(victimPb * 0.75));
+  const updatedVictimPb = Math.max(0, victimPb - stolenAmount);
+  const updatedThiefPb = thiefPb + stolenAmount;
+
+  const { error: victimUpdateError } = await supabase
+    .from('players')
+    .update({ pb: updatedVictimPb })
+    .eq('id', victimRecord.id);
+
+  if (victimUpdateError) {
+    errorLog('Unable to update victim PB for steal command:', victimUpdateError);
+    await message.reply({
+      content: localizeText({
+        fr: 'Impossible de mettre à jour les PB de ta cible.',
+        en: "Couldn't update your target's PB."
+      })
+    });
+    return;
+  }
+
+  const { error: thiefUpdateError } = await supabase
+    .from('players')
+    .update({ pb: updatedThiefPb })
+    .eq('id', thiefRecord.id);
+
+  if (thiefUpdateError) {
+    errorLog('Unable to update thief PB for steal command:', thiefUpdateError);
+    await supabase.from('players').update({ pb: victimPb }).eq('id', victimRecord.id).catch(() => null);
+    await message.reply({
+      content: localizeText({
+        fr: 'Impossible de créditer tes PB pour le moment.',
+        en: 'Unable to credit your PB right now.'
+      })
+    });
+    return;
+  }
+
+  await message.reply({
+    content: localizeText(
+      {
+        fr: '🔥 Vol réussi ! Tu as dérobé {amount} PB à {target}. Nouveau total : {thiefPb} PB pour toi, {victimPb} PB pour {target}.',
+        en: '🔥 Theft succeeded! You stole {amount} PB from {target}. New totals: {thiefPb} PB for you, {victimPb} PB for {target}.'
+      },
+      {
+        amount: stolenAmount,
+        target: `<@${targetUser.id}>`,
+        thiefPb: updatedThiefPb,
+        victimPb: updatedVictimPb
+      }
+    )
+  });
+}
+
 async function handleHelpCommand(message) {
   const commands =
     currentLanguage === LANGUAGE_EN
@@ -1761,6 +1925,7 @@ async function handleHelpCommand(message) {
           '`!lb [count]` — Show the leaderboard (example: !lb 25)',
           '`!maps` — Show the current map rotation',
           '`!pp @player…` — Build a random private match (6 players)',
+          '`e!voler @player` — 50% chance to steal 75% of the target\'s PB',
           '`!ping` — Mention the match notification role',
           '`!tiers` — Manually sync tier roles',
           '`!english [off]` — Switch the bot language to English or back to French',
@@ -1777,6 +1942,7 @@ async function handleHelpCommand(message) {
           '`!lb [nombre]` — Afficher le top classement (ex: !lb 25)',
           '`!maps` — Afficher la rotation des maps',
           '`!pp @joueur…` — Générer une partie privée aléatoire (6 joueurs)',
+          '`e!voler @joueur` — 50% de chances de voler 75% des PB de la cible',
           '`!ping` — Mentionner le rôle de notification des matchs',
           '`!tiers` — Synchroniser manuellement les rôles de tier',
           '`!english [off]` — Traduire le bot en anglais ou revenir en français',
@@ -3035,12 +3201,21 @@ async function handleMessage(message) {
   }
 
   const content = message.content.trim();
-  if (!content.startsWith('!')) {
+  let prefix = null;
+
+  if (content.startsWith('e!')) {
+    prefix = 'e!';
+  } else if (content.startsWith('!')) {
+    prefix = '!';
+  }
+
+  if (!prefix) {
     return;
   }
 
-  const [commandName, ...args] = content.slice(1).split(/\s+/);
+  const [commandName, ...args] = content.slice(prefix.length).split(/\s+/);
   const command = commandName.toLowerCase();
+  const isEventCommand = prefix === 'e!';
 
   try {
     switch (command) {
@@ -3075,6 +3250,11 @@ async function handleMessage(message) {
         break;
       case 'pp':
         await handlePrivatePartyCommand(message, args);
+        break;
+      case 'voler':
+        if (isEventCommand) {
+          await handleStealCommand(message, args);
+        }
         break;
       case 'ping':
         await handlePingCommand(message, args);
