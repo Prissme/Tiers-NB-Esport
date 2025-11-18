@@ -36,7 +36,7 @@ const DODGE_ELO_PENALTY = 30;
 const ROOM_TIER_ORDER = ['E', 'D', 'C', 'B', 'A', 'S'];
 const BEST_OF_VALUES = [1, 3, 5];
 const DEFAULT_MATCH_BEST_OF = normalizeBestOfInput(process.env.DEFAULT_MATCH_BEST_OF) || 1;
-const MAX_QUEUE_ELO_DIFFERENCE = 140;
+const MAX_QUEUE_ELO_DIFFERENCE = 175;
 
 const DISCORD_BOT_TOKEN = process.env.DISCORD_BOT_TOKEN;
 const DISCORD_GUILD_ID = process.env.DISCORD_GUILD_ID;
