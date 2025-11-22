@@ -554,7 +554,7 @@ function isTierWithinRange(playerTier, minTier, maxTier) {
 function calculateWeightedScore(soloElo, mmr) {
   const safeSoloElo = normalizeRating(soloElo);
   const safeMmr = normalizeRating(mmr);
-  return Math.round(safeSoloElo * 0.3 + safeMmr * 0.7);
+  return Math.round(safeSoloElo * 0.4 + safeMmr * 0.6);
 }
 
 function describeStreak(winStreak, loseStreak, { short = false } = {}) {

@@ -303,7 +303,7 @@ async function handleGetTop50(res) {
     const playersWithWeightedScores = (data || []).map((player) => {
       const soloElo = typeof player.solo_elo === 'number' ? player.solo_elo : 1000;
       const mmr = typeof player.mmr === 'number' ? player.mmr : 1000;
-      const weightedScore = Math.round(soloElo * 0.3 + mmr * 0.7);
+      const weightedScore = Math.round(soloElo * 0.4 + mmr * 0.6);
 
       return {
         ...player,
