@@ -97,6 +97,42 @@ const WISHED_RANK_BRACKETS = [
   { min: -Infinity, label: 'Wished 0' }
 ];
 
+const PRISSCUP_RULES_EN = `📘 PRISS Cup – Rulebook (3v3 – 8 teams)
+
+🎮 Format
+- 8 teams
+- BO1 → BO3 → BO5
+- No remakes
+- Disconnect = round lost
+- 10 minutes late = disqualification (DQ)
+
+🗺️ Maps
+
+ROUND 1 – BO1
+- Hard-Rock Mine (*Gem Grab*)
+
+SEMI-FINALS – BO3
+1. Dueling Beetles (*Hot Zone*)
+2. Belle’s Rock (*Knockout*)
+3. Hot Potato (*Heist*)
+
+FINALS – BO5
+1. Shooting Star (*Bounty*)
+2. Triple Dribble (*Brawl Ball*)
+3. Crystal Arcade (*Gem Grab*)
+4. Kaboom Canyon (*Heist*)
+5. Ring of Fire (*Hot Zone*)
+
+🏟️ Organization
+- Channel: #match-codes
+- Teams post their room code
+- Match starts when both teams are ready`;
+
+const TEAMS = {
+  'Team 1': ['PlayerA', 'PlayerB', 'PlayerC'],
+  'Team 2': ['PlayerD', 'PlayerE', 'PlayerF']
+};
+
 function computeTierBoundaries(totalPlayers) {
   if (!totalPlayers || totalPlayers <= 0) {
     return [];
@@ -1770,10 +1806,26 @@ async function handlePingCommand(message) {
     await message.reply({
       content: localizeText({
         fr: 'Aucun rôle de ping configuré.',
-        en: 'No ping role configured.'
-      })
-    });
+      en: 'No ping role configured.'
+    })
+  });
   }
+}
+
+async function handlePrissCupCommand(message) {
+  await message.reply({ content: PRISSCUP_RULES_EN });
+}
+
+async function handleTeamsCommand(message) {
+  const lines = ['📋 PRISS Cup – Teams', ''];
+
+  for (const [teamName, players] of Object.entries(TEAMS)) {
+    lines.push(`${teamName} : ${players.join(', ')}`);
+  }
+
+  const formattedMessage = lines.join('\n');
+
+  await message.reply({ content: formattedMessage });
 }
 
 async function handleTierSyncCommand(message) {
@@ -3178,8 +3230,14 @@ async function handleMessage(message) {
       case 'ping':
         await handlePingCommand(message, args);
         break;
+      case 'prisscup':
+        await handlePrissCupCommand(message, args);
+        break;
       case 'tiers':
         await handleTierSyncCommand(message, args);
+        break;
+      case 'teams':
+        await handleTeamsCommand(message, args);
         break;
       case 'english':
         await handleEnglishCommand(message, args);
