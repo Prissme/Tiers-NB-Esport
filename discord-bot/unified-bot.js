@@ -1576,6 +1576,131 @@ async function handleEloCommand(message) {
   await message.reply({ embeds: [embed] });
 }
 
+async function handleAchievementsCommand(message) {
+  const mention = message.mentions.users.first();
+  const targetId = mention ? mention.id : message.author.id;
+  const targetUser = mention || message.author;
+
+  let player;
+  try {
+    player = await fetchPlayerByDiscordId(targetId);
+  } catch (err) {
+    errorLog('Failed to fetch player achievements:', err);
+    await message.reply({
+      content: localizeText({
+        fr: 'Erreur lors de la récupération des succès.',
+        en: 'Error while fetching achievements.'
+      })
+    });
+    return;
+  }
+
+  if (!player) {
+    await message.reply({
+      content: localizeText({
+        fr: "Aucun profil trouvé pour ce joueur.",
+        en: 'No profile found for this player.'
+      })
+    });
+    return;
+  }
+
+  const siteRanking = await getSiteRankingInfo(targetId);
+  const currentRankLabel = siteRanking.rank
+    ? `#${siteRanking.rank}`
+    : localizeText({ fr: 'Non classé', en: 'Unranked' });
+  const currentTierLabel = siteRanking.tier
+    ? formatTierEmoji(siteRanking.tier)
+    : localizeText({ fr: 'Sans tier', en: 'No tier' });
+
+  const scrimWins = typeof player.scrim_wins === 'number' ? player.scrim_wins : 0;
+  const prissCupOpenWins =
+    typeof player.prisscup_open_wins === 'number' ? player.prisscup_open_wins : 0;
+  const prissCup1v1Wins =
+    typeof player.prisscup_1v1_wins === 'number' ? player.prisscup_1v1_wins : 0;
+
+  const peakElo = normalizeRating(player.peak_elo ?? player.solo_elo);
+  const peakMmr = normalizeRating(player.peak_mmr ?? player.mmr);
+  const peakRankLabel =
+    typeof player.peak_rank === 'number'
+      ? `#${player.peak_rank}`
+      : localizeText({ fr: 'Non enregistré', en: 'Not recorded' });
+  const peakTierLabel = player.peak_tier
+    ? formatTierEmoji(player.peak_tier)
+    : localizeText({ fr: 'Non enregistré', en: 'Not recorded' });
+
+  const achievementFields = [
+    {
+      name: localizeText({ fr: 'Victoires en scrim', en: 'Scrim wins' }),
+      value: `${scrimWins}`,
+      inline: true
+    }
+  ];
+
+  if (prissCupOpenWins > 0) {
+    achievementFields.push({
+      name: localizeText({ fr: 'Victoires PRISSCup Open', en: 'PRISSCup Open wins' }),
+      value: `${prissCupOpenWins}`,
+      inline: true
+    });
+  }
+
+  if (prissCup1v1Wins > 0) {
+    achievementFields.push({
+      name: localizeText({ fr: 'Victoires PRISSCup 1v1', en: 'PRISSCup 1v1 wins' }),
+      value: `${prissCup1v1Wins}`,
+      inline: true
+    });
+  }
+
+  achievementFields.push(
+    {
+      name: localizeText({ fr: 'Peak Elo', en: 'Peak Elo' }),
+      value: `${Math.round(peakElo)}`,
+      inline: true
+    },
+    {
+      name: localizeText({ fr: 'Peak MMR', en: 'Peak MMR' }),
+      value: `${Math.round(peakMmr)}`,
+      inline: true
+    },
+    {
+      name: localizeText({ fr: 'Peak rang', en: 'Peak rank' }),
+      value: peakRankLabel,
+      inline: true
+    },
+    {
+      name: localizeText({ fr: 'Peak tier', en: 'Peak tier' }),
+      value: peakTierLabel,
+      inline: true
+    },
+    {
+      name: localizeText({ fr: 'Rang actuel', en: 'Current rank' }),
+      value: currentRankLabel,
+      inline: true
+    },
+    {
+      name: localizeText({ fr: 'Tier actuel', en: 'Current tier' }),
+      value: currentTierLabel,
+      inline: true
+    }
+  );
+
+  const embed = new EmbedBuilder()
+    .setTitle(
+      localizeText(
+        { fr: 'Succès — {name}', en: 'Achievements — {name}' },
+        { name: player.name || localizeText({ fr: `Joueur ${targetId}`, en: `Player ${targetId}` }) }
+      )
+    )
+    .addFields(achievementFields)
+    .setColor(0xffbe0b)
+    .setThumbnail(targetUser.displayAvatarURL({ size: 256 }))
+    .setTimestamp(new Date());
+
+  await message.reply({ embeds: [embed] });
+}
+
 async function handleLeaderboardCommand(message, args) {
   const supabaseClient = createSupabaseClient();
   if (!supabaseClient) {
@@ -1915,6 +2040,7 @@ async function handleHelpCommand(message) {
           '`!roomleave` — Leave your custom room',
           '`!queue` — Show players waiting in the queue',
           '`!file` — Show players waiting in the queue (FR alias)',
+          '`!achievements [@player]` — Display player achievements and peaks',
           '`!elo [@player]` — Display Elo stats',
           '`!lb [count]` — Show the leaderboard (example: !lb 25)',
           '`!maps` — Show the current map rotation',
@@ -1930,6 +2056,7 @@ async function handleHelpCommand(message) {
           '`!roomleave` — Quitter ta room personnalisée',
           '`!queue` — Voir les joueurs en attente',
           '`!file` — Voir les joueurs en attente',
+          '`!achievements [@joueur]` — Afficher les succès et les peaks du joueur',
           '`!elo [@joueur]` — Afficher le classement Elo',
           '`!lb [nombre]` — Afficher le top classement (ex: !lb 25)',
           '`!maps` — Afficher la rotation des maps',
@@ -3216,6 +3343,9 @@ async function handleMessage(message) {
       case 'queue':
       case 'file':
         await handleQueueCommand(message, args);
+        break;
+      case 'achievements':
+        await handleAchievementsCommand(message, args);
         break;
       case 'elo':
         await handleEloCommand(message, args);
