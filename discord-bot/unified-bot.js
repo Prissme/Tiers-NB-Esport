@@ -2,6 +2,9 @@
 
 require('../ensure-fetch');
 
+const fs = require('fs');
+const path = require('path');
+
 const {
   ActionRowBuilder,
   ButtonBuilder,
@@ -37,6 +40,9 @@ const ROOM_TIER_ORDER = ['E', 'D', 'C', 'B', 'A', 'S'];
 const BEST_OF_VALUES = [1, 3, 5];
 const DEFAULT_MATCH_BEST_OF = normalizeBestOfInput(process.env.DEFAULT_MATCH_BEST_OF) || 1;
 const MAX_QUEUE_ELO_DIFFERENCE = 175;
+const PL_QUEUE_CHANNEL_ID = '1442580781527732334';
+const PL_DATA_FILE = path.join(__dirname, 'pl_data.json');
+const PL_MATCH_TIMEOUT_MS = 20 * 60 * 1000;
 
 const DISCORD_BOT_TOKEN = process.env.DISCORD_BOT_TOKEN;
 const DISCORD_GUILD_ID = process.env.DISCORD_GUILD_ID;
@@ -292,6 +298,7 @@ let client = null;
 let guild = null;
 let matchChannel = null;
 let logChannel = null;
+let plQueueChannel = null;
 let tierSyncInterval = null;
 let botStarted = false;
 
@@ -305,6 +312,317 @@ const queueEntries = new Map();
 const activeMatches = new Map();
 const pendingRoomForms = new Map();
 const customRooms = new Map();
+
+// ===== PL Queue System START =====
+const DEFAULT_PL_DATA = {
+  queue: {},
+  activeMatches: {},
+  queueMessageIdByGuild: {}
+};
+
+let plData = { ...DEFAULT_PL_DATA };
+const plMatchTimers = new Map();
+
+async function ensurePLQueueChannel(guildContext) {
+  if (plQueueChannel && plQueueChannel.id === PL_QUEUE_CHANNEL_ID) {
+    return plQueueChannel;
+  }
+
+  if (!guildContext?.channels?.fetch) {
+    return plQueueChannel;
+  }
+
+  try {
+    const fetched = await guildContext.channels.fetch(PL_QUEUE_CHANNEL_ID);
+    if (fetched?.isTextBased()) {
+      plQueueChannel = fetched;
+    }
+  } catch (err) {
+    warn('Unable to fetch PL queue channel dynamically:', err?.message || err);
+  }
+
+  return plQueueChannel;
+}
+
+function loadPLData() {
+  try {
+    if (!fs.existsSync(PL_DATA_FILE)) {
+      savePLData(DEFAULT_PL_DATA);
+      plData = { ...DEFAULT_PL_DATA };
+      return;
+    }
+
+    const raw = fs.readFileSync(PL_DATA_FILE, 'utf8');
+    const parsed = JSON.parse(raw);
+    plData = {
+      queue: parsed.queue || {},
+      activeMatches: parsed.activeMatches || {},
+      queueMessageIdByGuild: parsed.queueMessageIdByGuild || {}
+    };
+  } catch (err) {
+    warn('Failed to load PL data, using defaults:', err?.message || err);
+    plData = { ...DEFAULT_PL_DATA };
+  }
+}
+
+function savePLData(data = plData) {
+  try {
+    fs.writeFileSync(PL_DATA_FILE, JSON.stringify(data, null, 2), 'utf8');
+  } catch (err) {
+    errorLog('Failed to save PL data:', err);
+  }
+}
+
+function getPLQueue(guildId) {
+  if (!plData.queue[guildId]) {
+    plData.queue[guildId] = [];
+  }
+  return plData.queue[guildId];
+}
+
+async function sendOrUpdateQueueMessage(guildContext, channel) {
+  if (!guildContext) {
+    return null;
+  }
+
+  const targetChannel = channel?.isTextBased() ? channel : await ensurePLQueueChannel(guildContext);
+  if (!targetChannel?.isTextBased()) {
+    return null;
+  }
+
+  const queue = getPLQueue(guildContext.id);
+  const descriptionFr = `🔁 File PL : **${queue.length}/6** joueurs\nCliquez sur Rejoindre la file pour entrer anonymement.`;
+  const descriptionEn = `🔁 PL Queue : **${queue.length}/6** players\nClick Join queue to enter anonymously.`;
+
+  const embed = new EmbedBuilder()
+    .setTitle('Power League')
+    .setDescription(`${descriptionFr}\n\n${descriptionEn}`)
+    .setColor(0x3498db)
+    .setTimestamp(new Date());
+
+  const components = [
+    new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId('pl_queue_join')
+        .setLabel('Rejoindre la file / Join queue')
+        .setStyle(ButtonStyle.Success),
+      new ButtonBuilder()
+        .setCustomId('pl_queue_leave')
+        .setLabel('Quitter la file / Leave queue')
+        .setStyle(ButtonStyle.Secondary)
+    )
+  ];
+
+  const storedMessageId = plData.queueMessageIdByGuild[guildContext.id];
+  let queueMessage = null;
+
+  if (storedMessageId) {
+    try {
+      queueMessage = await targetChannel.messages.fetch(storedMessageId);
+      await queueMessage.edit({ embeds: [embed], components });
+    } catch (err) {
+      warn('Unable to edit existing PL queue message, creating a new one:', err?.message || err);
+      queueMessage = null;
+    }
+  }
+
+  if (!queueMessage) {
+    queueMessage = await targetChannel.send({ embeds: [embed], components });
+    plData.queueMessageIdByGuild[guildContext.id] = queueMessage.id;
+    savePLData();
+  }
+
+  return queueMessage;
+}
+
+async function addPlayerToPLQueue(userId, guildContext) {
+  const queue = getPLQueue(guildContext.id);
+  if (queue.includes(userId)) {
+    return { added: false, reason: 'already' };
+  }
+
+  queue.push(userId);
+  savePLData();
+  await sendOrUpdateQueueMessage(guildContext, plQueueChannel);
+  return { added: true };
+}
+
+async function removePlayerFromPLQueue(userId, guildContext) {
+  const queue = getPLQueue(guildContext.id);
+  const index = queue.indexOf(userId);
+  if (index === -1) {
+    return { removed: false };
+  }
+  queue.splice(index, 1);
+  savePLData();
+  await sendOrUpdateQueueMessage(guildContext, plQueueChannel);
+  return { removed: true };
+}
+
+function schedulePLTimeout(messageId, remainingMs) {
+  if (plMatchTimers.has(messageId)) {
+    clearTimeout(plMatchTimers.get(messageId));
+  }
+
+  const timer = setTimeout(() => {
+    handlePLMatchTimeout(messageId).catch((err) => errorLog('PL timeout failed:', err));
+  }, remainingMs);
+
+  plMatchTimers.set(messageId, timer);
+}
+
+async function handlePLMatchTimeout(messageId) {
+  const matchInfo = plData.activeMatches[messageId];
+  if (!matchInfo || matchInfo.alreadyResolved) {
+    return;
+  }
+
+  const guildContext = guild && guild.id === matchInfo.guildId ? guild : null;
+  let channel = matchChannel?.isTextBased()
+    ? matchChannel
+    : plQueueChannel?.guild?.id === matchInfo.guildId
+      ? plQueueChannel
+      : null;
+  if (!channel && guildContext) {
+    channel = await ensurePLQueueChannel(guildContext);
+  }
+
+  if (channel?.isTextBased()) {
+    await channel.send({
+      content:
+        '⏰ Match annulé (20 minutes écoulées, aucun résultat). Joueurs renvoyés en file.\n⏰ Match cancelled (20 minutes passed, no result). Returning players to queue.'
+    });
+  }
+
+  const queue = getPLQueue(matchInfo.guildId);
+  matchInfo.players.forEach((playerId) => {
+    if (!queue.includes(playerId)) {
+      queue.push(playerId);
+    }
+  });
+
+  delete plData.activeMatches[messageId];
+  savePLData();
+  await sendOrUpdateQueueMessage(guildContext || guild, plQueueChannel);
+  await processPLQueue();
+}
+
+async function handlePLMatchResolved(messageId) {
+  if (plMatchTimers.has(messageId)) {
+    clearTimeout(plMatchTimers.get(messageId));
+    plMatchTimers.delete(messageId);
+  }
+
+  const matchInfo = plData.activeMatches[messageId];
+  if (!matchInfo) {
+    return;
+  }
+
+  matchInfo.alreadyResolved = true;
+  delete plData.activeMatches[messageId];
+  savePLData();
+}
+
+async function processPLQueue() {
+  if (!guild) {
+    return;
+  }
+
+  const channel = await ensurePLQueueChannel(guild);
+  if (!channel?.isTextBased()) {
+    return;
+  }
+  plQueueChannel = channel;
+
+  const queue = getPLQueue(guild.id);
+
+  while (queue.length >= MATCH_SIZE) {
+    const participantsIds = queue.splice(0, MATCH_SIZE);
+    const participants = [];
+
+    for (const playerId of participantsIds) {
+      let member = null;
+      try {
+        member = await guild.members.fetch(playerId);
+      } catch (err) {
+        warn(`Unable to fetch member ${playerId} for PL match:`, err?.message || err);
+      }
+
+      if (!member) {
+        continue;
+      }
+
+      let playerRecord = null;
+      try {
+        playerRecord = await getOrCreatePlayer(member.id, member.displayName || member.user.username);
+      } catch (err) {
+        warn('Unable to fetch player record for PL queue:', err?.message || err);
+        continue;
+      }
+
+      participants.push(buildQueueEntry(member, playerRecord));
+    }
+
+    if (participants.length < MATCH_SIZE) {
+      participantsIds.forEach((playerId) => {
+        if (!queue.includes(playerId)) {
+          queue.push(playerId);
+        }
+      });
+      savePLData();
+      await sendOrUpdateQueueMessage(guild, plQueueChannel);
+      break;
+    }
+
+    try {
+      const state = await startMatch(participants, matchChannel || plQueueChannel);
+      if (state?.messageId) {
+        plData.activeMatches[state.messageId] = {
+          guildId: guild.id,
+          players: participantsIds,
+          createdAt: Date.now(),
+          alreadyResolved: false
+        };
+        savePLData();
+        schedulePLTimeout(state.messageId, PL_MATCH_TIMEOUT_MS);
+      }
+    } catch (err) {
+      errorLog('Failed to create PL match:', err);
+      participantsIds.forEach((playerId) => {
+        if (!queue.includes(playerId)) {
+          queue.push(playerId);
+        }
+      });
+      savePLData();
+      await sendOrUpdateQueueMessage(guild, plQueueChannel);
+      break;
+    }
+  }
+
+  savePLData();
+  await sendOrUpdateQueueMessage(guild, plQueueChannel);
+}
+
+async function restorePLState() {
+  loadPLData();
+
+  if (guild && plQueueChannel?.isTextBased()) {
+    await sendOrUpdateQueueMessage(guild, plQueueChannel);
+  }
+
+  const activeEntries = Object.entries(plData.activeMatches);
+  for (const [messageId, matchInfo] of activeEntries) {
+    const elapsed = Date.now() - (matchInfo.createdAt || 0);
+    const remaining = PL_MATCH_TIMEOUT_MS - elapsed;
+
+    if (remaining <= 0) {
+      await handlePLMatchTimeout(messageId);
+    } else {
+      schedulePLTimeout(messageId, remaining);
+    }
+  }
+}
+// ===== PL Queue System END =====
 
 const LANGUAGE_FR = 'fr';
 const LANGUAGE_EN = 'en';
@@ -1293,7 +1611,35 @@ async function handleRoomLeaveCommand(message) {
   });
 }
 
+async function handlePLJoinCommand(message) {
+  if (!message.guild || message.guild.id !== DISCORD_GUILD_ID) {
+    return;
+  }
+
+  const joinResult = await addPlayerToPLQueue(message.author.id, message.guild);
+  await processPLQueue();
+
+  const replyContent = joinResult.added
+    ? 'Tu as rejoint la file PL. (You joined the PL queue.)'
+    : 'Tu es déjà dans la file PL. (You are already in the PL queue.)';
+
+  try {
+    await message.author.send(replyContent);
+  } catch (err) {
+    warn('Unable to send PL join DM:', err?.message || err);
+  }
+
+  if (message.deletable) {
+    await message.delete().catch(() => null);
+  }
+}
+
 async function handleJoinCommand(message, args) {
+  if (message.channelId === PL_QUEUE_CHANNEL_ID) {
+    await handlePLJoinCommand(message);
+    return;
+  }
+
   const mentionedUser = message.mentions.users.first();
 
   if (mentionedUser) {
@@ -2398,6 +2744,8 @@ async function startMatch(participants, fallbackChannel) {
       })
     ].join('\n')
   );
+
+  return state;
 }
 
 async function updateMatchRecord(matchId, payload) {
@@ -2571,6 +2919,50 @@ async function applyMatchOutcome(state, outcome, userId) {
 
 async function handleInteraction(interaction) {
   if (interaction.isButton()) {
+    if (interaction.customId === 'pl_queue_join') {
+      if (!interaction.guild || interaction.guild.id !== DISCORD_GUILD_ID) {
+        return;
+      }
+
+      const joinResult = await addPlayerToPLQueue(interaction.user.id, interaction.guild);
+      if (!joinResult.added) {
+        await interaction.reply({
+          content:
+            'Tu es déjà dans la file PL. (You are already in the PL queue.)',
+          ephemeral: true
+        });
+        return;
+      }
+
+      await processPLQueue();
+      await interaction.reply({
+        content: 'Tu as rejoint la file PL. (You joined the PL queue.)',
+        ephemeral: true
+      });
+      return;
+    }
+
+    if (interaction.customId === 'pl_queue_leave') {
+      if (!interaction.guild || interaction.guild.id !== DISCORD_GUILD_ID) {
+        return;
+      }
+
+      const leaveResult = await removePlayerFromPLQueue(interaction.user.id, interaction.guild);
+      if (!leaveResult.removed) {
+        await interaction.reply({
+          content: 'Tu n\'es pas dans la file PL. (You are not in the PL queue.)',
+          ephemeral: true
+        });
+        return;
+      }
+
+      await interaction.reply({
+        content: 'Tu as quitté la file PL. (You left the PL queue.)',
+        ephemeral: true
+      });
+      return;
+    }
+
     const [prefix, action, requestId] = interaction.customId.split(':');
 
     if (prefix === 'room' && action === 'open') {
@@ -2783,6 +3175,7 @@ async function handleInteraction(interaction) {
 
       matchState.resolved = true;
       activeMatches.delete(matchState.matchId);
+      await handlePLMatchResolved(matchState.messageId);
 
       await interaction.editReply({
         embeds: [buildMatchEmbed(matchState, summary)],
@@ -3291,6 +3684,17 @@ async function onReady(readyClient) {
   }
 
   try {
+    plQueueChannel = await readyClient.channels.fetch(PL_QUEUE_CHANNEL_ID);
+    if (!plQueueChannel?.isTextBased()) {
+      warn(`Configured PL queue channel ${PL_QUEUE_CHANNEL_ID} is not text-based.`);
+      plQueueChannel = null;
+    }
+  } catch (err) {
+    warn(`Unable to fetch PL queue channel ${PL_QUEUE_CHANNEL_ID}:`, err.message);
+    plQueueChannel = null;
+  }
+
+  try {
     logChannel = await readyClient.channels.fetch(LOG_CHANNEL_ID);
     if (!logChannel?.isTextBased()) {
       warn(`Configured log channel ${LOG_CHANNEL_ID} is not text-based.`);
@@ -3306,6 +3710,9 @@ async function onReady(readyClient) {
   tierSyncInterval = setInterval(() => {
     syncTiersWithRoles().catch((err) => errorLog('Tier sync failed:', err));
   }, TIER_SYNC_INTERVAL_MS);
+
+  await restorePLState();
+  await processPLQueue();
 }
 
 async function handleMessage(message) {
