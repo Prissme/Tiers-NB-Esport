@@ -302,10 +302,7 @@ let plQueueChannel = null;
 let tierSyncInterval = null;
 let botStarted = false;
 
-const QUEUE_CONFIGS = [
-  { maxEloDifference: MAX_QUEUE_ELO_DIFFERENCE },
-  { maxEloDifference: null }
-];
+const QUEUE_CONFIGS = [{ maxEloDifference: null }];
 const QUEUE_COUNT = QUEUE_CONFIGS.length;
 const matchQueues = Array.from({ length: QUEUE_COUNT }, () => []);
 const queueEntries = new Map();
@@ -1698,11 +1695,11 @@ async function handleJoinCommand(message, args) {
   const entry = buildQueueEntry(member, playerRecord);
   const requestedQueueIndex = args.length ? Number.parseInt(args[0], 10) - 1 : null;
 
-  if (requestedQueueIndex != null && (Number.isNaN(requestedQueueIndex) || requestedQueueIndex < 0 || requestedQueueIndex >= QUEUE_COUNT)) {
+  if (requestedQueueIndex != null && (Number.isNaN(requestedQueueIndex) || requestedQueueIndex !== 0)) {
     await message.reply({
       content: localizeText({
-        fr: `Numéro de file invalide. Choisissez entre 1 et ${QUEUE_COUNT}.`,
-        en: `Invalid queue number. Choose between 1 and ${QUEUE_COUNT}.`
+        fr: 'Il n\'y a qu\'une seule file de matchmaking.',
+        en: 'There is only one matchmaking queue.'
       })
     });
     return;
@@ -1754,10 +1751,10 @@ async function handleJoinCommand(message, args) {
         {
           fr: `❌ L'écart Elo dépasse la limite de la file ${targetQueueIndex + 1} (max ${
             targetQueueConfig.maxEloDifference
-          }). Utilise \`!join 2\` pour une file sans limite.`,
+          }).`,
           en: `❌ Elo gap exceeds queue ${targetQueueIndex + 1}'s limit (max ${
             targetQueueConfig.maxEloDifference
-          }). Use \`!join 2\` for the unlimited queue.`
+          }).`
         }
       )
     });
@@ -1767,13 +1764,14 @@ async function handleJoinCommand(message, args) {
   targetQueue.push(entry);
   queueEntries.set(member.id, { entry, queueIndex: targetQueueIndex });
 
+  const queueSize = targetQueue.length;
   await message.reply({
     content: localizeText(
       {
-        fr: '✅ {name} a rejoint la file {queue}.\n{status}',
-        en: '✅ {name} joined queue {queue}.\n{status}'
+        fr: '✅ Tu as rejoint la file {queue}. ({count}/{size} joueurs en attente)',
+        en: '✅ You joined queue {queue}. ({count}/{size} players waiting)'
       },
-      { name: entry.displayName, queue: targetQueueIndex + 1, status: formatQueueStatus() }
+      { queue: targetQueueIndex + 1, count: queueSize, size: MATCH_SIZE }
     )
   });
 
@@ -2380,7 +2378,7 @@ async function handleHelpCommand(message) {
   const commands =
     currentLanguage === LANGUAGE_EN
       ? [
-          '`!join [queueNumber|@leader]` — Join the closest Elo queue, pick a queue (1 or 2), or join a mentioned leader\'s room',
+          '`!join [@leader]` — Join the matchmaking queue or a mentioned leader\'s room',
           '`!leave` — Leave the queue',
           '`!room` — View the custom room you joined',
           '`!roomleave` — Leave your custom room',
@@ -2396,7 +2394,7 @@ async function handleHelpCommand(message) {
           '`!help` — Display this help'
         ]
       : [
-          '`!join [numéro_de_file|@chef]` — Rejoindre la file la plus proche de ton Elo, choisir la file 1 ou 2, ou rejoindre la room du joueur mentionné',
+          '`!join [@chef]` — Rejoindre la file de matchmaking ou la room du joueur mentionné',
           '`!leave` — Quitter la file d\'attente',
           '`!room` — Voir la room personnalisée que tu as rejointe',
           '`!roomleave` — Quitter ta room personnalisée',
