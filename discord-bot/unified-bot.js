@@ -2081,12 +2081,29 @@ async function handleJoinCommand(message, args) {
 }
 
 async function handleLeaveCommand(message) {
-  if (message.channelId === PL_QUEUE_CHANNEL_ID && message.guild?.id === DISCORD_GUILD_ID) {
-    await handlePLLeaveCommand(message);
-    return;
+  const memberId = message.author.id;
+
+  if (message.guild?.id === DISCORD_GUILD_ID) {
+    if (message.channelId === PL_QUEUE_CHANNEL_ID) {
+      await handlePLLeaveCommand(message);
+      return;
+    }
+
+    await ensureRuntimePlQueueLoaded(message.guild.id);
+
+    if (isInPLQueue(message.guild.id, memberId)) {
+      await ensurePLQueueChannel(message.guild);
+      const leaveResult = await removePlayerFromPLQueue(memberId, message.guild);
+
+      const replyContent = leaveResult.removed
+        ? 'Tu as quitté la file PL. (You left the PL queue.)'
+        : "Tu n'es pas dans la file PL. (You are not in the PL queue.)";
+
+      await message.reply({ content: replyContent });
+      return;
+    }
   }
 
-  const memberId = message.author.id;
   const queueEntry = queueEntries.get(memberId);
 
   if (!queueEntry) {
@@ -2623,21 +2640,21 @@ function formatPrisscupTeamLine(team, index) {
     .map((id) => `<@${id}>`)
     .join(', ');
 
-  return `${badge} **${sanitizePrisscupTeamName(team.team_name)}** — ${teammates || 'Équipe à compléter'}`;
+  return `${badge} **${sanitizePrisscupTeamName(team.team_name)}** — ${teammates || 'Team to complete'}`;
 }
 
 function buildPrisscupEmbed(teams = []) {
   const embed = new EmbedBuilder()
-    .setTitle('PrissCup 3v3 – Inscriptions')
+    .setTitle('PrissCup 3v3 — Registration')
     .setColor(0x0b132b)
     .setTimestamp(new Date())
-    .setFooter({ text: 'Clique sur Infos pour les règles complètes.' });
+    .setFooter({ text: 'Click Info for the full rules.' });
 
   const teamLines = Array.isArray(teams) && teams.length
     ? teams.map((team, index) => formatPrisscupTeamLine(team, index))
-    : ['Aucune équipe inscrite pour le moment.'];
+    : ['No teams registered yet.'];
 
-  embed.addFields({ name: `Équipes (${teamLines.length})`, value: teamLines.join('\n') });
+  embed.addFields({ name: `Teams (${teamLines.length})`, value: teamLines.join('\n') });
 
   return embed;
 }
@@ -2679,15 +2696,15 @@ async function sendPrisscupEmbed(guildContext) {
   const row = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId('prisscup_register')
-      .setLabel("S'inscrire / Register")
+      .setLabel('Register')
       .setStyle(ButtonStyle.Primary),
     new ButtonBuilder()
       .setCustomId('prisscup_info')
-      .setLabel('Infos / Info')
+      .setLabel('Info')
       .setStyle(ButtonStyle.Secondary)
   );
 
-  const content = `🔗 Événement Discord : ${PRISSCUP_EVENT_URL}`;
+  const content = `Bonus Discord event (spoiler): ||${PRISSCUP_EVENT_URL}||`;
   const storedMessageId = prisscupData.messageIdByGuild[guildContext.id];
   let existingMessage = null;
 
@@ -2729,8 +2746,7 @@ async function handlePrissCup3v3Command(message) {
   const isAdmin = message.member?.permissions?.has(PermissionsBitField.Flags.Administrator);
   if (!isAdmin) {
     await message.reply({
-      content:
-        'Seuls les administrateurs peuvent envoyer l\'embed PrissCup. / Only administrators can post the PrissCup embed.',
+      content: 'Only administrators can post the PrissCup embed.',
       allowedMentions: { repliedUser: false }
     });
     return;
@@ -2738,7 +2754,7 @@ async function handlePrissCup3v3Command(message) {
 
   await sendPrisscupEmbed(message.guild);
   await message.reply({
-    content: 'Embed PrissCup envoyé dans le salon dédié.',
+    content: 'PrissCup embed posted in the dedicated channel.',
     allowedMentions: { repliedUser: false }
   });
 }
@@ -3479,11 +3495,12 @@ async function handleInteraction(interaction) {
         ephemeral: true,
         embeds: [
           new EmbedBuilder()
-            .setTitle('PrissCup 3v3 – Infos / Info')
+            .setTitle('PrissCup 3v3 — Info')
             .setDescription(
               [
-                '🇫🇷 3v3 compétitif. Maps annoncées sur le serveur. Ponctualité obligatoire : 10 minutes de retard = DQ.',
-                '🇬🇧 Competitive 3v3. Maps announced on the server. Be on time: 10 minutes late = DQ.'
+                'Competitive 3v3. Maps announced on the server.',
+                'Be on time: 10 minutes late = DQ.',
+                'Check Discord for maps and schedule.'
               ].join('\n')
             )
             .setColor(0x0b132b)
@@ -3502,11 +3519,11 @@ async function handleInteraction(interaction) {
           .setCustomId('prisscup_select_mates')
           .setMinValues(2)
           .setMaxValues(2)
-          .setPlaceholder('Sélectionne 2 mates / Select 2 teammates')
+          .setPlaceholder('Select 2 teammates')
       );
 
       await interaction.reply({
-        content: 'Sélectionne tes 2 mates pour la PrissCup 3v3. (Select your 2 teammates.)',
+        content: 'Pick your 2 teammates for PrissCup 3v3.',
         components: [row],
         ephemeral: true
       });
