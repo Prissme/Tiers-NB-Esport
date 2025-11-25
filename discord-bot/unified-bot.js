@@ -14,6 +14,7 @@ const {
   Partials,
   PermissionsBitField,
   StringSelectMenuBuilder,
+  UserSelectMenuBuilder,
   TextInputBuilder,
   TextInputStyle
 } = require('discord.js');
@@ -40,6 +41,7 @@ const PL_QUEUE_CHANNEL_ID = '1442580781527732334';
 const PL_MATCH_TIMEOUT_MS = 20 * 60 * 1000;
 const PRISSCUP_ANNOUNCE_CHANNEL_ID = '1440767483438170264';
 const PRISSCUP_EVENT_URL = 'https://discord.gg/aeqGMNvTm?event=1442798624588435517';
+const PRISSCUP_EVENT_NAME = 'PrissCup 3v3';
 
 const DISCORD_BOT_TOKEN = process.env.DISCORD_BOT_TOKEN;
 const DISCORD_GUILD_ID = process.env.DISCORD_GUILD_ID;
@@ -306,6 +308,7 @@ const queueEntries = new Map();
 const activeMatches = new Map();
 const pendingRoomForms = new Map();
 const customRooms = new Map();
+const pendingPrisscupTeams = new Map();
 
 // ===== PL Queue System START =====
 const DEFAULT_PL_DATA = {
@@ -351,6 +354,23 @@ function getPLQueue(guildId) {
     plQueueCache.set(guildId, []);
   }
   return plQueueCache.get(guildId);
+}
+
+async function ensureRuntimePlQueueLoaded(guildId) {
+  if (!guildId) {
+    return [];
+  }
+
+  if (!plQueueCache.has(guildId)) {
+    await loadRuntimePlQueue(guildId);
+  }
+
+  return getPLQueue(guildId);
+}
+
+function isInPLQueue(guildId, userId) {
+  const queue = getPLQueue(guildId);
+  return queue.includes(userId);
 }
 
 async function loadRuntimePlQueue(guildId) {
@@ -618,12 +638,14 @@ async function sendOrUpdateQueueMessage(guildContext, channel) {
 }
 
 async function addPlayerToPLQueue(userId, guildContext) {
+  await ensureRuntimePlQueueLoaded(guildContext.id);
   const result = await addToRuntimePlQueue(guildContext.id, userId);
   await sendOrUpdateQueueMessage(guildContext, plQueueChannel);
   return result;
 }
 
 async function removePlayerFromPLQueue(userId, guildContext) {
+  await ensureRuntimePlQueueLoaded(guildContext.id);
   const result = await removeFromRuntimePlQueue(guildContext.id, userId);
   await sendOrUpdateQueueMessage(guildContext, plQueueChannel);
   return result;
@@ -1806,6 +1828,27 @@ async function handlePLJoinCommand(message) {
   }
 }
 
+async function handlePLLeaveCommand(message) {
+  if (!message.guild || message.guild.id !== DISCORD_GUILD_ID) {
+    return;
+  }
+
+  const leaveResult = await removePlayerFromPLQueue(message.author.id, message.guild);
+  const replyContent = leaveResult.removed
+    ? 'Tu as quitté la file PL. (You left the PL queue.)'
+    : "Tu n'es pas dans la file PL. (You are not in the PL queue.)";
+
+  try {
+    await message.author.send(replyContent);
+  } catch (err) {
+    warn('Unable to send PL leave DM:', err?.message || err);
+  }
+
+  if (message.deletable) {
+    await message.delete().catch(() => null);
+  }
+}
+
 async function handleJoinCommand(message, args) {
   if (message.channelId === PL_QUEUE_CHANNEL_ID) {
     await handlePLJoinCommand(message);
@@ -1977,6 +2020,11 @@ async function handleJoinCommand(message, args) {
 }
 
 async function handleLeaveCommand(message) {
+  if (message.channelId === PL_QUEUE_CHANNEL_ID && message.guild?.id === DISCORD_GUILD_ID) {
+    await handlePLLeaveCommand(message);
+    return;
+  }
+
   const memberId = message.author.id;
   const queueEntry = queueEntries.get(memberId);
 
@@ -2010,6 +2058,15 @@ async function handleLeaveCommand(message) {
 }
 
 async function handleQueueCommand(message) {
+  if (message.channelId === PL_QUEUE_CHANNEL_ID && message.guild?.id === DISCORD_GUILD_ID) {
+    await ensureRuntimePlQueueLoaded(message.guild.id);
+    const queue = getPLQueue(message.guild.id);
+    await message.reply({
+      content: `🔁 File PL : **${queue.length}/${MATCH_SIZE}**`
+    });
+    return;
+  }
+
   await message.reply({ content: formatQueueStatus() });
 }
 
@@ -2460,6 +2517,38 @@ async function handlePingCommand(message) {
   }
 }
 
+// ==== PRISSCUP 3V3 REGISTRATION START ====
+function sanitizePrisscupTeamName(name) {
+  if (!name) {
+    return 'Team';
+  }
+
+  const cleaned = name.replace(/[^\w\s-]/g, '').trim();
+  const trimmed = cleaned.slice(0, 25) || 'Team';
+  return trimmed;
+}
+
+function formatPrisscupRoleName(name) {
+  return `TEAM | ${sanitizePrisscupTeamName(name)}`;
+}
+
+async function isUserRegisteredForPrisscup(guildId, eventName, userId) {
+  const { data, error } = await supabase
+    .from('prisscup_teams')
+    .select('id')
+    .eq('guild_id', guildId)
+    .eq('event_name', eventName)
+    .or(`leader_id.eq.${userId},mate1_id.eq.${userId},mate2_id.eq.${userId}`)
+    .limit(1);
+
+  if (error) {
+    warn('Unable to verify PrissCup registration:', error.message);
+    return false;
+  }
+
+  return Array.isArray(data) && data.length > 0;
+}
+
 async function sendPrisscupEmbed(guildContext) {
   if (!guildContext) {
     return null;
@@ -2475,18 +2564,20 @@ async function sendPrisscupEmbed(guildContext) {
   }
 
   const embed = new EmbedBuilder()
-    .setTitle('PrissCup – Tournoi compétitif Null\'s Brawl')
+    .setTitle('PrissCup 3v3 – Tournoi compétitif Null\'s Brawl')
     .setDescription(
       [
-        '🇫🇷 Tournoi PrissCup 3v3 organisé par Prissme TV.',
-        '• Format : 3v3 compétitif (maps / règles annoncées sur le serveur)',
-        "• Inscription : cliquez sur le bouton ci-dessous ou sur l'événement Discord.",
+        '🇫🇷',
+        '- Tournoi 3v3 compétitif organisé par Prissme TV.',
+        '- Format : 3v3 (maps / règles annoncées sur le serveur).',
+        '- Inscription par équipe de 3 joueurs.',
         '',
-        '🇬🇧 PrissCup 3v3 tournament hosted by Prissme TV.',
-        '• Format: competitive 3v3 (maps / rules announced on the server)',
-        '• Registration: click the button below or the Discord event link.',
+        '🇬🇧',
+        '- Competitive 3v3 tournament hosted by Prissme TV.',
+        '- Format: 3v3 (maps / rules announced on the server).',
+        '- Registration per team of 3 players.',
         '',
-        '🔗 Événement / Event:',
+        '🔗 Événement Discord / Discord Event:',
         PRISSCUP_EVENT_URL
       ].join('\n')
     )
@@ -2495,15 +2586,19 @@ async function sendPrisscupEmbed(guildContext) {
 
   const row = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
-      .setLabel("S'inscrire à la PrissCup")
-      .setStyle(ButtonStyle.Link)
-      .setURL(PRISSCUP_EVENT_URL)
+      .setCustomId('prisscup_register')
+      .setLabel("S'inscrire / Register")
+      .setStyle(ButtonStyle.Primary),
+    new ButtonBuilder()
+      .setCustomId('prisscup_info')
+      .setLabel('Infos / Info')
+      .setStyle(ButtonStyle.Secondary)
   );
 
   return channel.send({ embeds: [embed], components: [row] });
 }
 
-async function handlePrissCupCommand(message) {
+async function handlePrissCup3v3Command(message) {
   const isAdmin = message.member?.permissions?.has(PermissionsBitField.Flags.Administrator);
   if (!isAdmin) {
     await message.reply({
@@ -2520,6 +2615,65 @@ async function handlePrissCupCommand(message) {
     allowedMentions: { repliedUser: false }
   });
 }
+
+async function registerPrisscupTeam(guildContext, leaderId, mateIds, teamName) {
+  if (!guildContext) {
+    throw new Error('Guild context missing for PrissCup registration.');
+  }
+
+  const participantIds = [leaderId, ...mateIds];
+  for (const participantId of participantIds) {
+    if (await isUserRegisteredForPrisscup(guildContext.id, PRISSCUP_EVENT_NAME, participantId)) {
+      return { success: false, reason: 'already_registered' };
+    }
+  }
+
+  const roleName = formatPrisscupRoleName(teamName);
+  let role = null;
+
+  try {
+    role = await guildContext.roles.create({
+      name: roleName,
+      reason: 'PrissCup 3v3 team registration'
+    });
+  } catch (err) {
+    errorLog('Unable to create PrissCup team role:', err.message || err);
+    return { success: false, reason: 'role_creation_failed' };
+  }
+
+  const members = await Promise.all(
+    participantIds.map((id) => guildContext.members.fetch(id).catch(() => null))
+  );
+
+  if (members.some((member) => !member)) {
+    warn('One or more PrissCup participants are not in the guild.');
+  }
+
+  await Promise.all(
+    members
+      .filter(Boolean)
+      .map((member) => member.roles.add(role, 'PrissCup 3v3 team registration').catch(() => null))
+  );
+
+  const { error } = await supabase.from('prisscup_teams').insert({
+    guild_id: guildContext.id,
+    event_name: PRISSCUP_EVENT_NAME,
+    leader_id: leaderId,
+    mate1_id: mateIds[0],
+    mate2_id: mateIds[1],
+    team_role_id: role.id,
+    team_name: sanitizePrisscupTeamName(teamName),
+    created_at: new Date().toISOString()
+  });
+
+  if (error) {
+    errorLog('Unable to save PrissCup team:', error.message || error);
+    return { success: false, reason: 'save_failed' };
+  }
+
+  return { success: true, role };
+}
+// ==== PRISSCUP 3V3 REGISTRATION END ====
 
 async function handleTeamsCommand(message) {
   const lines = ['📋 PRISS Cup – Teams', ''];
@@ -3193,6 +3347,47 @@ async function handleInteraction(interaction) {
   }
 
   if (interaction.isButton()) {
+    if (interaction.customId === 'prisscup_info') {
+      await interaction.reply({
+        ephemeral: true,
+        embeds: [
+          new EmbedBuilder()
+            .setTitle('PrissCup 3v3 – Infos / Info')
+            .setDescription(
+              [
+                '🇫🇷 3v3 compétitif. Maps annoncées sur le serveur. Ponctualité obligatoire : 10 minutes de retard = DQ.',
+                '🇬🇧 Competitive 3v3. Maps announced on the server. Be on time: 10 minutes late = DQ.'
+              ].join('\n')
+            )
+            .setColor(0xe67e22)
+        ]
+      });
+      return;
+    }
+
+    if (interaction.customId === 'prisscup_register') {
+      if (!interaction.guild || interaction.guild.id !== DISCORD_GUILD_ID) {
+        return;
+      }
+
+      const row = new ActionRowBuilder().addComponents(
+        new UserSelectMenuBuilder()
+          .setCustomId('prisscup_select_mates')
+          .setMinValues(2)
+          .setMaxValues(2)
+          .setPlaceholder('Sélectionne 2 mates / Select 2 teammates')
+      );
+
+      await interaction.reply({
+        content: 'Sélectionne tes 2 mates pour la PrissCup 3v3. (Select your 2 teammates.)',
+        components: [row],
+        ephemeral: true
+      });
+      return;
+    }
+  }
+
+  if (interaction.isButton()) {
     if (interaction.customId === 'pl_queue_join') {
       if (!interaction.guild || interaction.guild.id !== DISCORD_GUILD_ID) {
         return;
@@ -3234,6 +3429,11 @@ async function handleInteraction(interaction) {
         content: 'Tu as quitté la file PL. (You left the PL queue.)',
         ephemeral: true
       });
+      return;
+    }
+
+    if (interaction.customId === 'prisscup_team_name') {
+      // Handled in modal submit branch
       return;
     }
 
@@ -3634,7 +3834,126 @@ async function handleInteraction(interaction) {
     return;
   }
 
+  if (interaction.isUserSelectMenu() && interaction.customId === 'prisscup_select_mates') {
+    if (!interaction.guild || interaction.guild.id !== DISCORD_GUILD_ID) {
+      return;
+    }
+
+    if (!Array.isArray(interaction.values) || interaction.values.length !== 2) {
+      await interaction.reply({
+        content: 'Merci de sélectionner exactement 2 joueurs. / Please select exactly 2 players.',
+        ephemeral: true
+      });
+      return;
+    }
+
+    const leaderId = interaction.user.id;
+    const mateIds = interaction.values;
+    const uniqueIds = new Set([leaderId, ...mateIds]);
+
+    if (uniqueIds.size < 3) {
+      await interaction.reply({
+        content:
+          'Chaque joueur doit être unique. Merci de choisir 2 mates différents. / Each player must be unique, please pick two different teammates.',
+        ephemeral: true
+      });
+      return;
+    }
+
+    for (const participantId of uniqueIds) {
+      if (await isUserRegisteredForPrisscup(interaction.guild.id, PRISSCUP_EVENT_NAME, participantId)) {
+        await interaction.reply({
+          content:
+            'Un des joueurs est déjà inscrit dans une autre équipe. (One of the players is already registered in another team.)',
+          ephemeral: true
+        });
+        return;
+      }
+    }
+
+    pendingPrisscupTeams.set(leaderId, {
+      guildId: interaction.guild.id,
+      leaderId,
+      mateIds,
+      expiresAt: Date.now() + 5 * 60 * 1000
+    });
+
+    const modal = new ModalBuilder()
+      .setCustomId('prisscup_team_name')
+      .setTitle("Nom de l'équipe / Team name")
+      .addComponents(
+        new ActionRowBuilder().addComponents(
+          new TextInputBuilder()
+            .setCustomId('team_name')
+            .setLabel("Nom de l'équipe (Team name)")
+            .setStyle(TextInputStyle.Short)
+            .setRequired(true)
+            .setMaxLength(20)
+        )
+      );
+
+    await interaction.showModal(modal);
+    return;
+  }
+
   if (interaction.isModalSubmit()) {
+    if (interaction.customId === 'prisscup_team_name') {
+      const pending = pendingPrisscupTeams.get(interaction.user.id);
+
+      if (!pending || pending.expiresAt < Date.now()) {
+        pendingPrisscupTeams.delete(interaction.user.id);
+        await interaction.reply({
+          content:
+            'Sélection expirée ou introuvable. Merci de recommencer. / Selection expired or not found, please start again.',
+          ephemeral: true
+        });
+        return;
+      }
+
+      if (interaction.guild?.id !== pending.guildId) {
+        await interaction.reply({
+          content: 'Cette demande ne correspond pas à ce serveur. / This request does not match this server.',
+          ephemeral: true
+        });
+        return;
+      }
+
+      const teamName = interaction.fields.getTextInputValue('team_name');
+      const participantIds = [pending.leaderId, ...pending.mateIds];
+
+      for (const participantId of participantIds) {
+        if (await isUserRegisteredForPrisscup(interaction.guild.id, PRISSCUP_EVENT_NAME, participantId)) {
+          await interaction.reply({
+            content:
+              'Un des joueurs est déjà inscrit dans une autre équipe. (One of the players is already registered in another team.)',
+            ephemeral: true
+          });
+          pendingPrisscupTeams.delete(interaction.user.id);
+          return;
+        }
+      }
+
+      const registration = await registerPrisscupTeam(interaction.guild, pending.leaderId, pending.mateIds, teamName);
+      pendingPrisscupTeams.delete(interaction.user.id);
+
+      if (!registration.success) {
+        await interaction.reply({
+          content:
+            "Erreur lors de l'inscription de l'équipe. Merci de réessayer. / Error while registering the team. Please try again.",
+          ephemeral: true
+        });
+        return;
+      }
+
+      const matesMention = pending.mateIds.map((id) => `<@${id}>`).join(', ');
+
+      await interaction.reply({
+        content: `Ton équipe **${sanitizePrisscupTeamName(teamName)}** est inscrite à la PrissCup 3v3 ! (Your team **${sanitizePrisscupTeamName(teamName)}** is registered for PrissCup 3v3!)\n${matesMention}`,
+        ephemeral: true
+      });
+      return;
+    }
+
     const [prefix, action, requestId] = interaction.customId.split(':');
 
     if (prefix !== 'room' || action !== 'submit') {
@@ -4062,7 +4381,8 @@ async function handleMessage(message) {
         await handlePingCommand(message, args);
         break;
       case 'prisscup':
-        await handlePrissCupCommand(message, args);
+      case 'prisscup3v3':
+        await handlePrissCup3v3Command(message, args);
         break;
       case 'tiers':
         await handleTierSyncCommand(message, args);
