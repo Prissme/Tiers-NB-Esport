@@ -1,10 +1,6 @@
 'use strict';
 
 require('../ensure-fetch');
-
-const fs = require('fs');
-const path = require('path');
-
 const {
   ActionRowBuilder,
   ButtonBuilder,
@@ -41,8 +37,9 @@ const BEST_OF_VALUES = [1, 3, 5];
 const DEFAULT_MATCH_BEST_OF = normalizeBestOfInput(process.env.DEFAULT_MATCH_BEST_OF) || 1;
 const MAX_QUEUE_ELO_DIFFERENCE = 175;
 const PL_QUEUE_CHANNEL_ID = '1442580781527732334';
-const PL_DATA_FILE = path.join(__dirname, 'pl_data.json');
 const PL_MATCH_TIMEOUT_MS = 20 * 60 * 1000;
+const PRISSCUP_ANNOUNCE_CHANNEL_ID = '1440767483438170264';
+const PRISSCUP_EVENT_URL = 'https://discord.gg/aeqGMNvTm?event=1442798624588435517';
 
 const DISCORD_BOT_TOKEN = process.env.DISCORD_BOT_TOKEN;
 const DISCORD_GUILD_ID = process.env.DISCORD_GUILD_ID;
@@ -312,13 +309,21 @@ const customRooms = new Map();
 
 // ===== PL Queue System START =====
 const DEFAULT_PL_DATA = {
-  queue: {},
-  activeMatches: {},
   queueMessageIdByGuild: {}
 };
 
 let plData = { ...DEFAULT_PL_DATA };
+
+// === RUNTIME PL QUEUE (Supabase) ===
+const plQueueCache = new Map();
+// Table runtime_pl_queue expected columns:
+// guild_id (text), user_id (text), joined_at (timestamptz)
+
+// === RUNTIME ACTIVE MATCHES (Supabase) ===
+const runtimeActiveMatchesCache = new Map();
 const plMatchTimers = new Map();
+// Table runtime_active_matches expected columns:
+// message_id (text, PK), guild_id (text), players (jsonb), is_pl (boolean), status (text), created_at (timestamptz), timeout_at (timestamptz)
 
 async function ensurePLQueueChannel(guildContext) {
   if (plQueueChannel && plQueueChannel.id === PL_QUEUE_CHANNEL_ID) {
@@ -341,40 +346,203 @@ async function ensurePLQueueChannel(guildContext) {
   return plQueueChannel;
 }
 
-function loadPLData() {
-  try {
-    if (!fs.existsSync(PL_DATA_FILE)) {
-      savePLData(DEFAULT_PL_DATA);
-      plData = { ...DEFAULT_PL_DATA };
-      return;
-    }
-
-    const raw = fs.readFileSync(PL_DATA_FILE, 'utf8');
-    const parsed = JSON.parse(raw);
-    plData = {
-      queue: parsed.queue || {},
-      activeMatches: parsed.activeMatches || {},
-      queueMessageIdByGuild: parsed.queueMessageIdByGuild || {}
-    };
-  } catch (err) {
-    warn('Failed to load PL data, using defaults:', err?.message || err);
-    plData = { ...DEFAULT_PL_DATA };
-  }
-}
-
-function savePLData(data = plData) {
-  try {
-    fs.writeFileSync(PL_DATA_FILE, JSON.stringify(data, null, 2), 'utf8');
-  } catch (err) {
-    errorLog('Failed to save PL data:', err);
-  }
-}
-
 function getPLQueue(guildId) {
-  if (!plData.queue[guildId]) {
-    plData.queue[guildId] = [];
+  if (!plQueueCache.has(guildId)) {
+    plQueueCache.set(guildId, []);
   }
-  return plData.queue[guildId];
+  return plQueueCache.get(guildId);
+}
+
+async function loadRuntimePlQueue(guildId) {
+  const { data, error } = await supabase
+    .from('runtime_pl_queue')
+    .select('user_id')
+    .eq('guild_id', guildId)
+    .order('joined_at', { ascending: true });
+
+  if (error) {
+    warn('Unable to load runtime PL queue:', error.message);
+    plQueueCache.set(guildId, getPLQueue(guildId));
+    return getPLQueue(guildId);
+  }
+
+  const queue = (data || []).map((row) => row.user_id);
+  plQueueCache.set(guildId, queue);
+  return queue;
+}
+
+async function addToRuntimePlQueue(guildId, userId) {
+  const queue = getPLQueue(guildId);
+  if (queue.includes(userId)) {
+    return { added: false, reason: 'already' };
+  }
+
+  const { error } = await supabase
+    .from('runtime_pl_queue')
+    .insert({ guild_id: guildId, user_id: userId, joined_at: new Date().toISOString() });
+
+  if (error) {
+    errorLog('Unable to add player to runtime PL queue:', error.message);
+    return { added: false, reason: 'error' };
+  }
+
+  queue.push(userId);
+  plQueueCache.set(guildId, queue);
+  return { added: true };
+}
+
+async function removeFromRuntimePlQueue(guildId, userId) {
+  const queue = getPLQueue(guildId);
+  const index = queue.indexOf(userId);
+
+  if (index === -1) {
+    return { removed: false };
+  }
+
+  const { error } = await supabase
+    .from('runtime_pl_queue')
+    .delete()
+    .eq('guild_id', guildId)
+    .eq('user_id', userId);
+
+  if (error) {
+    errorLog('Unable to remove player from runtime PL queue:', error.message);
+    return { removed: false, reason: 'error' };
+  }
+
+  queue.splice(index, 1);
+  plQueueCache.set(guildId, queue);
+  return { removed: true };
+}
+
+async function removePlayersFromRuntimePlQueue(guildId, userIds = []) {
+  const queue = getPLQueue(guildId);
+  const remaining = queue.filter((id) => !userIds.includes(id));
+
+  const { error } = await supabase
+    .from('runtime_pl_queue')
+    .delete()
+    .eq('guild_id', guildId)
+    .in('user_id', userIds);
+
+  if (error) {
+    errorLog('Unable to bulk remove players from runtime PL queue:', error.message);
+  }
+
+  plQueueCache.set(guildId, remaining);
+  return remaining;
+}
+
+async function requeueRuntimePlPlayers(guildId, userIds = []) {
+  const queue = getPLQueue(guildId);
+  const toInsert = userIds.filter((id) => !queue.includes(id));
+
+  if (!toInsert.length) {
+    return queue;
+  }
+
+  const rows = toInsert.map((id) => ({
+    guild_id: guildId,
+    user_id: id,
+    joined_at: new Date().toISOString()
+  }));
+
+  const { error } = await supabase.from('runtime_pl_queue').insert(rows);
+
+  if (error) {
+    errorLog('Unable to requeue runtime PL players:', error.message);
+    return queue;
+  }
+
+  const updated = [...queue, ...toInsert];
+  plQueueCache.set(guildId, updated);
+  return updated;
+}
+
+async function getRuntimeMatchRecord(messageId) {
+  if (runtimeActiveMatchesCache.has(messageId)) {
+    return runtimeActiveMatchesCache.get(messageId);
+  }
+
+  const { data, error } = await supabase
+    .from('runtime_active_matches')
+    .select('*')
+    .eq('message_id', messageId)
+    .single();
+
+  if (error) {
+    warn('Unable to fetch runtime match record:', error.message);
+    return null;
+  }
+
+  runtimeActiveMatchesCache.set(messageId, data);
+  return data;
+}
+
+async function saveRuntimeActiveMatch(record) {
+  const payload = {
+    message_id: record.message_id,
+    guild_id: record.guild_id,
+    players: record.players,
+    is_pl: record.is_pl,
+    status: record.status || 'pending',
+    created_at: record.created_at || new Date().toISOString(),
+    timeout_at: record.timeout_at || null
+  };
+
+  const { error } = await supabase.from('runtime_active_matches').upsert(payload);
+
+  if (error) {
+    errorLog('Unable to persist runtime active match:', error.message);
+    return null;
+  }
+
+  runtimeActiveMatchesCache.set(record.message_id, payload);
+  return payload;
+}
+
+async function updateRuntimeActiveMatchStatus(messageId, status, extras = {}) {
+  const { error } = await supabase
+    .from('runtime_active_matches')
+    .update({ status, ...extras })
+    .eq('message_id', messageId);
+
+  if (error) {
+    warn('Unable to update runtime active match status:', error.message);
+    return null;
+  }
+
+  if (status === 'resolved' || status === 'timeout') {
+    runtimeActiveMatchesCache.delete(messageId);
+  } else {
+    const cached = runtimeActiveMatchesCache.get(messageId) || {};
+    runtimeActiveMatchesCache.set(messageId, { ...cached, status, ...extras });
+  }
+
+  return true;
+}
+
+async function loadPendingRuntimeMatches(guildId) {
+  if (!guildId) {
+    return [];
+  }
+
+  const { data, error } = await supabase
+    .from('runtime_active_matches')
+    .select('*')
+    .eq('guild_id', guildId)
+    .eq('status', 'pending');
+
+  if (error) {
+    warn('Unable to load pending runtime matches:', error.message);
+    return [];
+  }
+
+  (data || []).forEach((record) => {
+    runtimeActiveMatchesCache.set(record.message_id, record);
+  });
+
+  return data || [];
 }
 
 async function sendOrUpdateQueueMessage(guildContext, channel) {
@@ -423,8 +591,8 @@ async function sendOrUpdateQueueMessage(guildContext, channel) {
     }
   }
 
-  if (!queueMessage) {
-    const botId = client?.user?.id;
+    if (!queueMessage) {
+      const botId = client?.user?.id;
 
     if (botId) {
       try {
@@ -442,36 +610,23 @@ async function sendOrUpdateQueueMessage(guildContext, channel) {
       }
     }
 
-    queueMessage = await targetChannel.send({ embeds: [embed], components });
-    plData.queueMessageIdByGuild[guildContext.id] = queueMessage.id;
-    savePLData();
-  }
+      queueMessage = await targetChannel.send({ embeds: [embed], components });
+      plData.queueMessageIdByGuild[guildContext.id] = queueMessage.id;
+    }
 
   return queueMessage;
 }
 
 async function addPlayerToPLQueue(userId, guildContext) {
-  const queue = getPLQueue(guildContext.id);
-  if (queue.includes(userId)) {
-    return { added: false, reason: 'already' };
-  }
-
-  queue.push(userId);
-  savePLData();
+  const result = await addToRuntimePlQueue(guildContext.id, userId);
   await sendOrUpdateQueueMessage(guildContext, plQueueChannel);
-  return { added: true };
+  return result;
 }
 
 async function removePlayerFromPLQueue(userId, guildContext) {
-  const queue = getPLQueue(guildContext.id);
-  const index = queue.indexOf(userId);
-  if (index === -1) {
-    return { removed: false };
-  }
-  queue.splice(index, 1);
-  savePLData();
+  const result = await removeFromRuntimePlQueue(guildContext.id, userId);
   await sendOrUpdateQueueMessage(guildContext, plQueueChannel);
-  return { removed: true };
+  return result;
 }
 
 function schedulePLTimeout(messageId, remainingMs) {
@@ -487,15 +642,20 @@ function schedulePLTimeout(messageId, remainingMs) {
 }
 
 async function handlePLMatchTimeout(messageId) {
-  const matchInfo = plData.activeMatches[messageId];
-  if (!matchInfo || matchInfo.alreadyResolved) {
+  const matchInfo = await getRuntimeMatchRecord(messageId);
+  if (!matchInfo || matchInfo.status !== 'pending' || !matchInfo.is_pl) {
     return;
   }
 
-  const guildContext = guild && guild.id === matchInfo.guildId ? guild : null;
+  if (plMatchTimers.has(messageId)) {
+    clearTimeout(plMatchTimers.get(messageId));
+    plMatchTimers.delete(messageId);
+  }
+
+  const guildContext = guild && guild.id === matchInfo.guild_id ? guild : null;
   let channel = matchChannel?.isTextBased()
     ? matchChannel
-    : plQueueChannel?.guild?.id === matchInfo.guildId
+    : plQueueChannel?.guild?.id === matchInfo.guild_id
       ? plQueueChannel
       : null;
   if (!channel && guildContext) {
@@ -509,15 +669,17 @@ async function handlePLMatchTimeout(messageId) {
     });
   }
 
-  const queue = getPLQueue(matchInfo.guildId);
-  matchInfo.players.forEach((playerId) => {
-    if (!queue.includes(playerId)) {
-      queue.push(playerId);
-    }
-  });
+  const playersToRequeue = Array.isArray(matchInfo.players?.ids)
+    ? matchInfo.players.ids
+    : matchInfo.players || [];
 
-  delete plData.activeMatches[messageId];
-  savePLData();
+  await requeueRuntimePlPlayers(matchInfo.guild_id, playersToRequeue);
+  await updateRuntimeActiveMatchStatus(messageId, 'timeout');
+  for (const [id, state] of activeMatches.entries()) {
+    if (state.messageId === messageId) {
+      activeMatches.delete(id);
+    }
+  }
   await sendOrUpdateQueueMessage(guildContext || guild, plQueueChannel);
   await processPLQueue();
 }
@@ -528,14 +690,12 @@ async function handlePLMatchResolved(messageId) {
     plMatchTimers.delete(messageId);
   }
 
-  const matchInfo = plData.activeMatches[messageId];
-  if (!matchInfo) {
-    return;
+  await updateRuntimeActiveMatchStatus(messageId, 'resolved');
+  for (const [id, state] of activeMatches.entries()) {
+    if (state.messageId === messageId) {
+      activeMatches.delete(id);
+    }
   }
-
-  matchInfo.alreadyResolved = true;
-  delete plData.activeMatches[messageId];
-  savePLData();
 }
 
 async function processPLQueue() {
@@ -579,61 +739,58 @@ async function processPLQueue() {
     }
 
     if (participants.length < MATCH_SIZE) {
-      participantsIds.forEach((playerId) => {
-        if (!queue.includes(playerId)) {
-          queue.push(playerId);
-        }
-      });
-      savePLData();
+      await requeueRuntimePlPlayers(guild.id, participantsIds);
       await sendOrUpdateQueueMessage(guild, plQueueChannel);
       break;
     }
 
     try {
-      const state = await startMatch(participants, matchChannel || plQueueChannel);
+      await removePlayersFromRuntimePlQueue(guild.id, participantsIds);
+      const state = await startMatch(participants, matchChannel || plQueueChannel, true);
       if (state?.messageId) {
-        plData.activeMatches[state.messageId] = {
-          guildId: guild.id,
-          players: participantsIds,
-          createdAt: Date.now(),
-          alreadyResolved: false
-        };
-        savePLData();
+        const timeoutAt = new Date(Date.now() + PL_MATCH_TIMEOUT_MS).toISOString();
+        await saveRuntimeActiveMatch({
+          message_id: state.messageId,
+          guild_id: guild.id,
+          players: { ids: participantsIds },
+          is_pl: true,
+          status: 'pending',
+          created_at: new Date().toISOString(),
+          timeout_at: timeoutAt
+        });
         schedulePLTimeout(state.messageId, PL_MATCH_TIMEOUT_MS);
       }
     } catch (err) {
       errorLog('Failed to create PL match:', err);
-      participantsIds.forEach((playerId) => {
-        if (!queue.includes(playerId)) {
-          queue.push(playerId);
-        }
-      });
-      savePLData();
+      await requeueRuntimePlPlayers(guild.id, participantsIds);
       await sendOrUpdateQueueMessage(guild, plQueueChannel);
       break;
     }
   }
 
-  savePLData();
   await sendOrUpdateQueueMessage(guild, plQueueChannel);
 }
 
 async function restorePLState() {
-  loadPLData();
+  if (guild?.id) {
+    await loadRuntimePlQueue(guild.id);
+  }
 
   if (guild && plQueueChannel?.isTextBased()) {
     await sendOrUpdateQueueMessage(guild, plQueueChannel);
   }
 
-  const activeEntries = Object.entries(plData.activeMatches);
-  for (const [messageId, matchInfo] of activeEntries) {
-    const elapsed = Date.now() - (matchInfo.createdAt || 0);
-    const remaining = PL_MATCH_TIMEOUT_MS - elapsed;
+  const activeEntries = await loadPendingRuntimeMatches(guild?.id);
+  for (const matchInfo of activeEntries) {
+    const timeoutAt = matchInfo.timeout_at ? new Date(matchInfo.timeout_at).getTime() : null;
+    const remaining = timeoutAt ? timeoutAt - Date.now() : null;
 
-    if (remaining <= 0) {
-      await handlePLMatchTimeout(messageId);
-    } else {
-      schedulePLTimeout(messageId, remaining);
+    if (matchInfo.is_pl) {
+      if (remaining != null && remaining > 0) {
+        schedulePLTimeout(matchInfo.message_id, remaining);
+      } else if (matchInfo.is_pl) {
+        await handlePLMatchTimeout(matchInfo.message_id);
+      }
     }
   }
 }
@@ -1658,7 +1815,11 @@ async function handleJoinCommand(message, args) {
   const mentionedUser = message.mentions.users.first();
 
   if (mentionedUser) {
-    await handleRoomJoinRequest(message, mentionedUser);
+    await message.reply({
+      content:
+        'Les rooms custom sont temporairement désactivées pour simplifier le système compétitif. / Custom rooms are temporarily disabled to simplify the competitive system.',
+      allowedMentions: { repliedUser: false }
+    });
     return;
   }
 
@@ -2293,14 +2454,71 @@ async function handlePingCommand(message) {
     await message.reply({
       content: localizeText({
         fr: 'Aucun rôle de ping configuré.',
-      en: 'No ping role configured.'
-    })
-  });
+        en: 'No ping role configured.'
+      })
+    });
   }
 }
 
+async function sendPrisscupEmbed(guildContext) {
+  if (!guildContext) {
+    return null;
+  }
+
+  const channel =
+    guildContext.channels?.cache?.get(PRISSCUP_ANNOUNCE_CHANNEL_ID) ||
+    (await guildContext.channels.fetch(PRISSCUP_ANNOUNCE_CHANNEL_ID).catch(() => null));
+
+  if (!channel?.isTextBased()) {
+    warn('PrissCup announce channel is not text-based or missing.');
+    return null;
+  }
+
+  const embed = new EmbedBuilder()
+    .setTitle('PrissCup – Tournoi compétitif Null\'s Brawl')
+    .setDescription(
+      [
+        '🇫🇷 Tournoi PrissCup 3v3 organisé par Prissme TV.',
+        '• Format : 3v3 compétitif (maps / règles annoncées sur le serveur)',
+        "• Inscription : cliquez sur le bouton ci-dessous ou sur l'événement Discord.",
+        '',
+        '🇬🇧 PrissCup 3v3 tournament hosted by Prissme TV.',
+        '• Format: competitive 3v3 (maps / rules announced on the server)',
+        '• Registration: click the button below or the Discord event link.',
+        '',
+        '🔗 Événement / Event:',
+        PRISSCUP_EVENT_URL
+      ].join('\n')
+    )
+    .setColor(0xe67e22)
+    .setTimestamp(new Date());
+
+  const row = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setLabel("S'inscrire à la PrissCup")
+      .setStyle(ButtonStyle.Link)
+      .setURL(PRISSCUP_EVENT_URL)
+  );
+
+  return channel.send({ embeds: [embed], components: [row] });
+}
+
 async function handlePrissCupCommand(message) {
-  await message.reply({ content: PRISSCUP_RULES_EN });
+  const isAdmin = message.member?.permissions?.has(PermissionsBitField.Flags.Administrator);
+  if (!isAdmin) {
+    await message.reply({
+      content:
+        'Seuls les administrateurs peuvent envoyer l\'embed PrissCup. / Only administrators can post the PrissCup embed.',
+      allowedMentions: { repliedUser: false }
+    });
+    return;
+  }
+
+  await sendPrisscupEmbed(message.guild);
+  await message.reply({
+    content: 'Embed PrissCup envoyé dans le salon dédié.',
+    allowedMentions: { repliedUser: false }
+  });
 }
 
 async function handleTeamsCommand(message) {
@@ -2550,7 +2768,7 @@ async function cleanupMatchResources(state) {
   }
 }
 
-async function startMatch(participants, fallbackChannel) {
+async function startMatch(participants, fallbackChannel, isPl = false) {
   const mapChoices = pickRandomMaps(MAP_CHOICES_COUNT);
   const primaryMap = mapChoices[0];
   const teams = assignRandomTeams(participants);
@@ -2739,6 +2957,28 @@ async function startMatch(participants, fallbackChannel) {
     state.threadId = matchThread.id;
   }
   activeMatches.set(state.matchId, state);
+
+  const runtimePlayers = {
+    ids: participantIds,
+    teams: {
+      blue: teams.blue.map((player) => player.discordId),
+      red: teams.red.map((player) => player.discordId)
+    },
+    matchId: state.matchId,
+    map: state.primaryMap
+  };
+
+  if (!isPl) {
+    await saveRuntimeActiveMatch({
+      message_id: state.messageId,
+      guild_id: guildContext.id,
+      players: runtimePlayers,
+      is_pl: false,
+      status: 'pending',
+      created_at: new Date().toISOString(),
+      timeout_at: null
+    });
+  }
 
   await sendLogMessage(
     [
@@ -2934,6 +3174,24 @@ async function applyMatchOutcome(state, outcome, userId) {
 }
 
 async function handleInteraction(interaction) {
+  if (
+    (interaction.isButton() || interaction.isModalSubmit() || interaction.isStringSelectMenu()) &&
+    interaction.customId?.startsWith('room')
+  ) {
+    const replyPayload = {
+      content:
+        'Les rooms custom sont temporairement désactivées pour simplifier le système compétitif. / Custom rooms are temporarily disabled to simplify the competitive system.',
+      ephemeral: true
+    };
+
+    if (interaction.replied || interaction.deferred) {
+      await interaction.followUp(replyPayload);
+    } else {
+      await interaction.reply(replyPayload);
+    }
+    return;
+  }
+
   if (interaction.isButton()) {
     if (interaction.customId === 'pl_queue_join') {
       if (!interaction.guild || interaction.guild.id !== DISCORD_GUILD_ID) {
@@ -3747,6 +4005,26 @@ async function handleMessage(message) {
 
   const [commandName, ...args] = content.slice(1).split(/\s+/);
   const command = commandName.toLowerCase();
+
+  // === COMMANDES TEMPORAIREMENT DÉSACTIVÉES POUR SIMPLIFICATION ===
+  const disabledCommands = new Set([
+    'room',
+    'roominfo',
+    'roomleave',
+    'joinroom',
+    'achievements',
+    'maps',
+    'teams'
+  ]);
+
+  if (disabledCommands.has(command)) {
+    await message.reply({
+      content:
+        'Ces commandes sont temporairement désactivées pour simplifier le système compétitif. / These commands are temporarily disabled to simplify the competitive flow.',
+      allowedMentions: { repliedUser: false }
+    });
+    return;
+  }
 
   try {
     switch (command) {
