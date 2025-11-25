@@ -1907,9 +1907,24 @@ async function handlePLLeaveCommand(message) {
 }
 
 async function handleJoinCommand(message, args) {
-  if (message.channelId === PL_QUEUE_CHANNEL_ID) {
-    await handlePLJoinCommand(message);
-    return;
+  if (message.guild?.id === DISCORD_GUILD_ID) {
+    await ensureRuntimePlQueueLoaded(message.guild.id);
+
+    if (!plQueueChannel) {
+      plQueueChannel = await ensurePLQueueChannel(message.guild);
+    }
+
+    if (plQueueChannel || message.channelId === PL_QUEUE_CHANNEL_ID) {
+      const joinResult = await addPlayerToPLQueue(message.author.id, message.guild);
+      await processPLQueue();
+
+      const replyContent = joinResult.added
+        ? 'Tu as rejoint la file PL. (You joined the PL queue.)'
+        : 'Tu es déjà dans la file PL. (You are already in the PL queue.)';
+
+      await message.reply({ content: replyContent });
+      return;
+    }
   }
 
   const mentionedUser = message.mentions.users.first();
