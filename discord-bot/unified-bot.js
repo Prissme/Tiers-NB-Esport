@@ -424,6 +424,24 @@ async function sendOrUpdateQueueMessage(guildContext, channel) {
   }
 
   if (!queueMessage) {
+    const botId = client?.user?.id;
+
+    if (botId) {
+      try {
+        const recentMessages = await targetChannel.messages.fetch({ limit: 50 });
+        const staleMessages = recentMessages.filter(
+          (message) =>
+            message.author.id === botId &&
+            message.embeds?.[0]?.title === embed.data.title &&
+            message.id !== storedMessageId
+        );
+
+        await Promise.all(Array.from(staleMessages.values()).map((message) => message.delete().catch(() => null)));
+      } catch (err) {
+        warn('Unable to clean up old PL queue messages:', err?.message || err);
+      }
+    }
+
     queueMessage = await targetChannel.send({ embeds: [embed], components });
     plData.queueMessageIdByGuild[guildContext.id] = queueMessage.id;
     savePLData();
