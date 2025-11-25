@@ -42,7 +42,6 @@ const PL_MATCH_TIMEOUT_MS = 20 * 60 * 1000;
 const PRISSCUP_ANNOUNCE_CHANNEL_ID = '1440767483438170264';
 const PRISSCUP_EVENT_URL = 'https://discord.gg/aeqGMNvTm?event=1442798624588435517';
 const PRISSCUP_EVENT_NAME = 'PrissCup 3v3';
-const PRISSCUP_EMBED_TITLE = 'PrissCup Series Hosted by PrissmeTV';
 const PRISSCUP_TEAM_BADGES = ['🟦', '🟪', '🟥', '🟧', '🟨', '🟩', '🟦‍🔥', '🟫', '⬛'];
 
 const DISCORD_BOT_TOKEN = process.env.DISCORD_BOT_TOKEN;
@@ -2666,14 +2665,6 @@ function formatPrisscupTeamLine(team, index) {
   return `${badge} **${sanitizePrisscupTeamName(team.team_name)}** — ${teammates || 'Team to complete'}`;
 }
 
-function buildPrisscupEmbed() {
-  return new EmbedBuilder()
-    .setTitle(PRISSCUP_EMBED_TITLE)
-    .setColor(0x000000)
-    .setTimestamp(new Date())
-    .setFooter({ text: '<:PTV:1442836514877866026>' });
-}
-
 async function isUserRegisteredForPrisscup(guildId, eventName, userId) {
   const { data, error } = await supabase
     .from('prisscup_teams')
@@ -2705,8 +2696,6 @@ async function sendPrisscupEmbed(guildContext) {
     return null;
   }
 
-  const embed = buildPrisscupEmbed();
-
   const row = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId('prisscup_register')
@@ -2726,7 +2715,7 @@ async function sendPrisscupEmbed(guildContext) {
     try {
       existingMessage = await channel.messages.fetch(storedMessageId);
     } catch (err) {
-      warn('Unable to fetch stored PrissCup embed message:', err?.message || err);
+      warn('Unable to fetch stored PrissCup message:', err?.message || err);
     }
   }
 
@@ -2735,40 +2724,46 @@ async function sendPrisscupEmbed(guildContext) {
       const botId = client?.user?.id;
       if (botId) {
         const recentMessages = await channel.messages.fetch({ limit: 50 });
-        existingMessage = recentMessages.find(
-          (message) =>
-            message.author.id === botId && message.embeds?.[0]?.title === PRISSCUP_EMBED_TITLE
-        );
+        existingMessage = recentMessages.find((message) => {
+          const authorMatch = message.author.id === botId;
+          const hasButtons =
+            message.components?.[0]?.components?.some((component) =>
+              ['prisscup_register', 'prisscup_info'].includes(component.customId)
+            ) || false;
+          const contentMatch = message.content?.includes(PRISSCUP_EVENT_URL);
+
+          return authorMatch && hasButtons && contentMatch;
+        });
       }
     } catch (err) {
-      warn('Unable to search for existing PrissCup embed:', err?.message || err);
+      warn('Unable to search for existing PrissCup message:', err?.message || err);
     }
   }
 
   if (existingMessage) {
-    await existingMessage.edit({ content, embeds: [embed], components: [row] });
+    await existingMessage.edit({ content, embeds: [], components: [row] });
     prisscupData.messageIdByGuild[guildContext.id] = existingMessage.id;
     return existingMessage;
   }
 
-  const sentMessage = await channel.send({ content, embeds: [embed], components: [row] });
+  const sentMessage = await channel.send({ content, components: [row] });
   prisscupData.messageIdByGuild[guildContext.id] = sentMessage.id;
   return sentMessage;
 }
 
-async function handlePrissCup3v3Command(message) {
-  const isAdmin = message.member?.permissions?.has(PermissionsBitField.Flags.Administrator);
-  if (!isAdmin) {
-    await message.reply({
-      content: 'Only administrators can post the PrissCup embed.',
-      allowedMentions: { repliedUser: false }
-    });
-    return;
-  }
+  async function handlePrissCup3v3Command(message) {
+    const isAdmin = message.member?.permissions?.has(PermissionsBitField.Flags.Administrator);
+    if (!isAdmin) {
+      await message.reply({
+        content: 'Only administrators can post the PrissCup announcement.',
+        allowedMentions: { repliedUser: false }
+      });
+      return;
+    }
 
   await sendPrisscupEmbed(message.guild);
   await message.reply({
-    content: 'PrissCup embed posted in the dedicated channel.',
+    content: 'PrissCup message posted in the dedicated channel.',
     allowedMentions: { repliedUser: false }
   });
 }
