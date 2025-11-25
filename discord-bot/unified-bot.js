@@ -42,6 +42,7 @@ const PL_MATCH_TIMEOUT_MS = 20 * 60 * 1000;
 const PRISSCUP_ANNOUNCE_CHANNEL_ID = '1440767483438170264';
 const PRISSCUP_EVENT_URL = 'https://discord.gg/aeqGMNvTm?event=1442798624588435517';
 const PRISSCUP_EVENT_NAME = 'PrissCup 3v3';
+const PRISSCUP_EMBED_TITLE = 'PrissCup Series Hosted by PrissmeTV';
 const PRISSCUP_TEAM_BADGES = ['🟦', '🟪', '🟥', '🟧', '🟨', '🟩', '🟦‍🔥', '🟫', '⬛'];
 
 const DISCORD_BOT_TOKEN = process.env.DISCORD_BOT_TOKEN;
@@ -2153,17 +2154,24 @@ async function handleLeaveCommand(message) {
 }
 
 async function handleQueueCommand(message) {
-  if (message.channelId === PL_QUEUE_CHANNEL_ID && message.guild?.id === DISCORD_GUILD_ID) {
-    await ensureRuntimePlQueueLoaded(message.guild.id);
-    const queue = getPLQueue(message.guild.id);
-    await message.reply({
-      content: `🔁 File PL : **${queue.length}/${MATCH_SIZE}**`
-    });
+  if (!message.guild || message.guild.id !== DISCORD_GUILD_ID) {
     return;
   }
 
-  await sendOrUpdateQueueStatusMessage(message.guild, message.channel);
-  await message.reply({ embeds: [buildQueueStatusEmbed()] });
+  await ensureRuntimePlQueueLoaded(message.guild.id);
+  const queue = getPLQueue(message.guild.id);
+  await sendOrUpdateQueueMessage(message.guild, plQueueChannel);
+
+  const descriptionFr = `🔁 File PL : **${queue.length}/${MATCH_SIZE}** joueurs (anonyme)`;
+  const descriptionEn = `🔁 PL Queue : **${queue.length}/${MATCH_SIZE}** players (anonymous)`;
+
+  const embed = new EmbedBuilder()
+    .setTitle('Power League')
+    .setDescription(`${descriptionFr}\n\n${descriptionEn}`)
+    .setColor(0x3498db)
+    .setTimestamp(new Date());
+
+  await message.reply({ embeds: [embed], allowedMentions: { repliedUser: false } });
 }
 
 async function handleEloCommand(message) {
@@ -2658,20 +2666,12 @@ function formatPrisscupTeamLine(team, index) {
   return `${badge} **${sanitizePrisscupTeamName(team.team_name)}** — ${teammates || 'Team to complete'}`;
 }
 
-function buildPrisscupEmbed(teams = []) {
-  const embed = new EmbedBuilder()
-    .setTitle('PrissCup 3v3 — Registration')
-    .setColor(0x0b132b)
+function buildPrisscupEmbed() {
+  return new EmbedBuilder()
+    .setTitle(PRISSCUP_EMBED_TITLE)
+    .setColor(0x000000)
     .setTimestamp(new Date())
-    .setFooter({ text: 'Click Info for the full rules.' });
-
-  const teamLines = Array.isArray(teams) && teams.length
-    ? teams.map((team, index) => formatPrisscupTeamLine(team, index))
-    : ['No teams registered yet.'];
-
-  embed.addFields({ name: `Teams (${teamLines.length})`, value: teamLines.join('\n') });
-
-  return embed;
+    .setFooter({ text: '<:PTV:1442836514877866026>' });
 }
 
 async function isUserRegisteredForPrisscup(guildId, eventName, userId) {
@@ -2705,8 +2705,7 @@ async function sendPrisscupEmbed(guildContext) {
     return null;
   }
 
-  const teams = await fetchPrisscupTeams(guildContext.id, PRISSCUP_EVENT_NAME);
-  const embed = buildPrisscupEmbed(teams);
+  const embed = buildPrisscupEmbed();
 
   const row = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
@@ -2719,7 +2718,7 @@ async function sendPrisscupEmbed(guildContext) {
       .setStyle(ButtonStyle.Secondary)
   );
 
-  const content = `Bonus Discord event (spoiler): ||${PRISSCUP_EVENT_URL}||`;
+  const content = `Event Discord : ${PRISSCUP_EVENT_URL}`;
   const storedMessageId = prisscupData.messageIdByGuild[guildContext.id];
   let existingMessage = null;
 
@@ -2738,7 +2737,7 @@ async function sendPrisscupEmbed(guildContext) {
         const recentMessages = await channel.messages.fetch({ limit: 50 });
         existingMessage = recentMessages.find(
           (message) =>
-            message.author.id === botId && message.embeds?.[0]?.title?.includes('PrissCup 3v3')
+            message.author.id === botId && message.embeds?.[0]?.title === PRISSCUP_EMBED_TITLE
         );
       }
     } catch (err) {
@@ -2770,6 +2769,51 @@ async function handlePrissCup3v3Command(message) {
   await sendPrisscupEmbed(message.guild);
   await message.reply({
     content: 'PrissCup embed posted in the dedicated channel.',
+    allowedMentions: { repliedUser: false }
+  });
+}
+
+async function handlePrisscupDeleteTeamCommand(message, args) {
+  const isAdmin = message.member?.permissions?.has(PermissionsBitField.Flags.Administrator);
+  if (!isAdmin) {
+    await message.reply({
+      content: "Seuls les administrateurs peuvent supprimer une équipe PrissCup. / Only administrators can delete a PrissCup team.",
+      allowedMentions: { repliedUser: false }
+    });
+    return;
+  }
+
+  const teamName = args.join(' ');
+  if (!teamName.trim()) {
+    await message.reply({
+      content: "Merci d'indiquer le nom de l'équipe à supprimer. / Please provide the team name to delete.",
+      allowedMentions: { repliedUser: false }
+    });
+    return;
+  }
+
+  const result = await deletePrisscupTeam(message.guild, teamName);
+
+  if (!result.success) {
+    const errorMessages = {
+      missing_guild: 'Serveur introuvable. / Guild missing.',
+      missing_name: "Nom d'équipe manquant. / Team name missing.",
+      not_found: "Aucune équipe trouvée avec ce nom. / No team found with that name.",
+      lookup_failed: "Erreur en recherchant l'équipe. / Error while searching the team.",
+      delete_failed: "Impossible de supprimer l'équipe. / Unable to delete the team."
+    };
+
+    await message.reply({
+      content: errorMessages[result.reason] || 'Suppression impossible. / Deletion failed.',
+      allowedMentions: { repliedUser: false }
+    });
+    return;
+  }
+
+  await sendPrisscupEmbed(message.guild);
+
+  await message.reply({
+    content: `L'équipe **${sanitizePrisscupTeamName(result.team.team_name)}** a été supprimée. / Team **${sanitizePrisscupTeamName(result.team.team_name)}** has been deleted.`,
     allowedMentions: { repliedUser: false }
   });
 }
@@ -2830,6 +2874,64 @@ async function registerPrisscupTeam(guildContext, leaderId, mateIds, teamName) {
   }
 
   return { success: true, role };
+}
+
+async function deletePrisscupTeam(guildContext, teamName) {
+  if (!guildContext) {
+    return { success: false, reason: 'missing_guild' };
+  }
+
+  const trimmedName = (teamName || '').trim();
+  if (!trimmedName) {
+    return { success: false, reason: 'missing_name' };
+  }
+
+  const sanitizedName = sanitizePrisscupTeamName(trimmedName);
+  const { data, error } = await supabase
+    .from('prisscup_teams')
+    .select('id, team_role_id, leader_id, mate1_id, mate2_id, team_name')
+    .eq('guild_id', guildContext.id)
+    .eq('event_name', PRISSCUP_EVENT_NAME)
+    .ilike('team_name', sanitizedName)
+    .limit(1)
+    .maybeSingle();
+
+  if (error && error.code !== 'PGRST116') {
+    warn('Unable to look up PrissCup team for deletion:', error.message);
+    return { success: false, reason: 'lookup_failed' };
+  }
+
+  if (!data) {
+    return { success: false, reason: 'not_found' };
+  }
+
+  const memberIds = [data.leader_id, data.mate1_id, data.mate2_id].filter(Boolean);
+  if (data.team_role_id) {
+    const role =
+      guildContext.roles.cache.get(data.team_role_id) ||
+      (await guildContext.roles.fetch(data.team_role_id).catch(() => null));
+
+    if (role) {
+      await Promise.all(
+        memberIds.map((id) =>
+          guildContext.members
+            .fetch(id)
+            .then((member) => member.roles.remove(role, 'PrissCup team removed'))
+            .catch(() => null)
+        )
+      );
+
+      await role.delete('PrissCup team removed by admin').catch(() => null);
+    }
+  }
+
+  const { error: deleteError } = await supabase.from('prisscup_teams').delete().eq('id', data.id);
+  if (deleteError) {
+    errorLog('Unable to delete PrissCup team:', deleteError.message || deleteError);
+    return { success: false, reason: 'delete_failed' };
+  }
+
+  return { success: true, team: data };
 }
 // ==== PRISSCUP 3V3 REGISTRATION END ====
 
@@ -2930,14 +3032,15 @@ async function handleHelpCommand(message) {
           '`!leave` — Leave the queue',
           '`!room` — View the custom room you joined',
           '`!roomleave` — Leave your custom room',
-          '`!queue` — Show players waiting in the queue',
-          '`!file` — Show players waiting in the queue (FR alias)',
+          '`!queue` — Show the anonymous Power League queue size',
+          '`!file` — Show the anonymous Power League queue size (FR alias)',
           '`!achievements [@player]` — Display player achievements and peaks',
           '`!elo [@player]` — Display Elo stats',
           '`!lb [count]` — Show the leaderboard (example: !lb 25)',
           '`!maps` — Show the current map rotation',
           '`!ping` — Mention the match notification role',
           '`!tiers` — Manually sync tier roles',
+          '`!prisscupdel <team>` — [Admin] Delete a registered PrissCup team',
           '`!english [off]` — Switch the bot language to English or back to French',
           '`!help` — Display this help'
         ]
@@ -2946,14 +3049,15 @@ async function handleHelpCommand(message) {
           '`!leave` — Quitter la file d\'attente',
           '`!room` — Voir la room personnalisée que tu as rejointe',
           '`!roomleave` — Quitter ta room personnalisée',
-          '`!queue` — Voir les joueurs en attente',
-          '`!file` — Voir les joueurs en attente',
+          '`!queue` — Voir la taille anonyme de la file PL',
+          '`!file` — Voir la taille anonyme de la file PL',
           '`!achievements [@joueur]` — Afficher les succès et les peaks du joueur',
           '`!elo [@joueur]` — Afficher le classement Elo',
           '`!lb [nombre]` — Afficher le top classement (ex: !lb 25)',
           '`!maps` — Afficher la rotation des maps',
           '`!ping` — Mentionner le rôle de notification des matchs',
           '`!tiers` — Synchroniser manuellement les rôles de tier',
+          '`!prisscupdel <equipe>` — [Admin] Supprimer une équipe inscrite à la PrissCup',
           '`!english [off]` — Traduire le bot en anglais ou revenir en français',
           '`!help` — Afficher cette aide'
         ];
@@ -4544,6 +4648,10 @@ async function handleMessage(message) {
       case 'prisscup':
       case 'prisscup3v3':
         await handlePrissCup3v3Command(message, args);
+        break;
+      case 'prisscupdel':
+      case 'prisscupdelete':
+        await handlePrisscupDeleteTeamCommand(message, args);
         break;
       case 'tiers':
         await handleTierSyncCommand(message, args);
