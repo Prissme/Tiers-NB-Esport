@@ -9,6 +9,9 @@ const ADMIN_USER_IDS = (process.env.ADMIN_USER_IDS || '')
   .map((value) => value.trim())
   .filter(Boolean);
 
+const DISCORD_GUILD_ID = process.env.DISCORD_GUILD_ID || null;
+const PRISSCUP_EVENT_NAME = 'PrissCup 3v3';
+
 const JSON_HEADERS = {
   'Content-Type': 'application/json; charset=utf-8',
   'Access-Control-Allow-Origin': '*',
@@ -398,7 +401,7 @@ async function handleGetPlayers(req, res) {
 
     const { data, error } = await supabase
       .from('players')
-      .select('id,name,mmr,solo_elo,weight')
+      .select('id,name,mmr,solo_elo,weight,win_streak,lose_streak,discord_id')
       .eq('active', true)
       .order('name', { ascending: true });
 
@@ -881,6 +884,228 @@ async function handleResetAllMMR(req, res) {
   }
 }
 
+async function handleUpdatePlayerStats(req, res) {
+  if (req.method !== 'POST') {
+    return sendJson(res, 405, { ok: false, error: 'method_not_allowed' });
+  }
+
+  const supabase = createSupabaseClient();
+  if (!supabase) {
+    console.error('[updatePlayerStats] Supabase credentials missing.');
+    return sendJson(res, 500, { ok: false, error: 'server_misconfigured' });
+  }
+
+  const token = getBearerToken(req.headers);
+  if (!token) {
+    return sendJson(res, 401, { ok: false, error: 'missing_token' });
+  }
+
+  let payload;
+  try {
+    payload = await readJsonBody(req, 50_000);
+  } catch (error) {
+    const errorCode = error?.message === 'invalid_json' ? 'invalid_json' : 'payload_too_large';
+    return sendJson(res, 400, { ok: false, error: errorCode });
+  }
+
+  const playerId = typeof payload?.playerId === 'string' ? payload.playerId.trim() : '';
+  if (!playerId) {
+    return sendJson(res, 400, { ok: false, error: 'missing_player_id' });
+  }
+
+  const soloEloRaw =
+    payload?.soloElo !== undefined
+      ? payload.soloElo
+      : payload?.solo_elo !== undefined
+      ? payload.solo_elo
+      : null;
+
+  if (!Number.isFinite(Number(soloEloRaw))) {
+    return sendJson(res, 400, { ok: false, error: 'invalid_solo_elo' });
+  }
+
+  const normalizedSoloElo = Math.round(Number(soloEloRaw));
+
+  let winStreak = Number(payload?.winStreak ?? payload?.win_streak ?? 0);
+  let loseStreak = Number(payload?.loseStreak ?? payload?.lose_streak ?? 0);
+
+  if (!Number.isFinite(winStreak) || winStreak < 0) {
+    winStreak = 0;
+  }
+
+  if (!Number.isFinite(loseStreak) || loseStreak < 0) {
+    loseStreak = 0;
+  }
+
+  winStreak = Math.round(winStreak);
+  loseStreak = Math.round(loseStreak);
+
+  if (winStreak > 0 && loseStreak > 0) {
+    if (winStreak >= loseStreak) {
+      loseStreak = 0;
+    } else {
+      winStreak = 0;
+    }
+  }
+
+  try {
+    const adminUser = await resolveAdminUser(supabase, token);
+    if (!adminUser) {
+      return sendJson(res, 403, { ok: false, error: 'forbidden' });
+    }
+
+    const { data, error } = await supabase
+      .from('players')
+      .update({ solo_elo: normalizedSoloElo, win_streak: winStreak, lose_streak: loseStreak })
+      .eq('id', playerId)
+      .select('id,name,solo_elo,win_streak,lose_streak')
+      .maybeSingle();
+
+    if (error) {
+      if (error.code === 'PGRST116') {
+        return sendJson(res, 404, { ok: false, error: 'player_not_found' });
+      }
+      throw error;
+    }
+
+    return sendJson(res, 200, { ok: true, player: data });
+  } catch (error) {
+    console.error('[updatePlayerStats] Failed to update player.', error);
+    return sendJson(res, 500, { ok: false, error: 'unexpected_error' });
+  }
+}
+
+function applyPrisscupFilters(query) {
+  let filteredQuery = query;
+
+  if (DISCORD_GUILD_ID) {
+    filteredQuery = filteredQuery.eq('guild_id', DISCORD_GUILD_ID);
+  }
+
+  filteredQuery = filteredQuery.eq('event_name', PRISSCUP_EVENT_NAME);
+  return filteredQuery;
+}
+
+async function handleGetPrisscupTeams(req, res) {
+  if (req.method !== 'GET') {
+    return sendJson(res, 405, { ok: false, error: 'method_not_allowed' });
+  }
+
+  const supabase = createSupabaseClient();
+  if (!supabase) {
+    console.error('[getPrisscupTeams] Supabase credentials missing.');
+    return sendJson(res, 500, { ok: false, error: 'server_misconfigured' });
+  }
+
+  const token = getBearerToken(req.headers);
+  if (!token) {
+    return sendJson(res, 401, { ok: false, error: 'missing_token' });
+  }
+
+  try {
+    const adminUser = await resolveAdminUser(supabase, token);
+    if (!adminUser) {
+      return sendJson(res, 403, { ok: false, error: 'forbidden' });
+    }
+
+    const baseQuery = supabase
+      .from('prisscup_teams')
+      .select('id,team_name,leader_id,mate1_id,mate2_id,created_at,guild_id,event_name')
+      .order('created_at', { ascending: true });
+
+    const { data, error } = await applyPrisscupFilters(baseQuery);
+
+    if (error) {
+      throw error;
+    }
+
+    return sendJson(res, 200, { ok: true, teams: data || [] });
+  } catch (error) {
+    console.error('[getPrisscupTeams] Failed to fetch PrissCup teams.', error);
+    return sendJson(res, 500, { ok: false, error: 'unexpected_error' });
+  }
+}
+
+async function handleDeletePrisscupTeam(req, res) {
+  if (req.method !== 'POST') {
+    return sendJson(res, 405, { ok: false, error: 'method_not_allowed' });
+  }
+
+  const supabase = createSupabaseClient();
+  if (!supabase) {
+    console.error('[deletePrisscupTeam] Supabase credentials missing.');
+    return sendJson(res, 500, { ok: false, error: 'server_misconfigured' });
+  }
+
+  const token = getBearerToken(req.headers);
+  if (!token) {
+    return sendJson(res, 401, { ok: false, error: 'missing_token' });
+  }
+
+  let payload;
+  try {
+    payload = await readJsonBody(req, 50_000);
+  } catch (error) {
+    const errorCode = error?.message === 'invalid_json' ? 'invalid_json' : 'payload_too_large';
+    return sendJson(res, 400, { ok: false, error: errorCode });
+  }
+
+  const teamId = typeof payload?.teamId === 'string' ? payload.teamId.trim() : '';
+  const teamName = typeof payload?.teamName === 'string' ? payload.teamName.trim() : '';
+
+  if (!teamId && !teamName) {
+    return sendJson(res, 400, { ok: false, error: 'missing_team_identifier' });
+  }
+
+  try {
+    const adminUser = await resolveAdminUser(supabase, token);
+    if (!adminUser) {
+      return sendJson(res, 403, { ok: false, error: 'forbidden' });
+    }
+
+    let lookupQuery = supabase
+      .from('prisscup_teams')
+      .select('id,team_name,leader_id,mate1_id,mate2_id,created_at,guild_id,event_name')
+      .limit(1);
+
+    lookupQuery = applyPrisscupFilters(lookupQuery);
+
+    if (teamId) {
+      lookupQuery = lookupQuery.eq('id', teamId);
+    } else {
+      lookupQuery = lookupQuery.ilike('team_name', teamName);
+    }
+
+    const { data, error } = await lookupQuery.maybeSingle();
+
+    if (error) {
+      if (error.code === 'PGRST116') {
+        return sendJson(res, 404, { ok: false, error: 'team_not_found' });
+      }
+      throw error;
+    }
+
+    if (!data) {
+      return sendJson(res, 404, { ok: false, error: 'team_not_found' });
+    }
+
+    let deleteQuery = supabase.from('prisscup_teams').delete();
+    deleteQuery = applyPrisscupFilters(deleteQuery);
+    deleteQuery = deleteQuery.eq('id', data.id);
+
+    const { error: deleteError } = await deleteQuery;
+
+    if (deleteError) {
+      throw deleteError;
+    }
+
+    return sendJson(res, 200, { ok: true, team: data });
+  } catch (error) {
+    console.error('[deletePrisscupTeam] Failed to delete PrissCup team.', error);
+    return sendJson(res, 500, { ok: false, error: 'unexpected_error' });
+  }
+}
+
 async function handleApiRequest(req, res) {
   const requestUrl = new URL(req.url, 'http://localhost');
   const pathname = requestUrl.pathname;
@@ -915,6 +1140,15 @@ async function handleApiRequest(req, res) {
       return true;
     case '/api/resetMMR':
       await handleResetAllMMR(req, res);
+      return true;
+    case '/api/updatePlayerStats':
+      await handleUpdatePlayerStats(req, res);
+      return true;
+    case '/api/prisscupTeams':
+      await handleGetPrisscupTeams(req, res);
+      return true;
+    case '/api/deletePrisscupTeam':
+      await handleDeletePrisscupTeam(req, res);
       return true;
     default:
       sendJson(res, 404, { ok: false, error: 'not_found' });

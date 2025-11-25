@@ -323,6 +323,68 @@
         color: #f87171;
       }
 
+      .admin-subsection {
+        margin-top: 2rem;
+        padding-top: 1.25rem;
+        border-top: 1px solid rgba(255, 255, 255, 0.08);
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+      }
+
+      .admin-subsection h3 {
+        margin: 0;
+        font-size: 1.1rem;
+      }
+
+      .player-edit-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 1rem;
+      }
+
+      .inline-field-group {
+        display: flex;
+        gap: 0.75rem;
+        align-items: flex-end;
+        flex-wrap: wrap;
+      }
+
+      .inline-field-group label {
+        min-width: 120px;
+      }
+
+      .prisscup-list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+      }
+
+      .prisscup-card {
+        background: var(--bg-alt);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 12px;
+        padding: 0.75rem 1rem;
+        display: flex;
+        justify-content: space-between;
+        gap: 0.75rem;
+        align-items: center;
+      }
+
+      .prisscup-meta {
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+        color: var(--muted);
+      }
+
+      .prisscup-meta strong {
+        color: var(--text);
+      }
+
       footer {
         padding: 2rem 1.5rem 3rem;
         text-align: center;
@@ -429,6 +491,50 @@
           </div>
           <div id="match-status" class="admin-message" aria-live="polite"></div>
         </form>
+
+        <div class="admin-subsection" aria-live="polite">
+          <h3>Modifier le Solo Elo / Streak</h3>
+          <p style="color: var(--muted); margin: 0;">
+            Ajuste manuellement le solo Elo et l'état de série d'un joueur sans enregistrer de match.
+          </p>
+          <div class="player-edit-grid">
+            <div>
+              <label for="player-edit-select">Joueur</label>
+              <select id="player-edit-select"></select>
+            </div>
+            <div>
+              <label for="player-solo-elo">Nouveau solo Elo</label>
+              <input type="number" id="player-solo-elo" min="0" step="1" placeholder="ex. 1200" />
+            </div>
+            <div>
+              <label for="player-streak-value">Série en cours</label>
+              <div class="inline-field-group">
+                <select id="player-streak-type">
+                  <option value="neutral">Neutre</option>
+                  <option value="win">Win streak</option>
+                  <option value="lose">Lose streak</option>
+                </select>
+                <input type="number" id="player-streak-value" min="0" step="1" value="0" />
+              </div>
+            </div>
+          </div>
+          <div class="auth-controls">
+            <button type="button" id="update-player-stats" class="cta">Mettre à jour les stats</button>
+          </div>
+          <div id="player-edit-status" class="admin-message" aria-live="polite"></div>
+        </div>
+
+        <div class="admin-subsection" aria-live="polite">
+          <h3>PrissCup · Équipes inscrites</h3>
+          <p style="color: var(--muted); margin: 0;">
+            Consulte les équipes enregistrées et supprime celles qui doivent être retirées de la compétition.
+          </p>
+          <div class="admin-tools">
+            <button type="button" id="refresh-prisscup" class="cta">Rafraîchir la liste</button>
+          </div>
+          <div id="prisscup-status" class="admin-message" aria-live="polite"></div>
+          <ul id="prisscup-list" class="prisscup-list"></ul>
+        </div>
       </section>
 
       <section class="card">
@@ -461,6 +567,15 @@
       const addPlayerButton = document.getElementById('add-player');
       const resetMMRButton = document.getElementById('reset-mmr');
       const playerSearchInput = document.getElementById('player-search');
+      const playerEditSelect = document.getElementById('player-edit-select');
+      const playerSoloEloInput = document.getElementById('player-solo-elo');
+      const playerStreakTypeSelect = document.getElementById('player-streak-type');
+      const playerStreakValueInput = document.getElementById('player-streak-value');
+      const playerEditStatus = document.getElementById('player-edit-status');
+      const updatePlayerStatsButton = document.getElementById('update-player-stats');
+      const prisscupList = document.getElementById('prisscup-list');
+      const prisscupStatus = document.getElementById('prisscup-status');
+      const refreshPrisscupButton = document.getElementById('refresh-prisscup');
       const addPlayerButtonInitialText = addPlayerButton?.textContent || '';
       const resetMMRButtonInitialText = resetMMRButton?.textContent || '';
 
@@ -469,6 +584,7 @@
       let supabaseClient = null;
       let currentSession = null;
       let cachedPlayers = [];
+      let cachedPrisscupTeams = [];
 
       if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
         authStatus.textContent =
@@ -663,6 +779,69 @@
         populateSelects(filteredPlayers, { preserveSelection });
       }
 
+      function populatePlayerEditSelect(players, { preserveSelection = true } = {}) {
+        if (!playerEditSelect) return;
+
+        const previousValue = preserveSelection ? playerEditSelect.value : '';
+        playerEditSelect.innerHTML = '';
+
+        const placeholder = document.createElement('option');
+        placeholder.value = '';
+        placeholder.textContent = 'Choisis un joueur';
+        playerEditSelect.appendChild(placeholder);
+
+        players.forEach((player) => {
+          const option = document.createElement('option');
+          option.value = String(player.id);
+          const soloElo = Number.isFinite(player?.solo_elo) ? player.solo_elo : 1000;
+          option.textContent = `${player.name} — Solo Elo ${soloElo}`;
+          playerEditSelect.appendChild(option);
+        });
+
+        if (preserveSelection && previousValue && players.some((p) => String(p.id) === previousValue)) {
+          playerEditSelect.value = previousValue;
+        } else {
+          playerEditSelect.value = '';
+        }
+      }
+
+      function refreshPlayerEditSelect({ preserveSelection = true } = {}) {
+        const searchTerm = playerSearchInput ? playerSearchInput.value : '';
+        const filteredPlayers = filterPlayersBySearch(searchTerm);
+        populatePlayerEditSelect(filteredPlayers, { preserveSelection });
+      }
+
+      function populatePlayerEditForm(playerId) {
+        if (!playerSoloEloInput || !playerStreakTypeSelect || !playerStreakValueInput) {
+          return;
+        }
+
+        const player = cachedPlayers.find((candidate) => String(candidate.id) === String(playerId));
+
+        if (!player) {
+          playerSoloEloInput.value = '';
+          playerStreakTypeSelect.value = 'neutral';
+          playerStreakValueInput.value = '0';
+          return;
+        }
+
+        playerSoloEloInput.value = Number.isFinite(player?.solo_elo) ? player.solo_elo : '';
+
+        const winStreak = Number.isFinite(player?.win_streak) ? player.win_streak : 0;
+        const loseStreak = Number.isFinite(player?.lose_streak) ? player.lose_streak : 0;
+
+        if (winStreak > 0) {
+          playerStreakTypeSelect.value = 'win';
+          playerStreakValueInput.value = String(winStreak);
+        } else if (loseStreak > 0) {
+          playerStreakTypeSelect.value = 'lose';
+          playerStreakValueInput.value = String(loseStreak);
+        } else {
+          playerStreakTypeSelect.value = 'neutral';
+          playerStreakValueInput.value = '0';
+        }
+      }
+
       function updateAuthUI(user, isAdmin) {
         if (!user) {
           authStatus.textContent = 'Aucune session active.';
@@ -670,6 +849,9 @@
           logoutButton.hidden = true;
           adminPanel.hidden = true;
           matchStatus.textContent = '';
+          if (playerEditStatus) playerEditStatus.textContent = '';
+          if (prisscupStatus) prisscupStatus.textContent = '';
+          if (prisscupList) prisscupList.innerHTML = '';
           return;
         }
 
@@ -681,6 +863,9 @@
         adminPanel.hidden = !isAdmin;
         if (!isAdmin) {
           matchStatus.textContent = '';
+          if (playerEditStatus) playerEditStatus.textContent = '';
+          if (prisscupStatus) prisscupStatus.textContent = '';
+          if (prisscupList) prisscupList.innerHTML = '';
         }
       }
 
@@ -752,6 +937,7 @@
           updateAuthUI(payload.user, payload.isAdmin);
           if (payload.isAdmin) {
             await loadPlayers(token);
+            await loadPrisscupTeams(token);
           }
         } catch (error) {
           console.error(error);
@@ -830,10 +1016,158 @@
 
           cachedPlayers = payload.players;
           refreshPlayerSelects({ preserveSelection: true });
+          refreshPlayerEditSelect({ preserveSelection: true });
+          if (playerEditSelect?.value) {
+            populatePlayerEditForm(playerEditSelect.value);
+          }
         } catch (error) {
           console.error(error);
           matchStatus.textContent = "Erreur lors du chargement des joueurs.";
           matchStatus.className = 'admin-message error';
+        }
+      }
+
+      function renderPrisscupTeams() {
+        if (!prisscupList) return;
+
+        prisscupList.innerHTML = '';
+
+        if (!cachedPrisscupTeams.length) {
+          if (prisscupStatus) {
+            prisscupStatus.textContent = 'Aucune équipe PrissCup enregistrée.';
+            prisscupStatus.className = 'admin-message';
+          }
+          return;
+        }
+
+        if (prisscupStatus) {
+          prisscupStatus.textContent = '';
+          prisscupStatus.className = 'admin-message';
+        }
+
+        cachedPrisscupTeams.forEach((team) => {
+          const li = document.createElement('li');
+          li.className = 'prisscup-card';
+
+          const meta = document.createElement('div');
+          meta.className = 'prisscup-meta';
+          const title = document.createElement('strong');
+          title.textContent = team.team_name;
+          meta.appendChild(title);
+
+          const members = [team.leader_id, team.mate1_id, team.mate2_id].filter(Boolean);
+          const membersLine = document.createElement('span');
+          membersLine.textContent = members.length
+            ? `Membres : ${members.join(', ')}`
+            : 'Membres : à compléter';
+          meta.appendChild(membersLine);
+
+          if (team.created_at) {
+            const createdAt = new Date(team.created_at);
+            const dateLine = document.createElement('small');
+            dateLine.textContent = `Inscrite le ${createdAt.toLocaleDateString('fr-FR')}`;
+            meta.appendChild(dateLine);
+          }
+
+          const actions = document.createElement('div');
+          const deleteButton = document.createElement('button');
+          deleteButton.type = 'button';
+          deleteButton.className = 'cta';
+          deleteButton.textContent = 'Supprimer';
+          deleteButton.addEventListener('click', async () => {
+            const confirmed = window.confirm(
+              `Supprimer l'équipe "${team.team_name}" de la PrissCup ? (action définitive)`
+            );
+            if (!confirmed) return;
+            await deletePrisscupTeam(team);
+          });
+          actions.appendChild(deleteButton);
+
+          li.appendChild(meta);
+          li.appendChild(actions);
+          prisscupList.appendChild(li);
+        });
+      }
+
+      async function loadPrisscupTeams(token) {
+        if (!prisscupList) return;
+        try {
+          if (prisscupStatus) {
+            prisscupStatus.textContent = 'Chargement des équipes PrissCup…';
+            prisscupStatus.className = 'admin-message';
+          }
+
+          const response = await fetch(`${API_BASE}/prisscupTeams`, {
+            headers: {
+              Authorization: `Bearer ${token}`
+            }
+          });
+
+          const payload = await response.json().catch(() => null);
+
+          if (!response.ok || !payload?.ok || !Array.isArray(payload.teams)) {
+            throw new Error(payload?.error || 'Impossible de charger les équipes PrissCup.');
+          }
+
+          cachedPrisscupTeams = payload.teams;
+          renderPrisscupTeams();
+        } catch (error) {
+          console.error(error);
+          if (prisscupStatus) {
+            prisscupStatus.textContent =
+              error instanceof Error && error.message
+                ? error.message
+                : 'Impossible de charger les équipes PrissCup.';
+            prisscupStatus.className = 'admin-message error';
+          }
+        }
+      }
+
+      async function deletePrisscupTeam(team) {
+        if (!currentSession) {
+          if (prisscupStatus) {
+            prisscupStatus.textContent = 'Connexion requise pour supprimer une équipe.';
+            prisscupStatus.className = 'admin-message error';
+          }
+          return;
+        }
+
+        try {
+          if (prisscupStatus) {
+            prisscupStatus.textContent = `Suppression de l'équipe ${team.team_name}…`;
+            prisscupStatus.className = 'admin-message';
+          }
+
+          const response = await fetch(`${API_BASE}/deletePrisscupTeam`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${currentSession.access_token}`
+            },
+            body: JSON.stringify({ teamId: team.id, teamName: team.team_name })
+          });
+
+          const payload = await response.json().catch(() => null);
+
+          if (!response.ok || !payload?.ok) {
+            throw new Error(payload?.error || 'Suppression impossible.');
+          }
+
+          if (prisscupStatus) {
+            prisscupStatus.textContent = `Équipe ${team.team_name} supprimée.`;
+            prisscupStatus.className = 'admin-message success';
+          }
+
+          await loadPrisscupTeams(currentSession.access_token);
+        } catch (error) {
+          console.error(error);
+          if (prisscupStatus) {
+            prisscupStatus.textContent =
+              error instanceof Error && error.message
+                ? error.message
+                : "Impossible de supprimer l'équipe.";
+            prisscupStatus.className = 'admin-message error';
+          }
         }
       }
 
@@ -860,6 +1194,18 @@
       if (playerSearchInput) {
         playerSearchInput.addEventListener('input', () => {
           refreshPlayerSelects({ preserveSelection: true });
+          refreshPlayerEditSelect({ preserveSelection: true });
+        });
+      }
+
+      if (playerEditSelect) {
+        playerEditSelect.addEventListener('change', (event) => {
+          const selectedId = event.target.value;
+          populatePlayerEditForm(selectedId);
+          if (playerEditStatus) {
+            playerEditStatus.textContent = '';
+            playerEditStatus.className = 'admin-message';
+          }
         });
       }
 
@@ -901,6 +1247,109 @@
         logoutButton.addEventListener('click', async () => {
           if (!supabaseClient) return;
           await supabaseClient.auth.signOut();
+        });
+      }
+
+      if (updatePlayerStatsButton) {
+        updatePlayerStatsButton.addEventListener('click', async () => {
+          if (!currentSession) {
+            if (playerEditStatus) {
+              playerEditStatus.textContent = 'Tu dois être connecté pour modifier un joueur.';
+              playerEditStatus.className = 'admin-message error';
+            }
+            return;
+          }
+
+          const playerId = playerEditSelect?.value;
+          if (!playerId) {
+            if (playerEditStatus) {
+              playerEditStatus.textContent = 'Sélectionne un joueur à modifier.';
+              playerEditStatus.className = 'admin-message error';
+            }
+            return;
+          }
+
+          const soloEloValue = Number(playerSoloEloInput?.value);
+          if (!Number.isFinite(soloEloValue)) {
+            if (playerEditStatus) {
+              playerEditStatus.textContent = 'Indique un solo Elo valide.';
+              playerEditStatus.className = 'admin-message error';
+            }
+            return;
+          }
+
+          const streakType = playerStreakTypeSelect?.value || 'neutral';
+          const streakRaw = Number(playerStreakValueInput?.value);
+          const streakValue = Number.isFinite(streakRaw) && streakRaw > 0 ? Math.round(streakRaw) : 0;
+
+          const payload = {
+            playerId,
+            soloElo: soloEloValue,
+            winStreak: streakType === 'win' ? streakValue : 0,
+            loseStreak: streakType === 'lose' ? streakValue : 0
+          };
+
+          updatePlayerStatsButton.disabled = true;
+          updatePlayerStatsButton.textContent = 'Mise à jour…';
+          if (playerEditStatus) {
+            playerEditStatus.textContent = 'Mise à jour des statistiques du joueur…';
+            playerEditStatus.className = 'admin-message';
+          }
+
+          try {
+            const response = await fetch(`${API_BASE}/updatePlayerStats`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${currentSession.access_token}`
+              },
+              body: JSON.stringify(payload)
+            });
+
+            const data = await response.json().catch(() => null);
+            if (!response.ok || !data?.ok) {
+              throw new Error(data?.error || 'La mise à jour a échoué.');
+            }
+
+            if (playerEditStatus) {
+              playerEditStatus.textContent = `Statistiques mises à jour pour ${data.player?.name || 'le joueur'}.`;
+              playerEditStatus.className = 'admin-message success';
+            }
+
+            await loadPlayers(currentSession.access_token);
+            loadRanking();
+          } catch (error) {
+            console.error(error);
+            if (playerEditStatus) {
+              playerEditStatus.textContent =
+                error instanceof Error && error.message
+                  ? error.message
+                  : 'Impossible de mettre à jour le joueur.';
+              playerEditStatus.className = 'admin-message error';
+            }
+          } finally {
+            updatePlayerStatsButton.disabled = false;
+            updatePlayerStatsButton.textContent = 'Mettre à jour les stats';
+          }
+        });
+      }
+
+      if (refreshPrisscupButton) {
+        refreshPrisscupButton.addEventListener('click', async () => {
+          if (!currentSession) {
+            if (prisscupStatus) {
+              prisscupStatus.textContent = 'Connecte-toi pour voir les équipes PrissCup.';
+              prisscupStatus.className = 'admin-message error';
+            }
+            return;
+          }
+
+          refreshPrisscupButton.disabled = true;
+          const initialText = refreshPrisscupButton.textContent;
+          refreshPrisscupButton.textContent = 'Rafraîchissement…';
+          await loadPrisscupTeams(currentSession.access_token);
+          refreshPrisscupButton.textContent = initialText;
+          refreshPrisscupButton.disabled = false;
         });
       }
 
