@@ -42,6 +42,7 @@ const PL_MATCH_TIMEOUT_MS = 20 * 60 * 1000;
 const PRISSCUP_ANNOUNCE_CHANNEL_ID = '1440767483438170264';
 const PRISSCUP_EVENT_URL = 'https://discord.gg/aeqGMNvTm?event=1442798624588435517';
 const PRISSCUP_EVENT_NAME = 'PrissCup 3v3';
+const PRISSCUP_TEAM_BADGES = ['🟦', '🟪', '🟥', '🟧', '🟨', '🟩', '🟦‍🔥', '🟫', '⬛'];
 
 const DISCORD_BOT_TOKEN = process.env.DISCORD_BOT_TOKEN;
 const DISCORD_GUILD_ID = process.env.DISCORD_GUILD_ID;
@@ -136,6 +137,11 @@ FINALS – BO5
 const TEAMS = {
   'Team 1': ['PlayerA', 'PlayerB', 'PlayerC'],
   'Team 2': ['PlayerD', 'PlayerE', 'PlayerF']
+};
+
+const queueStatusMessages = new Map();
+const prisscupData = {
+  messageIdByGuild: {}
 };
 
 function computeTierBoundaries(totalPlayers) {
@@ -1567,6 +1573,57 @@ function formatQueueStatus() {
   return sections.join('\n\n');
 }
 
+function buildQueueStatusEmbed() {
+  return new EmbedBuilder()
+    .setTitle('Matchmaking – File en direct')
+    .setDescription(formatQueueStatus())
+    .setColor(0x0b132b)
+    .setTimestamp(new Date());
+}
+
+async function sendOrUpdateQueueStatusMessage(guildContext, channel) {
+  if (!guildContext) {
+    return null;
+  }
+
+  let targetChannel = channel?.isTextBased() ? channel : null;
+  const storedMessage = queueStatusMessages.get(guildContext.id);
+
+  if ((!targetChannel || (storedMessage && storedMessage.channelId !== targetChannel.id)) && storedMessage?.channelId) {
+    const resolvedChannel =
+      guildContext.channels?.cache?.get(storedMessage.channelId) ||
+      (await guildContext.channels.fetch(storedMessage.channelId).catch(() => null));
+
+    if (resolvedChannel?.isTextBased()) {
+      targetChannel = resolvedChannel;
+    }
+  }
+
+  if (!targetChannel?.isTextBased()) {
+    return null;
+  }
+
+  const embed = buildQueueStatusEmbed();
+  let queueMessage = null;
+
+  if (storedMessage?.messageId) {
+    try {
+      queueMessage = await targetChannel.messages.fetch(storedMessage.messageId);
+      await queueMessage.edit({ embeds: [embed] });
+    } catch (err) {
+      warn('Unable to update matchmaking queue embed:', err?.message || err);
+      queueMessage = null;
+    }
+  }
+
+  if (!queueMessage) {
+    queueMessage = await targetChannel.send({ embeds: [embed] });
+    queueStatusMessages.set(guildContext.id, { channelId: targetChannel.id, messageId: queueMessage.id });
+  }
+
+  return queueMessage;
+}
+
 function shufflePlayers(players) {
   const shuffled = [...players];
 
@@ -1997,6 +2054,8 @@ async function handleJoinCommand(message, args) {
     )
   });
 
+  await sendOrUpdateQueueStatusMessage(message.guild, message.channel);
+
   if (targetQueue.length >= MATCH_SIZE) {
     const participants = targetQueue.splice(0, MATCH_SIZE);
     participants.forEach((player) => queueEntries.delete(player.discordId));
@@ -2016,6 +2075,8 @@ async function handleJoinCommand(message, args) {
         queueEntries.set(player.discordId, { entry: player, queueIndex: targetQueueIndex });
       });
     }
+
+    await sendOrUpdateQueueStatusMessage(message.guild, message.channel);
   }
 }
 
@@ -2055,6 +2116,8 @@ async function handleLeaveCommand(message) {
       { name: entry.displayName, queue: queueIndex + 1, status: formatQueueStatus() }
     )
   });
+
+  await sendOrUpdateQueueStatusMessage(message.guild, message.channel);
 }
 
 async function handleQueueCommand(message) {
@@ -2067,7 +2130,8 @@ async function handleQueueCommand(message) {
     return;
   }
 
-  await message.reply({ content: formatQueueStatus() });
+  await sendOrUpdateQueueStatusMessage(message.guild, message.channel);
+  await message.reply({ embeds: [buildQueueStatusEmbed()] });
 }
 
 async function handleEloCommand(message) {
@@ -2532,6 +2596,52 @@ function formatPrisscupRoleName(name) {
   return `TEAM | ${sanitizePrisscupTeamName(name)}`;
 }
 
+async function fetchPrisscupTeams(guildId, eventName) {
+  if (!guildId) {
+    return [];
+  }
+
+  const { data, error } = await supabase
+    .from('prisscup_teams')
+    .select('team_name, leader_id, mate1_id, mate2_id, created_at')
+    .eq('guild_id', guildId)
+    .eq('event_name', eventName)
+    .order('created_at', { ascending: true });
+
+  if (error) {
+    warn('Unable to load PrissCup teams:', error.message);
+    return [];
+  }
+
+  return data || [];
+}
+
+function formatPrisscupTeamLine(team, index) {
+  const badge = PRISSCUP_TEAM_BADGES[index % PRISSCUP_TEAM_BADGES.length];
+  const teammates = [team.leader_id, team.mate1_id, team.mate2_id]
+    .filter(Boolean)
+    .map((id) => `<@${id}>`)
+    .join(', ');
+
+  return `${badge} **${sanitizePrisscupTeamName(team.team_name)}** — ${teammates || 'Équipe à compléter'}`;
+}
+
+function buildPrisscupEmbed(teams = []) {
+  const embed = new EmbedBuilder()
+    .setTitle('PrissCup 3v3 – Inscriptions')
+    .setColor(0x0b132b)
+    .setTimestamp(new Date())
+    .setFooter({ text: 'Clique sur Infos pour les règles complètes.' });
+
+  const teamLines = Array.isArray(teams) && teams.length
+    ? teams.map((team, index) => formatPrisscupTeamLine(team, index))
+    : ['Aucune équipe inscrite pour le moment.'];
+
+  embed.addFields({ name: `Équipes (${teamLines.length})`, value: teamLines.join('\n') });
+
+  return embed;
+}
+
 async function isUserRegisteredForPrisscup(guildId, eventName, userId) {
   const { data, error } = await supabase
     .from('prisscup_teams')
@@ -2563,26 +2673,8 @@ async function sendPrisscupEmbed(guildContext) {
     return null;
   }
 
-  const embed = new EmbedBuilder()
-    .setTitle('PrissCup 3v3 – Tournoi compétitif Null\'s Brawl')
-    .setDescription(
-      [
-        '🇫🇷',
-        '- Tournoi 3v3 compétitif organisé par Prissme TV.',
-        '- Format : 3v3 (maps / règles annoncées sur le serveur).',
-        '- Inscription par équipe de 3 joueurs.',
-        '',
-        '🇬🇧',
-        '- Competitive 3v3 tournament hosted by Prissme TV.',
-        '- Format: 3v3 (maps / rules announced on the server).',
-        '- Registration per team of 3 players.',
-        '',
-        '🔗 Événement Discord / Discord Event:',
-        PRISSCUP_EVENT_URL
-      ].join('\n')
-    )
-    .setColor(0xe67e22)
-    .setTimestamp(new Date());
+  const teams = await fetchPrisscupTeams(guildContext.id, PRISSCUP_EVENT_NAME);
+  const embed = buildPrisscupEmbed(teams);
 
   const row = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
@@ -2595,7 +2687,42 @@ async function sendPrisscupEmbed(guildContext) {
       .setStyle(ButtonStyle.Secondary)
   );
 
-  return channel.send({ embeds: [embed], components: [row] });
+  const content = `🔗 Événement Discord : ${PRISSCUP_EVENT_URL}`;
+  const storedMessageId = prisscupData.messageIdByGuild[guildContext.id];
+  let existingMessage = null;
+
+  if (storedMessageId) {
+    try {
+      existingMessage = await channel.messages.fetch(storedMessageId);
+    } catch (err) {
+      warn('Unable to fetch stored PrissCup embed message:', err?.message || err);
+    }
+  }
+
+  if (!existingMessage) {
+    try {
+      const botId = client?.user?.id;
+      if (botId) {
+        const recentMessages = await channel.messages.fetch({ limit: 50 });
+        existingMessage = recentMessages.find(
+          (message) =>
+            message.author.id === botId && message.embeds?.[0]?.title?.includes('PrissCup 3v3')
+        );
+      }
+    } catch (err) {
+      warn('Unable to search for existing PrissCup embed:', err?.message || err);
+    }
+  }
+
+  if (existingMessage) {
+    await existingMessage.edit({ content, embeds: [embed], components: [row] });
+    prisscupData.messageIdByGuild[guildContext.id] = existingMessage.id;
+    return existingMessage;
+  }
+
+  const sentMessage = await channel.send({ content, embeds: [embed], components: [row] });
+  prisscupData.messageIdByGuild[guildContext.id] = sentMessage.id;
+  return sentMessage;
 }
 
 async function handlePrissCup3v3Command(message) {
@@ -3359,7 +3486,7 @@ async function handleInteraction(interaction) {
                 '🇬🇧 Competitive 3v3. Maps announced on the server. Be on time: 10 minutes late = DQ.'
               ].join('\n')
             )
-            .setColor(0xe67e22)
+            .setColor(0x0b132b)
         ]
       });
       return;
@@ -3944,6 +4071,8 @@ async function handleInteraction(interaction) {
         });
         return;
       }
+
+      await sendPrisscupEmbed(interaction.guild);
 
       const matesMention = pending.mateIds.map((id) => `<@${id}>`).join(', ');
 
