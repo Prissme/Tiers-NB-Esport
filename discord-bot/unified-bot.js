@@ -690,18 +690,27 @@ async function handlePLMatchTimeout(messageId) {
     channel = await ensurePLQueueChannel(guildContext);
   }
 
+  const matchState = [...activeMatches.values()].find((state) => state.messageId === messageId);
+
   if (channel?.isTextBased()) {
     await channel.send({
       content:
-        '⏰ Match annulé (20 minutes écoulées, aucun résultat). Joueurs renvoyés en file.\n⏰ Match cancelled (20 minutes passed, no result). Returning players to queue.'
+        '⏰ Match annulé (20 minutes écoulées, aucun résultat). Joueurs retirés du match.\n⏰ Match cancelled (20 minutes passed, no result). Players removed from the match.'
     });
   }
 
-  const playersToRequeue = Array.isArray(matchInfo.players?.ids)
-    ? matchInfo.players.ids
-    : matchInfo.players || [];
+  if (matchState?.matchId) {
+    await updateMatchRecord(matchState.matchId, {
+      status: 'cancelled',
+      winner: null,
+      completed_at: new Date().toISOString()
+    }).catch((err) => warn('Unable to cancel timed out match record:', err?.message || err));
+  }
 
-  await requeueRuntimePlPlayers(matchInfo.guild_id, playersToRequeue);
+  if (matchState) {
+    await cleanupMatchResources(matchState);
+  }
+
   await updateRuntimeActiveMatchStatus(messageId, 'timeout');
   for (const [id, state] of activeMatches.entries()) {
     if (state.messageId === messageId) {
@@ -2161,8 +2170,8 @@ async function handleQueueCommand(message) {
   const queue = getPLQueue(message.guild.id);
   await sendOrUpdateQueueMessage(message.guild, plQueueChannel);
 
-  const descriptionFr = `🔁 File PL : **${queue.length}/${MATCH_SIZE}** joueurs (anonyme)`;
-  const descriptionEn = `🔁 PL Queue : **${queue.length}/${MATCH_SIZE}** players (anonymous)`;
+  const descriptionFr = `🔁 File PL : **${queue.length}/${MATCH_SIZE}** joueurs`;
+  const descriptionEn = `🔁 PL Queue : **${queue.length}/${MATCH_SIZE}** players`;
 
   const embed = new EmbedBuilder()
     .setTitle('Power League')
