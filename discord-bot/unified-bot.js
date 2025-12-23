@@ -19,6 +19,7 @@ const {
   TextInputStyle
 } = require('discord.js');
 const { createClient } = require('@supabase/supabase-js');
+const predictions = require('./predictions');
 
 const LOG_PREFIX = '[UnifiedBot]';
 const TEAM_SIZE = 3;
@@ -3612,6 +3613,10 @@ async function handleInteraction(interaction) {
     return;
   }
 
+  if (await predictions.handleInteraction(interaction)) {
+    return;
+  }
+
   if (interaction.isButton()) {
     if (interaction.customId === 'prisscup_info') {
       await interaction.reply({
@@ -4567,6 +4572,8 @@ async function onReady(readyClient) {
     logChannel = null;
   }
 
+  await predictions.registerCommands();
+
   await syncTiersWithRoles();
 
   tierSyncInterval = setInterval(() => {
@@ -4707,6 +4714,16 @@ async function startUnifiedBot() {
       GatewayIntentBits.GuildMessageReactions
     ],
     partials: [Partials.Channel, Partials.Message, Partials.GuildMember, Partials.User]
+  });
+
+  predictions.initPredictionContext({
+    client,
+    guildId: DISCORD_GUILD_ID,
+    supabase: createSupabaseClient(),
+    localizeText,
+    log,
+    warn,
+    error: errorLog
   });
 
   client.once(Events.ClientReady, onReady);
