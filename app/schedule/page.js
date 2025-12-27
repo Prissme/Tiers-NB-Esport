@@ -1,8 +1,6 @@
-import { groupMatchesByDay, teamMap } from "../lib/lfn-data";
+import { schedule, teamMap } from "../lib/lfn-data";
 
 export default function SchedulePage() {
-  const groupedMatches = groupMatchesByDay();
-
   return (
     <div className="space-y-8">
       <header className="space-y-3">
@@ -11,36 +9,47 @@ export default function SchedulePage() {
         </p>
         <h1 className="text-4xl font-semibold text-white">Schedule</h1>
         <p className="text-frost">
-          Organized by matchday so you can plan every watch party.
+          Weekly schedule grouped by day. Times listed in UTC.
         </p>
       </header>
 
       <div className="space-y-6">
-        {Object.entries(groupedMatches).map(([day, matches]) => (
-          <section key={day} className="glass-panel p-6">
-            <h2 className="section-title">{day}</h2>
+        {schedule.map((day) => (
+          <section key={day.dayLabel} className="glass-panel p-6">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h2 className="section-title">{day.dayLabel}</h2>
+              {day.date ? (
+                <span className="text-sm text-frost">{day.date}</span>
+              ) : null}
+            </div>
             <div className="mt-4 overflow-x-auto">
               <table className="w-full min-w-[520px] text-left text-sm text-frost">
                 <thead>
                   <tr className="border-b border-white/10 text-xs uppercase tracking-[0.2em] text-white">
                     <th className="py-3">Time (UTC)</th>
                     <th className="py-3">Match</th>
-                    <th className="py-3">Format</th>
-                    <th className="py-3">Map</th>
+                    <th className="py-3">Details</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {matches.map((match) => {
-                    const home = teamMap.get(match.home);
-                    const away = teamMap.get(match.away);
+                  {day.matches.map((match) => {
+                    const teamA = teamMap.get(match.teamAId);
+                    const teamB = teamMap.get(match.teamBId);
                     return (
                       <tr key={match.id} className="border-b border-white/5">
                         <td className="py-3">{match.time}</td>
                         <td className="py-3 text-white">
-                          {home.logo} {home.name} vs {away.name} {away.logo}
+                          {teamA?.name} vs {teamB?.name}
                         </td>
-                        <td className="py-3">{match.format}</td>
-                        <td className="py-3">{match.map}</td>
+                        <td className="py-3">
+                          {match.extraLine ? (
+                            <span className="text-xs uppercase tracking-[0.2em] text-frost">
+                              {match.extraLine}
+                            </span>
+                          ) : (
+                            <span className="text-xs text-frost">Standard Bo3</span>
+                          )}
+                        </td>
                       </tr>
                     );
                   })}

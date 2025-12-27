@@ -1,209 +1,227 @@
 {
-  "league": {
-    "name": "LFN",
-    "fullName": "League Frontier Network",
-    "season": "Spring 2025",
-    "location": "North America",
-    "mode": "5v5",
-    "broadcast": "Fridays · 8:00 PM ET",
-    "website": "https://lfn.gg"
+  "meta": {
+    "seasonName": "Spring Split",
+    "year": 2025,
+    "lastUpdatedISO": "2025-04-02T19:30:00Z",
+    "signatureLine": "LFN ne s’adapte pas aux joueurs. Les joueurs s’adaptent à la LFN.",
+    "discordInviteUrl": "https://discord.gg/prissme-tv-1236724293027496047"
   },
   "teams": [
     {
       "id": "aurora",
       "name": "Aurora Foxes",
       "tag": "AFX",
-      "logo": "🦊",
-      "colors": ["#6366f1", "#1e1b4b"],
-      "roster": [
-        { "name": "Luna", "role": "IGL" },
-        { "name": "Raze", "role": "Entry" },
-        { "name": "Nyx", "role": "Flex" },
-        { "name": "Cipher", "role": "Anchor" },
-        { "name": "Vale", "role": "Support" }
-      ]
+      "roster": {
+        "captain": "Luna",
+        "players": ["Raze", "Nyx", "Cipher", "Vale"],
+        "subs": ["Comet"]
+      }
     },
     {
       "id": "drift",
       "name": "Drift Circuit",
       "tag": "DRF",
-      "logo": "⚡",
-      "colors": ["#38bdf8", "#0f172a"],
-      "roster": [
-        { "name": "Jet", "role": "IGL" },
-        { "name": "Pulse", "role": "Entry" },
-        { "name": "Echo", "role": "Flex" },
-        { "name": "Grit", "role": "Anchor" },
-        { "name": "Sable", "role": "Support" }
-      ]
+      "roster": {
+        "captain": "Jet",
+        "players": ["Pulse", "Echo", "Grit", "Sable"],
+        "subs": ["Torque", "Volt"]
+      }
     },
     {
       "id": "ember",
       "name": "Ember Syndicate",
       "tag": "EMB",
-      "logo": "🔥",
-      "colors": ["#f97316", "#1f2937"],
-      "roster": [
-        { "name": "Ash", "role": "IGL" },
-        { "name": "Keen", "role": "Entry" },
-        { "name": "Mica", "role": "Flex" },
-        { "name": "Rune", "role": "Anchor" },
-        { "name": "Sol", "role": "Support" }
-      ]
+      "roster": {
+        "captain": "Ash",
+        "players": ["Keen", "Mica", "Rune", "Sol"],
+        "subs": ["Flint"]
+      }
     },
     {
       "id": "titan",
       "name": "Titan Wardens",
       "tag": "TTN",
-      "logo": "🛡️",
-      "colors": ["#22c55e", "#052e16"],
-      "roster": [
-        { "name": "Atlas", "role": "IGL" },
-        { "name": "Bolt", "role": "Entry" },
-        { "name": "Quill", "role": "Flex" },
-        { "name": "Grave", "role": "Anchor" },
-        { "name": "Moss", "role": "Support" }
-      ]
+      "roster": {
+        "captain": "Atlas",
+        "players": ["Bolt", "Quill", "Grave", "Moss"],
+        "subs": ["Root"]
+      }
     },
     {
       "id": "nova",
       "name": "Nova Pulse",
       "tag": "NVP",
-      "logo": "✨",
-      "colors": ["#a855f7", "#1f1a24"],
-      "roster": [
-        { "name": "Nova", "role": "IGL" },
-        { "name": "Flick", "role": "Entry" },
-        { "name": "Helix", "role": "Flex" },
-        { "name": "Kite", "role": "Anchor" },
-        { "name": "Iris", "role": "Support" }
-      ]
+      "roster": {
+        "captain": "Nova",
+        "players": ["Flick", "Helix", "Kite", "Iris"],
+        "subs": ["Lumen"]
+      }
     },
     {
       "id": "harbor",
       "name": "Harbor Knights",
       "tag": "HBK",
-      "logo": "⚓",
-      "colors": ["#0ea5e9", "#0f172a"],
-      "roster": [
-        { "name": "Anchor", "role": "IGL" },
-        { "name": "Tide", "role": "Entry" },
-        { "name": "Breeze", "role": "Flex" },
-        { "name": "Reef", "role": "Anchor" },
-        { "name": "Foam", "role": "Support" }
+      "roster": {
+        "captain": "Anchor",
+        "players": ["Tide", "Breeze", "Reef", "Foam"],
+        "subs": ["Dock"]
+      }
+    },
+    {
+      "id": "prism",
+      "name": "Prism Runners",
+      "tag": "PRM",
+      "roster": {
+        "captain": "Halo",
+        "players": ["Gleam", "Prism", "Shard", "Vibe"],
+        "subs": ["Glint"]
+      }
+    },
+    {
+      "id": "summit",
+      "name": "Summit Wolves",
+      "tag": "SMT",
+      "roster": {
+        "captain": "Ridge",
+        "players": ["Howl", "Peak", "Ever", "Slate"],
+        "subs": ["Cliff"]
+      }
+    },
+    {
+      "id": "void",
+      "name": "Void Serpents",
+      "tag": "VDS",
+      "roster": {
+        "captain": "Zero",
+        "players": ["Vanta", "Lux", "Umbra", "Rift"],
+        "subs": ["Null"]
+      }
+    },
+    {
+      "id": "tempest",
+      "name": "Tempest Axis",
+      "tag": "TMP",
+      "roster": {
+        "captain": "Storm",
+        "players": ["Surge", "Ion", "Gale", "Stratus"],
+        "subs": ["Nimbus"]
+      }
+    }
+  ],
+  "schedule": [
+    {
+      "dayLabel": "Day 1",
+      "date": "2025-04-01",
+      "matches": [
+        {
+          "id": "d1-1",
+          "time": "18:00",
+          "teamAId": "aurora",
+          "teamBId": "drift",
+          "extraLine": "1v1: Luna vs Jet"
+        },
+        {
+          "id": "d1-2",
+          "time": "20:00",
+          "teamAId": "ember",
+          "teamBId": "titan"
+        }
+      ]
+    },
+    {
+      "dayLabel": "Day 2",
+      "date": "2025-04-02",
+      "matches": [
+        {
+          "id": "d2-1",
+          "time": "18:00",
+          "teamAId": "nova",
+          "teamBId": "harbor",
+          "extraLine": "1v1: Nova vs Anchor"
+        },
+        {
+          "id": "d2-2",
+          "time": "20:00",
+          "teamAId": "prism",
+          "teamBId": "summit"
+        }
+      ]
+    },
+    {
+      "dayLabel": "Day 3",
+      "date": "2025-04-03",
+      "matches": [
+        {
+          "id": "d3-1",
+          "time": "18:00",
+          "teamAId": "void",
+          "teamBId": "tempest"
+        },
+        {
+          "id": "d3-2",
+          "time": "20:00",
+          "teamAId": "aurora",
+          "teamBId": "ember",
+          "extraLine": "1v1: Nyx vs Ash"
+        }
+      ]
+    },
+    {
+      "dayLabel": "Day 4",
+      "date": "2025-04-04",
+      "matches": [
+        {
+          "id": "d4-1",
+          "time": "18:00",
+          "teamAId": "titan",
+          "teamBId": "nova"
+        },
+        {
+          "id": "d4-2",
+          "time": "20:00",
+          "teamAId": "drift",
+          "teamBId": "harbor"
+        }
+      ]
+    },
+    {
+      "dayLabel": "Day 5",
+      "date": "2025-04-05",
+      "matches": [
+        {
+          "id": "d5-1",
+          "time": "18:00",
+          "teamAId": "prism",
+          "teamBId": "void",
+          "extraLine": "1v1: Halo vs Zero"
+        },
+        {
+          "id": "d5-2",
+          "time": "20:00",
+          "teamAId": "summit",
+          "teamBId": "tempest"
+        }
       ]
     }
   ],
-  "matches": [
+  "results": [
     {
-      "id": "wk1-1",
-      "day": "Week 1 · Friday",
-      "date": "2025-04-04",
-      "time": "18:00",
-      "home": "aurora",
-      "away": "drift",
-      "status": "scheduled",
-      "format": "Bo3",
-      "map": "Metrogrid"
+      "matchId": "d1-1",
+      "scoreA": 2,
+      "scoreB": 1,
+      "reportedAtISO": "2025-04-01T20:15:00Z"
     },
     {
-      "id": "wk1-2",
-      "day": "Week 1 · Friday",
-      "date": "2025-04-04",
-      "time": "20:00",
-      "home": "ember",
-      "away": "titan",
-      "status": "scheduled",
-      "format": "Bo3",
-      "map": "Solaris"
+      "matchId": "d1-2",
+      "scoreA": 0,
+      "scoreB": 2,
+      "reportedAtISO": "2025-04-01T22:05:00Z"
     },
     {
-      "id": "wk1-3",
-      "day": "Week 1 · Saturday",
-      "date": "2025-04-05",
-      "time": "17:00",
-      "home": "nova",
-      "away": "harbor",
-      "status": "scheduled",
-      "format": "Bo3",
-      "map": "Nebula"
-    },
-    {
-      "id": "wk2-1",
-      "day": "Week 2 · Friday",
-      "date": "2025-04-11",
-      "time": "18:00",
-      "home": "aurora",
-      "away": "ember",
-      "status": "scheduled",
-      "format": "Bo3",
-      "map": "Arcadia"
-    },
-    {
-      "id": "wk2-2",
-      "day": "Week 2 · Friday",
-      "date": "2025-04-11",
-      "time": "20:00",
-      "home": "titan",
-      "away": "nova",
-      "status": "scheduled",
-      "format": "Bo3",
-      "map": "Ironforge"
-    },
-    {
-      "id": "wk2-3",
-      "day": "Week 2 · Saturday",
-      "date": "2025-04-12",
-      "time": "17:00",
-      "home": "drift",
-      "away": "harbor",
-      "status": "scheduled",
-      "format": "Bo3",
-      "map": "Frontline"
+      "matchId": "d2-1",
+      "scoreA": 2,
+      "scoreB": 0,
+      "reportedAtISO": "2025-04-02T20:10:00Z"
     }
-  ],
-  "standings": [
-    { "teamId": "aurora", "wins": 4, "losses": 1, "diff": 7 },
-    { "teamId": "ember", "wins": 3, "losses": 2, "diff": 4 },
-    { "teamId": "titan", "wins": 3, "losses": 2, "diff": 2 },
-    { "teamId": "drift", "wins": 2, "losses": 3, "diff": -1 },
-    { "teamId": "nova", "wins": 2, "losses": 3, "diff": -2 },
-    { "teamId": "harbor", "wins": 1, "losses": 4, "diff": -6 }
-  ],
-  "rulebook": {
-    "format": [
-      {
-        "title": "Match Format",
-        "items": [
-          "All regular season matches are **best-of-three** series.",
-          "Playoff matches are **best-of-five** with a single map veto per team.",
-          "Teams must be ready to join the lobby **10 minutes** before start time."
-        ]
-      },
-      {
-        "title": "Roster Rules",
-        "items": [
-          "Each team fields **five starters** and up to **two substitutes**.",
-          "A player may only represent **one team** per season.",
-          "Roster changes lock after **Week 3** unless approved by league ops."
-        ]
-      },
-      {
-        "title": "Competitive Integrity",
-        "items": [
-          "**No stream sniping** or third-party coaching during live matches.",
-          "Use of **unauthorized software** results in immediate forfeit.",
-          "All matches are played on **league-approved patches**."
-        ]
-      },
-      {
-        "title": "Timeouts & Pauses",
-        "items": [
-          "Each team has **two tactical pauses** per map.",
-          "Technical pauses require confirmation from **match admins**.",
-          "If a player disconnects, the team has **5 minutes** to reconnect."
-        ]
-      }
-    ]
-  }
+  ]
 }
