@@ -9,7 +9,7 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 
 # Installer toutes les dépendances sans exécuter de scripts
-RUN npm ci --ignore-scripts
+RUN npm install --ignore-scripts
 
 # Copier le code source avant le build
 COPY . .
@@ -26,7 +26,7 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 
 # Installer les dépendances de prod sans exécuter de scripts
-RUN npm ci --omit=dev --ignore-scripts
+RUN npm install --omit=dev --ignore-scripts
 
 # Copier les artefacts nécessaires à l'exécution
 COPY --from=builder /app/.next ./.next
