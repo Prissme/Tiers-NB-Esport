@@ -5,8 +5,9 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "node server.js",
-    "dev:legacy": "node server.js",
+    "start": "next start",
+    "bot": "node start-bot.js",
+    "dev:all": "concurrently \"npm run dev\" \"npm run bot\"",
     "restore-names": "node restore-display-names.cjs",
     "migrate-auth-users": "node migrate-auth-users.js",
     "cleanup-unknown": "node cleanup-unknown.js"
@@ -19,8 +20,12 @@
     "react-dom": "^18.3.1"
   },
   "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/react": "^18.3.0",
     "autoprefixer": "^10.4.19",
+    "concurrently": "^8.2.2",
     "postcss": "^8.4.38",
-    "tailwindcss": "^3.4.7"
+    "tailwindcss": "^3.4.7",
+    "typescript": "^5.3.0"
   }
 }
