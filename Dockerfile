@@ -5,16 +5,12 @@ FROM node:18-bullseye-slim AS builder
 
 WORKDIR /app
 
-# Copier uniquement les manifestes
-COPY package.json package-lock.json ./
+# Copier SEULEMENT package.json (ignorer le lockfile corrompu)
+COPY package.json ./
 
-# FIX: Nettoyer cache npm + timeouts + retries
+# Installer sans lockfile = résolution fraîche
 RUN npm cache clean --force && \
-    npm config set fetch-timeout 120000 && \
-    npm config set fetch-retries 5 && \
-    npm config set fetch-retry-mintimeout 20000 && \
-    npm config set fetch-retry-maxtimeout 120000 && \
-    npm install --ignore-scripts
+    npm install --no-package-lock --ignore-scripts --legacy-peer-deps
 
 # Copier le code source
 COPY . .
@@ -27,23 +23,24 @@ FROM node:18-bullseye-slim AS runner
 
 WORKDIR /app
 
-COPY package.json package-lock.json ./
+COPY package.json ./
 
-# FIX: Même stratégie pour prod dependencies
+# Même stratégie pour prod
 RUN npm cache clean --force && \
-    npm config set fetch-timeout 120000 && \
-    npm config set fetch-retries 5 && \
-    npm config set fetch-retry-mintimeout 20000 && \
-    npm config set fetch-retry-maxtimeout 120000 && \
-    npm install --omit=dev --ignore-scripts
+    npm install --no-package-lock --omit=dev --ignore-scripts --legacy-peer-deps
 
-# Copier artefacts depuis builder
+# Copier tous les artefacts nécessaires
 COPY --from=builder /app/.next ./.next
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/server.js ./server.js
 COPY --from=builder /app/discord-bot ./discord-bot
 COPY --from=builder /app/ensure-fetch.js ./ensure-fetch.js
 COPY --from=builder /app/api ./api
+COPY --from=builder /app/data ./data
+COPY --from=builder /app/next.config.js ./next.config.js
+COPY --from=builder /app/app ./app
+COPY --from=builder /app/tailwind.config.js ./tailwind.config.js
+COPY --from=builder /app/postcss.config.js ./postcss.config.js
 
 EXPOSE 3000
 
