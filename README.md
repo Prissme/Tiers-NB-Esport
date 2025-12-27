@@ -18,20 +18,23 @@ All league data lives in `data/lfn.json`.
 
 ### Structure
 
-- `league`: Overall league metadata (name, season, broadcast).
-- `teams`: Team list with `id`, `name`, `tag`, `logo`, and `roster`.
-- `matches`: Schedule entries with `day`, `date`, `time`, `home`, and `away`.
-- `standings`: Rows with `teamId`, `wins`, `losses`, and `diff`.
-- `rulebook`: Rule sections used by the rulebook page.
+- `meta`: season metadata (`seasonName`, `year`, `lastUpdatedISO`,
+  `signatureLine`, `discordInviteUrl`).
+- `teams`: Team list with `id`, `name`, `tag`, optional `logoUrl`, and
+  `roster` (`captain`, `players`, `subs`).
+- `schedule`: Array of days with `dayLabel`, optional `date`, and `matches`
+  entries (`id`, `time`, `teamAId`, `teamBId`, optional `extraLine`).
+- `results`: Match results with `matchId`, `scoreA`, `scoreB`,
+  `reportedAtISO`.
 
 ### Common Updates
 
-- **Add a team**: Add a new object to `teams` and reference its `id` inside
-  `matches` and `standings`.
-- **Update schedule**: Add or edit entries in `matches`. The schedule groups
-  matches by the `day` field.
-- **Refresh standings**: Update `wins`, `losses`, and `diff` in the
-  `standings` array.
+- **Update the schedule**: edit `schedule` days or add matches. Keep match
+  `id` values unique so results can map correctly.
+- **Report results**: add a new entry to `results` with the match `id` and
+  scores. The standings table updates automatically based on results.
+- **Refresh the homepage**: update `meta.lastUpdatedISO` and
+  `meta.signatureLine` to keep the Live Proof section current.
 
 ## Deployment
 

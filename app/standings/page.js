@@ -1,27 +1,35 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { standings, teamMap } from "../lib/lfn-data";
+import { getStandings, teamMap } from "../lib/lfn-data";
 
-const sortOptions = [
-  { label: "Wins", key: "wins" },
-  { label: "Losses", key: "losses" },
-  { label: "Diff", key: "diff" },
+const columns = [
+  { key: "team", label: "Team" },
+  { key: "wins", label: "Wins" },
+  { key: "losses", label: "Losses" },
+  { key: "diff", label: "Set Diff" },
+  { key: "points", label: "Points" },
 ];
 
 export default function StandingsPage() {
-  const [sortKey, setSortKey] = useState("wins");
+  const [sortKey, setSortKey] = useState("points");
   const [direction, setDirection] = useState("desc");
+  const standings = getStandings();
 
   const sortedStandings = useMemo(() => {
     const multiplier = direction === "desc" ? -1 : 1;
     return [...standings].sort((a, b) => {
+      if (sortKey === "team") {
+        const nameA = teamMap.get(a.teamId)?.name ?? "";
+        const nameB = teamMap.get(b.teamId)?.name ?? "";
+        return nameA.localeCompare(nameB) * multiplier;
+      }
       if (a[sortKey] === b[sortKey]) {
-        return b.diff - a.diff;
+        return (b.diff - a.diff) * multiplier;
       }
       return (a[sortKey] - b[sortKey]) * multiplier;
     });
-  }, [direction, sortKey]);
+  }, [direction, sortKey, standings]);
 
   const handleSort = (key) => {
     if (key === sortKey) {
@@ -29,7 +37,7 @@ export default function StandingsPage() {
       return;
     }
     setSortKey(key);
-    setDirection("desc");
+    setDirection(key === "team" ? "asc" : "desc");
   };
 
   return (
@@ -40,37 +48,30 @@ export default function StandingsPage() {
         </p>
         <h1 className="text-4xl font-semibold text-white">Standings</h1>
         <p className="text-frost">
-          Sort by wins, losses, or map differential for instant insights.
+          Click a column header to sort by wins, losses, set differential, or
+          points.
         </p>
       </header>
 
       <section className="glass-panel p-6">
-        <div className="flex flex-wrap items-center gap-3 text-sm text-frost">
-          {sortOptions.map((option) => (
-            <button
-              key={option.key}
-              type="button"
-              onClick={() => handleSort(option.key)}
-              className={`rounded-full border px-4 py-1.5 text-sm font-semibold transition ${
-                sortKey === option.key
-                  ? "border-pulse/60 bg-pulse/20 text-white"
-                  : "border-white/10 text-frost hover:border-white/30 hover:text-white"
-              }`}
-            >
-              Sort by {option.label}{" "}
-              {sortKey === option.key ? (direction === "desc" ? "↓" : "↑") : ""}
-            </button>
-          ))}
-        </div>
-
         <div className="mt-6 overflow-x-auto">
-          <table className="w-full min-w-[520px] text-left text-sm text-frost">
+          <table className="w-full min-w-[620px] text-left text-sm text-frost">
             <thead>
               <tr className="border-b border-white/10 text-xs uppercase tracking-[0.2em] text-white">
-                <th className="py-3">Team</th>
-                <th className="py-3">Wins</th>
-                <th className="py-3">Losses</th>
-                <th className="py-3">Diff</th>
+                {columns.map((column) => (
+                  <th key={column.key} className="py-3">
+                    <button
+                      type="button"
+                      onClick={() => handleSort(column.key)}
+                      className="flex items-center gap-2"
+                    >
+                      {column.label}
+                      {sortKey === column.key ? (
+                        <span>{direction === "desc" ? "↓" : "↑"}</span>
+                      ) : null}
+                    </button>
+                  </th>
+                ))}
               </tr>
             </thead>
             <tbody>
@@ -78,12 +79,13 @@ export default function StandingsPage() {
                 const team = teamMap.get(row.teamId);
                 return (
                   <tr key={row.teamId} className="border-b border-white/5">
-                    <td className="py-3 text-white">
-                      {team.logo} {team.name}
-                    </td>
+                    <td className="py-3 text-white">{team?.name}</td>
                     <td className="py-3">{row.wins}</td>
                     <td className="py-3">{row.losses}</td>
                     <td className="py-3">{row.diff}</td>
+                    <td className="py-3 font-semibold text-white">
+                      {row.points}
+                    </td>
                   </tr>
                 );
               })}
