@@ -1,0 +1,209 @@
+{
+  "league": {
+    "name": "LFN",
+    "fullName": "League Frontier Network",
+    "season": "Spring 2025",
+    "location": "North America",
+    "mode": "5v5",
+    "broadcast": "Fridays · 8:00 PM ET",
+    "website": "https://lfn.gg"
+  },
+  "teams": [
+    {
+      "id": "aurora",
+      "name": "Aurora Foxes",
+      "tag": "AFX",
+      "logo": "🦊",
+      "colors": ["#6366f1", "#1e1b4b"],
+      "roster": [
+        { "name": "Luna", "role": "IGL" },
+        { "name": "Raze", "role": "Entry" },
+        { "name": "Nyx", "role": "Flex" },
+        { "name": "Cipher", "role": "Anchor" },
+        { "name": "Vale", "role": "Support" }
+      ]
+    },
+    {
+      "id": "drift",
+      "name": "Drift Circuit",
+      "tag": "DRF",
+      "logo": "⚡",
+      "colors": ["#38bdf8", "#0f172a"],
+      "roster": [
+        { "name": "Jet", "role": "IGL" },
+        { "name": "Pulse", "role": "Entry" },
+        { "name": "Echo", "role": "Flex" },
+        { "name": "Grit", "role": "Anchor" },
+        { "name": "Sable", "role": "Support" }
+      ]
+    },
+    {
+      "id": "ember",
+      "name": "Ember Syndicate",
+      "tag": "EMB",
+      "logo": "🔥",
+      "colors": ["#f97316", "#1f2937"],
+      "roster": [
+        { "name": "Ash", "role": "IGL" },
+        { "name": "Keen", "role": "Entry" },
+        { "name": "Mica", "role": "Flex" },
+        { "name": "Rune", "role": "Anchor" },
+        { "name": "Sol", "role": "Support" }
+      ]
+    },
+    {
+      "id": "titan",
+      "name": "Titan Wardens",
+      "tag": "TTN",
+      "logo": "🛡️",
+      "colors": ["#22c55e", "#052e16"],
+      "roster": [
+        { "name": "Atlas", "role": "IGL" },
+        { "name": "Bolt", "role": "Entry" },
+        { "name": "Quill", "role": "Flex" },
+        { "name": "Grave", "role": "Anchor" },
+        { "name": "Moss", "role": "Support" }
+      ]
+    },
+    {
+      "id": "nova",
+      "name": "Nova Pulse",
+      "tag": "NVP",
+      "logo": "✨",
+      "colors": ["#a855f7", "#1f1a24"],
+      "roster": [
+        { "name": "Nova", "role": "IGL" },
+        { "name": "Flick", "role": "Entry" },
+        { "name": "Helix", "role": "Flex" },
+        { "name": "Kite", "role": "Anchor" },
+        { "name": "Iris", "role": "Support" }
+      ]
+    },
+    {
+      "id": "harbor",
+      "name": "Harbor Knights",
+      "tag": "HBK",
+      "logo": "⚓",
+      "colors": ["#0ea5e9", "#0f172a"],
+      "roster": [
+        { "name": "Anchor", "role": "IGL" },
+        { "name": "Tide", "role": "Entry" },
+        { "name": "Breeze", "role": "Flex" },
+        { "name": "Reef", "role": "Anchor" },
+        { "name": "Foam", "role": "Support" }
+      ]
+    }
+  ],
+  "matches": [
+    {
+      "id": "wk1-1",
+      "day": "Week 1 · Friday",
+      "date": "2025-04-04",
+      "time": "18:00",
+      "home": "aurora",
+      "away": "drift",
+      "status": "scheduled",
+      "format": "Bo3",
+      "map": "Metrogrid"
+    },
+    {
+      "id": "wk1-2",
+      "day": "Week 1 · Friday",
+      "date": "2025-04-04",
+      "time": "20:00",
+      "home": "ember",
+      "away": "titan",
+      "status": "scheduled",
+      "format": "Bo3",
+      "map": "Solaris"
+    },
+    {
+      "id": "wk1-3",
+      "day": "Week 1 · Saturday",
+      "date": "2025-04-05",
+      "time": "17:00",
+      "home": "nova",
+      "away": "harbor",
+      "status": "scheduled",
+      "format": "Bo3",
+      "map": "Nebula"
+    },
+    {
+      "id": "wk2-1",
+      "day": "Week 2 · Friday",
+      "date": "2025-04-11",
+      "time": "18:00",
+      "home": "aurora",
+      "away": "ember",
+      "status": "scheduled",
+      "format": "Bo3",
+      "map": "Arcadia"
+    },
+    {
+      "id": "wk2-2",
+      "day": "Week 2 · Friday",
+      "date": "2025-04-11",
+      "time": "20:00",
+      "home": "titan",
+      "away": "nova",
+      "status": "scheduled",
+      "format": "Bo3",
+      "map": "Ironforge"
+    },
+    {
+      "id": "wk2-3",
+      "day": "Week 2 · Saturday",
+      "date": "2025-04-12",
+      "time": "17:00",
+      "home": "drift",
+      "away": "harbor",
+      "status": "scheduled",
+      "format": "Bo3",
+      "map": "Frontline"
+    }
+  ],
+  "standings": [
+    { "teamId": "aurora", "wins": 4, "losses": 1, "diff": 7 },
+    { "teamId": "ember", "wins": 3, "losses": 2, "diff": 4 },
+    { "teamId": "titan", "wins": 3, "losses": 2, "diff": 2 },
+    { "teamId": "drift", "wins": 2, "losses": 3, "diff": -1 },
+    { "teamId": "nova", "wins": 2, "losses": 3, "diff": -2 },
+    { "teamId": "harbor", "wins": 1, "losses": 4, "diff": -6 }
+  ],
+  "rulebook": {
+    "format": [
+      {
+        "title": "Match Format",
+        "items": [
+          "All regular season matches are **best-of-three** series.",
+          "Playoff matches are **best-of-five** with a single map veto per team.",
+          "Teams must be ready to join the lobby **10 minutes** before start time."
+        ]
+      },
+      {
+        "title": "Roster Rules",
+        "items": [
+          "Each team fields **five starters** and up to **two substitutes**.",
+          "A player may only represent **one team** per season.",
+          "Roster changes lock after **Week 3** unless approved by league ops."
+        ]
+      },
+      {
+        "title": "Competitive Integrity",
+        "items": [
+          "**No stream sniping** or third-party coaching during live matches.",
+          "Use of **unauthorized software** results in immediate forfeit.",
+          "All matches are played on **league-approved patches**."
+        ]
+      },
+      {
+        "title": "Timeouts & Pauses",
+        "items": [
+          "Each team has **two tactical pauses** per map.",
+          "Technical pauses require confirmation from **match admins**.",
+          "If a player disconnects, the team has **5 minutes** to reconnect."
+        ]
+      }
+    ]
+  }
+}

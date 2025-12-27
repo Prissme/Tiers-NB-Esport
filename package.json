@@ -1,16 +1,26 @@
 {
-  "name": "nulls-brawl-ranking",
+  "name": "lfn-league-site",
   "version": "1.0.0",
-  "description": "Classement Top 50 Null's Brawl Esport",
+  "description": "LFN esports league site",
   "scripts": {
-    "start": "node server.js",
-    "dev": "node server.js",
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "dev:legacy": "node server.js",
     "restore-names": "node restore-display-names.cjs",
     "migrate-auth-users": "node migrate-auth-users.js",
     "cleanup-unknown": "node cleanup-unknown.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.39.0",
-    "discord.js": "^14.16.3"
+    "discord.js": "^14.16.3",
+    "next": "^14.2.5",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "autoprefixer": "^10.4.19",
+    "postcss": "^8.4.38",
+    "tailwindcss": "^3.4.7"
   }
 }
