@@ -13,17 +13,19 @@ export default async function ClassementPage() {
     <div className="space-y-10">
       <section className="section-card space-y-6">
         <SectionHeader
-          title="Classement"
-          description="Table officielle dès que des matchs sont joués." 
+          kicker="Classement"
+          title="Standings officiels"
+          description="Table officielle dès publication." 
         />
         {!hasStandings ? (
           <EmptyState
-            title="Classement pas encore publié"
-            description="Les standings apparaissent après les premiers matchs officiels."
+            title="Aucun classement publié"
+            description="Les standings apparaîtront après les premiers matchs officiels."
             ctaLabel={data.links.discord ? "Suivre les annonces" : undefined}
             ctaHref={data.links.discord || undefined}
             secondaryLabel="Voir le calendrier"
             secondaryHref="/calendrier"
+            badge="Standings"
           />
         ) : (
           <div className="space-y-8">
@@ -32,27 +34,27 @@ export default async function ClassementPage() {
                 <h3 className="text-sm font-semibold uppercase tracking-[0.3em] text-slate-300">
                   {division.division}
                 </h3>
-                <div className="overflow-x-auto">
+                <div className="overflow-x-auto rounded-2xl border border-white/10 bg-white/5">
                   <table className="w-full text-left text-sm text-slate-200">
                     <thead className="text-xs uppercase text-slate-400">
                       <tr>
-                        <th className="py-2">Équipe</th>
-                        <th className="py-2">V</th>
-                        <th className="py-2">D</th>
-                        <th className="py-2">Sets +</th>
-                        <th className="py-2">Sets -</th>
+                        <th className="px-4 py-3">Équipe</th>
+                        <th className="px-4 py-3">V</th>
+                        <th className="px-4 py-3">D</th>
+                        <th className="px-4 py-3">Sets +</th>
+                        <th className="px-4 py-3">Sets -</th>
                       </tr>
                     </thead>
                     <tbody>
                       {division.rows.map((row) => (
                         <tr key={row.teamId} className="border-t border-white/10">
-                          <td className="py-3 text-white">
+                          <td className="px-4 py-3 text-white">
                             {teamNames.get(row.teamId) || "Équipe à annoncer"}
                           </td>
-                          <td className="py-3">{row.wins}</td>
-                          <td className="py-3">{row.losses}</td>
-                          <td className="py-3">{row.setsWon}</td>
-                          <td className="py-3">{row.setsLost}</td>
+                          <td className="px-4 py-3">{row.wins}</td>
+                          <td className="px-4 py-3">{row.losses}</td>
+                          <td className="px-4 py-3">{row.setsWon}</td>
+                          <td className="px-4 py-3">{row.setsLost}</td>
                         </tr>
                       ))}
                     </tbody>

@@ -7,6 +7,7 @@ type EmptyStateProps = {
   ctaHref?: string;
   secondaryLabel?: string;
   secondaryHref?: string;
+  badge?: string;
 };
 
 export default function EmptyState({
@@ -16,25 +17,34 @@ export default function EmptyState({
   ctaHref,
   secondaryLabel,
   secondaryHref,
+  badge,
 }: EmptyStateProps) {
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/5 p-6 text-center">
-      <h3 className="text-lg font-semibold text-white">{title}</h3>
-      <p className="mt-2 text-sm text-slate-300">{description}</p>
-      {(ctaLabel && ctaHref) || (secondaryLabel && secondaryHref) ? (
-        <div className="mt-4 flex flex-wrap justify-center gap-3">
-          {ctaLabel && ctaHref ? (
-            <Button href={ctaHref} variant="primary">
-              {ctaLabel}
-            </Button>
-          ) : null}
-          {secondaryLabel && secondaryHref ? (
-            <Button href={secondaryHref} variant="secondary">
-              {secondaryLabel}
-            </Button>
-          ) : null}
-        </div>
-      ) : null}
+    <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br from-white/5 via-white/5 to-transparent p-6 text-left">
+      <div className="absolute -right-10 -top-10 h-32 w-32 rounded-full bg-emerald-400/10 blur-2xl" />
+      <div className="relative space-y-3">
+        {badge ? (
+          <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-3 py-1 text-xs uppercase tracking-[0.3em] text-slate-200">
+            {badge}
+          </span>
+        ) : null}
+        <h3 className="text-lg font-semibold text-white">{title}</h3>
+        <p className="text-sm text-slate-300">{description}</p>
+        {(ctaLabel && ctaHref) || (secondaryLabel && secondaryHref) ? (
+          <div className="flex flex-wrap gap-3 pt-2">
+            {ctaLabel && ctaHref ? (
+              <Button href={ctaHref} variant="primary">
+                {ctaLabel}
+              </Button>
+            ) : null}
+            {secondaryLabel && secondaryHref ? (
+              <Button href={secondaryHref} variant="secondary">
+                {secondaryLabel}
+              </Button>
+            ) : null}
+          </div>
+        ) : null}
+      </div>
     </div>
   );
 }

@@ -2,7 +2,14 @@
 
 import { useMemo, useState } from "react";
 import { useFormState } from "react-dom";
-import type { LfnData, LfnAnnouncement, LfnMatch, LfnStandings, LfnTeam } from "../lib/types";
+import type {
+  LfnAnnouncement,
+  LfnData,
+  LfnMatch,
+  LfnResult,
+  LfnStandings,
+  LfnTeam,
+} from "../lib/types";
 import type { SaveState } from "./actions";
 import { saveData } from "./actions";
 
@@ -35,9 +42,13 @@ const defaultMatch = (): LfnMatch => ({
   teamA: "",
   teamB: "",
   bo: 3,
+});
+
+const defaultResult = (): LfnResult => ({
+  matchId: "",
   scoreA: null,
   scoreB: null,
-  status: "scheduled",
+  reportedAt: "",
 });
 
 const defaultStandings = (): LfnStandings => ({
@@ -78,6 +89,14 @@ export default function AdminPanel({ initialData }: AdminPanelProps) {
     });
   };
 
+  const updateResult = (index: number, update: Partial<LfnResult>) => {
+    setData((prev) => {
+      const next = [...prev.results];
+      next[index] = { ...next[index], ...update };
+      return { ...prev, results: next };
+    });
+  };
+
   const updateStandings = (index: number, update: Partial<LfnStandings>) => {
     setData((prev) => {
       const next = [...prev.standings];
@@ -92,7 +111,7 @@ export default function AdminPanel({ initialData }: AdminPanelProps) {
 
       <section className="section-card space-y-4">
         <h2 className="text-lg font-semibold text-white">Saison</h2>
-        <div className="grid gap-4 md:grid-cols-3">
+        <div className="grid gap-4 md:grid-cols-2">
           <label className="text-sm text-slate-300">
             Nom
             <input
@@ -113,49 +132,46 @@ export default function AdminPanel({ initialData }: AdminPanelProps) {
               onChange={(event) =>
                 setData((prev) => ({
                   ...prev,
-                  season: { ...prev.season, status: event.target.value as LfnData["season"]["status"] },
+                  season: {
+                    ...prev.season,
+                    status: event.target.value as LfnData["season"]["status"],
+                  },
                 }))
               }
               className="mt-2 w-full rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white"
             >
               <option value="">À annoncer</option>
-              <option value="inscriptions_ouvertes">Inscriptions ouvertes</option>
+              <option value="inscriptions">Inscriptions en cours</option>
               <option value="en_cours">En cours</option>
               <option value="terminee">Terminée</option>
             </select>
           </label>
           <label className="text-sm text-slate-300">
-            Date de début
+            Deadline
             <input
-              value={data.season.dates.start}
+              value={data.season.deadline}
               onChange={(event) =>
                 setData((prev) => ({
                   ...prev,
-                  season: {
-                    ...prev.season,
-                    dates: { ...prev.season.dates, start: event.target.value },
-                  },
+                  season: { ...prev.season, deadline: event.target.value },
                 }))
               }
               className="mt-2 w-full rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white"
-              placeholder="YYYY-MM-DD"
+              placeholder="2025-12-29T15:00:00+01:00"
             />
           </label>
           <label className="text-sm text-slate-300">
-            Date de fin
+            Timezone
             <input
-              value={data.season.dates.end}
+              value={data.season.timezone}
               onChange={(event) =>
                 setData((prev) => ({
                   ...prev,
-                  season: {
-                    ...prev.season,
-                    dates: { ...prev.season.dates, end: event.target.value },
-                  },
+                  season: { ...prev.season, timezone: event.target.value },
                 }))
               }
               className="mt-2 w-full rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white"
-              placeholder="YYYY-MM-DD"
+              placeholder="Europe/Brussels"
             />
           </label>
         </div>
@@ -163,7 +179,7 @@ export default function AdminPanel({ initialData }: AdminPanelProps) {
 
       <section className="section-card space-y-4">
         <h2 className="text-lg font-semibold text-white">Liens</h2>
-        <div className="grid gap-4 md:grid-cols-3">
+        <div className="grid gap-4 md:grid-cols-2">
           <label className="text-sm text-slate-300">
             Discord
             <input
@@ -177,27 +193,263 @@ export default function AdminPanel({ initialData }: AdminPanelProps) {
               className="mt-2 w-full rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white"
             />
           </label>
+        </div>
+      </section>
+
+      <section className="section-card space-y-4">
+        <h2 className="text-lg font-semibold text-white">Format</h2>
+        <div className="grid gap-4 md:grid-cols-2">
           <label className="text-sm text-slate-300">
-            Challonge
+            D1 - Nombre d'équipes
             <input
-              value={data.links.challonge}
+              type="number"
+              value={data.format.d1.teams}
               onChange={(event) =>
                 setData((prev) => ({
                   ...prev,
-                  links: { ...prev.links, challonge: event.target.value },
+                  format: {
+                    ...prev.format,
+                    d1: { ...prev.format.d1, teams: Number(event.target.value) },
+                  },
                 }))
               }
               className="mt-2 w-full rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white"
             />
           </label>
           <label className="text-sm text-slate-300">
-            Règlement
+            D1 - BO
             <input
-              value={data.links.rules}
+              type="number"
+              value={data.format.d1.bo}
               onChange={(event) =>
                 setData((prev) => ({
                   ...prev,
-                  links: { ...prev.links, rules: event.target.value },
+                  format: {
+                    ...prev.format,
+                    d1: { ...prev.format.d1, bo: Number(event.target.value) },
+                  },
+                }))
+              }
+              className="mt-2 w-full rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white"
+            />
+          </label>
+          <label className="text-sm text-slate-300">
+            D1 - Fearless Draft
+            <select
+              value={data.format.d1.fearlessDraft ? "oui" : "non"}
+              onChange={(event) =>
+                setData((prev) => ({
+                  ...prev,
+                  format: {
+                    ...prev.format,
+                    d1: {
+                      ...prev.format.d1,
+                      fearlessDraft: event.target.value === "oui",
+                    },
+                  },
+                }))
+              }
+              className="mt-2 w-full rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white"
+            >
+              <option value="oui">Oui</option>
+              <option value="non">Non</option>
+            </select>
+          </label>
+          <label className="text-sm text-slate-300">
+            D1 - Matchs par jour
+            <input
+              type="number"
+              value={data.format.d1.matchesPerDay}
+              onChange={(event) =>
+                setData((prev) => ({
+                  ...prev,
+                  format: {
+                    ...prev.format,
+                    d1: { ...prev.format.d1, matchesPerDay: Number(event.target.value) },
+                  },
+                }))
+              }
+              className="mt-2 w-full rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white"
+            />
+          </label>
+          <label className="text-sm text-slate-300">
+            D2 - Nombre d'équipes
+            <input
+              type="number"
+              value={data.format.d2.teams}
+              onChange={(event) =>
+                setData((prev) => ({
+                  ...prev,
+                  format: {
+                    ...prev.format,
+                    d2: { ...prev.format.d2, teams: Number(event.target.value) },
+                  },
+                }))
+              }
+              className="mt-2 w-full rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white"
+            />
+          </label>
+          <label className="text-sm text-slate-300">
+            D2 - BO
+            <input
+              type="number"
+              value={data.format.d2.bo}
+              onChange={(event) =>
+                setData((prev) => ({
+                  ...prev,
+                  format: {
+                    ...prev.format,
+                    d2: { ...prev.format.d2, bo: Number(event.target.value) },
+                  },
+                }))
+              }
+              className="mt-2 w-full rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white"
+            />
+          </label>
+          <label className="text-sm text-slate-300">
+            D2 - Matchs par jour
+            <input
+              type="number"
+              value={data.format.d2.matchesPerDay}
+              onChange={(event) =>
+                setData((prev) => ({
+                  ...prev,
+                  format: {
+                    ...prev.format,
+                    d2: { ...prev.format.d2, matchesPerDay: Number(event.target.value) },
+                  },
+                }))
+              }
+              className="mt-2 w-full rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white"
+            />
+          </label>
+          <label className="text-sm text-slate-300 md:col-span-2">
+            Horaires (séparés par des virgules)
+            <input
+              value={data.format.times.join(", ")}
+              onChange={(event) =>
+                setData((prev) => ({
+                  ...prev,
+                  format: {
+                    ...prev.format,
+                    times: event.target.value
+                      .split(",")
+                      .map((time) => time.trim())
+                      .filter(Boolean),
+                  },
+                }))
+              }
+              className="mt-2 w-full rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white"
+            />
+          </label>
+        </div>
+      </section>
+
+      <section className="section-card space-y-4">
+        <h2 className="text-lg font-semibold text-white">Règlement</h2>
+        <div className="grid gap-4 md:grid-cols-2">
+          <label className="text-sm text-slate-300">
+            Départage
+            <input
+              value={data.rules.tiebreak}
+              onChange={(event) =>
+                setData((prev) => ({
+                  ...prev,
+                  rules: { ...prev.rules, tiebreak: event.target.value },
+                }))
+              }
+              className="mt-2 w-full rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white"
+            />
+          </label>
+          <label className="text-sm text-slate-300">
+            Roster - Titulaires
+            <input
+              type="number"
+              value={data.rules.roster.starters}
+              onChange={(event) =>
+                setData((prev) => ({
+                  ...prev,
+                  rules: {
+                    ...prev.rules,
+                    roster: {
+                      ...prev.rules.roster,
+                      starters: Number(event.target.value),
+                    },
+                  },
+                }))
+              }
+              className="mt-2 w-full rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white"
+            />
+          </label>
+          <label className="text-sm text-slate-300">
+            Roster - Subs requis
+            <input
+              type="number"
+              value={data.rules.roster.subsRequired}
+              onChange={(event) =>
+                setData((prev) => ({
+                  ...prev,
+                  rules: {
+                    ...prev.rules,
+                    roster: {
+                      ...prev.rules.roster,
+                      subsRequired: Number(event.target.value),
+                    },
+                  },
+                }))
+              }
+              className="mt-2 w-full rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white"
+            />
+          </label>
+          <label className="text-sm text-slate-300">
+            Coach optionnel
+            <select
+              value={data.rules.roster.coachOptional ? "oui" : "non"}
+              onChange={(event) =>
+                setData((prev) => ({
+                  ...prev,
+                  rules: {
+                    ...prev.rules,
+                    roster: {
+                      ...prev.rules.roster,
+                      coachOptional: event.target.value === "oui",
+                    },
+                  },
+                }))
+              }
+              className="mt-2 w-full rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white"
+            >
+              <option value="oui">Oui</option>
+              <option value="non">Non</option>
+            </select>
+          </label>
+          <label className="text-sm text-slate-300">
+            Retard 15 min
+            <input
+              value={data.rules.lateness["15min"]}
+              onChange={(event) =>
+                setData((prev) => ({
+                  ...prev,
+                  rules: {
+                    ...prev.rules,
+                    lateness: { ...prev.rules.lateness, "15min": event.target.value },
+                  },
+                }))
+              }
+              className="mt-2 w-full rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white"
+            />
+          </label>
+          <label className="text-sm text-slate-300">
+            Retard 20 min
+            <input
+              value={data.rules.lateness["20min"]}
+              onChange={(event) =>
+                setData((prev) => ({
+                  ...prev,
+                  rules: {
+                    ...prev.rules,
+                    lateness: { ...prev.rules.lateness, "20min": event.target.value },
+                  },
                 }))
               }
               className="mt-2 w-full rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white"
@@ -437,19 +689,61 @@ export default function AdminPanel({ initialData }: AdminPanelProps) {
                   placeholder="BO"
                   className="w-full rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white"
                 />
-                <select
-                  value={match.status}
-                  onChange={(event) => updateMatch(index, { status: event.target.value as LfnMatch["status"] })}
-                  className="w-full rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white"
+              </div>
+            </div>
+          ))}
+          {!data.matches.length ? (
+            <p className="text-sm text-slate-400">Aucun match planifié.</p>
+          ) : null}
+        </div>
+      </section>
+
+      <section className="section-card space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-white">Résultats</h2>
+          <button
+            type="button"
+            onClick={() =>
+              setData((prev) => ({
+                ...prev,
+                results: [...prev.results, defaultResult()],
+              }))
+            }
+            className="rounded-full border border-white/10 px-4 py-2 text-xs text-slate-200"
+          >
+            Ajouter
+          </button>
+        </div>
+        <div className="space-y-4">
+          {data.results.map((result, index) => (
+            <div key={`result-${index}`} className="rounded-xl border border-white/10 p-4">
+              <div className="flex justify-between gap-2">
+                <p className="text-sm text-slate-300">Résultat #{index + 1}</p>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setData((prev) => ({
+                      ...prev,
+                      results: prev.results.filter((_, idx) => idx !== index),
+                    }))
+                  }
+                  className="text-xs text-rose-300"
                 >
-                  <option value="scheduled">Planifié</option>
-                  <option value="played">Joué</option>
-                </select>
+                  Supprimer
+                </button>
+              </div>
+              <div className="mt-3 grid gap-3 md:grid-cols-4">
+                <input
+                  value={result.matchId}
+                  onChange={(event) => updateResult(index, { matchId: event.target.value })}
+                  placeholder="Match ID"
+                  className="w-full rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white"
+                />
                 <input
                   type="number"
-                  value={match.scoreA ?? ""}
+                  value={result.scoreA ?? ""}
                   onChange={(event) =>
-                    updateMatch(index, {
+                    updateResult(index, {
                       scoreA: event.target.value === "" ? null : Number(event.target.value),
                     })
                   }
@@ -458,20 +752,26 @@ export default function AdminPanel({ initialData }: AdminPanelProps) {
                 />
                 <input
                   type="number"
-                  value={match.scoreB ?? ""}
+                  value={result.scoreB ?? ""}
                   onChange={(event) =>
-                    updateMatch(index, {
+                    updateResult(index, {
                       scoreB: event.target.value === "" ? null : Number(event.target.value),
                     })
                   }
                   placeholder="Score B"
                   className="w-full rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white"
                 />
+                <input
+                  value={result.reportedAt}
+                  onChange={(event) => updateResult(index, { reportedAt: event.target.value })}
+                  placeholder="Reporté le (ISO)"
+                  className="w-full rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white"
+                />
               </div>
             </div>
           ))}
-          {!data.matches.length ? (
-            <p className="text-sm text-slate-400">Aucun match planifié.</p>
+          {!data.results.length ? (
+            <p className="text-sm text-slate-400">Aucun résultat enregistré.</p>
           ) : null}
         </div>
       </section>
@@ -629,7 +929,7 @@ export default function AdminPanel({ initialData }: AdminPanelProps) {
         ) : null}
         <button
           type="submit"
-          className="inline-flex w-fit items-center justify-center rounded-full bg-emerald-400/90 px-6 py-2 text-sm font-semibold text-slate-900 transition hover:bg-emerald-300"
+          className="inline-flex w-fit items-center justify-center rounded-full bg-emerald-400 px-6 py-2 text-sm font-semibold text-slate-900 transition hover:bg-emerald-300"
         >
           Enregistrer les modifications
         </button>

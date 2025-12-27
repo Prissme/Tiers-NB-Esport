@@ -11,11 +11,11 @@ type ButtonProps = {
 
 const styles: Record<NonNullable<ButtonProps["variant"]>, string> = {
   primary:
-    "bg-emerald-400/90 text-slate-900 hover:bg-emerald-300 focus-visible:ring-emerald-300",
+    "bg-emerald-400 text-slate-950 hover:bg-emerald-300 focus-visible:ring-emerald-300",
   secondary:
-    "bg-white/10 text-white hover:bg-white/20 focus-visible:ring-white/30",
+    "border border-white/15 bg-white/5 text-white hover:border-white/30 hover:bg-white/10 focus-visible:ring-white/30",
   ghost:
-    "border border-white/15 text-white hover:border-white/30 hover:bg-white/5 focus-visible:ring-white/30",
+    "text-white/80 hover:text-white focus-visible:ring-white/30",
 };
 
 export default function Button({
@@ -26,7 +26,7 @@ export default function Button({
   disabled = false,
 }: ButtonProps) {
   const className = [
-    "inline-flex items-center justify-center rounded-full px-5 py-2 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950",
+    "inline-flex items-center justify-center gap-2 rounded-full px-5 py-2 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950",
     styles[variant],
     disabled ? "pointer-events-none opacity-60" : "",
   ].join(" ");

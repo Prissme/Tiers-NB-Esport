@@ -5,8 +5,8 @@ import Header from "./components/Header";
 import { getLfnData } from "./lib/data-store";
 
 export const metadata: Metadata = {
-  title: "LFN League Hub",
-  description: "Le hub officiel pour participer à la LFN.",
+  title: "LFN — Saison 2",
+  description: "Hub officiel LFN : inscriptions, règlement, calendrier et résultats.",
 };
 
 export default async function RootLayout({
@@ -19,7 +19,7 @@ export default async function RootLayout({
   return (
     <html lang="fr">
       <body className="min-h-screen bg-slate-950 text-slate-100">
-        <div className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950">
+        <div className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(16,185,129,0.12),_transparent_45%)]">
           <Header links={data.links} />
           <main className="mx-auto w-full max-w-6xl px-4 py-10 sm:px-6">
             {children}

@@ -7,11 +7,11 @@
 }
 
 body {
-  @apply antialiased;
+  @apply antialiased bg-slate-950 text-slate-100;
 }
 
 .section-card {
-  @apply rounded-2xl border border-white/10 bg-white/5 p-6 shadow-lg;
+  @apply rounded-2xl border border-white/10 bg-slate-950/70 p-6 shadow-[0_20px_60px_-40px_rgba(0,0,0,0.8)];
 }
 
 .badge {

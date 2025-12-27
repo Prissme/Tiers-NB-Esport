@@ -4,8 +4,8 @@ import type { LfnLinks } from "../lib/types";
 const footerLinks = [
   { label: "Inscription", href: "/inscription" },
   { label: "Règlement", href: "/reglement" },
-  { label: "Format", href: "/format" },
-  { label: "Admin", href: "/admin" },
+  { label: "Calendrier", href: "/calendrier" },
+  { label: "Classement", href: "/classement" },
 ];
 
 type FooterProps = {
@@ -15,11 +15,11 @@ type FooterProps = {
 
 export default function Footer({ links, seasonName }: FooterProps) {
   return (
-    <footer className="border-t border-white/10 bg-slate-950/60">
+    <footer className="border-t border-white/10 bg-slate-950/70">
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-10 text-sm text-slate-300 sm:px-6">
         <div className="flex flex-wrap items-center justify-between gap-6">
           <div>
-            <p className="text-white">LFN League Hub</p>
+            <p className="text-white">LFN</p>
             <p className="text-xs text-slate-400">{seasonName}</p>
           </div>
           <div className="flex flex-wrap gap-4">
@@ -29,11 +29,16 @@ export default function Footer({ links, seasonName }: FooterProps) {
               </Link>
             ))}
             {links.discord ? (
-              <a href={links.discord} target="_blank" rel="noreferrer" className="hover:text-white">
+              <a
+                href={links.discord}
+                target="_blank"
+                rel="noreferrer"
+                className="hover:text-white"
+              >
                 Discord
               </a>
             ) : (
-              <span className="text-slate-500">Discord (à annoncer)</span>
+              <span className="text-slate-500">Discord</span>
             )}
           </div>
         </div>

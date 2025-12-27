@@ -10,17 +10,19 @@ export default async function EquipesPage() {
     <div className="space-y-10">
       <section className="section-card space-y-6">
         <SectionHeader
-          title="Équipes"
-          description="Les équipes validées apparaissent dès confirmation officielle." 
+          kicker="Équipes"
+          title="Rosters officiels"
+          description="Liste publiée dès confirmation officielle." 
         />
         {!hasTeams ? (
           <EmptyState
             title="Aucune équipe publiée"
-            description="Les rosters seront visibles dès validation."
+            description="Les rosters seront visibles dès publication officielle."
             ctaLabel="S'inscrire"
             ctaHref="/inscription"
             secondaryLabel={data.links.discord ? "Rejoindre le Discord" : undefined}
             secondaryHref={data.links.discord || undefined}
+            badge="Rosters"
           />
         ) : (
           <div className="grid gap-4 md:grid-cols-2">

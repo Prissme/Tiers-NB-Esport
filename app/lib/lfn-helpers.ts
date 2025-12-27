@@ -1,7 +1,7 @@
 import type { LfnData, LfnMatch, LfnStandings, SeasonStatus } from "./types";
 
-export const statusLabelMap: Record<Exclude<SeasonStatus, "">, string> = {
-  inscriptions_ouvertes: "Inscriptions ouvertes",
+const statusLabelMap: Record<Exclude<SeasonStatus, "">, string> = {
+  inscriptions: "Inscriptions en cours",
   en_cours: "Saison en cours",
   terminee: "Saison terminée",
 };
@@ -13,11 +13,29 @@ export const getStatusLabel = (status: SeasonStatus): string => {
   return statusLabelMap[status];
 };
 
-export const formatDate = (value: string): string => {
-  if (!value) {
-    return "à annoncer";
+export const formatDeadline = (deadline: string, timezone: string): string => {
+  if (!deadline) {
+    return "date à annoncer";
   }
-  return value;
+  const date = new Date(deadline);
+  if (Number.isNaN(date.getTime())) {
+    return deadline;
+  }
+  const formatter = new Intl.DateTimeFormat("fr-FR", {
+    weekday: "long",
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: timezone || "Europe/Brussels",
+  });
+  return formatter.format(date);
+};
+
+export const formatDeadlineWithZone = (deadline: string, timezone: string): string => {
+  const base = formatDeadline(deadline, timezone);
+  if (base === "date à annoncer") {
+    return base;
+  }
+  return `${base} (${timezone || "Europe/Brussels"})`;
 };
 
 export const groupMatchesByDivision = (matches: LfnMatch[]) => {
@@ -42,5 +60,11 @@ export const teamNameById = (data: LfnData) => {
 };
 
 export const hasResults = (data: LfnData) => {
-  return data.matches.some((match) => match.status === "played");
+  return data.results.some(
+    (result) => result.scoreA !== null && result.scoreB !== null
+  );
+};
+
+export const getResultByMatchId = (data: LfnData, matchId: string) => {
+  return data.results.find((result) => result.matchId === matchId);
 };
