@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start",
+    "start": "node server.js",
     "dev:legacy": "node server.js",
     "restore-names": "node restore-display-names.cjs",
     "migrate-auth-users": "node migrate-auth-users.js",
