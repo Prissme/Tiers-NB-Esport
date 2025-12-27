@@ -3,11 +3,11 @@
   "version": "1.0.0",
   "description": "LFN esports league site",
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "bot": "node start-bot.js",
-    "dev:all": "concurrently \"npm run dev\" \"npm run bot\"",
+    "dev": "concurrently \"NODE_ENV=development next dev\" \"NODE_ENV=development node start-bot.js\"",
+    "build": "NODE_ENV=production next build",
+    "start": "NODE_ENV=production node server.js",
+    "bot": "NODE_ENV=production node start-bot.js",
+    "postinstall": "NODE_ENV=production next build",
     "restore-names": "node restore-display-names.cjs",
     "migrate-auth-users": "node migrate-auth-users.js",
     "cleanup-unknown": "node cleanup-unknown.js"

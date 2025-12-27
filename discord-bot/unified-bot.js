@@ -4380,6 +4380,11 @@ async function handleInteraction(interaction) {
 }
 
 async function syncTiersWithRoles() {
+  warn(
+    'Synchronisation des tiers désactivée : cette routine est mise en pause pour éviter les surcharges mémoire.'
+  );
+  return;
+
   if (!guild) {
     warn('Cannot sync tiers: guild not resolved yet.');
     return;
@@ -4574,11 +4579,13 @@ async function onReady(readyClient) {
 
   await predictions.registerCommands();
 
-  await syncTiersWithRoles();
+  warn('Système de tiers désactivé : aucune synchronisation automatique ne sera lancée.');
 
-  tierSyncInterval = setInterval(() => {
-    syncTiersWithRoles().catch((err) => errorLog('Tier sync failed:', err));
-  }, TIER_SYNC_INTERVAL_MS);
+  // ⚠️ Synchronisation des tiers désactivée (évite la boucle infinie + la charge mémoire).
+  // await syncTiersWithRoles();
+  // tierSyncInterval = setInterval(() => {
+  //   syncTiersWithRoles().catch((err) => errorLog('Tier sync failed:', err));
+  // }, TIER_SYNC_INTERVAL_MS);
 
   await restorePLState();
   await processPLQueue();
