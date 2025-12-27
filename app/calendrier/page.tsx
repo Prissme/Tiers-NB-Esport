@@ -12,17 +12,19 @@ export default async function CalendrierPage() {
     <div className="space-y-10">
       <section className="section-card space-y-6">
         <SectionHeader
-          title="Calendrier"
-          description="Les dates officielles seront publiées ici." 
+          kicker="Calendrier"
+          title="Matchs à venir"
+          description="Source officielle dès publication." 
         />
         {!hasMatches ? (
           <EmptyState
-            title="Calendrier pas encore publié"
-            description="Suivez les annonces pour connaître les journées officielles."
-            ctaLabel={data.links.discord ? "Suivre sur Discord" : undefined}
+            title="Calendrier en cours de publication"
+            description="Tout est annoncé sur Discord."
+            ctaLabel={data.links.discord ? "Rejoindre le Discord" : undefined}
             ctaHref={data.links.discord || undefined}
             secondaryLabel="Voir comment s'inscrire"
             secondaryHref="/inscription"
+            badge="Planning"
           />
         ) : (
           <div className="space-y-6">
@@ -39,10 +41,10 @@ export default async function CalendrierPage() {
                     >
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <span className="text-white">
-                          {match.teamA} vs {match.teamB}
+                          {match.teamA || "Équipe à annoncer"} vs {match.teamB || "Équipe à annoncer"}
                         </span>
                         <span className="text-xs text-slate-400">
-                          {match.date || "à annoncer"} · {match.time || "heure à annoncer"}
+                          {match.date || "date à annoncer"} · {match.time || "heure à annoncer"}
                         </span>
                       </div>
                       <p className="mt-2 text-xs text-slate-400">BO{match.bo}</p>

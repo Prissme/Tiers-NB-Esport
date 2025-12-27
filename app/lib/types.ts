@@ -1,20 +1,41 @@
-export type SeasonStatus = "inscriptions_ouvertes" | "en_cours" | "terminee" | "";
+export type SeasonStatus = "inscriptions" | "en_cours" | "terminee" | "";
 export type Division = "D1" | "D2";
-export type MatchStatus = "scheduled" | "played";
 
 export type LfnSeason = {
   name: string;
   status: SeasonStatus;
-  dates: {
-    start: string;
-    end: string;
-  };
+  deadline: string;
+  timezone: string;
 };
 
 export type LfnLinks = {
   discord: string;
-  challonge: string;
-  rules: string;
+};
+
+export type LfnFormatDivision = {
+  teams: number;
+  bo: number;
+  fearlessDraft?: boolean;
+  matchesPerDay: number;
+};
+
+export type LfnFormat = {
+  d1: LfnFormatDivision;
+  d2: LfnFormatDivision;
+  times: string[];
+};
+
+export type LfnRules = {
+  tiebreak: string;
+  roster: {
+    starters: number;
+    subsRequired: number;
+    coachOptional: boolean;
+  };
+  lateness: {
+    "15min": "lose_1_set" | string;
+    "20min": "autolose" | string;
+  };
 };
 
 export type LfnAnnouncement = {
@@ -40,9 +61,13 @@ export type LfnMatch = {
   teamA: string;
   teamB: string;
   bo: number;
+};
+
+export type LfnResult = {
+  matchId: string;
   scoreA: number | null;
   scoreB: number | null;
-  status: MatchStatus;
+  reportedAt: string;
 };
 
 export type LfnStandingRow = {
@@ -61,8 +86,11 @@ export type LfnStandings = {
 export type LfnData = {
   season: LfnSeason;
   links: LfnLinks;
+  format: LfnFormat;
+  rules: LfnRules;
   announcements: LfnAnnouncement[];
   teams: LfnTeam[];
   matches: LfnMatch[];
+  results: LfnResult[];
   standings: LfnStandings[];
 };
