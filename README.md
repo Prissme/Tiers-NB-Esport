@@ -1,52 +1,63 @@
-# LFN League Site
+# LFN League Hub
 
-Minimal, dark-mode esports league website built with **Next.js** and
-**Tailwind CSS**. Pages include home, rulebook, schedule, standings, and teams.
+Site officiel de la LFN : clair, strict, orienté conversion et prêt pour une montée en charge.
 
-## Getting Started
+## Démarrage local
 
 ```bash
 npm install
 npm run dev
 ```
 
-Visit `http://localhost:3000` to view the site.
+Le script `dev` lance Next.js **et** le bot Discord. Si vous ne souhaitez lancer que le site :
 
-## Editing League Data
+```bash
+NODE_ENV=development npx next dev
+```
 
-All league data lives in `data/lfn.json`.
+Accédez à `http://localhost:3000`.
 
-### Structure
+## Données de la ligue
 
-- `meta`: season metadata (`seasonName`, `year`, `lastUpdatedISO`,
-  `signatureLine`, `discordInviteUrl`).
-- `teams`: Team list with `id`, `name`, `tag`, optional `logoUrl`, and
-  `roster` (`captain`, `players`, `subs`).
-- `schedule`: Array of days with `dayLabel`, optional `date`, and `matches`
-  entries (`id`, `time`, `teamAId`, `teamBId`, optional `extraLine`).
-- `results`: Match results with `matchId`, `scoreA`, `scoreB`,
-  `reportedAtISO`.
+Toutes les données sont dans `data/lfn.data.json`.
 
-### Common Updates
+Structure minimale :
 
-- **Update the schedule**: edit `schedule` days or add matches. Keep match
-  `id` values unique so results can map correctly.
-- **Report results**: add a new entry to `results` with the match `id` and
-  scores. The standings table updates automatically based on results.
-- **Refresh the homepage**: update `meta.lastUpdatedISO` and
-  `meta.signatureLine` to keep the Live Proof section current.
+```json
+{
+  "season": { "name": "LFN Saison 2", "status": "", "dates": { "start": "", "end": "" } },
+  "links": { "discord": "", "challonge": "", "rules": "" },
+  "announcements": [],
+  "teams": [],
+  "matches": [],
+  "standings": []
+}
+```
 
-## Deployment
+### Remplir les champs
 
-1. Build the site:
-   ```bash
-   npm run build
-   ```
-2. Start the production server:
-   ```bash
-   npm run start
-   ```
+- `season.status` : `inscriptions_ouvertes`, `en_cours`, `terminee` ou vide (affiché comme "à annoncer").
+- `links.discord`, `links.rules`, `links.challonge` : URL officielles si disponibles.
+- `announcements` : annonces publiques (titre, date, contenu).
+- `teams` : équipes validées (pas de données fictives).
+- `matches` : calendrier et résultats. Utilisez `status: "played"` pour publier un score.
+- `standings` : standings officiels par division.
 
-Deploy to platforms like Vercel or Netlify by selecting the project root and
-using the build command `npm run build` and output `next start` (or platform
-defaults for Next.js).
+## Espace admin
+
+1. Définissez `ADMIN_PASSWORD` dans votre environnement (ou `.env`).
+2. Ouvrez `/admin`.
+3. Modifiez les données et sauvegardez.
+
+> En environnement serverless, l'écriture sur disque peut échouer. Dans ce cas, la sauvegarde reste en mémoire pour la session et vous pouvez basculer vers une solution persistante (KV, Supabase, ou un volume Koyeb).
+
+## Déploiement Koyeb
+
+1. **Build command** : `npm run build`
+2. **Run command** : `npm run start`
+3. **Environment variables** :
+   - `NODE_ENV=production`
+   - `ADMIN_PASSWORD=...`
+   - Variables du bot Discord si vous le conservez.
+
+Koyeb supporte le déploiement Next.js via `next build` + `next start` (ou votre `server.js` existant). Si vous utilisez un volume pour la persistance, montez-le sur `data/`.

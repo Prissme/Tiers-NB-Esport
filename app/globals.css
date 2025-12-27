@@ -7,13 +7,13 @@
 }
 
 body {
-  @apply bg-midnight text-slate-100 antialiased;
+  @apply antialiased;
 }
 
-.glass-panel {
-  @apply rounded-2xl border border-white/10 bg-white/5 shadow-lg backdrop-blur;
+.section-card {
+  @apply rounded-2xl border border-white/10 bg-white/5 p-6 shadow-lg;
 }
 
-.section-title {
-  @apply text-xl font-semibold tracking-wide text-white;
+.badge {
+  @apply inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-3 py-1 text-xs uppercase tracking-[0.3em] text-slate-200;
 }
