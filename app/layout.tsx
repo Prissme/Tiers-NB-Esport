@@ -15,13 +15,13 @@ export const metadata: Metadata = {
     type: "website",
     url: "https://tiers-nb.koyeb.app/",
     images: [
-      {
-        url: "<img src="https://media.discordapp.net/attachments/1434252768633290952/1455665343132336128/content.png?ex=69558d7e&amp;is=69543bfe&amp;hm=7acc1044006e3f2c5da48d6428c3ea1e37a575a98d54ca56a2b7de6bcd5012a0&amp;=&amp;format=webp&amp;quality=lossless&amp;width=771&amp;height=514" alt="Image"/>",
-        width: 1200,
-        height: 630,
-        alt: "LFN — Ligue Francophone Null’s Brawl",
-      },
-    ],
+     {
+       url: "https://media.discordapp.net/attachments/1434252768633290952/1455665343132336128/content.png?format=webp&quality=lossless&width=1200&height=630",
+       width: 1200,
+       height: 630,
+       alt: "LFN — Ligue Francophone Null’s Brawl",
+    },
+   ],
   },
   twitter: {
     card: "summary_large_image",
