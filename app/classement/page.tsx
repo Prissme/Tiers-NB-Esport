@@ -8,6 +8,20 @@ export default async function ClassementPage() {
   const standingsMap = getStandingsByDivision(data.standings);
   const teamNames = teamNameById(data);
   const hasStandings = data.standings.length > 0;
+  const statDescriptions = [
+    {
+      label: "Points",
+      detail: "1 point par set gagné.",
+    },
+    {
+      label: "Sets gagnés / perdus",
+      detail: "Mesure la domination globale sur la saison.",
+    },
+    {
+      label: "Winrate (%)",
+      detail: "Pourcentage de sets gagnés sur l’ensemble des sets joués.",
+    },
+  ];
 
   return (
     <div className="space-y-10">
@@ -15,8 +29,16 @@ export default async function ClassementPage() {
         <SectionHeader
           kicker="Classement"
           title="Standings officiels"
-          description="Table officielle dès publication." 
+          description="Chaque colonne est expliquée pour rester lisible."
         />
+        <div className="grid gap-4 md:grid-cols-3">
+          {statDescriptions.map((stat) => (
+            <div key={stat.label} className="rounded-xl border border-white/10 bg-white/5 p-4">
+              <p className="text-xs uppercase tracking-[0.3em] text-slate-400">{stat.label}</p>
+              <p className="mt-2 text-sm text-white">{stat.detail}</p>
+            </div>
+          ))}
+        </div>
         {!hasStandings ? (
           <EmptyState
             title="Aucun classement publié"
@@ -38,25 +60,31 @@ export default async function ClassementPage() {
                   <table className="w-full text-left text-sm text-slate-200">
                     <thead className="text-xs uppercase text-slate-400">
                       <tr>
+                        <th className="px-4 py-3">Rang</th>
                         <th className="px-4 py-3">Équipe</th>
-                        <th className="px-4 py-3">V</th>
-                        <th className="px-4 py-3">D</th>
-                        <th className="px-4 py-3">Sets +</th>
-                        <th className="px-4 py-3">Sets -</th>
+                        <th className="px-4 py-3">Points (sets gagnés)</th>
+                        <th className="px-4 py-3">Sets gagnés</th>
+                        <th className="px-4 py-3">Sets perdus</th>
+                        <th className="px-4 py-3">Winrate</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {division.rows.map((row) => (
-                        <tr key={row.teamId} className="border-t border-white/10">
-                          <td className="px-4 py-3 text-white">
-                            {teamNames.get(row.teamId) || "Équipe à annoncer"}
-                          </td>
-                          <td className="px-4 py-3">{row.wins}</td>
-                          <td className="px-4 py-3">{row.losses}</td>
-                          <td className="px-4 py-3">{row.setsWon}</td>
-                          <td className="px-4 py-3">{row.setsLost}</td>
-                        </tr>
-                      ))}
+                      {division.rows.map((row, index) => {
+                        const totalSets = row.setsWon + row.setsLost;
+                        const winrate = totalSets > 0 ? (row.setsWon / totalSets) * 100 : 0;
+                        return (
+                          <tr key={row.teamId} className="border-t border-white/10">
+                            <td className="px-4 py-3">{index + 1}</td>
+                            <td className="px-4 py-3 text-white">
+                              {teamNames.get(row.teamId) || "Équipe à annoncer"}
+                            </td>
+                            <td className="px-4 py-3">{row.setsWon}</td>
+                            <td className="px-4 py-3">{row.setsWon}</td>
+                            <td className="px-4 py-3">{row.setsLost}</td>
+                            <td className="px-4 py-3">{winrate.toFixed(0)}%</td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>

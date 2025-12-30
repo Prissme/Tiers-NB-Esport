@@ -8,9 +8,9 @@ export default async function ReglementPage() {
     <div className="space-y-10">
       <section className="section-card space-y-6">
         <SectionHeader
-          kicker="Rulebook"
-          title="Règlement officiel"
-          description="Cadre strict. L'inscription vaut acceptation." 
+          kicker="Règlement"
+          title="Règlement simple, ferme, appliqué"
+          description="Cadre clair, décisions appliquées sans débat public."
         />
         <div className="grid gap-6 md:grid-cols-2">
           <div className="space-y-4 text-sm text-slate-200">
@@ -19,15 +19,17 @@ export default async function ReglementPage() {
               <p className="mt-2 text-white">
                 {data.rules.roster.starters} joueurs titulaires + {data.rules.roster.subsRequired} subs obligatoires.
               </p>
-              <p className="mt-2 text-xs text-slate-400">Coach optionnel.</p>
+              <p className="mt-2 text-xs text-slate-400">Coach optionnel. Roster figé après validation.</p>
             </div>
             <div className="rounded-xl border border-white/10 bg-white/5 p-4">
               <p className="text-xs uppercase tracking-[0.3em] text-slate-400">Départage</p>
               <p className="mt-2 text-white">Égalités départagées au {data.rules.tiebreak}.</p>
+              <p className="mt-2 text-xs text-slate-400">Données publiques, calcul transparent.</p>
             </div>
             <div className="rounded-xl border border-white/10 bg-white/5 p-4">
               <p className="text-xs uppercase tracking-[0.3em] text-slate-400">Retards</p>
               <p className="mt-2 text-white">15 min = 1 set perdu · 20 min = autolose.</p>
+              <p className="mt-2 text-xs text-slate-400">Aucune exception sans preuve claire.</p>
             </div>
           </div>
           <div className="space-y-4 text-sm text-slate-200">
@@ -51,8 +53,13 @@ export default async function ReglementPage() {
               </p>
             </div>
             <div className="rounded-xl border border-white/10 bg-white/5 p-4">
-              <p className="text-xs uppercase tracking-[0.3em] text-slate-400">Horaires</p>
-              <p className="mt-2 text-white">{data.format.times.join(" / ")} (Bruxelles)</p>
+              <p className="text-xs uppercase tracking-[0.3em] text-slate-400">Gouvernance</p>
+              <p className="mt-2 text-white">
+                L’orga statue, applique et clôt les litiges. Autorité assumée.
+              </p>
+              <p className="mt-2 text-xs text-slate-400">
+                Objectif : protéger l’équité et le rythme de la ligue.
+              </p>
             </div>
           </div>
         </div>
@@ -60,13 +67,20 @@ export default async function ReglementPage() {
 
       <section className="section-card space-y-4">
         <SectionHeader
-          kicker="Stats"
-          title="Statistiques officielles"
-          description="Saisie par l'orga aujourd'hui. Délégation plus tard." 
+          kicker="Sanctions"
+          title="Sanctions applicables"
+          description="Discipline ferme pour préserver le niveau."
         />
-        <p className="text-sm text-slate-200">
-          Les statistiques publiques sont centralisées par l'orga pour garantir la source de vérité.
-        </p>
+        <div className="grid gap-4 text-sm text-slate-200 md:grid-cols-2">
+          <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+            <p className="text-xs uppercase tracking-[0.3em] text-slate-400">Comportement</p>
+            <p className="mt-2 text-white">Toxicité, triche ou abus = exclusion immédiate.</p>
+          </div>
+          <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+            <p className="text-xs uppercase tracking-[0.3em] text-slate-400">Matches</p>
+            <p className="mt-2 text-white">No-show répété = disqualification.</p>
+          </div>
+        </div>
       </section>
     </div>
   );

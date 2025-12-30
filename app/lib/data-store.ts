@@ -17,7 +17,7 @@ const defaultData: LfnData = {
   links: { discord: "https://discord.gg/q6sFPWCKD7" },
   format: {
     d1: { teams: 4, bo: 5, fearlessDraft: true, matchesPerDay: 2 },
-    d2: { teams: 6, bo: 3, matchesPerDay: 3 },
+    d2: { teams: 4, bo: 5, matchesPerDay: 2 },
     times: ["19:00", "20:00", "21:00"],
   },
   rules: {
