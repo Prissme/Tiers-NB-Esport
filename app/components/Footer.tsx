@@ -2,10 +2,11 @@ import Link from "next/link";
 import type { LfnLinks } from "../lib/types";
 
 const footerLinks = [
-  { label: "Inscription", href: "/inscription" },
+  { label: "Matchs", href: "/matchs" },
+  { label: "Classements", href: "/classement" },
+  { label: "Participer", href: "/participer" },
   { label: "Règlement", href: "/reglement" },
-  { label: "Calendrier", href: "/calendrier" },
-  { label: "Classement", href: "/classement" },
+  { label: "Partenariats", href: "/partenariats" },
 ];
 
 type FooterProps = {

@@ -1,13 +1,14 @@
 import EmptyState from "../components/EmptyState";
 import SectionHeader from "../components/SectionHeader";
 import { getLfnData } from "../lib/data-store";
-import { getStandingsByDivision, teamNameById } from "../lib/lfn-helpers";
+import { getStandingsByDivision, groupMatchesByDivision, teamNameById } from "../lib/lfn-helpers";
 
 export default async function ClassementPage() {
   const data = await getLfnData();
   const standingsMap = getStandingsByDivision(data.standings);
   const teamNames = teamNameById(data);
   const hasStandings = data.standings.length > 0;
+  const matchesByDivision = groupMatchesByDivision(data.matches);
   const statDescriptions = [
     {
       label: "Points",
@@ -22,6 +23,11 @@ export default async function ClassementPage() {
       detail: "Pourcentage de sets gagnés sur l’ensemble des sets joués.",
     },
   ];
+
+  const getWinrate = (row: { setsWon: number; setsLost: number }) => {
+    const total = row.setsWon + row.setsLost;
+    return total > 0 ? row.setsWon / total : 0;
+  };
 
   return (
     <div className="space-y-10">
@@ -45,8 +51,8 @@ export default async function ClassementPage() {
             description="Les standings apparaîtront après les premiers matchs officiels."
             ctaLabel={data.links.discord ? "Suivre les annonces" : undefined}
             ctaHref={data.links.discord || undefined}
-            secondaryLabel="Voir le calendrier"
-            secondaryHref="/calendrier"
+            secondaryLabel="Voir les matchs"
+            secondaryHref="/matchs"
             badge="Standings"
           />
         ) : (
@@ -56,6 +62,65 @@ export default async function ClassementPage() {
                 <h3 className="text-sm font-semibold uppercase tracking-[0.3em] text-slate-300">
                   {division.division}
                 </h3>
+                <div className="grid gap-4 md:grid-cols-3">
+                  {(() => {
+                    const rows = division.rows;
+                    if (rows.length === 0) {
+                      return [
+                        { title: "En forme", detail: "Équipe à annoncer." },
+                        { title: "Sous pression", detail: "Équipe à annoncer." },
+                        { title: "Match clé", detail: "Match à annoncer." },
+                      ].map((story) => (
+                        <div key={story.title} className="rounded-xl border border-white/10 bg-white/5 p-4">
+                          <p className="text-xs uppercase tracking-[0.3em] text-slate-400">
+                            {story.title}
+                          </p>
+                          <p className="mt-2 text-sm text-white">{story.detail}</p>
+                        </div>
+                      ));
+                    }
+
+                    const inForm = rows.reduce((best, row) => {
+                      if (!best) return row;
+                      return getWinrate(row) > getWinrate(best) ? row : best;
+                    }, rows[0]);
+                    const underPressure = rows.reduce((worst, row) => {
+                      if (!worst) return row;
+                      return getWinrate(row) < getWinrate(worst) ? row : worst;
+                    }, rows[0]);
+                    const nextMatch = matchesByDivision[division.division]?.[0];
+
+                    const storylines = [
+                      {
+                        title: "En forme",
+                        detail: inForm
+                          ? `${teamNames.get(inForm.teamId) || "Équipe à annoncer"} mène la cadence.`
+                          : "Équipe à annoncer.",
+                      },
+                      {
+                        title: "Sous pression",
+                        detail: underPressure
+                          ? `${teamNames.get(underPressure.teamId) || "Équipe à annoncer"} doit réagir vite.`
+                          : "Équipe à annoncer.",
+                      },
+                      {
+                        title: "Match clé",
+                        detail: nextMatch
+                          ? `${nextMatch.teamA || "Équipe à annoncer"} vs ${nextMatch.teamB || "Équipe à annoncer"}`
+                          : "Match à annoncer.",
+                      },
+                    ];
+
+                    return storylines.map((story) => (
+                      <div key={story.title} className="rounded-xl border border-white/10 bg-white/5 p-4">
+                        <p className="text-xs uppercase tracking-[0.3em] text-slate-400">
+                          {story.title}
+                        </p>
+                        <p className="mt-2 text-sm text-white">{story.detail}</p>
+                      </div>
+                    ));
+                  })()}
+                </div>
                 <div className="overflow-x-auto rounded-2xl border border-white/10 bg-white/5">
                   <table className="w-full text-left text-sm text-slate-200">
                     <thead className="text-xs uppercase text-slate-400">

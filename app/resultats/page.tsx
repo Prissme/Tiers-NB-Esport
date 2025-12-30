@@ -19,8 +19,8 @@ export default async function ResultatsPage() {
           <EmptyState
             title="Aucun résultat publié"
             description="Les scores apparaîtront ici dès publication officielle."
-            ctaLabel="Voir le calendrier"
-            ctaHref="/calendrier"
+            ctaLabel="Voir les matchs"
+            ctaHref="/matchs"
             secondaryLabel={data.links.discord ? "Suivre les annonces" : undefined}
             secondaryHref={data.links.discord || undefined}
             badge="Scores"
