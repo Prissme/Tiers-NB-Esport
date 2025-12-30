@@ -5,8 +5,8 @@ import Header from "./components/Header";
 import { getLfnData } from "./lib/data-store";
 
 export const metadata: Metadata = {
-  title: "LFN — Saison 2",
-  description: "Hub officiel LFN : inscriptions, règlement, calendrier et résultats.",
+  title: "LFN — Ligue Francophone Null’s Brawl",
+  description: "LFN : ligue compétitive francophone Null’s Brawl. Matchs, classements et actus.",
 };
 
 export default async function RootLayout({

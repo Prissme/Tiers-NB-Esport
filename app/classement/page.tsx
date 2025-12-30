@@ -12,11 +12,11 @@ export default async function ClassementPage() {
   const statDescriptions = [
     {
       label: "Points",
-      detail: "1 point par set gagné.",
+      detail: "1 set gagné = 1 point.",
     },
     {
-      label: "Sets gagnés / perdus",
-      detail: "Mesure la domination globale sur la saison.",
+      label: "Différence de sets",
+      detail: "Sets gagnés moins sets perdus.",
     },
     {
       label: "Winrate (%)",
@@ -127,9 +127,11 @@ export default async function ClassementPage() {
                       <tr>
                         <th className="px-4 py-3">Rang</th>
                         <th className="px-4 py-3">Équipe</th>
-                        <th className="px-4 py-3">Points (sets gagnés)</th>
-                        <th className="px-4 py-3">Sets gagnés</th>
-                        <th className="px-4 py-3">Sets perdus</th>
+                        <th className="px-4 py-3">Victoires</th>
+                        <th className="px-4 py-3">Défaites</th>
+                        <th className="px-4 py-3">Sets (G/P)</th>
+                        <th className="px-4 py-3">Diff. sets</th>
+                        <th className="px-4 py-3">Points</th>
                         <th className="px-4 py-3">Winrate</th>
                       </tr>
                     </thead>
@@ -137,15 +139,20 @@ export default async function ClassementPage() {
                       {division.rows.map((row, index) => {
                         const totalSets = row.setsWon + row.setsLost;
                         const winrate = totalSets > 0 ? (row.setsWon / totalSets) * 100 : 0;
+                        const diff = row.setsWon - row.setsLost;
                         return (
                           <tr key={row.teamId} className="border-t border-white/10">
                             <td className="px-4 py-3">{index + 1}</td>
                             <td className="px-4 py-3 text-white">
                               {teamNames.get(row.teamId) || "Équipe à annoncer"}
                             </td>
+                            <td className="px-4 py-3">{row.wins}</td>
+                            <td className="px-4 py-3">{row.losses}</td>
+                            <td className="px-4 py-3">
+                              {row.setsWon}/{row.setsLost}
+                            </td>
+                            <td className="px-4 py-3">{diff}</td>
                             <td className="px-4 py-3">{row.setsWon}</td>
-                            <td className="px-4 py-3">{row.setsWon}</td>
-                            <td className="px-4 py-3">{row.setsLost}</td>
                             <td className="px-4 py-3">{winrate.toFixed(0)}%</td>
                           </tr>
                         );

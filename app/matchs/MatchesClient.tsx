@@ -25,6 +25,13 @@ export default function MatchesClient({
 }: MatchesClientProps) {
   const [filter, setFilter] = useState<"all" | Division>("all");
   const matchById = useMemo(() => new Map(matches.map((match) => [match.id, match])), [matches]);
+  const resultByMatchId = useMemo(() => {
+    return new Map(
+      results
+        .filter((result) => result.scoreA !== null && result.scoreB !== null)
+        .map((result) => [result.matchId, result])
+    );
+  }, [results]);
 
   const filteredMatches = useMemo(() => {
     if (filter === "all") {
@@ -42,6 +49,33 @@ export default function MatchesClient({
     }
     return withScores.filter((result) => matchById.get(result.matchId)?.division === filter);
   }, [results, filter, matchById]);
+
+  const upcomingMatches = useMemo(() => {
+    return filteredMatches.filter((match) => !resultByMatchId.has(match.id));
+  }, [filteredMatches, resultByMatchId]);
+
+  const groupByDate = (list: LfnMatch[]) =>
+    list.reduce<Record<string, LfnMatch[]>>((acc, match) => {
+      const key = match.date || "Date à annoncer";
+      if (!acc[key]) {
+        acc[key] = [];
+      }
+      acc[key].push(match);
+      return acc;
+    }, {});
+
+  const groupedUpcoming = useMemo(() => groupByDate(upcomingMatches), [upcomingMatches]);
+  const groupedResults = useMemo(() => {
+    return filteredResults.reduce<Record<string, LfnResult[]>>((acc, result) => {
+      const match = matchById.get(result.matchId);
+      const key = match?.date || "Date à annoncer";
+      if (!acc[key]) {
+        acc[key] = [];
+      }
+      acc[key].push(result);
+      return acc;
+    }, {});
+  }, [filteredResults, matchById]);
 
   return (
     <div className="space-y-10">
@@ -73,7 +107,7 @@ export default function MatchesClient({
             Tous les horaires affichés en heure de Bruxelles ({timezoneLabel}).
           </p>
         </div>
-        {filteredMatches.length === 0 ? (
+        {upcomingMatches.length === 0 ? (
           <EmptyState
             title="Aucun match annoncé"
             description="Le planning sera publié ici dès validation officielle."
@@ -84,24 +118,29 @@ export default function MatchesClient({
             badge="Planning"
           />
         ) : (
-          <div className="grid gap-4">
-            {filteredMatches.map((match) => (
-              <div
-                key={match.id}
-                className="rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-slate-200"
-              >
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <span className="text-white">
-                    {match.teamA || "Équipe à annoncer"} vs {match.teamB || "Équipe à annoncer"}
-                  </span>
-                  <span className="text-xs text-slate-400">
-                    {match.date || "date à annoncer"} · {match.time || "heure à annoncer"}
-                  </span>
-                </div>
-                <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-slate-400">
-                  <span className="rounded-full border border-white/10 px-2 py-1">{match.division}</span>
-                  <span>BO{match.bo}</span>
-                  <span>Bruxelles</span>
+          <div className="grid gap-6">
+            {Object.entries(groupedUpcoming).map(([date, list]) => (
+              <div key={date} className="space-y-3">
+                <p className="text-xs uppercase tracking-[0.3em] text-slate-400">{date}</p>
+                <div className="grid gap-4">
+                  {list.map((match) => (
+                    <div
+                      key={match.id}
+                      className="rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-slate-200"
+                    >
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <span className="text-white">
+                          {match.teamA || "Équipe à annoncer"} vs {match.teamB || "Équipe à annoncer"}
+                        </span>
+                        <span className="text-xs text-slate-400">{match.time || "heure à annoncer"}</span>
+                      </div>
+                      <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-slate-400">
+                        <span className="rounded-full border border-white/10 px-2 py-1">{match.division}</span>
+                        <span>BO{match.bo}</span>
+                        <span>À venir</span>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
             ))}
@@ -128,31 +167,36 @@ export default function MatchesClient({
             badge="Scores"
           />
         ) : (
-          <div className="grid gap-4">
-            {filteredResults.map((result) => {
-              const match = matchById.get(result.matchId);
-              return (
-                <div
-                  key={result.matchId}
-                  className="rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-slate-200"
-                >
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <span className="text-white">
-                      {match?.teamA || "Équipe à annoncer"} {result.scoreA ?? "-"} - {result.scoreB ?? "-"} {match?.teamB || "Équipe à annoncer"}
-                    </span>
-                    <span className="text-xs text-slate-400">
-                      {match?.date || "date à annoncer"} · BO{match?.bo ?? "-"}
-                    </span>
-                  </div>
-                  <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-slate-400">
-                    <span className="rounded-full border border-white/10 px-2 py-1">
-                      {match?.division || "Division"}
-                    </span>
-                    <span>Bruxelles</span>
-                  </div>
+          <div className="grid gap-6">
+            {Object.entries(groupedResults).map(([date, list]) => (
+              <div key={date} className="space-y-3">
+                <p className="text-xs uppercase tracking-[0.3em] text-slate-400">{date}</p>
+                <div className="grid gap-4">
+                  {list.map((result) => {
+                    const match = matchById.get(result.matchId);
+                    return (
+                      <div
+                        key={result.matchId}
+                        className="rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-slate-200"
+                      >
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <span className="text-white">
+                            {match?.teamA || "Équipe à annoncer"} {result.scoreA ?? "-"} - {result.scoreB ?? "-"} {match?.teamB || "Équipe à annoncer"}
+                          </span>
+                          <span className="text-xs text-slate-400">BO{match?.bo ?? "-"}</span>
+                        </div>
+                        <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-slate-400">
+                          <span className="rounded-full border border-white/10 px-2 py-1">
+                            {match?.division || "Division"}
+                          </span>
+                          <span>Terminé</span>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
-              );
-            })}
+              </div>
+            ))}
           </div>
         )}
       </section>
