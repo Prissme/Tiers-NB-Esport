@@ -35,8 +35,8 @@ function buildCommands(localizeText) {
     {
       name: 'predictions',
       description: localizeText({
-        fr: 'Créer des prédictions LFN pour trois matchs',
-        en: 'Create LFN predictions for three matches'
+        fr: 'Créer des prédictions LFN pour quatre matchs',
+        en: 'Create LFN predictions for four matches'
       }),
       default_member_permissions: PermissionsBitField.Flags.ManageGuild.toString(),
       dm_permission: false,
@@ -78,6 +78,18 @@ function buildCommands(localizeText) {
           required: true
         },
         {
+          name: 'match4_team1',
+          description: localizeText({ fr: "Équipe 1 du match 4", en: 'Match 4 team 1' }),
+          type: ApplicationCommandOptionType.String,
+          required: true
+        },
+        {
+          name: 'match4_team2',
+          description: localizeText({ fr: "Équipe 2 du match 4", en: 'Match 4 team 2' }),
+          type: ApplicationCommandOptionType.String,
+          required: true
+        },
+        {
           name: 'date',
           description: localizeText({ fr: 'Date des matchs (JJ/MM/AAAA)', en: 'Match date (DD/MM/YYYY)' }),
           type: ApplicationCommandOptionType.String,
@@ -102,13 +114,14 @@ function buildCommands(localizeText) {
       options: [
         {
           name: 'match_number',
-          description: localizeText({ fr: 'Match à fermer (1-3)', en: 'Match to close (1-3)' }),
+          description: localizeText({ fr: 'Match à fermer (1-4)', en: 'Match to close (1-4)' }),
           type: ApplicationCommandOptionType.Integer,
           required: false,
           choices: [
             { name: '1', value: 1 },
             { name: '2', value: 2 },
-            { name: '3', value: 3 }
+            { name: '3', value: 3 },
+            { name: '4', value: 4 }
           ]
         }
       ]
@@ -324,7 +337,7 @@ async function handlePredictionsCommand(interaction) {
   const channelOption = interaction.options.getChannel('channel');
   const channel = channelOption?.isTextBased() ? channelOption : interaction.channel;
 
-  const matches = [1, 2, 3].map((match) => ({
+  const matches = [1, 2, 3, 4].map((match) => ({
     match_number: match,
     team1_name: interaction.options.getString(`match${match}_team1`).trim(),
     team2_name: interaction.options.getString(`match${match}_team2`).trim(),
