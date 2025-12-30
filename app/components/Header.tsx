@@ -3,13 +3,12 @@ import Button from "./Button";
 import type { LfnLinks } from "../lib/types";
 
 const navItems = [
-  { label: "Inscription", href: "/inscription" },
-  { label: "Compétition", href: "/format" },
-  { label: "Calendrier", href: "/calendrier" },
-  { label: "Résultats", href: "/resultats" },
-  { label: "Classement", href: "/classement" },
+  { label: "Matchs", href: "/matchs" },
+  { label: "Classements", href: "/classement" },
+  { label: "Comment participer", href: "/participer" },
   { label: "Équipes", href: "/equipes" },
   { label: "Règlement", href: "/reglement" },
+  { label: "Partenariats", href: "/partenariats" },
 ];
 
 type HeaderProps = {
@@ -34,8 +33,8 @@ export default function Header({ links }: HeaderProps) {
           ))}
         </nav>
         <div className="flex items-center gap-3">
-          <Button href="/inscription" variant="primary">
-            S'inscrire
+          <Button href="/participer" variant="primary">
+            Participer
           </Button>
           <Button
             href={discordLink}
