@@ -6,7 +6,29 @@ import { getLfnData } from "./lib/data-store";
 
 export const metadata: Metadata = {
   title: "LFN — Ligue Francophone Null’s Brawl",
-  description: "LFN : ligue compétitive francophone Null’s Brawl. Matchs, classements et actus.",
+  description:
+    "La ligue compétitive francophone Null’s Brawl. Matchs, classements, stats et saisons en cours.",
+  openGraph: {
+    title: "LFN — Ligue Francophone Null’s Brawl",
+    description:
+      "La ligue compétitive francophone Null’s Brawl. Matchs, classements, stats et saisons en cours.",
+    type: "website",
+    url: "https://tiers-nb.koyeb.app/",
+    images: [
+      {
+        url: "URL_D_UNE_IMAGE_LFN_1200x630",
+        width: 1200,
+        height: 630,
+        alt: "LFN — Ligue Francophone Null’s Brawl",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "LFN — Ligue Francophone Null’s Brawl",
+    description:
+      "La ligue compétitive francophone Null’s Brawl. Matchs, classements et saisons en cours.",
+  },
 };
 
 export default async function RootLayout({
