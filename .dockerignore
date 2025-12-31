@@ -1,7 +1,13 @@
 node_modules
+.next
+coverage
+dist
 npm-debug.log
 Dockerfile
+Dockerfile.*
 .git
 .gitignore
 .env
+.env.*
 yarn.lock
+pnpm-lock.yaml
