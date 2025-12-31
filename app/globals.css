@@ -17,3 +17,23 @@ body {
 .badge {
   @apply inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-3 py-1 text-xs uppercase tracking-[0.3em] text-slate-200;
 }
+
+.confetti-piece {
+  @apply absolute h-2 w-2 rounded-full;
+  background: linear-gradient(135deg, rgba(56, 189, 248, 0.9), rgba(236, 72, 153, 0.9));
+  animation: confetti-fall 1.4s ease-in-out forwards;
+}
+
+@keyframes confetti-fall {
+  0% {
+    opacity: 0;
+    transform: translateY(0) scale(0.6) rotate(0deg);
+  }
+  20% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(60px) scale(1) rotate(180deg);
+  }
+}
