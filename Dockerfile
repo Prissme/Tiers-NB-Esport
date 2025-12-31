@@ -12,7 +12,7 @@ RUN npm config set registry https://registry.npmjs.org/ && \
     npm config set fetch-retry-mintimeout 20000 && \
     npm config set fetch-retry-maxtimeout 120000 && \
     npm cache clean --force && \
-    npm ci --ignore-scripts
+    npm install --ignore-scripts
 
 COPY . .
 
@@ -33,7 +33,7 @@ RUN npm config set registry https://registry.npmjs.org/ && \
     npm config set fetch-retry-mintimeout 20000 && \
     npm config set fetch-retry-maxtimeout 120000 && \
     npm cache clean --force && \
-    npm ci --omit=dev --ignore-scripts --no-audit --no-fund
+    npm install --omit=dev --ignore-scripts --no-audit --no-fund
 
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
