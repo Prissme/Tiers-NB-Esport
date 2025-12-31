@@ -5,10 +5,10 @@ FROM node:18-bullseye-slim AS builder
 
 WORKDIR /app
 
-COPY package.json ./
+COPY package.json package-lock.json ./
 
 RUN npm cache clean --force && \
-    npm install --no-package-lock --ignore-scripts --legacy-peer-deps
+    npm ci --ignore-scripts
 
 COPY . .
 
@@ -22,10 +22,10 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 
-COPY package.json ./
+COPY package.json package-lock.json ./
 
 RUN npm cache clean --force && \
-    npm install --no-package-lock --omit=dev --ignore-scripts --legacy-peer-deps
+    npm ci --omit=dev --ignore-scripts
 
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
