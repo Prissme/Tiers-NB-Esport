@@ -8,7 +8,7 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 
 RUN npm cache clean --force && \
-    npm ci --ignore-scripts
+    npm install --ignore-scripts
 
 COPY . .
 
@@ -25,7 +25,7 @@ ENV NEXT_TELEMETRY_DISABLED=1
 COPY package.json package-lock.json ./
 
 RUN npm cache clean --force && \
-    npm ci --omit=dev --ignore-scripts
+    npm install --omit=dev --ignore-scripts
 
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
