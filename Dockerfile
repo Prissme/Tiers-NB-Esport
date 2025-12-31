@@ -7,8 +7,12 @@ WORKDIR /app
 
 COPY package.json package-lock.json ./
 
-RUN npm cache clean --force && \
-    npm install --ignore-scripts
+RUN npm config set registry https://registry.npmjs.org/ && \
+    npm config set fetch-retries 5 && \
+    npm config set fetch-retry-mintimeout 20000 && \
+    npm config set fetch-retry-maxtimeout 120000 && \
+    npm cache clean --force && \
+    npm ci --ignore-scripts
 
 COPY . .
 
@@ -24,8 +28,12 @@ ENV NEXT_TELEMETRY_DISABLED=1
 
 COPY package.json package-lock.json ./
 
-RUN npm cache clean --force && \
-    npm install --omit=dev --ignore-scripts
+RUN npm config set registry https://registry.npmjs.org/ && \
+    npm config set fetch-retries 5 && \
+    npm config set fetch-retry-mintimeout 20000 && \
+    npm config set fetch-retry-maxtimeout 120000 && \
+    npm cache clean --force && \
+    npm ci --omit=dev --ignore-scripts
 
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
