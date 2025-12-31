@@ -4,5 +4,4 @@ Dockerfile
 .git
 .gitignore
 .env
-package-lock.json
 yarn.lock
