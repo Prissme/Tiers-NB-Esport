@@ -28,8 +28,7 @@ export default function HomePage() {
             LFN — Ligue Francophone Null’s Brawl
           </h1>
           <p className="max-w-2xl text-base text-slate-200 md:text-lg">
-            Une ligue pensée pour les équipes ambitieuses : planning stable, suivi clair et ambiance
-            compétitive encadrée.
+            Ligue compétitive, calendrier clair, infos rapides.
           </p>
           <p className="text-xs uppercase tracking-[0.3em] text-emerald-300/80">
             {organization.communication}
@@ -72,7 +71,7 @@ export default function HomePage() {
               {lastResult.date} · {lastResult.time}
             </p>
             <p className="mt-3 text-xs text-slate-400">
-              Résumé complet disponible dans la rubrique résultats.
+              Résumé dans Résultats.
             </p>
           </GlowCard>
         </div>
@@ -83,30 +82,29 @@ export default function HomePage() {
           kicker="Structure"
           title="Une ligue claire"
           highlight="pour les équipes sérieuses"
-          description="Chaque section met en avant le suivi des matchs, les standings et les annonces."
+          description="Matchs, classements, annonces."
         />
         <div className="grid gap-4 md:grid-cols-3">
           <MetricCard
             label="Transparence"
             value="100%"
-            detail="Statistiques publiées et historiques disponibles."
+            detail="Stats publiques."
           />
           <MetricCard
             label="Suivi"
             value="Hebdo"
-            detail="Calendrier et scores mis à jour après chaque session."
+            detail="Scores à jour."
           />
           <MetricCard
             label="Engagement"
             value="24/7"
-            detail="Support staff et annonces officielles centralisées."
+            detail="Annonces centralisées."
           />
         </div>
         <div className="grid gap-4 lg:grid-cols-[1.1fr,0.9fr]">
           <div className="rounded-3xl border border-white/10 bg-white/5 p-6">
             <p className="text-xs uppercase tracking-[0.35em] text-slate-400">Cadre officiel</p>
             <p className="mt-3 text-sm text-white">{organization.administrationLabel}</p>
-            <p className="mt-2 text-sm text-slate-300">{organization.management}</p>
             <p className="mt-2 text-sm text-slate-300">{organization.publication}</p>
             <div className="mt-4 flex flex-wrap gap-2">
               {organization.sanctions.map((sanction) => (
@@ -119,10 +117,8 @@ export default function HomePage() {
           <div className="rounded-3xl border border-white/10 bg-white/5 p-6">
             <p className="text-xs uppercase tracking-[0.35em] text-slate-400">À suivre</p>
             <ul className="mt-4 space-y-3 text-sm text-slate-200">
-              <li>• Drafts sécurisées et vérifiées.</li>
-              <li>• Résumés match par match.</li>
-              <li>• Statistiques rosters et performances.</li>
-              <li>• Process de sanction clair.</li>
+              <li>• Drafts validées.</li>
+              <li>• Résumés & stats.</li>
             </ul>
             <Link href="/reglement" className="mt-4 inline-flex text-emerald-300 hover:text-emerald-200">
               Lire le règlement →
@@ -136,32 +132,32 @@ export default function HomePage() {
           kicker="Expérience LFN"
           title="Ce qui rend la ligue"
           highlight="attractive"
-          description="Un mix entre discipline compétitive, storytelling et production soignée."
+          description="Compétition + production."
         />
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           <FeatureCard
             title="Présentation des équipes"
-            description="Chaque roster a une page dédiée, des signatures et une identité visuelle forte."
+            description="Pages équipes."
           />
           <FeatureCard
             title="Suivi compétitif"
-            description="Matchs, scores, standings et historiques centralisés pour tout le monde."
+            description="Scores & standings."
           />
           <FeatureCard
             title="Production"
-            description="Highlights, résumés et narration de la saison pour créer de l'engagement."
+            description="Highlights."
           />
           <FeatureCard
             title="Casting"
-            description="Visibilité accrue grâce à un casting structuré et des lives réguliers."
+            description="Lives réguliers."
           />
           <FeatureCard
             title="Transparence"
-            description="Règles claires, décisions assumées et communication officielle."
+            description="Règles claires."
           />
           <FeatureCard
             title="Partenaires"
-            description="Des activations sobres, intégrées et orientées communauté."
+            description="Activations sobres."
           />
         </div>
       </section>
@@ -170,28 +166,28 @@ export default function HomePage() {
         <SectionHeader
           kicker="Parcours"
           title="De l'inscription à la finale"
-          description="Tout est pensé pour guider chaque équipe du début à la cérémonie finale."
+          description="Étapes clés."
         />
         <Timeline
           items={[
             {
               title: "Pré-saison",
-              description: "Validation des équipes, check roster et collecte des disponibilités.",
+              description: "Validation rosters.",
               badge: "Planning",
             },
             {
               title: "Phase régulière",
-              description: "Matchs structurés, reporting des scores et analyse hebdomadaire.",
+              description: "Matchs & scores.",
               badge: "Semaine 1-6",
             },
             {
               title: "Playoffs",
-              description: "Matchs à enjeux, stream et highlights officiels.",
+              description: "Playoffs.",
               badge: "Top 8",
             },
             {
               title: "Finale",
-              description: "Clôture de la saison, remise des trophées et annonce du split suivant.",
+              description: "Finale.",
               badge: "Finale",
             },
           ]}
@@ -202,15 +198,12 @@ export default function HomePage() {
         <SectionHeader
           kicker="Focus partenaires"
           title="Des activations fortes"
-          description="Un environnement premium pour les équipes et les marques qui soutiennent la scène."
+          description="Soutiens ciblés."
         />
         <div className="grid gap-4 md:grid-cols-2">
           <div className="rounded-3xl border border-white/10 bg-white/5 p-6">
             <p className="text-xs uppercase tracking-[0.35em] text-slate-400">Sponsors</p>
-            <p className="mt-3 text-sm text-white">LFN est ouverte à des partenariats premium.</p>
-            <p className="mt-2 text-sm text-slate-300">
-              Organisation claire, reporting précis et mise en avant des activations en stream.
-            </p>
+            <p className="mt-3 text-sm text-white">Partenariats premium ouverts.</p>
             <Link href="/partenariats" className="mt-4 inline-flex text-emerald-300 hover:text-emerald-200">
               Découvrir les offres →
             </Link>
@@ -218,10 +211,7 @@ export default function HomePage() {
           <div className="rounded-3xl border border-white/10 bg-white/5 p-6">
             <p className="text-xs uppercase tracking-[0.35em] text-slate-400">Casting & média</p>
             <p className="mt-3 text-sm text-white">
-              Un récit continu autour des équipes, présentations régulières et highlights dédiés.
-            </p>
-            <p className="mt-2 text-sm text-slate-300">
-              Vidéos, interviews et contenus sociaux pour maximiser la visibilité.
+              Présentations & highlights.
             </p>
           </div>
         </div>
@@ -231,33 +221,21 @@ export default function HomePage() {
         <SectionHeader
           kicker="FAQ rapide"
           title="Questions fréquentes"
-          description="Les réponses essentielles pour les équipes et les partenaires."
+          description="Réponses essentielles."
         />
         <div className="grid gap-4 md:grid-cols-2">
           {[
             {
               title: "Comment inscrire une équipe ?",
-              detail: "Les inscriptions sont annoncées officiellement et passent par le formulaire LFN.",
+              detail: "Via le formulaire officiel.",
             },
             {
               title: "Quel est le format exact ?",
-              detail: "Toutes les rencontres sont en BO et suivent le format publié dans la section dédiée.",
+              detail: "BO selon la page format.",
             },
             {
               title: "Quand sont publiés les scores ?",
-              detail: "Après validation par l'organisation, généralement dans les 24h.",
-            },
-            {
-              title: "Peut-on proposer un partenariat ?",
-              detail: "Oui, un canal dédié est disponible pour discuter des activations possibles.",
-            },
-            {
-              title: "Les rosters peuvent-ils changer ?",
-              detail: "Non, les rosters sont verrouillés après validation officielle.",
-            },
-            {
-              title: "Comment suivre les annonces ?",
-              detail: "Toutes les communications passent par le Discord officiel.",
+              detail: "Après validation.",
             },
           ].map((item) => (
             <div key={item.title} className="rounded-3xl border border-white/10 bg-white/5 p-5">
@@ -270,7 +248,7 @@ export default function HomePage() {
 
       <Callout
         title="Prêt à rejoindre la prochaine saison ?"
-        description="Sécurisez votre place, préparez votre roster et suivez toutes les informations officielles sur le site."
+        description="Inscription rapide et infos clés."
         actions={
           <>
             <Button href="/participer" variant="primary">

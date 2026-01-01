@@ -31,8 +31,7 @@ export default function EquipesPage() {
             Les équipes LFN prêtes pour la scène
           </h1>
           <p className="max-w-3xl text-base text-slate-200 md:text-lg">
-            Chaque roster est validé, chaque signature est connue. Plongez dans l&apos;univers des équipes
-            et identifiez celles qui marquent la saison.
+            Rosters validés. L&apos;essentiel des équipes ici.
           </p>
           <div className="flex flex-wrap gap-3">
             <Button href="/participer" variant="primary">
@@ -49,42 +48,40 @@ export default function EquipesPage() {
         <SectionHeader
           kicker="Radar"
           title="Répartition des divisions"
-          description="Un aperçu immédiat des rosters actifs et des profils dominants."
+          description="Vue rapide des rosters."
         />
         <div className="grid gap-4 md:grid-cols-3">
           <MetricCard
             label="Total rosters"
             value={`${teams.length}`}
-            detail="Équipes officiellement listées."
+            detail="Équipes listées."
           />
           <MetricCard
             label="Division 1"
             value={`${teamsByDivision.find((entry) => entry.division === "D1")?.teams.length ?? 0}`}
-            detail="Équipes expérimentées et régulières."
+            detail="Équipes expérimentées."
           />
           <MetricCard
             label="Division 2"
             value={`${teamsByDivision.find((entry) => entry.division === "D2")?.teams.length ?? 0}`}
-            detail="Challengers et nouvelles dynamiques."
+            detail="Challengers."
           />
         </div>
         <div className="grid gap-4 md:grid-cols-2">
           <div className="rounded-3xl border border-white/10 bg-white/5 p-6">
             <p className="text-xs uppercase tracking-[0.35em] text-slate-400">Focus D1</p>
-            <p className="mt-3 text-sm text-white">L&apos;élite compétitive de la ligue.</p>
+            <p className="mt-3 text-sm text-white">Élite compétitive.</p>
             <ul className="mt-4 space-y-2 text-sm text-slate-300">
-              <li>• Gestion des drafts avancée.</li>
-              <li>• Rotations calibrées sur chaque map.</li>
-              <li>• Leadership et adaptation mid-match.</li>
+              <li>• Drafts solides.</li>
+              <li>• Leadership.</li>
             </ul>
           </div>
           <div className="rounded-3xl border border-white/10 bg-white/5 p-6">
             <p className="text-xs uppercase tracking-[0.35em] text-slate-400">Focus D2</p>
-            <p className="mt-3 text-sm text-white">La division qui révèle les nouveaux talents.</p>
+            <p className="mt-3 text-sm text-white">Talents émergents.</p>
             <ul className="mt-4 space-y-2 text-sm text-slate-300">
-              <li>• Profils en progression constante.</li>
-              <li>• Approches créatives sur le draft.</li>
-              <li>• Forte marge de progression collective.</li>
+              <li>• Progression rapide.</li>
+              <li>• Drafts créatives.</li>
             </ul>
           </div>
         </div>
@@ -94,7 +91,7 @@ export default function EquipesPage() {
         <SectionHeader
           kicker="Rosters"
           title="Fiches détaillées des équipes"
-          description="Logos, joueurs, signatures et moments forts : tout est centralisé ici."
+          description="Logos, joueurs, infos clés."
         />
         <div className="grid gap-6 xl:grid-cols-2">
           {teams.map((team) => (
@@ -107,32 +104,32 @@ export default function EquipesPage() {
         <SectionHeader
           kicker="Identité"
           title="Pourquoi ces équipes comptent"
-          description="Une scène crédible se construit avec des rosters identifiés, du contenu et des histoires."
+          description="Identité claire."
         />
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           <FeatureCard
             title="Storytelling"
-            description="Chaque équipe a une narration claire, du roster au style de jeu."
+            description="Identité d'équipe."
           />
           <FeatureCard
             title="Visibilité"
-            description="Logos, covers et signatures pour une identité solide."
+            description="Logos & covers."
           />
           <FeatureCard
             title="Engagement"
-            description="Des profils joueurs mis en avant dans les communications LFN."
+            description="Profils joueurs."
           />
           <FeatureCard
             title="Analyse"
-            description="Highlights, stats et suivi régulier pour inspirer la scène."
+            description="Stats & highlights."
           />
           <FeatureCard
             title="Structure"
-            description="Rosters verrouillés et validés pour éviter les surprises."
+            description="Rosters validés."
           />
           <FeatureCard
             title="Progression"
-            description="La D2 sert de tremplin, la D1 d'objectif ultime."
+            description="D2 → D1."
           />
         </div>
       </section>
@@ -141,21 +138,21 @@ export default function EquipesPage() {
         <SectionHeader
           kicker="Process"
           title="Comment une équipe est validée"
-          description="Le roster complet, la disponibilité et la charte LFN sont obligatoires."
+          description="3 critères."
         />
         <div className="grid gap-4 md:grid-cols-3">
           {[
             {
               title: "Audit roster",
-              detail: "Vérification des titulaires, remplaçants et coach.",
+              detail: "Titulaires + subs.",
             },
             {
               title: "Disponibilités",
-              detail: "Validation des créneaux pour le format officiel.",
+              detail: "Créneaux validés.",
             },
             {
               title: "Charte",
-              detail: "Engagement sur le règlement et l&apos;esprit compétitif.",
+              detail: "Charte signée.",
             },
           ].map((item) => (
             <div key={item.title} className="rounded-3xl border border-white/10 bg-white/5 p-5">
@@ -168,7 +165,7 @@ export default function EquipesPage() {
 
       <Callout
         title="Vous voulez apparaître sur cette page ?"
-        description="Préparez votre roster, vérifiez vos disponibilités et envoyez votre inscription pour la prochaine vague de validation."
+        description="Roster prêt, inscription rapide."
         actions={
           <>
             <Button href="/inscription" variant="primary">
