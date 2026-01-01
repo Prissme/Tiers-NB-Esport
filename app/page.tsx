@@ -1,13 +1,9 @@
 import Link from "next/link";
 import Button from "./components/Button";
 import SectionHeader from "./components/SectionHeader";
+import { getBaseUrl } from "./lib/get-base-url";
 
-const quickSignals = [
-  "Saison active",
-  "Roster prêt",
-  "Scores live",
-  "Staff en ligne",
-];
+const quickSignals = ["Saison active", "Roster prêt", "Scores live", "Staff en ligne"];
 
 const motionCards = [
   { title: "Matches", detail: "Calendrier léger" },
@@ -18,7 +14,28 @@ const motionCards = [
 
 const flowSteps = ["Draft", "Match", "Score", "Playoffs"];
 
-export default function HomePage() {
+type SiteStats = {
+  playersCount: number | null;
+  matchesToday: number | null;
+  prizepoolTotal: number | null;
+};
+
+const loadStats = async (): Promise<SiteStats> => {
+  const baseUrl = getBaseUrl();
+  const response = await fetch(`${baseUrl}/api/site/stats`, {
+    next: { revalidate: 60 },
+  });
+
+  if (!response.ok) {
+    return { playersCount: null, matchesToday: null, prizepoolTotal: null };
+  }
+
+  return response.json();
+};
+
+export default async function HomePage() {
+  const stats = await loadStats();
+
   return (
     <div className="space-y-12">
       <section className="motion-field p-8 md:p-10">
@@ -68,13 +85,40 @@ export default function HomePage() {
 
       <section className="section-card space-y-6">
         <SectionHeader
+          kicker="Live"
+          title="Instantané"
+          description="Les chiffres clés de la ligue."
+        />
+        <div className="grid gap-4 md:grid-cols-3">
+          <div className="motion-card">
+            <p className="text-xs uppercase tracking-[0.35em] text-slate-400">Joueurs</p>
+            <p className="mt-3 text-2xl font-semibold text-white">{stats.playersCount ?? "-"}</p>
+            <p className="text-xs text-slate-400">Inscrits actifs</p>
+          </div>
+          <div className="motion-card">
+            <p className="text-xs uppercase tracking-[0.35em] text-slate-400">Matchs</p>
+            <p className="mt-3 text-2xl font-semibold text-white">{stats.matchesToday ?? "-"}</p>
+            <p className="text-xs text-slate-400">Aujourd&apos;hui</p>
+          </div>
+          <div className="motion-card">
+            <p className="text-xs uppercase tracking-[0.35em] text-slate-400">Prizepool</p>
+            <p className="mt-3 text-2xl font-semibold text-white">
+              {stats.prizepoolTotal ?? "-"}
+            </p>
+            <p className="text-xs text-slate-400">Total actuel</p>
+          </div>
+        </div>
+      </section>
+
+      <section className="section-card space-y-6">
+        <SectionHeader
           kicker="Flux"
           title="Tout se passe en trois actions"
           description="Lecture rapide, décisions rapides."
         />
         <div className="motion-line" />
         <div className="grid gap-4 md:grid-cols-3">
-          {["Lancer", "Suivre", "Finir"].map((item) => (
+          {"Lancer Suivre Finir".split(" ").map((item) => (
             <div key={item} className="motion-card">
               <p className="text-xs uppercase tracking-[0.35em] text-slate-400">{item}</p>
               <p className="mt-3 text-sm text-white">Signal visuel + action.</p>

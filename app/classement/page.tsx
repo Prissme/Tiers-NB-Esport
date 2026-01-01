@@ -1,14 +1,33 @@
 import SectionHeader from "../components/SectionHeader";
-
-const standingsTiles = [
-  { label: "Top 1", detail: "Rythme élevé" },
-  { label: "Top 2", detail: "Pression" },
-  { label: "Top 3", detail: "Chase" },
-];
+import { getBaseUrl } from "../lib/get-base-url";
 
 const standingsTags = ["Points", "Sets", "Win%", "Δ"];
 
-export default function ClassementPage() {
+type StandingRow = {
+  id: string;
+  name: string;
+  mmr: number | null;
+  rank: number | null;
+  tier: string | null;
+};
+
+const loadStandings = async () => {
+  const baseUrl = getBaseUrl();
+  const response = await fetch(`${baseUrl}/api/site/standings?limit=50`, {
+    next: { revalidate: 60 },
+  });
+
+  if (!response.ok) {
+    return [] as StandingRow[];
+  }
+
+  const payload = (await response.json()) as { players?: StandingRow[] };
+  return payload.players ?? [];
+};
+
+export default async function ClassementPage() {
+  const standings = await loadStandings();
+
   return (
     <div className="space-y-12">
       <section className="motion-field p-8">
@@ -21,14 +40,48 @@ export default function ClassementPage() {
             description="Classement condensé."
           />
           <div className="grid gap-4 md:grid-cols-3">
-            {standingsTiles.map((tile) => (
-              <div key={tile.label} className="motion-card motion-shimmer">
-                <p className="text-xs uppercase tracking-[0.35em] text-slate-400">{tile.label}</p>
-                <p className="mt-3 text-sm text-white">{tile.detail}</p>
+            {standings.slice(0, 3).map((row) => (
+              <div key={row.id} className="motion-card motion-shimmer">
+                <p className="text-xs uppercase tracking-[0.35em] text-slate-400">Top {row.rank}</p>
+                <p className="mt-3 text-sm text-white">{row.name}</p>
               </div>
             ))}
           </div>
         </div>
+      </section>
+
+      <section className="section-card space-y-6">
+        <SectionHeader
+          kicker="Classement"
+          title="Top 50"
+          description="Données à jour."
+        />
+        {standings.length === 0 ? (
+          <p className="text-sm text-slate-400">Aucune donnée disponible.</p>
+        ) : (
+          <div className="overflow-hidden rounded-2xl border border-white/10">
+            <table className="w-full text-left text-sm text-slate-200">
+              <thead className="bg-white/5 text-xs uppercase tracking-[0.3em] text-slate-400">
+                <tr>
+                  <th className="px-4 py-3">#</th>
+                  <th className="px-4 py-3">Joueur</th>
+                  <th className="px-4 py-3">MMR</th>
+                  <th className="px-4 py-3">Tier</th>
+                </tr>
+              </thead>
+              <tbody>
+                {standings.map((row, index) => (
+                  <tr key={row.id} className="border-t border-white/10">
+                    <td className="px-4 py-3 text-slate-300">{row.rank ?? index + 1}</td>
+                    <td className="px-4 py-3 text-white">{row.name}</td>
+                    <td className="px-4 py-3 text-slate-300">{row.mmr ?? "-"}</td>
+                    <td className="px-4 py-3 text-slate-300">{row.tier ?? "-"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </section>
 
       <section className="section-card space-y-6">

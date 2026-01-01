@@ -1,14 +1,18 @@
+import { redirect } from "next/navigation";
+import { cookies } from "next/headers";
 import SectionHeader from "../components/SectionHeader";
+import AdminPanel from "./AdminPanel";
+import { logout } from "./actions";
 
-const adminTiles = [
-  { label: "Inbox", detail: "Rapports courts" },
-  { label: "Validation", detail: "Un clic" },
-  { label: "Diffusion", detail: "Annonce light" },
-];
-
-const adminSignals = ["Alertes", "Matchs", "Scores", "Staff"];
+const ADMIN_COOKIE = "admin_session";
 
 export default function AdminPage() {
+  const isAdmin = cookies().get(ADMIN_COOKIE)?.value === "1";
+
+  if (!isAdmin) {
+    redirect("/admin/login");
+  }
+
   return (
     <div className="space-y-10">
       <section className="motion-field p-8">
@@ -17,43 +21,22 @@ export default function AdminPage() {
         <div className="relative z-10 space-y-6">
           <SectionHeader
             kicker="Admin"
-            title="Console compacte"
-            description="Moins de clics, plus de flux."
+            title="Console de gestion"
+            description="Gère rapidement les équipes et matchs."
           />
-          <div className="grid gap-4 md:grid-cols-3">
-            {adminTiles.map((tile) => (
-              <div key={tile.label} className="motion-card motion-shimmer">
-                <p className="text-xs uppercase tracking-[0.35em] text-slate-400">{tile.label}</p>
-                <p className="mt-3 text-sm text-white">{tile.detail}</p>
-              </div>
-            ))}
-          </div>
+          <form action={logout}>
+            <button
+              type="submit"
+              className="rounded-full border border-white/10 px-4 py-2 text-xs text-slate-200"
+            >
+              Se déconnecter
+            </button>
+          </form>
         </div>
       </section>
 
-      <section className="section-card space-y-6">
-        <SectionHeader
-          kicker="Flux"
-          title="Signaux utiles"
-          description="Juste les alertes importantes."
-        />
-        <div className="flex flex-wrap gap-3">
-          {adminSignals.map((signal) => (
-            <span key={signal} className="motion-pill">
-              {signal}
-            </span>
-          ))}
-        </div>
-        <div className="grid gap-4 md:grid-cols-2">
-          <div className="motion-card">
-            <p className="text-xs uppercase tracking-[0.35em] text-slate-400">Queue</p>
-            <p className="mt-3 text-sm text-white">Traitement rapide.</p>
-          </div>
-          <div className="motion-card">
-            <p className="text-xs uppercase tracking-[0.35em] text-slate-400">Historique</p>
-            <p className="mt-3 text-sm text-white">Trace minimale.</p>
-          </div>
-        </div>
+      <section className="section-card">
+        <AdminPanel />
       </section>
     </div>
   );

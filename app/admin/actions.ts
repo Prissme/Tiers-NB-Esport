@@ -1,20 +1,12 @@
 "use server";
 
 import { cookies } from "next/headers";
-import { updateLfnData } from "../lib/data-store";
-import type { LfnData } from "../lib/types";
 
-const ADMIN_COOKIE = "lfn-admin";
+const ADMIN_COOKIE = "admin_session";
 
 export type LoginState = {
   error?: string;
   success?: boolean;
-};
-
-export type SaveState = {
-  persisted?: boolean;
-  message?: string;
-  error?: string;
 };
 
 export const login = async (
@@ -48,23 +40,4 @@ export const logout = async () => {
     path: "/",
     maxAge: 0,
   });
-};
-
-export const saveData = async (
-  _prevState: SaveState,
-  formData: FormData
-): Promise<SaveState> => {
-  const payload = String(formData.get("payload") || "");
-
-  try {
-    const parsed = JSON.parse(payload) as LfnData;
-    const result = await updateLfnData(parsed);
-    return { persisted: result.persisted, message: result.message };
-  } catch (error) {
-    return { error: "JSON invalide. Sauvegarde annulée." };
-  }
-};
-
-export const isAuthenticated = () => {
-  return cookies().get(ADMIN_COOKIE)?.value === "1";
 };
