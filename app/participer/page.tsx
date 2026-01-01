@@ -2,11 +2,9 @@ import Button from "../components/Button";
 import SectionHeader from "../components/SectionHeader";
 import { getLfnData } from "../lib/data-store";
 import { formatDeadlineWithZone } from "../lib/lfn-helpers";
-
 export default async function ParticiperPage() {
   const data = await getLfnData();
   const deadlineLabel = formatDeadlineWithZone(data.season.deadline, data.season.timezone);
-  const discordAvailable = Boolean(data.links.discord);
 
   return (
     <div className="space-y-10">
@@ -21,9 +19,9 @@ export default async function ParticiperPage() {
             <li className="flex gap-4">
               <span className="text-emerald-300">01</span>
               <div>
-                <p className="text-white">Rejoindre le Discord officiel.</p>
+                <p className="text-white">Suivre la communication officielle.</p>
                 <p className="text-slate-400">
-                  Les annonces, inscriptions et horaires passent par Discord.
+                  Communication officielle LFN pour les annonces et horaires.
                 </p>
               </div>
             </li>
@@ -54,14 +52,6 @@ export default async function ParticiperPage() {
             <div className="flex flex-wrap gap-3 pt-2">
               <Button href="/inscription" variant="primary">
                 Accéder au formulaire
-              </Button>
-              <Button
-                href={discordAvailable ? data.links.discord : "#"}
-                variant="secondary"
-                external
-                disabled={!discordAvailable}
-              >
-                Rejoindre le Discord
               </Button>
             </div>
           </div>

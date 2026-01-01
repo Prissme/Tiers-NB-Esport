@@ -1,6 +1,5 @@
 import Link from "next/link";
 import Button from "./Button";
-import type { LfnLinks } from "../lib/types";
 
 const navItems = [
   { label: "Matchs", href: "/matchs" },
@@ -11,14 +10,7 @@ const navItems = [
   { label: "Partenariats", href: "/partenariats" },
 ];
 
-type HeaderProps = {
-  links: LfnLinks;
-};
-
-export default function Header({ links }: HeaderProps) {
-  const discordLink = links.discord || "#";
-  const discordDisabled = !links.discord;
-
+export default function Header() {
   return (
     <header className="sticky top-0 z-40 border-b border-white/10 bg-slate-950/85 backdrop-blur">
       <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-4 px-4 py-4 sm:px-6">
@@ -35,14 +27,6 @@ export default function Header({ links }: HeaderProps) {
         <div className="flex items-center gap-3">
           <Button href="/participer" variant="primary">
             Participer
-          </Button>
-          <Button
-            href={discordLink}
-            external
-            variant="secondary"
-            disabled={discordDisabled}
-          >
-            Discord
           </Button>
         </div>
       </div>

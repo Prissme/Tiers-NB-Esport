@@ -1,6 +1,7 @@
 import EmptyState from "../components/EmptyState";
 import SectionHeader from "../components/SectionHeader";
 import { getLfnData } from "../lib/data-store";
+import { lfnData } from "../lib/lfnData";
 import { getStandingsByDivision, groupMatchesByDivision, teamNameById } from "../lib/lfn-helpers";
 
 export default async function ClassementPage() {
@@ -9,10 +10,11 @@ export default async function ClassementPage() {
   const teamNames = teamNameById(data);
   const hasStandings = data.standings.length > 0;
   const matchesByDivision = groupMatchesByDivision(data.matches);
+  const { format } = lfnData;
   const statDescriptions = [
     {
       label: "Points",
-      detail: "1 set gagné = 1 point.",
+      detail: `${format.pointsSystem}.`,
     },
     {
       label: "Différence de sets",
@@ -21,6 +23,10 @@ export default async function ClassementPage() {
     {
       label: "Winrate (%)",
       detail: "Pourcentage de sets gagnés sur l’ensemble des sets joués.",
+    },
+    {
+      label: "Tie-break",
+      detail: format.tiebreak,
     },
   ];
 
@@ -37,7 +43,7 @@ export default async function ClassementPage() {
           title="Standings officiels"
           description="Chaque colonne est expliquée pour rester lisible."
         />
-        <div className="grid gap-4 md:grid-cols-3">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           {statDescriptions.map((stat) => (
             <div key={stat.label} className="rounded-xl border border-white/10 bg-white/5 p-4">
               <p className="text-xs uppercase tracking-[0.3em] text-slate-400">{stat.label}</p>
@@ -49,8 +55,6 @@ export default async function ClassementPage() {
           <EmptyState
             title="Aucun classement publié"
             description="Les standings apparaîtront après les premiers matchs officiels."
-            ctaLabel={data.links.discord ? "Suivre les annonces" : undefined}
-            ctaHref={data.links.discord || undefined}
             secondaryLabel="Voir les matchs"
             secondaryHref="/matchs"
             badge="Standings"
@@ -67,9 +71,9 @@ export default async function ClassementPage() {
                     const rows = division.rows;
                     if (rows.length === 0) {
                       return [
-                        { title: "En forme", detail: "Équipe à annoncer." },
-                        { title: "Sous pression", detail: "Équipe à annoncer." },
-                        { title: "Match clé", detail: "Match à annoncer." },
+                        { title: "En forme", detail: "Non communiqué." },
+                        { title: "Sous pression", detail: "Non communiqué." },
+                        { title: "Match clé", detail: "Non communiqué." },
                       ].map((story) => (
                         <div key={story.title} className="rounded-xl border border-white/10 bg-white/5 p-4">
                           <p className="text-xs uppercase tracking-[0.3em] text-slate-400">
@@ -94,20 +98,20 @@ export default async function ClassementPage() {
                       {
                         title: "En forme",
                         detail: inForm
-                          ? `${teamNames.get(inForm.teamId) || "Équipe à annoncer"} mène la cadence.`
-                          : "Équipe à annoncer.",
+                          ? `${teamNames.get(inForm.teamId) || "Non communiqué"} mène la cadence.`
+                          : "Non communiqué.",
                       },
                       {
                         title: "Sous pression",
                         detail: underPressure
-                          ? `${teamNames.get(underPressure.teamId) || "Équipe à annoncer"} doit réagir vite.`
-                          : "Équipe à annoncer.",
+                          ? `${teamNames.get(underPressure.teamId) || "Non communiqué"} doit réagir vite.`
+                          : "Non communiqué.",
                       },
                       {
                         title: "Match clé",
                         detail: nextMatch
-                          ? `${nextMatch.teamA || "Équipe à annoncer"} vs ${nextMatch.teamB || "Équipe à annoncer"}`
-                          : "Match à annoncer.",
+                          ? `${nextMatch.teamA || "Non communiqué"} vs ${nextMatch.teamB || "Non communiqué"}`
+                          : "Non communiqué.",
                       },
                     ];
 
@@ -144,7 +148,7 @@ export default async function ClassementPage() {
                           <tr key={row.teamId} className="border-t border-white/10">
                             <td className="px-4 py-3">{index + 1}</td>
                             <td className="px-4 py-3 text-white">
-                              {teamNames.get(row.teamId) || "Équipe à annoncer"}
+                              {teamNames.get(row.teamId) || "Non communiqué"}
                             </td>
                             <td className="px-4 py-3">{row.wins}</td>
                             <td className="px-4 py-3">{row.losses}</td>

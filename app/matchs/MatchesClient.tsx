@@ -14,14 +14,12 @@ type MatchesClientProps = {
   matches: LfnMatch[];
   results: LfnResult[];
   timezoneLabel: string;
-  discordLink?: string;
 };
 
 export default function MatchesClient({
   matches,
   results,
   timezoneLabel,
-  discordLink,
 }: MatchesClientProps) {
   const [filter, setFilter] = useState<"all" | Division>("all");
   const matchById = useMemo(() => new Map(matches.map((match) => [match.id, match])), [matches]);
@@ -56,7 +54,7 @@ export default function MatchesClient({
 
   const groupByDate = (list: LfnMatch[]) =>
     list.reduce<Record<string, LfnMatch[]>>((acc, match) => {
-      const key = match.date || "Date à annoncer";
+      const key = match.date || "Non communiqué";
       if (!acc[key]) {
         acc[key] = [];
       }
@@ -68,7 +66,7 @@ export default function MatchesClient({
   const groupedResults = useMemo(() => {
     return filteredResults.reduce<Record<string, LfnResult[]>>((acc, result) => {
       const match = matchById.get(result.matchId);
-      const key = match?.date || "Date à annoncer";
+      const key = match?.date || "Non communiqué";
       if (!acc[key]) {
         acc[key] = [];
       }
@@ -111,8 +109,6 @@ export default function MatchesClient({
           <EmptyState
             title="Aucun match annoncé"
             description="Le planning sera publié ici dès validation officielle."
-            ctaLabel={discordLink ? "Suivre les annonces" : undefined}
-            ctaHref={discordLink || undefined}
             secondaryLabel="Voir comment participer"
             secondaryHref="/participer"
             badge="Planning"
@@ -130,9 +126,9 @@ export default function MatchesClient({
                     >
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <span className="text-white">
-                          {match.teamA || "Équipe à annoncer"} vs {match.teamB || "Équipe à annoncer"}
+                          {match.teamA || "Non communiqué"} vs {match.teamB || "Non communiqué"}
                         </span>
-                        <span className="text-xs text-slate-400">{match.time || "heure à annoncer"}</span>
+                        <span className="text-xs text-slate-400">{match.time || "Non communiqué"}</span>
                       </div>
                       <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-slate-400">
                         <span className="rounded-full border border-white/10 px-2 py-1">{match.division}</span>
@@ -162,8 +158,6 @@ export default function MatchesClient({
             description="Les scores publiés apparaîtront ici après les matchs."
             ctaLabel="Voir les prochains matchs"
             ctaHref="/matchs"
-            secondaryLabel={discordLink ? "Suivre les annonces" : undefined}
-            secondaryHref={discordLink || undefined}
             badge="Scores"
           />
         ) : (
@@ -181,7 +175,7 @@ export default function MatchesClient({
                       >
                         <div className="flex flex-wrap items-center justify-between gap-2">
                           <span className="text-white">
-                            {match?.teamA || "Équipe à annoncer"} {result.scoreA ?? "-"} - {result.scoreB ?? "-"} {match?.teamB || "Équipe à annoncer"}
+                            {match?.teamA || "Non communiqué"} {result.scoreA ?? "-"} - {result.scoreB ?? "-"} {match?.teamB || "Non communiqué"}
                           </span>
                           <span className="text-xs text-slate-400">BO{match?.bo ?? "-"}</span>
                         </div>

@@ -1,8 +1,6 @@
-import Button from "../components/Button";
 import SectionHeader from "../components/SectionHeader";
 import { getLfnData } from "../lib/data-store";
 import { getStatusLabel } from "../lib/lfn-helpers";
-
 export default async function InscriptionPage() {
   const data = await getLfnData();
 
@@ -12,7 +10,7 @@ export default async function InscriptionPage() {
         <SectionHeader
           kicker="Inscriptions"
           title="Inscriptions fermées"
-          description="Rejoignez le Discord pour être alerté de la prochaine saison."
+          description="Les inscriptions rouvriront à l'annonce officielle."
         />
         <div className="grid gap-6 md:grid-cols-[1.1fr,0.9fr]">
           <div className="space-y-4 text-sm text-slate-200">
@@ -23,27 +21,14 @@ export default async function InscriptionPage() {
               Inscriptions fermées. La ligue est en cours et les équipes sont déjà verrouillées.
             </p>
             <p className="text-slate-400">
-              Rejoignez le Discord pour préparer votre équipe et recevoir l&apos;ouverture des
-              prochaines inscriptions.
+              Communication officielle LFN pour préparer votre équipe et recevoir l&apos;ouverture
+              des prochaines inscriptions.
             </p>
-            <div className="flex flex-wrap gap-3 pt-2">
-              <Button
-                href={data.links.discord || "#"}
-                variant="primary"
-                external
-                disabled={!data.links.discord}
-              >
-                Rejoindre le Discord
-              </Button>
-              <Button href="/participer" variant="secondary">
-                Comment participer
-              </Button>
-            </div>
           </div>
           <div className="rounded-2xl border border-white/10 bg-white/5 p-5 text-sm text-slate-200">
             <p className="text-xs uppercase tracking-[0.3em] text-slate-400">À retenir</p>
             <ul className="mt-3 space-y-2">
-              <li>Suivre l&apos;actualité sur Discord.</li>
+              <li>Suivre l&apos;actualité officielle LFN.</li>
               <li>Préparer un roster complet à l&apos;avance.</li>
               <li>Anticiper les horaires Bruxelles.</li>
             </ul>

@@ -8,14 +8,14 @@ const statusLabelMap: Record<Exclude<SeasonStatus, "">, string> = {
 
 export const getStatusLabel = (status: SeasonStatus): string => {
   if (!status) {
-    return "Statut à annoncer";
+    return "Statut non communiqué";
   }
   return statusLabelMap[status];
 };
 
 export const formatDeadline = (deadline: string, timezone: string): string => {
   if (!deadline) {
-    return "date à annoncer";
+    return "Non communiqué";
   }
   const date = new Date(deadline);
   if (Number.isNaN(date.getTime())) {
@@ -32,7 +32,7 @@ export const formatDeadline = (deadline: string, timezone: string): string => {
 
 export const formatDeadlineWithZone = (deadline: string, timezone: string): string => {
   const base = formatDeadline(deadline, timezone);
-  if (base === "date à annoncer") {
+  if (base === "Non communiqué") {
     return base;
   }
   return `${base} (${timezone || "Europe/Brussels"})`;

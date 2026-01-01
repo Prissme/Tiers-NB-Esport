@@ -1,5 +1,4 @@
 import Link from "next/link";
-import type { LfnLinks } from "../lib/types";
 
 const footerLinks = [
   { label: "Matchs", href: "/matchs" },
@@ -10,11 +9,25 @@ const footerLinks = [
 ];
 
 type FooterProps = {
-  links: LfnLinks;
   seasonName: string;
+  administrationLabel: string;
+  discordInviteUrl?: string;
 };
 
-export default function Footer({ links, seasonName }: FooterProps) {
+const isValidDiscordInvite = (url?: string) => {
+  if (!url) return false;
+  const trimmed = url.trim();
+  if (!trimmed) return false;
+  return !trimmed.includes("discord.gg");
+};
+
+export default function Footer({
+  seasonName,
+  administrationLabel,
+  discordInviteUrl,
+}: FooterProps) {
+  const showDiscordLink = isValidDiscordInvite(discordInviteUrl);
+
   return (
     <footer className="border-t border-white/10 bg-slate-950/70">
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-10 text-sm text-slate-300 sm:px-6">
@@ -29,17 +42,23 @@ export default function Footer({ links, seasonName }: FooterProps) {
                 {link.label}
               </Link>
             ))}
-            {links.discord ? (
+          </div>
+        </div>
+        <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-xs text-slate-300">
+          <p className="text-[0.65rem] uppercase tracking-[0.35em] text-slate-400">Officiel</p>
+          <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
+            <span>{administrationLabel}</span>
+            {showDiscordLink ? (
               <a
-                href={links.discord}
+                href={discordInviteUrl}
                 target="_blank"
                 rel="noreferrer"
-                className="hover:text-white"
+                className="text-emerald-300 hover:text-emerald-200"
               >
-                Discord
+                Discord officiel
               </a>
             ) : (
-              <span className="text-slate-500">Discord</span>
+              <span className="text-slate-500">Lien Discord à configurer</span>
             )}
           </div>
         </div>
