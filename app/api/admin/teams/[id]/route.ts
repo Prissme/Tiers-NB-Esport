@@ -1,0 +1,103 @@
+import { NextResponse } from "next/server";
+import { z } from "zod";
+import { createAdminClient } from "../../../../../src/lib/supabase/admin";
+import { withSchema } from "../../../../../src/lib/supabase/schema";
+import { TEAM_COLUMNS, TEAMS_TABLE } from "../../../../../src/lib/supabase/config";
+import { isAdminAuthenticated } from "../../../../../src/lib/admin/auth";
+
+const updateSchema = z.object({
+  name: z.string().min(1).optional(),
+  tag: z.string().min(1).nullable().optional(),
+  division: z.string().min(1).nullable().optional(),
+  logoUrl: z.string().url().nullable().optional(),
+});
+
+export async function PATCH(
+  request: Request,
+  { params }: { params: { id: string } }
+) {
+  if (!isAdminAuthenticated()) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const payload = await request.json().catch(() => null);
+  const parsed = updateSchema.safeParse(payload);
+
+  if (!parsed.success) {
+    return NextResponse.json({ error: "Invalid payload." }, { status: 400 });
+  }
+
+  try {
+    const supabase = withSchema(createAdminClient());
+    const updatePayload: Record<string, unknown> = {};
+
+    if (parsed.data.name !== undefined) {
+      updatePayload[TEAM_COLUMNS.name] = parsed.data.name;
+    }
+    if (parsed.data.tag !== undefined) {
+      updatePayload[TEAM_COLUMNS.tag] = parsed.data.tag;
+    }
+    if (parsed.data.division !== undefined) {
+      updatePayload[TEAM_COLUMNS.division] = parsed.data.division;
+    }
+    if (parsed.data.logoUrl !== undefined) {
+      updatePayload[TEAM_COLUMNS.logoUrl] = parsed.data.logoUrl;
+    }
+
+    const { data: updated, error } = await supabase
+      .from(TEAMS_TABLE)
+      .update(updatePayload)
+      .eq(TEAM_COLUMNS.id, params.id)
+      .select("*")
+      .single();
+
+    if (error) {
+      console.error("/api/admin/teams update error", error);
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    return NextResponse.json({ team: updated });
+  } catch (error) {
+    console.error("/api/admin/teams error", error);
+    return NextResponse.json({ error: "Unable to update team." }, { status: 500 });
+  }
+}
+
+export async function DELETE(
+  _request: Request,
+  { params }: { params: { id: string } }
+) {
+  if (!isAdminAuthenticated()) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  try {
+    const supabase = withSchema(createAdminClient());
+
+    if (TEAM_COLUMNS.deletedAt) {
+      const { error } = await supabase
+        .from(TEAMS_TABLE)
+        .update({ [TEAM_COLUMNS.deletedAt]: new Date().toISOString() })
+        .eq(TEAM_COLUMNS.id, params.id);
+
+      if (error) {
+        console.error("/api/admin/teams soft delete error", error);
+        return NextResponse.json({ error: error.message }, { status: 500 });
+      }
+
+      return NextResponse.json({ ok: true, deleted: true });
+    }
+
+    const { error } = await supabase.from(TEAMS_TABLE).delete().eq(TEAM_COLUMNS.id, params.id);
+
+    if (error) {
+      console.error("/api/admin/teams delete error", error);
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    return NextResponse.json({ ok: true, deleted: true });
+  } catch (error) {
+    console.error("/api/admin/teams error", error);
+    return NextResponse.json({ error: "Unable to delete team." }, { status: 500 });
+  }
+}

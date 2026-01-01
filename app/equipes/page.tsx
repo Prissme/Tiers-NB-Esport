@@ -1,5 +1,7 @@
 import Button from "../components/Button";
 import SectionHeader from "../components/SectionHeader";
+import TeamCard from "./TeamCard";
+import { getBaseUrl } from "../lib/get-base-url";
 
 const teamTiles = [
   { label: "D1", detail: "Élite" },
@@ -9,7 +11,35 @@ const teamTiles = [
 
 const teamTags = ["Roster", "Logo", "Stats", "Clip"];
 
-export default function EquipesPage() {
+type TeamResponse = {
+  teams: Array<{
+    id: string;
+    name: string;
+    tag: string | null;
+    division: string | null;
+    logoUrl: string | null;
+    wins: number | null;
+    losses: number | null;
+    points: number | null;
+  }>;
+};
+
+const loadTeams = async (): Promise<TeamResponse> => {
+  const baseUrl = getBaseUrl();
+  const response = await fetch(`${baseUrl}/api/site/teams`, {
+    next: { revalidate: 60 },
+  });
+
+  if (!response.ok) {
+    return { teams: [] };
+  }
+
+  return response.json();
+};
+
+export default async function EquipesPage() {
+  const { teams } = await loadTeams();
+
   return (
     <div className="space-y-12">
       <section className="motion-field p-8">
@@ -41,11 +71,20 @@ export default function EquipesPage() {
       </section>
 
       <section className="section-card space-y-6">
-        <SectionHeader
-          kicker="Repères"
-          title="Tags essentiels"
-          description="Rien de lourd."
-        />
+        <SectionHeader kicker="Équipes" title="Rosters actifs" description="Données en direct." />
+        {teams.length === 0 ? (
+          <p className="text-sm text-slate-400">Aucune équipe enregistrée.</p>
+        ) : (
+          <div className="grid gap-6 lg:grid-cols-2">
+            {teams.map((team) => (
+              <TeamCard key={team.id} team={team} />
+            ))}
+          </div>
+        )}
+      </section>
+
+      <section className="section-card space-y-6">
+        <SectionHeader kicker="Repères" title="Tags essentiels" description="Rien de lourd." />
         <div className="flex flex-wrap gap-3">
           {teamTags.map((tag) => (
             <span key={tag} className="motion-pill">
