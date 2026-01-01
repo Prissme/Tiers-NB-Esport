@@ -2,7 +2,7 @@ import "./globals.css";
 import type { Metadata } from "next";
 import Footer from "./components/Footer";
 import Header from "./components/Header";
-import { getLfnData } from "./lib/data-store";
+import { lfnData } from "./lib/lfnData";
 
 export const metadata: Metadata = {
   title: "LFN — Ligue Francophone Null’s Brawl",
@@ -31,22 +31,26 @@ export const metadata: Metadata = {
   },
 };
 
-export default async function RootLayout({
+export default function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const data = await getLfnData();
+  const discordInviteUrl = process.env.DISCORD_INVITE_URL;
 
   return (
     <html lang="fr">
       <body className="min-h-screen bg-slate-950 text-slate-100">
         <div className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(16,185,129,0.12),_transparent_45%)]">
-          <Header links={data.links} />
+          <Header />
           <main className="mx-auto w-full max-w-6xl px-4 py-10 sm:px-6">
             {children}
           </main>
-          <Footer links={data.links} seasonName={data.season.name} />
+          <Footer
+            seasonName={lfnData.name}
+            administrationLabel={lfnData.organization.administrationLabel}
+            discordInviteUrl={discordInviteUrl}
+          />
         </div>
       </body>
     </html>

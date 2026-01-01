@@ -1,8 +1,8 @@
 import SectionHeader from "../components/SectionHeader";
-import { getLfnData } from "../lib/data-store";
+import { lfnData } from "../lib/lfnData";
 
-export default async function FormatPage() {
-  const data = await getLfnData();
+export default function FormatPage() {
+  const { format } = lfnData;
 
   return (
     <div className="space-y-10">
@@ -10,41 +10,40 @@ export default async function FormatPage() {
         <SectionHeader
           kicker="Compétition"
           title="Format officiel LFN"
-          description="Deux divisions, un cadre unique."
+          description="BO5, rythme hebdo clair, scoring transparent."
         />
         <div className="grid gap-4 md:grid-cols-2">
-          <div className="rounded-xl border border-white/10 bg-white/5 p-4">
-            <p className="text-xs uppercase tracking-[0.3em] text-slate-400">Division 1</p>
-            <p className="mt-2 text-sm text-white">
-              {data.format.d1.teams} équipes · BO{data.format.d1.bo} ·
-              {data.format.d1.fearlessDraft ? " Fearless Draft" : ""}
-            </p>
-            <p className="mt-2 text-xs text-slate-400">
-              {data.format.d1.matchesPerDay} matchs par jour
-            </p>
-          </div>
-          <div className="rounded-xl border border-white/10 bg-white/5 p-4">
-            <p className="text-xs uppercase tracking-[0.3em] text-slate-400">Division 2</p>
-            <p className="mt-2 text-sm text-white">
-              {data.format.d2.teams} équipes · BO{data.format.d2.bo}
-            </p>
-            <p className="mt-2 text-xs text-slate-400">
-              {data.format.d2.matchesPerDay} matchs par jour
-            </p>
-          </div>
           <div className="rounded-xl border border-white/10 bg-white/5 p-4 md:col-span-2">
             <p className="text-xs uppercase tracking-[0.3em] text-slate-400">Règles clés</p>
             <ul className="mt-2 space-y-2 text-sm text-slate-200">
-              <li>BO5 pour toutes les rencontres.</li>
-              <li>1 set gagné = 1 point au classement.</li>
-              <li>Saisons courtes de 6 jours, rythme hebdo.</li>
+              <li>BO{format.bestOf} pour toutes les rencontres.</li>
+              <li>{format.pointsSystem}.</li>
+              <li>Tie-break : {format.tiebreak}.</li>
             </ul>
           </div>
           <div className="rounded-xl border border-white/10 bg-white/5 p-4 md:col-span-2">
             <p className="text-xs uppercase tracking-[0.3em] text-slate-400">Horaires</p>
-            <p className="mt-2 text-sm text-white">
-              {data.format.times.join(" / ")} (Bruxelles)
-            </p>
+            <div className="mt-2 text-sm text-white">
+              <p>Lundi : {format.weeklyRhythm.monday}</p>
+              <p>Mercredi : {format.weeklyRhythm.wednesday}</p>
+              <p>Vendredi : {format.weeklyRhythm.friday}</p>
+              <p>Week-end : {format.weeklyRhythm.weekend}</p>
+              <p className="text-xs text-slate-400">{format.weeklyRhythm.breaks}</p>
+            </div>
+          </div>
+          <div className="rounded-xl border border-white/10 bg-white/5 p-4 md:col-span-2">
+            <p className="text-xs uppercase tracking-[0.3em] text-slate-400">Structure</p>
+            <div className="mt-2 space-y-2 text-sm text-white">
+              <p>
+                {format.divisions.d1.label} : {format.divisions.d1.teams} équipes
+              </p>
+              <p>
+                {format.divisions.d2.label} : {format.divisions.d2.teams} équipes
+              </p>
+              <p>
+                Roster : {format.roster.starters} joueurs + jusqu’à {format.roster.subsMax} subs
+              </p>
+            </div>
           </div>
         </div>
       </section>

@@ -19,7 +19,6 @@ export default async function MatchsPage() {
         matches={data.matches}
         results={data.results}
         timezoneLabel={timezoneLabel}
-        discordLink={data.links.discord || undefined}
       />
     </div>
   );

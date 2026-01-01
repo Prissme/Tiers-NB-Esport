@@ -1,11 +1,7 @@
 import Button from "../components/Button";
 import SectionHeader from "../components/SectionHeader";
-import { getLfnData } from "../lib/data-store";
 
-export default async function PartenariatsPage() {
-  const data = await getLfnData();
-  const discordAvailable = Boolean(data.links.discord);
-
+export default function PartenariatsPage() {
   return (
     <div className="space-y-10">
       <section className="section-card space-y-6">
@@ -38,14 +34,6 @@ export default async function PartenariatsPage() {
         <div className="flex flex-wrap gap-3">
           <Button href="/matchs" variant="secondary">
             Voir les matchs
-          </Button>
-          <Button
-            href={discordAvailable ? data.links.discord : "#"}
-            variant="primary"
-            external
-            disabled={!discordAvailable}
-          >
-            Discuter partenariat
           </Button>
         </div>
       </section>

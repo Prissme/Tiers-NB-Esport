@@ -20,8 +20,6 @@ export default async function EquipesPage() {
             description="Les rosters seront visibles dès publication officielle."
             ctaLabel="S'inscrire"
             ctaHref="/inscription"
-            secondaryLabel={data.links.discord ? "Rejoindre le Discord" : undefined}
-            secondaryHref={data.links.discord || undefined}
             badge="Rosters"
           />
         ) : (
@@ -35,13 +33,13 @@ export default async function EquipesPage() {
                   <div>
                     <h3 className="text-lg font-semibold text-white">{team.name}</h3>
                     <p className="text-xs uppercase tracking-[0.3em] text-slate-400">
-                      {team.tag || "Tag à annoncer"}
+                      {team.tag || "Non communiqué"}
                     </p>
                   </div>
                   <span className="text-xs text-slate-400">{team.division}</span>
                 </div>
                 <p className="mt-4 text-sm text-slate-300">
-                  Joueurs: {team.players.length ? team.players.join(", ") : "à annoncer"}
+                  Joueurs: {team.players.length ? team.players.join(", ") : "Non communiqué"}
                 </p>
               </article>
             ))}
