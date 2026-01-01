@@ -1,8 +1,11 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import type { Division, LfnMatch, LfnResult } from "../lib/types";
 import EmptyState from "../components/EmptyState";
+import MetricCard from "../components/MetricCard";
+import SectionHeader from "../components/SectionHeader";
+import Tag from "../components/Tag";
+import type { Division, LfnMatch, LfnResult } from "../lib/types";
 
 const filters: { label: string; value: "all" | Division }[] = [
   { label: "Toutes divisions", value: "all" },
@@ -76,35 +79,58 @@ export default function MatchesClient({
   }, [filteredResults, matchById]);
 
   return (
-    <div className="space-y-10">
-      <div className="flex flex-wrap items-center gap-3">
-        {filters.map((item) => {
-          const isActive = item.value === filter;
-          return (
-            <button
-              key={item.value}
-              type="button"
-              onClick={() => setFilter(item.value)}
-              className={`rounded-full px-4 py-2 text-xs font-semibold uppercase tracking-[0.3em] transition ${
-                isActive
-                  ? "bg-emerald-300 text-slate-900"
-                  : "border border-white/10 bg-white/5 text-slate-200 hover:border-white/30"
-              }`}
-            >
-              {item.label}
-            </button>
-          );
-        })}
-      </div>
+    <div className="space-y-12">
+      <section className="section-card space-y-6">
+        <SectionHeader
+          kicker="Matchs"
+          title="Calendrier et scores"
+          description={`Tous les horaires sont affichés en heure de Bruxelles (${timezoneLabel}).`}
+        />
+        <div className="flex flex-wrap items-center gap-3">
+          {filters.map((item) => {
+            const isActive = item.value === filter;
+            return (
+              <button
+                key={item.value}
+                type="button"
+                onClick={() => setFilter(item.value)}
+                className={`rounded-full px-4 py-2 text-xs font-semibold uppercase tracking-[0.3em] transition ${
+                  isActive
+                    ? "bg-emerald-300 text-slate-900"
+                    : "border border-white/10 bg-white/5 text-slate-200 hover:border-white/30"
+                }`}
+              >
+                {item.label}
+              </button>
+            );
+          })}
+        </div>
+        <div className="grid gap-4 md:grid-cols-3">
+          <MetricCard
+            label="Matchs à venir"
+            value={`${upcomingMatches.length}`}
+            detail="Affichés en temps réel après validation."
+          />
+          <MetricCard
+            label="Scores validés"
+            value={`${filteredResults.length}`}
+            detail="Résultats confirmés par l'organisation."
+          />
+          <MetricCard
+            label="Division"
+            value={filter === "all" ? "Toutes" : filter}
+            detail="Filtrage actif sur cette section."
+          />
+        </div>
+        <div className="flex flex-wrap gap-3">
+          <Tag label="Planning" />
+          <Tag label="Scores officiels" />
+          <Tag label="BO en cours" />
+        </div>
+      </section>
 
       <section className="section-card space-y-6">
-        <div className="space-y-2">
-          <p className="text-xs uppercase tracking-[0.35em] text-emerald-300/80">Matchs</p>
-          <h2 className="text-2xl font-semibold text-white md:text-3xl">Prochains matchs</h2>
-          <p className="text-sm text-slate-300 md:text-base">
-            Tous les horaires affichés en heure de Bruxelles ({timezoneLabel}).
-          </p>
-        </div>
+        <SectionHeader kicker="Planning" title="Prochains matchs" />
         {upcomingMatches.length === 0 ? (
           <EmptyState
             title="Aucun match annoncé"
@@ -131,7 +157,9 @@ export default function MatchesClient({
                         <span className="text-xs text-slate-400">{match.time || "Non communiqué"}</span>
                       </div>
                       <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-slate-400">
-                        <span className="rounded-full border border-white/10 px-2 py-1">{match.division}</span>
+                        <span className="rounded-full border border-white/10 px-2 py-1">
+                          {match.division}
+                        </span>
                         <span>BO{match.bo}</span>
                         <span>À venir</span>
                       </div>
@@ -145,13 +173,11 @@ export default function MatchesClient({
       </section>
 
       <section className="section-card space-y-6">
-        <div className="space-y-2">
-          <p className="text-xs uppercase tracking-[0.35em] text-emerald-300/80">Résultats</p>
-          <h2 className="text-2xl font-semibold text-white md:text-3xl">Derniers scores</h2>
-          <p className="text-sm text-slate-300 md:text-base">
-            Résultats validés par l&apos;orga. Les scores s&apos;affichent dès validation.
-          </p>
-        </div>
+        <SectionHeader
+          kicker="Résultats"
+          title="Derniers scores"
+          description="Scores validés et reportings officiels après chaque match."
+        />
         {filteredResults.length === 0 ? (
           <EmptyState
             title="Aucun résultat officiel"

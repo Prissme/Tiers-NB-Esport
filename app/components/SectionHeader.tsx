@@ -2,19 +2,32 @@ type SectionHeaderProps = {
   title: string;
   description?: string;
   kicker?: string;
+  align?: "left" | "center";
+  highlight?: string;
 };
 
-export default function SectionHeader({ title, description, kicker }: SectionHeaderProps) {
+export default function SectionHeader({
+  title,
+  description,
+  kicker,
+  align = "left",
+  highlight,
+}: SectionHeaderProps) {
+  const alignClasses = align === "center" ? "text-center items-center" : "text-left";
+
   return (
-    <div className="space-y-2">
+    <div className={`flex flex-col gap-3 ${alignClasses}`}>
       {kicker ? (
-        <p className="text-xs uppercase tracking-[0.35em] text-emerald-300/80">
+        <p className="text-xs uppercase tracking-[0.4em] text-emerald-300/80">
           {kicker}
         </p>
       ) : null}
-      <h2 className="text-2xl font-semibold text-white md:text-3xl">{title}</h2>
+      <h2 className="text-3xl font-semibold text-white md:text-4xl">
+        {title}
+        {highlight ? <span className="text-emerald-300"> {highlight}</span> : null}
+      </h2>
       {description ? (
-        <p className="text-sm text-slate-300 md:text-base">{description}</p>
+        <p className="max-w-2xl text-sm text-slate-300 md:text-base">{description}</p>
       ) : null}
     </div>
   );

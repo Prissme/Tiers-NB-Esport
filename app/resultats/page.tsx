@@ -1,4 +1,6 @@
+import Callout from "../components/Callout";
 import EmptyState from "../components/EmptyState";
+import MetricCard from "../components/MetricCard";
 import SectionHeader from "../components/SectionHeader";
 import { getLfnData } from "../lib/data-store";
 import { lfnData } from "../lib/lfnData";
@@ -10,23 +12,29 @@ export default async function ResultatsPage() {
   const { lastResult } = lfnData;
 
   return (
-    <div className="space-y-10">
-      <section className="section-card space-y-6">
+    <div className="space-y-12">
+      <section className="section-card space-y-8">
         <SectionHeader
           kicker="Résultats"
           title="Matchs joués"
-          description="Scores officiels publiés ici." 
+          description="Scores officiels publiés et validés par l'organisation." 
         />
-        <div className="rounded-2xl border border-white/10 bg-white/5 p-5 text-sm text-slate-200">
-          <p className="text-xs uppercase tracking-[0.3em] text-slate-400">
-            Dernier match officiel
-          </p>
-          <p className="mt-3 text-lg font-semibold text-white">
-            {lastResult.teamA} {lastResult.scoreA}–{lastResult.scoreB} {lastResult.teamB}
-          </p>
-          <p className="mt-2 text-xs text-slate-400">
-            {lastResult.date} · {lastResult.time}
-          </p>
+        <div className="grid gap-4 md:grid-cols-3">
+          <MetricCard
+            label="Dernier match"
+            value={`${lastResult.teamA} vs ${lastResult.teamB}`}
+            detail={`${lastResult.date} · ${lastResult.time}`}
+          />
+          <MetricCard
+            label="Score"
+            value={`${lastResult.scoreA}–${lastResult.scoreB}`}
+            detail="Résultat officiel publié."
+          />
+          <MetricCard
+            label="Résumés"
+            value="En cours"
+            detail="Highlights et reviews bientôt disponibles."
+          />
         </div>
         {!hasResults(data) ? (
           <EmptyState
@@ -43,7 +51,7 @@ export default async function ResultatsPage() {
               return (
                 <div
                   key={result.matchId}
-                  className="rounded-xl border border-white/10 bg-white/5 p-4 text-sm text-slate-200"
+                  className="rounded-3xl border border-white/10 bg-white/5 p-5 text-sm text-slate-200"
                 >
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <span className="text-white">
@@ -53,12 +61,20 @@ export default async function ResultatsPage() {
                       {match?.date || "Non communiqué"} · BO{match?.bo ?? "-"}
                     </span>
                   </div>
+                  <p className="mt-2 text-xs text-slate-400">
+                    Score validé · Match enregistré dans l'historique officiel.
+                  </p>
                 </div>
               );
             })}
           </div>
         )}
       </section>
+
+      <Callout
+        title="Vous souhaitez voir votre équipe dans les highlights ?"
+        description="Les meilleures performances seront mises en avant sur les réseaux officiels LFN."
+      />
     </div>
   );
 }

@@ -1,8 +1,12 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import PrizePoolBar from './components/PrizePoolBar';
+import Callout from '../components/Callout';
+import MetricCard from '../components/MetricCard';
+import SectionHeader from '../components/SectionHeader';
+import Tag from '../components/Tag';
 import ContributorList, { ContributorItem } from './components/ContributorList';
+import PrizePoolBar from './components/PrizePoolBar';
 import UnlockableTiers, { UnlockableTier } from './components/UnlockableTiers';
 
 interface PrizePoolResponse {
@@ -42,7 +46,7 @@ const tiers: UnlockableTier[] = [
     label: 'Showmatch All-Star',
     amount: 3500,
     icon: '⚡',
-    description: 'Un match d\'exhibition avec les meilleurs joueurs.',
+    description: "Un match d'exhibition avec les meilleurs joueurs.",
   },
 ];
 
@@ -117,7 +121,7 @@ export default function PrizePoolClient() {
 
   const stats = useMemo(
     () => [
-      { label: 'Contributeurs', value: data?.contributors.length ?? 0 },
+      { label: 'Contributeurs', value: `${data?.contributors.length ?? 0}` },
       { label: 'Objectif', value: `${goalAmount.toLocaleString('fr-FR')}€` },
       { label: 'Statut', value: data?.tournament.status ?? 'En cours' },
     ],
@@ -125,22 +129,20 @@ export default function PrizePoolClient() {
   );
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100">
-      <div className="mx-auto max-w-6xl px-6 py-16">
-        <div className="grid gap-10 lg:grid-cols-[1.2fr_0.8fr]">
-          <div className="space-y-8">
-            <div className="space-y-4">
-              <div className="inline-flex items-center gap-2 rounded-full border border-emerald-400/30 bg-emerald-400/10 px-4 py-1 text-xs uppercase tracking-[0.2em] text-emerald-200">
-                Cagnotte communautaire
-              </div>
-              <h1 className="text-3xl font-bold text-white md:text-4xl">
-                Prizepool {data?.tournament.name ?? 'Tiers NB Esport'}
-              </h1>
-              <p className="text-sm text-emerald-200/70">
-                Boostez la compétition avec une cagnotte participative. Chaque contribution débloque des expériences premium pour les joueurs et le public.
-              </p>
-            </div>
-
+    <div className="space-y-12">
+      <section className="section-card space-y-8">
+        <SectionHeader
+          kicker="Prizepool"
+          title="Cagnotte communautaire"
+          description="Boostez la compétition : chaque contribution débloque une expérience premium."
+        />
+        <div className="flex flex-wrap items-center gap-3">
+          <Tag label="Cagnotte" />
+          <Tag label="LFN" />
+          <Tag label="Casting" />
+        </div>
+        <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
+          <div className="space-y-6">
             <div className="rounded-3xl border border-emerald-500/20 bg-slate-950/70 p-6 shadow-[0_0_30px_rgba(16,185,129,0.15)]">
               {loading ? (
                 <div className="text-sm text-emerald-200/60">Chargement...</div>
@@ -163,22 +165,26 @@ export default function PrizePoolClient() {
                 ))}
               </div>
             </div>
-
+            <div className="grid gap-4 md:grid-cols-3">
+              <MetricCard
+                label="Casting"
+                value="Pro"
+                detail="Interviews, narration et highlights premium."
+              />
+              <MetricCard
+                label="Streaming"
+                value="HD"
+                detail="Overlays et design live personnalisés."
+              />
+              <MetricCard
+                label="Community"
+                value="Impact"
+                detail="Activation directe pour les fans."
+              />
+            </div>
             <section className="space-y-4">
               <h2 className="text-xl font-semibold text-emerald-100">Paliers débloquables</h2>
               <UnlockableTiers tiers={tiers} currentAmount={currentAmount} />
-            </section>
-
-            <section className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h2 className="text-xl font-semibold text-emerald-100">Contributeurs</h2>
-                <span className="text-xs text-emerald-200/60">Dernières contributions</span>
-              </div>
-              {loading ? (
-                <div className="text-sm text-emerald-200/60">Chargement des contributions...</div>
-              ) : (
-                <ContributorList items={data?.contributors ?? []} />
-              )}
             </section>
           </div>
 
@@ -198,64 +204,75 @@ export default function PrizePoolClient() {
                     onChange={(event) => setName(event.target.value)}
                     disabled={anonymous}
                     placeholder="CyberRunner"
-                    className="mt-2 w-full rounded-xl border border-emerald-500/30 bg-slate-950 px-4 py-2 text-sm text-emerald-100 placeholder:text-emerald-200/40 focus:border-emerald-400 focus:outline-none"
+                    className="mt-2 w-full rounded-2xl border border-emerald-500/20 bg-slate-950/60 px-4 py-3 text-sm text-emerald-100 outline-none transition focus:border-emerald-400/40"
                   />
                 </div>
-
-                <div>
-                  <label className="text-xs uppercase tracking-wider text-emerald-200/60">Montant (€)</label>
-                  <input
-                    type="number"
-                    min={5}
-                    step={5}
-                    value={amount}
-                    onChange={(event) => setAmount(event.target.value)}
-                    className="mt-2 w-full rounded-xl border border-emerald-500/30 bg-slate-950 px-4 py-2 text-sm text-emerald-100 focus:border-emerald-400 focus:outline-none"
-                  />
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <label className="text-xs uppercase tracking-wider text-emerald-200/60">Montant</label>
+                    <input
+                      type="number"
+                      min={5}
+                      step={5}
+                      value={amount}
+                      onChange={(event) => setAmount(event.target.value)}
+                      className="mt-2 w-full rounded-2xl border border-emerald-500/20 bg-slate-950/60 px-4 py-3 text-sm text-emerald-100 outline-none transition focus:border-emerald-400/40"
+                    />
+                  </div>
+                  <div className="flex items-end gap-3 rounded-2xl border border-emerald-500/20 bg-slate-950/60 px-4 py-3">
+                    <input
+                      id="anonymous"
+                      type="checkbox"
+                      checked={anonymous}
+                      onChange={(event) => setAnonymous(event.target.checked)}
+                      className="h-4 w-4 rounded border-emerald-300/40 bg-transparent"
+                    />
+                    <label htmlFor="anonymous" className="text-sm text-emerald-100">
+                      Contribution anonyme
+                    </label>
+                  </div>
                 </div>
-
-                <label className="flex items-center gap-2 text-xs text-emerald-200/70">
-                  <input
-                    type="checkbox"
-                    checked={anonymous}
-                    onChange={(event) => setAnonymous(event.target.checked)}
-                    className="h-4 w-4 rounded border-emerald-500/40 bg-slate-950 text-emerald-400 focus:ring-emerald-400"
-                  />
-                  Contribuer anonymement
-                </label>
 
                 {error ? (
-                  <div className="rounded-xl border border-red-500/40 bg-red-500/10 px-4 py-2 text-xs text-red-200">
+                  <p className="rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
                     {error}
-                  </div>
+                  </p>
                 ) : null}
                 {success ? (
-                  <div className="rounded-xl border border-emerald-500/40 bg-emerald-500/10 px-4 py-2 text-xs text-emerald-200">
+                  <p className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-200">
                     {success}
-                  </div>
+                  </p>
                 ) : null}
 
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="w-full rounded-xl bg-emerald-400 px-4 py-3 text-sm font-semibold text-slate-950 transition hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="w-full rounded-2xl bg-emerald-400 px-4 py-3 text-sm font-semibold text-slate-950 transition hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  {submitting ? 'Traitement...' : 'Procéder au checkout Stripe'}
+                  {submitting ? 'Traitement...' : 'Contribuer'}
                 </button>
               </form>
             </div>
 
-            <div className="rounded-3xl border border-emerald-500/20 bg-slate-950/70 p-6 text-sm text-emerald-200/70">
-              <h3 className="text-base font-semibold text-emerald-100">Pourquoi contribuer ?</h3>
-              <ul className="mt-4 space-y-2">
-                <li>• Financer des productions live plus ambitieuses.</li>
-                <li>• Débloquer des récompenses pour les joueurs.</li>
-                <li>• Renforcer la visibilité de la scène NB Esport.</li>
-              </ul>
-            </div>
+            <section className="rounded-3xl border border-emerald-500/20 bg-slate-950/70 p-6">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl font-semibold text-emerald-100">Contributeurs</h2>
+                <span className="text-xs text-emerald-200/60">Dernières contributions</span>
+              </div>
+              {loading ? (
+                <div className="mt-4 text-sm text-emerald-200/60">Chargement des contributions...</div>
+              ) : (
+                <ContributorList items={data?.contributors ?? []} />
+              )}
+            </section>
           </div>
         </div>
-      </div>
+      </section>
+
+      <Callout
+        title="Une cagnotte pour une scène plus forte"
+        description="Chaque contribution améliore la production, les récompenses et l'expérience du public."
+      />
     </div>
   );
 }
