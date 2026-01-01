@@ -122,8 +122,10 @@ export const teams: TeamInfo[] = [
     motto: "Le hook qui fait la diff.",
     description:
       "Spécialistes des compos agressives, ils imposent un rythme rapide pour briser les plans adverses. Leur force : la lecture des angles et les catches.",
-    logoUrl: "/images/teams/lache-ton-grab/cover.png",
-    coverUrl: "/images/teams/lache-ton-grab/cover.png",
+    logoUrl:
+      "https://media.discordapp.net/attachments/1434252768633290952/1456268468918947860/dbea6200-d03f-45a3-9e81-0249fb5bdbb2.png?ex=6957bf33&is=69566db3&hm=f27e489ce6a3efb62f45ff650c721beb99b1760151a9f8574b23408a36cf34dc&=&format=webp&quality=lossless&width=607&height=405",
+    coverUrl:
+      "https://media.discordapp.net/attachments/1434252768633290952/1456268468918947860/dbea6200-d03f-45a3-9e81-0249fb5bdbb2.png?ex=6957bf33&is=69566db3&hm=f27e489ce6a3efb62f45ff650c721beb99b1760151a9f8574b23408a36cf34dc&=&format=webp&quality=lossless&width=607&height=405",
     colors: {
       primary: "#F97316",
       secondary: "#0F172A",
@@ -140,11 +142,21 @@ export const teams: TeamInfo[] = [
       "Ligne arrière solide en BO long.",
     ],
     roster: [
-      { name: "Vega", role: "Capitaine", signature: "Gene", status: "Titulaire" },
-      { name: "Nova", role: "Assaut", signature: "Buzz", status: "Titulaire" },
-      { name: "Echo", role: "Tank", signature: "Ash", status: "Titulaire" },
-      { name: "Sora", role: "Flex", signature: "Janet", status: "Remplaçant" },
-      { name: "Lyra", role: "Coach", signature: "Draft", status: "Coach" },
+      {
+        name: "Prissme",
+        role: "Capitaine",
+        signature: "Ash",
+        status: "Titulaire",
+      },
+      { name: "Naell", role: "Joueur", signature: "Lily", status: "Titulaire" },
+      { name: "Dada", role: "Joueur", signature: "Gus", status: "Titulaire" },
+      {
+        name: "Walid",
+        role: "Sub",
+        signature: "Brock",
+        status: "Remplaçant",
+      },
+      { name: "Lexus", role: "Coach", signature: "Coach", status: "Coach" },
     ],
     socials: [
       { label: "Discord", handle: "@ltg", href: "#" },
