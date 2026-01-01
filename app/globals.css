@@ -18,6 +18,36 @@ body {
   @apply inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-3 py-1 text-xs uppercase tracking-[0.3em] text-slate-200;
 }
 
+.glass-panel {
+  @apply rounded-3xl border border-white/10 bg-white/5 p-6 shadow-[0_20px_70px_-50px_rgba(15,23,42,0.9)];
+}
+
+.glow-divider {
+  @apply relative overflow-hidden rounded-full border border-white/10 bg-white/5;
+}
+
+.glow-divider::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, rgba(16, 185, 129, 0.4), rgba(56, 189, 248, 0.4));
+  opacity: 0.6;
+}
+
+.grid-lines {
+  background-image: linear-gradient(rgba(148, 163, 184, 0.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(148, 163, 184, 0.08) 1px, transparent 1px);
+  background-size: 36px 36px;
+}
+
+.text-glow {
+  text-shadow: 0 0 25px rgba(16, 185, 129, 0.35);
+}
+
+.neo-border {
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08), 0 0 40px -20px rgba(16, 185, 129, 0.45);
+}
+
 .confetti-piece {
   @apply absolute h-2 w-2 rounded-full;
   background: linear-gradient(135deg, rgba(56, 189, 248, 0.9), rgba(236, 72, 153, 0.9));
@@ -36,4 +66,18 @@ body {
     opacity: 0;
     transform: translateY(60px) scale(1) rotate(180deg);
   }
+}
+
+@keyframes pulse-slow {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+.glow-pulse {
+  animation: pulse-slow 6s ease-in-out infinite;
 }

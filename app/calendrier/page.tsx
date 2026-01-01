@@ -1,4 +1,6 @@
+import Callout from "../components/Callout";
 import EmptyState from "../components/EmptyState";
+import MetricCard from "../components/MetricCard";
 import SectionHeader from "../components/SectionHeader";
 import { getLfnData } from "../lib/data-store";
 import { lfnData } from "../lib/lfnData";
@@ -11,26 +13,21 @@ export default async function CalendrierPage() {
   const { season, format } = lfnData;
 
   return (
-    <div className="space-y-10">
-      <section className="section-card space-y-6">
+    <div className="space-y-12">
+      <section className="section-card space-y-8">
         <SectionHeader
           kicker="Calendrier"
           title="Matchs à venir"
           description={`${season.status} • ${season.phase} • ${season.nextStep}`}
         />
-        <div className="grid gap-4 md:grid-cols-2">
-          <div className="rounded-xl border border-white/10 bg-white/5 p-4 text-sm text-slate-200">
-            <p className="text-xs uppercase tracking-[0.3em] text-slate-400">Rythme officiel</p>
-            <p className="mt-2 text-white">
-              {format.weeklyRhythm.monday}, {format.weeklyRhythm.wednesday},{" "}
-              {format.weeklyRhythm.friday} · {format.weeklyRhythm.weekend}
-            </p>
-            <p className="mt-2 text-xs text-slate-400">{format.weeklyRhythm.breaks}</p>
-          </div>
-          <div className="rounded-xl border border-white/10 bg-white/5 p-4 text-sm text-slate-200">
-            <p className="text-xs uppercase tracking-[0.3em] text-slate-400">Dernière MAJ</p>
-            <p className="mt-2 text-white">{season.lastUpdated}</p>
-          </div>
+        <div className="grid gap-4 md:grid-cols-3">
+          <MetricCard
+            label="Rythme officiel"
+            value="Hebdo"
+            detail={`${format.weeklyRhythm.monday}, ${format.weeklyRhythm.wednesday}, ${format.weeklyRhythm.friday} · ${format.weeklyRhythm.weekend}`}
+          />
+          <MetricCard label="Dernière MAJ" value={season.lastUpdated} detail="Mise à jour officielle." />
+          <MetricCard label="Breaks" value="Officiel" detail={format.weeklyRhythm.breaks} />
         </div>
         {!hasMatches ? (
           <EmptyState
@@ -44,14 +41,19 @@ export default async function CalendrierPage() {
           <div className="space-y-6">
             {Object.entries(grouped).map(([division, matches]) => (
               <div key={division} className="space-y-3">
-                <h3 className="text-sm font-semibold uppercase tracking-[0.3em] text-slate-300">
-                  {division}
-                </h3>
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <h3 className="text-sm font-semibold uppercase tracking-[0.3em] text-slate-300">
+                    {division}
+                  </h3>
+                  <span className="text-xs uppercase tracking-[0.35em] text-slate-500">
+                    {matches.length} matchs
+                  </span>
+                </div>
                 <div className="grid gap-3">
                   {matches.map((match) => (
                     <div
                       key={match.id}
-                      className="rounded-xl border border-white/10 bg-white/5 p-4 text-sm text-slate-200"
+                      className="rounded-3xl border border-white/10 bg-white/5 p-5 text-sm text-slate-200"
                     >
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <span className="text-white">
@@ -70,6 +72,11 @@ export default async function CalendrierPage() {
           </div>
         )}
       </section>
+
+      <Callout
+        title="Préparez votre semaine"
+        description="Gardez un œil sur les horaires pour anticiper vos drafts et vos scrims."
+      />
     </div>
   );
 }

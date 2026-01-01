@@ -1,4 +1,6 @@
+import Callout from "../components/Callout";
 import EmptyState from "../components/EmptyState";
+import MetricCard from "../components/MetricCard";
 import SectionHeader from "../components/SectionHeader";
 import { getLfnData } from "../lib/data-store";
 import { lfnData } from "../lib/lfnData";
@@ -14,18 +16,22 @@ export default async function ClassementPage() {
   const statDescriptions = [
     {
       label: "Points",
+      value: "3 pts",
       detail: `${format.pointsSystem}.`,
     },
     {
       label: "Différence de sets",
+      value: "Δ sets",
       detail: "Sets gagnés moins sets perdus.",
     },
     {
       label: "Winrate (%)",
+      value: "Win%",
       detail: "Pourcentage de sets gagnés sur l’ensemble des sets joués.",
     },
     {
       label: "Tie-break",
+      value: "TB",
       detail: format.tiebreak,
     },
   ];
@@ -36,19 +42,16 @@ export default async function ClassementPage() {
   };
 
   return (
-    <div className="space-y-10">
-      <section className="section-card space-y-6">
+    <div className="space-y-12">
+      <section className="section-card space-y-8">
         <SectionHeader
           kicker="Classement"
           title="Standings officiels"
-          description="Chaque colonne est expliquée pour rester lisible."
+          description="Toutes les colonnes sont expliquées pour un suivi immédiat."
         />
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           {statDescriptions.map((stat) => (
-            <div key={stat.label} className="rounded-xl border border-white/10 bg-white/5 p-4">
-              <p className="text-xs uppercase tracking-[0.3em] text-slate-400">{stat.label}</p>
-              <p className="mt-2 text-sm text-white">{stat.detail}</p>
-            </div>
+            <MetricCard key={stat.label} label={stat.label} value={stat.value} detail={stat.detail} />
           ))}
         </div>
         {!hasStandings ? (
@@ -60,12 +63,17 @@ export default async function ClassementPage() {
             badge="Standings"
           />
         ) : (
-          <div className="space-y-8">
+          <div className="space-y-10">
             {Object.values(standingsMap).map((division) => (
-              <div key={division.division} className="space-y-3">
-                <h3 className="text-sm font-semibold uppercase tracking-[0.3em] text-slate-300">
-                  {division.division}
-                </h3>
+              <div key={division.division} className="space-y-4">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <h3 className="text-sm font-semibold uppercase tracking-[0.3em] text-slate-300">
+                    {division.division}
+                  </h3>
+                  <span className="text-xs uppercase tracking-[0.35em] text-slate-500">
+                    {division.rows.length} équipes
+                  </span>
+                </div>
                 <div className="grid gap-4 md:grid-cols-3">
                   {(() => {
                     const rows = division.rows;
@@ -117,9 +125,7 @@ export default async function ClassementPage() {
 
                     return storylines.map((story) => (
                       <div key={story.title} className="rounded-xl border border-white/10 bg-white/5 p-4">
-                        <p className="text-xs uppercase tracking-[0.3em] text-slate-400">
-                          {story.title}
-                        </p>
+                        <p className="text-xs uppercase tracking-[0.3em] text-slate-400">{story.title}</p>
                         <p className="mt-2 text-sm text-white">{story.detail}</p>
                       </div>
                     ));
@@ -169,6 +175,11 @@ export default async function ClassementPage() {
           </div>
         )}
       </section>
+
+      <Callout
+        title="Envie de grimper dans le classement ?"
+        description="Les matchs à venir sont déjà visibles. Préparez votre équipe et surveillez les confrontations clés."
+      />
     </div>
   );
 }
