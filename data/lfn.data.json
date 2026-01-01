@@ -36,7 +36,7 @@
       "id": "rdld",
       "name": "RDLD",
       "tag": "RDLD",
-      "logoUrl": "",
+      "logoUrl": "/images/teams/rodavland/cover.png",
       "division": "D1",
       "players": []
     },
@@ -44,7 +44,7 @@
       "id": "ofa",
       "name": "OFA",
       "tag": "OFA",
-      "logoUrl": "",
+      "logoUrl": "/images/teams/ofa/cover.png",
       "division": "D1",
       "players": []
     },
@@ -52,7 +52,7 @@
       "id": "ltg",
       "name": "LTG",
       "tag": "LTG",
-      "logoUrl": "",
+      "logoUrl": "/images/teams/lache-ton-grab/cover.png",
       "division": "D1",
       "players": []
     },
@@ -60,7 +60,7 @@
       "id": "vlh",
       "name": "VLH",
       "tag": "VLH",
-      "logoUrl": "",
+      "logoUrl": "/images/teams/valhalla/cover.png",
       "division": "D2",
       "players": []
     },
@@ -76,7 +76,7 @@
       "id": "t2",
       "name": "T2",
       "tag": "T2",
-      "logoUrl": "",
+      "logoUrl": "/images/teams/t2/cover.png",
       "division": "D2",
       "players": []
     },
@@ -84,7 +84,7 @@
       "id": "lz",
       "name": "LZ",
       "tag": "LZ",
-      "logoUrl": "",
+      "logoUrl": "/images/teams/les-zommes/cover.png",
       "division": "D2",
       "players": []
     }

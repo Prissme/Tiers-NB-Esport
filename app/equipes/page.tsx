@@ -29,12 +29,28 @@ export default async function EquipesPage() {
                 key={team.id}
                 className="rounded-xl border border-white/10 bg-white/5 p-5"
               >
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="text-lg font-semibold text-white">{team.name}</h3>
-                    <p className="text-xs uppercase tracking-[0.3em] text-slate-400">
-                      {team.tag || "Non communiqué"}
-                    </p>
+                <div className="flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-4">
+                    <div className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-xl border border-white/10 bg-white/5">
+                      {team.logoUrl ? (
+                        <img
+                          src={team.logoUrl}
+                          alt={`Logo ${team.name}`}
+                          className="h-full w-full object-cover"
+                          loading="lazy"
+                        />
+                      ) : (
+                        <span className="text-xs font-semibold uppercase text-slate-300">
+                          {team.tag || team.name.slice(0, 2)}
+                        </span>
+                      )}
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-semibold text-white">{team.name}</h3>
+                      <p className="text-xs uppercase tracking-[0.3em] text-slate-400">
+                        {team.tag || "Non communiqué"}
+                      </p>
+                    </div>
                   </div>
                   <span className="text-xs text-slate-400">{team.division}</span>
                 </div>
