@@ -34,7 +34,6 @@ COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/.next ./.next
 COPY --from=builder /app/.next/static ./.next/static
 COPY --from=builder /app/public ./public
-COPY --from=builder /app/data ./data
 COPY --from=builder /app/discord-bot ./discord-bot
 COPY --from=builder /app/ensure-fetch.js ./ensure-fetch.js
 COPY --from=builder /app/server.js ./server.js

@@ -35,6 +35,12 @@ type Match = {
   teamB: MatchTeam;
 };
 
+type SummaryCard = {
+  label: string;
+  value: string;
+  helper?: string;
+};
+
 const emptyTeamForm = {
   name: "",
   tag: "",
@@ -52,6 +58,18 @@ const emptyMatchForm = {
   bestOf: "3",
   status: "pending",
 };
+
+const STATUS_OPTIONS = [
+  { value: "pending", label: "En attente" },
+  { value: "scheduled", label: "Programmé" },
+  { value: "live", label: "En cours" },
+  { value: "completed", label: "Terminé" },
+];
+
+const DIVISION_OPTIONS = [
+  { value: "D1", label: "Division 1" },
+  { value: "D2", label: "Division 2" },
+];
 
 const toLocalInputValue = (value: string | null) => {
   if (!value) {
@@ -71,6 +89,37 @@ const normalizeNullable = (value: string | null) => {
   return trimmed ? trimmed : null;
 };
 
+const formatSchedule = (value: string | null) => {
+  if (!value) {
+    return "À planifier";
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+  return date.toLocaleString("fr-FR", {
+    day: "2-digit",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+};
+
+const statusBadgeClass = (status?: string | null) => {
+  switch (status) {
+    case "live":
+      return "bg-emerald-400/20 text-emerald-200";
+    case "completed":
+      return "bg-slate-500/20 text-slate-200";
+    case "scheduled":
+      return "bg-sky-400/20 text-sky-200";
+    default:
+      return "bg-amber-400/20 text-amber-200";
+  }
+};
+
+const sanitizeInput = (value: string) => value.replace(/\s+/g, " ").trimStart();
+
 export default function AdminPanel() {
   const [activeTab, setActiveTab] = useState<"teams" | "matches">("teams");
   const [teams, setTeams] = useState<Team[]>([]);
@@ -78,6 +127,8 @@ export default function AdminPanel() {
   const [matchesRecent, setMatchesRecent] = useState<Match[]>([]);
   const [teamForm, setTeamForm] = useState(emptyTeamForm);
   const [matchForm, setMatchForm] = useState(emptyMatchForm);
+  const [teamFormErrors, setTeamFormErrors] = useState<string[]>([]);
+  const [matchFormErrors, setMatchFormErrors] = useState<string[]>([]);
   const [matchEdits, setMatchEdits] = useState<
     Record<string, { scheduledAt: string; status: string; bestOf: string; division: string }>
   >({});
@@ -85,6 +136,14 @@ export default function AdminPanel() {
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [teamSearch, setTeamSearch] = useState("");
+  const [teamDivision, setTeamDivision] = useState("all");
+  const [teamSortKey, setTeamSortKey] = useState<"name" | "wins" | "points">("name");
+  const [teamSortDir, setTeamSortDir] = useState<"asc" | "desc">("asc");
+  const [matchSearch, setMatchSearch] = useState("");
+  const [matchDivision, setMatchDivision] = useState("all");
+  const [matchStatus, setMatchStatus] = useState("all");
 
   const teamOptions = useMemo(
     () => teams.map((team) => ({ label: `${team.name} (${team.tag ?? "?"})`, value: team.id })),
@@ -123,6 +182,12 @@ export default function AdminPanel() {
     }
   }, []);
 
+  const refreshData = useCallback(async () => {
+    setRefreshing(true);
+    await loadData();
+    setRefreshing(false);
+  }, [loadData]);
+
   useEffect(() => {
     void loadData();
   }, [loadData]);
@@ -144,6 +209,81 @@ export default function AdminPanel() {
       return next;
     });
   }, [matchesLive, matchesRecent]);
+
+  const teamSummary = useMemo(() => {
+    const totalTeams = teams.length;
+    const divisions = new Map<string, number>();
+    let missingLogos = 0;
+    let missingTags = 0;
+    teams.forEach((team) => {
+      const division = team.division || "Sans division";
+      divisions.set(division, (divisions.get(division) ?? 0) + 1);
+      if (!team.logoUrl) {
+        missingLogos += 1;
+      }
+      if (!team.tag) {
+        missingTags += 1;
+      }
+    });
+    const divisionSummary = [...divisions.entries()]
+      .map(([division, count]) => `${division}: ${count}`)
+      .join(" · ");
+    const cards: SummaryCard[] = [
+      { label: "Équipes", value: String(totalTeams), helper: divisionSummary || "Aucune division" },
+      { label: "Logos manquants", value: String(missingLogos), helper: "À compléter pour un rendu pro" },
+      { label: "Tags manquants", value: String(missingTags), helper: "À compléter pour l'affichage" },
+    ];
+    return cards;
+  }, [teams]);
+
+  const matchSummary = useMemo(() => {
+    const liveCount = matchesLive.length;
+    const recentCount = matchesRecent.length;
+    const totalCount = liveCount + recentCount;
+    const cards: SummaryCard[] = [
+      { label: "Matchs actifs", value: String(liveCount), helper: "En cours ou à venir" },
+      { label: "Matchs récents", value: String(recentCount), helper: "Déjà joués" },
+      { label: "Total chargés", value: String(totalCount), helper: "Dernières entrées" },
+    ];
+    return cards;
+  }, [matchesLive, matchesRecent]);
+
+  const filteredTeams = useMemo(() => {
+    const searchLower = teamSearch.trim().toLowerCase();
+    const filtered = teams.filter((team) => {
+      const matchesSearch =
+        !searchLower ||
+        team.name.toLowerCase().includes(searchLower) ||
+        (team.tag ?? "").toLowerCase().includes(searchLower);
+      const matchesDivision = teamDivision === "all" || (team.division ?? "") === teamDivision;
+      return matchesSearch && matchesDivision;
+    });
+    const sorted = [...filtered].sort((teamA, teamB) => {
+      const dir = teamSortDir === "asc" ? 1 : -1;
+      if (teamSortKey === "name") {
+        return dir * teamA.name.localeCompare(teamB.name);
+      }
+      if (teamSortKey === "wins") {
+        return dir * ((teamA.wins ?? 0) - (teamB.wins ?? 0));
+      }
+      return dir * ((teamA.points ?? 0) - (teamB.points ?? 0));
+    });
+    return sorted;
+  }, [teamDivision, teamSearch, teamSortDir, teamSortKey, teams]);
+
+  const filteredMatches = useMemo(() => {
+    const searchLower = matchSearch.trim().toLowerCase();
+    const allMatches = [...matchesLive, ...matchesRecent];
+    return allMatches.filter((match) => {
+      const matchesSearch =
+        !searchLower ||
+        match.teamA.name.toLowerCase().includes(searchLower) ||
+        match.teamB.name.toLowerCase().includes(searchLower);
+      const matchesDivision = matchDivision === "all" || (match.division ?? "") === matchDivision;
+      const matchesStatus = matchStatus === "all" || (match.status ?? "") === matchStatus;
+      return matchesSearch && matchesDivision && matchesStatus;
+    });
+  }, [matchDivision, matchSearch, matchStatus, matchesLive, matchesRecent]);
 
   const handleTeamField = (id: string, field: keyof Team, value: string) => {
     setTeams((prev) =>
@@ -181,9 +321,21 @@ export default function AdminPanel() {
   const handleCreateTeam = async () => {
     setStatusMessage(null);
     setErrorMessage(null);
+    setTeamFormErrors([]);
 
+    const errors: string[] = [];
     if (!teamForm.name.trim()) {
-      setErrorMessage("Le nom est obligatoire.");
+      errors.push("Le nom est obligatoire.");
+    }
+    if (teamForm.tag && teamForm.tag.trim().length < 2) {
+      errors.push("Le tag doit contenir au moins 2 caractères.");
+    }
+    if (teamForm.division && !DIVISION_OPTIONS.some((option) => option.value === teamForm.division)) {
+      errors.push("La division doit être D1 ou D2.");
+    }
+
+    if (errors.length) {
+      setTeamFormErrors(errors);
       return;
     }
 
@@ -230,9 +382,24 @@ export default function AdminPanel() {
   const handleCreateMatch = async () => {
     setStatusMessage(null);
     setErrorMessage(null);
+    setMatchFormErrors([]);
 
+    const errors: string[] = [];
     if (!matchForm.scheduledAt || !matchForm.teamAId || !matchForm.teamBId) {
-      setErrorMessage("Veuillez renseigner la date et les deux équipes.");
+      errors.push("Veuillez renseigner la date et les deux équipes.");
+    }
+    if (matchForm.teamAId && matchForm.teamBId && matchForm.teamAId === matchForm.teamBId) {
+      errors.push("Les deux équipes doivent être différentes.");
+    }
+    if (matchForm.bestOf && Number(matchForm.bestOf) <= 0) {
+      errors.push("Le format Best Of doit être supérieur à 0.");
+    }
+    if (matchForm.division && !DIVISION_OPTIONS.some((option) => option.value === matchForm.division)) {
+      errors.push("La division doit être D1 ou D2.");
+    }
+
+    if (errors.length) {
+      setMatchFormErrors(errors);
       return;
     }
 
@@ -309,6 +476,23 @@ export default function AdminPanel() {
     }));
   };
 
+  const handleQuickStatus = (matchId: string, status: string) => {
+    handleMatchEditChange(matchId, "status", status);
+  };
+
+  const handleQuickDivision = (matchId: string, division: string) => {
+    handleMatchEditChange(matchId, "division", division);
+  };
+
+  const handleCopyTeamId = async (teamId: string) => {
+    try {
+      await navigator.clipboard.writeText(teamId);
+      setStatusMessage("Identifiant copié.");
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "Copie impossible.");
+    }
+  };
+
   const handleSaveMatch = async (matchId: string) => {
     setStatusMessage(null);
     setErrorMessage(null);
@@ -357,26 +541,48 @@ export default function AdminPanel() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap gap-2">
-        <button
-          type="button"
-          className={`rounded-full px-4 py-2 text-sm ${
-            activeTab === "teams" ? "bg-emerald-400/90 text-slate-900" : "bg-white/5 text-slate-200"
-          }`}
-          onClick={() => setActiveTab("teams")}
-        >
-          Équipes
-        </button>
-        <button
-          type="button"
-          className={`rounded-full px-4 py-2 text-sm ${
-            activeTab === "matches" ? "bg-emerald-400/90 text-slate-900" : "bg-white/5 text-slate-200"
-          }`}
-          onClick={() => setActiveTab("matches")}
-        >
-          Matchs
-        </button>
-      </div>
+      <header className="flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <p className="text-xs uppercase tracking-[0.3em] text-slate-400">Admin Control</p>
+          <h1 className="text-2xl font-semibold text-white">Panneau d'administration LFN</h1>
+          <p className="text-sm text-slate-400">
+            Pilotez les équipes, matchs et résultats depuis un seul écran.
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            className="rounded-full border border-white/10 px-4 py-2 text-xs text-slate-200"
+            onClick={refreshData}
+          >
+            {refreshing ? "Actualisation..." : "Actualiser"}
+          </button>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              className={`rounded-full px-4 py-2 text-sm ${
+                activeTab === "teams"
+                  ? "bg-emerald-400/90 text-slate-900"
+                  : "bg-white/5 text-slate-200"
+              }`}
+              onClick={() => setActiveTab("teams")}
+            >
+              Équipes
+            </button>
+            <button
+              type="button"
+              className={`rounded-full px-4 py-2 text-sm ${
+                activeTab === "matches"
+                  ? "bg-emerald-400/90 text-slate-900"
+                  : "bg-white/5 text-slate-200"
+              }`}
+              onClick={() => setActiveTab("matches")}
+            >
+              Matchs
+            </button>
+          </div>
+        </div>
+      </header>
 
       {statusMessage ? <p className="text-sm text-emerald-300">{statusMessage}</p> : null}
       {errorMessage ? <p className="text-sm text-rose-300">{errorMessage}</p> : null}
@@ -384,12 +590,31 @@ export default function AdminPanel() {
 
       {activeTab === "teams" ? (
         <section className="space-y-6">
+          <div className="grid gap-4 md:grid-cols-3">
+            {teamSummary.map((card) => (
+              <div key={card.label} className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                <p className="text-xs uppercase tracking-[0.2em] text-slate-400">{card.label}</p>
+                <p className="mt-2 text-2xl font-semibold text-white">{card.value}</p>
+                {card.helper ? <p className="text-xs text-slate-400">{card.helper}</p> : null}
+              </div>
+            ))}
+          </div>
+
           <div className="section-card space-y-4">
             <h2 className="text-lg font-semibold text-white">Nouvelle équipe</h2>
+            {teamFormErrors.length ? (
+              <ul className="list-disc space-y-1 pl-4 text-xs text-rose-300">
+                {teamFormErrors.map((error) => (
+                  <li key={error}>{error}</li>
+                ))}
+              </ul>
+            ) : null}
             <div className="grid gap-3 md:grid-cols-4">
               <input
                 value={teamForm.name}
-                onChange={(event) => setTeamForm((prev) => ({ ...prev, name: event.target.value }))}
+                onChange={(event) =>
+                  setTeamForm((prev) => ({ ...prev, name: sanitizeInput(event.target.value) }))
+                }
                 placeholder="Nom"
                 className="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white"
               />
@@ -399,12 +624,18 @@ export default function AdminPanel() {
                 placeholder="Tag"
                 className="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white"
               />
-              <input
+              <select
                 value={teamForm.division}
                 onChange={(event) => setTeamForm((prev) => ({ ...prev, division: event.target.value }))}
-                placeholder="Division"
                 className="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white"
-              />
+              >
+                <option value="">Division</option>
+                {DIVISION_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
               <input
                 value={teamForm.logoUrl}
                 onChange={(event) => setTeamForm((prev) => ({ ...prev, logoUrl: event.target.value }))}
@@ -435,61 +666,125 @@ export default function AdminPanel() {
               onClick={handleCreateTeam}
               className="inline-flex items-center justify-center rounded-full bg-emerald-400/90 px-5 py-2 text-sm font-semibold text-slate-900"
             >
-              Ajouter
+              Ajouter l'équipe
             </button>
           </div>
 
           <div className="section-card space-y-4">
-            <h2 className="text-lg font-semibold text-white">Équipes</h2>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <h2 className="text-lg font-semibold text-white">Équipes</h2>
+              <div className="flex flex-wrap items-center gap-2">
+                <input
+                  value={teamSearch}
+                  onChange={(event) => setTeamSearch(event.target.value)}
+                  placeholder="Rechercher une équipe"
+                  className="rounded-full border border-white/10 bg-slate-950/70 px-4 py-2 text-xs text-white"
+                />
+                <select
+                  value={teamDivision}
+                  onChange={(event) => setTeamDivision(event.target.value)}
+                  className="rounded-full border border-white/10 bg-slate-950/70 px-4 py-2 text-xs text-white"
+                >
+                  <option value="all">Toutes divisions</option>
+                  {DIVISION_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  value={teamSortKey}
+                  onChange={(event) => setTeamSortKey(event.target.value as "name" | "wins" | "points")}
+                  className="rounded-full border border-white/10 bg-slate-950/70 px-4 py-2 text-xs text-white"
+                >
+                  <option value="name">Tri: nom</option>
+                  <option value="wins">Tri: victoires</option>
+                  <option value="points">Tri: points</option>
+                </select>
+                <button
+                  type="button"
+                  onClick={() => setTeamSortDir((prev) => (prev === "asc" ? "desc" : "asc"))}
+                  className="rounded-full border border-white/10 px-4 py-2 text-xs text-slate-200"
+                >
+                  {teamSortDir === "asc" ? "Ascendant" : "Descendant"}
+                </button>
+              </div>
+            </div>
             <div className="space-y-4">
-              {teams.length === 0 ? (
+              {filteredTeams.length === 0 ? (
                 <p className="text-sm text-slate-400">Aucune équipe.</p>
               ) : (
-                teams.map((team) => (
+                filteredTeams.map((team) => (
                   <div
                     key={team.id}
-                    className="grid gap-3 rounded-2xl border border-white/10 bg-white/5 p-4 md:grid-cols-[1.2fr,0.8fr,0.8fr,1.2fr,1.5fr,1.5fr,auto]"
+                    className="space-y-4 rounded-2xl border border-white/10 bg-white/5 p-4"
                   >
-                    <input
-                      value={team.name}
-                      onChange={(event) => handleTeamField(team.id, "name", event.target.value)}
-                      className="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white"
-                    />
-                    <input
-                      value={team.tag ?? ""}
-                      onChange={(event) => handleTeamField(team.id, "tag", event.target.value)}
-                      placeholder="Tag"
-                      className="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white"
-                    />
-                    <input
-                      value={team.division ?? ""}
-                      onChange={(event) => handleTeamField(team.id, "division", event.target.value)}
-                      placeholder="Division"
-                      className="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white"
-                    />
-                    <input
-                      value={team.logoUrl ?? ""}
-                      onChange={(event) => handleTeamField(team.id, "logoUrl", event.target.value)}
-                      placeholder="Logo URL"
-                      className="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white"
-                    />
-                    <textarea
-                      value={team.statsSummary ?? ""}
-                      onChange={(event) =>
-                        handleTeamField(team.id, "statsSummary", event.target.value)
-                      }
-                      placeholder="Stats personnalisées"
-                      className="min-h-[72px] rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white"
-                    />
-                    <textarea
-                      value={team.mainBrawlers ?? ""}
-                      onChange={(event) =>
-                        handleTeamField(team.id, "mainBrawlers", event.target.value)
-                      }
-                      placeholder="Main brawlers"
-                      className="min-h-[72px] rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white"
-                    />
-                    <div className="flex gap-2">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-semibold text-white">{team.name}</p>
+                        <p className="text-xs text-slate-400">
+                          ID: {team.id} · Division {team.division ?? "?"} · Tag {team.tag ?? "?"}
+                        </p>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="rounded-full bg-white/10 px-3 py-1 text-xs text-slate-200">
+                          {team.wins ?? 0}W - {team.losses ?? 0}L
+                        </span>
+                        <span className="rounded-full bg-white/10 px-3 py-1 text-xs text-slate-200">
+                          {team.points ?? 0} pts
+                        </span>
+                      </div>
+                    </div>
+                    <div className="grid gap-3 md:grid-cols-4">
+                      <input
+                        value={team.name}
+                        onChange={(event) => handleTeamField(team.id, "name", event.target.value)}
+                        className="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white"
+                      />
+                      <input
+                        value={team.tag ?? ""}
+                        onChange={(event) => handleTeamField(team.id, "tag", event.target.value)}
+                        placeholder="Tag"
+                        className="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white"
+                      />
+                      <select
+                        value={team.division ?? ""}
+                        onChange={(event) => handleTeamField(team.id, "division", event.target.value)}
+                        className="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white"
+                      >
+                        <option value="">Division</option>
+                        {DIVISION_OPTIONS.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                      <input
+                        value={team.logoUrl ?? ""}
+                        onChange={(event) => handleTeamField(team.id, "logoUrl", event.target.value)}
+                        placeholder="Logo URL"
+                        className="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white"
+                      />
+                    </div>
+                    <div className="grid gap-3 md:grid-cols-2">
+                      <textarea
+                        value={team.statsSummary ?? ""}
+                        onChange={(event) =>
+                          handleTeamField(team.id, "statsSummary", event.target.value)
+                        }
+                        placeholder="Stats personnalisées"
+                        className="min-h-[72px] rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white"
+                      />
+                      <textarea
+                        value={team.mainBrawlers ?? ""}
+                        onChange={(event) =>
+                          handleTeamField(team.id, "mainBrawlers", event.target.value)
+                        }
+                        placeholder="Main brawlers"
+                        className="min-h-[72px] rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white"
+                      />
+                    </div>
+                    <div className="flex flex-wrap gap-2">
                       <button
                         type="button"
                         onClick={() => handleSaveTeam(team)}
@@ -499,8 +794,15 @@ export default function AdminPanel() {
                       </button>
                       <button
                         type="button"
-                        onClick={() => handleDeleteTeam(team.id)}
+                        onClick={() => handleCopyTeamId(team.id)}
                         className="rounded-full border border-white/10 px-4 py-2 text-xs text-slate-200"
+                      >
+                        Copier l'ID
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteTeam(team.id)}
+                        className="rounded-full border border-rose-400/40 px-4 py-2 text-xs text-rose-200"
                       >
                         Supprimer
                       </button>
@@ -513,8 +815,25 @@ export default function AdminPanel() {
         </section>
       ) : (
         <section className="space-y-6">
+          <div className="grid gap-4 md:grid-cols-3">
+            {matchSummary.map((card) => (
+              <div key={card.label} className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                <p className="text-xs uppercase tracking-[0.2em] text-slate-400">{card.label}</p>
+                <p className="mt-2 text-2xl font-semibold text-white">{card.value}</p>
+                {card.helper ? <p className="text-xs text-slate-400">{card.helper}</p> : null}
+              </div>
+            ))}
+          </div>
+
           <div className="section-card space-y-4">
             <h2 className="text-lg font-semibold text-white">Créer un match</h2>
+            {matchFormErrors.length ? (
+              <ul className="list-disc space-y-1 pl-4 text-xs text-rose-300">
+                {matchFormErrors.map((error) => (
+                  <li key={error}>{error}</li>
+                ))}
+              </ul>
+            ) : null}
             <div className="grid gap-3 md:grid-cols-3">
               <input
                 type="datetime-local"
@@ -524,12 +843,18 @@ export default function AdminPanel() {
                 }
                 className="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white"
               />
-              <input
+              <select
                 value={matchForm.division}
                 onChange={(event) => setMatchForm((prev) => ({ ...prev, division: event.target.value }))}
-                placeholder="Division"
                 className="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white"
-              />
+              >
+                <option value="">Division</option>
+                {DIVISION_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
               <input
                 value={matchForm.bestOf}
                 onChange={(event) => setMatchForm((prev) => ({ ...prev, bestOf: event.target.value }))}
@@ -562,12 +887,17 @@ export default function AdminPanel() {
                   </option>
                 ))}
               </select>
-              <input
+              <select
                 value={matchForm.status}
                 onChange={(event) => setMatchForm((prev) => ({ ...prev, status: event.target.value }))}
-                placeholder="Statut"
                 className="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white"
-              />
+              >
+                {STATUS_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
             </div>
             <button
               type="button"
@@ -579,6 +909,45 @@ export default function AdminPanel() {
           </div>
 
           <div className="section-card space-y-6">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 className="text-lg font-semibold text-white">Pilotage des matchs</h2>
+                <p className="text-xs text-slate-400">Filtrez, modifiez ou validez rapidement.</p>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <input
+                  value={matchSearch}
+                  onChange={(event) => setMatchSearch(event.target.value)}
+                  placeholder="Recherche équipe"
+                  className="rounded-full border border-white/10 bg-slate-950/70 px-4 py-2 text-xs text-white"
+                />
+                <select
+                  value={matchDivision}
+                  onChange={(event) => setMatchDivision(event.target.value)}
+                  className="rounded-full border border-white/10 bg-slate-950/70 px-4 py-2 text-xs text-white"
+                >
+                  <option value="all">Toutes divisions</option>
+                  {DIVISION_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  value={matchStatus}
+                  onChange={(event) => setMatchStatus(event.target.value)}
+                  className="rounded-full border border-white/10 bg-slate-950/70 px-4 py-2 text-xs text-white"
+                >
+                  <option value="all">Tous statuts</option>
+                  {STATUS_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
             <div>
               <h2 className="text-lg font-semibold text-white">En cours / à venir</h2>
               <div className="mt-4 space-y-3">
@@ -595,10 +964,17 @@ export default function AdminPanel() {
                           {match.teamA.name} vs {match.teamB.name}
                         </p>
                         <p className="text-xs text-slate-400">
-                          {match.scheduledAt || "À planifier"} · {match.status || ""}
+                          {formatSchedule(match.scheduledAt)} · {match.status || ""}
                         </p>
                       </div>
                       <div className="flex flex-1 flex-wrap items-center justify-end gap-2">
+                        <span
+                          className={`rounded-full px-3 py-1 text-[11px] font-medium ${statusBadgeClass(
+                            match.status
+                          )}`}
+                        >
+                          {match.status ?? "pending"}
+                        </span>
                         <input
                           type="datetime-local"
                           value={matchEdits[match.id]?.scheduledAt ?? ""}
@@ -607,14 +983,20 @@ export default function AdminPanel() {
                           }
                           className="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-xs text-white"
                         />
-                        <input
+                        <select
                           value={matchEdits[match.id]?.division ?? ""}
                           onChange={(event) =>
                             handleMatchEditChange(match.id, "division", event.target.value)
                           }
-                          placeholder="Division"
-                          className="w-24 rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-xs text-white"
-                        />
+                          className="w-28 rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-xs text-white"
+                        >
+                          <option value="">Division</option>
+                          {DIVISION_OPTIONS.map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
                         <input
                           value={matchEdits[match.id]?.bestOf ?? ""}
                           onChange={(event) =>
@@ -623,14 +1005,31 @@ export default function AdminPanel() {
                           placeholder="Best of"
                           className="w-20 rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-xs text-white"
                         />
-                        <input
+                        <select
                           value={matchEdits[match.id]?.status ?? ""}
                           onChange={(event) =>
                             handleMatchEditChange(match.id, "status", event.target.value)
                           }
-                          placeholder="Statut"
-                          className="w-24 rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-xs text-white"
-                        />
+                          className="w-28 rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-xs text-white"
+                        >
+                          {STATUS_OPTIONS.map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
+                        <div className="flex items-center gap-1">
+                          {STATUS_OPTIONS.map((option) => (
+                            <button
+                              key={option.value}
+                              type="button"
+                              onClick={() => handleQuickStatus(match.id, option.value)}
+                              className="rounded-full border border-white/10 px-2 py-1 text-[10px] text-slate-200"
+                            >
+                              {option.label}
+                            </button>
+                          ))}
+                        </div>
                         <input
                           value={resultScores[match.id]?.scoreA ?? ""}
                           onChange={(event) =>
@@ -684,10 +1083,17 @@ export default function AdminPanel() {
                           {match.teamA.name} {match.scoreA ?? "-"} - {match.scoreB ?? "-"} {match.teamB.name}
                         </p>
                         <p className="text-xs text-slate-400">
-                          {match.scheduledAt || ""} · {match.status || ""}
+                          {formatSchedule(match.scheduledAt)} · {match.status || ""}
                         </p>
                       </div>
                       <div className="flex flex-1 flex-wrap items-center justify-end gap-2">
+                        <span
+                          className={`rounded-full px-3 py-1 text-[11px] font-medium ${statusBadgeClass(
+                            match.status
+                          )}`}
+                        >
+                          {match.status ?? "pending"}
+                        </span>
                         <input
                           type="datetime-local"
                           value={matchEdits[match.id]?.scheduledAt ?? ""}
@@ -696,14 +1102,20 @@ export default function AdminPanel() {
                           }
                           className="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-xs text-white"
                         />
-                        <input
+                        <select
                           value={matchEdits[match.id]?.division ?? ""}
                           onChange={(event) =>
                             handleMatchEditChange(match.id, "division", event.target.value)
                           }
-                          placeholder="Division"
-                          className="w-24 rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-xs text-white"
-                        />
+                          className="w-28 rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-xs text-white"
+                        >
+                          <option value="">Division</option>
+                          {DIVISION_OPTIONS.map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
                         <input
                           value={matchEdits[match.id]?.bestOf ?? ""}
                           onChange={(event) =>
@@ -712,14 +1124,31 @@ export default function AdminPanel() {
                           placeholder="Best of"
                           className="w-20 rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-xs text-white"
                         />
-                        <input
+                        <select
                           value={matchEdits[match.id]?.status ?? ""}
                           onChange={(event) =>
                             handleMatchEditChange(match.id, "status", event.target.value)
                           }
-                          placeholder="Statut"
-                          className="w-24 rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-xs text-white"
-                        />
+                          className="w-28 rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-xs text-white"
+                        >
+                          {STATUS_OPTIONS.map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
+                        <div className="flex items-center gap-1">
+                          {DIVISION_OPTIONS.map((option) => (
+                            <button
+                              key={option.value}
+                              type="button"
+                              onClick={() => handleQuickDivision(match.id, option.value)}
+                              className="rounded-full border border-white/10 px-2 py-1 text-[10px] text-slate-200"
+                            >
+                              {option.label}
+                            </button>
+                          ))}
+                        </div>
                         <input
                           value={resultScores[match.id]?.scoreA ?? String(match.scoreA ?? "")}
                           onChange={(event) =>
@@ -756,6 +1185,31 @@ export default function AdminPanel() {
                 )}
               </div>
             </div>
+
+            {filteredMatches.length === 0 ? (
+              <p className="text-xs text-slate-400">Aucun match ne correspond aux filtres.</p>
+            ) : (
+              <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-xs text-slate-300">
+                <p className="font-semibold text-white">Matches filtrés</p>
+                <ul className="mt-2 space-y-1">
+                  {filteredMatches.slice(0, 8).map((match) => (
+                    <li key={`filtered-${match.id}`} className="flex items-center justify-between">
+                      <span>
+                        {match.teamA.name} vs {match.teamB.name}
+                      </span>
+                      <span className="text-slate-400">
+                        {match.division ?? "?"} · {match.status ?? "pending"}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+                {filteredMatches.length > 8 ? (
+                  <p className="mt-2 text-slate-400">
+                    +{filteredMatches.length - 8} match(s) supplémentaires.
+                  </p>
+                ) : null}
+              </div>
+            )}
           </div>
         </section>
       )}
