@@ -8,6 +8,8 @@ type TeamCardData = {
   tag: string | null;
   division: string | null;
   logoUrl: string | null;
+  statsSummary: string | null;
+  mainBrawlers: string | null;
   wins: number | null;
   losses: number | null;
   points: number | null;
@@ -25,6 +27,14 @@ const getInitials = (name: string) => {
 export default function TeamCard({ team }: { team: TeamCardData }) {
   const [logoFailed, setLogoFailed] = useState(false);
   const initials = useMemo(() => getInitials(team.name), [team.name]);
+  const mainBrawlers = useMemo(
+    () =>
+      team.mainBrawlers
+        ?.split(",")
+        .map((entry) => entry.trim())
+        .filter(Boolean) ?? [],
+    [team.mainBrawlers]
+  );
 
   return (
     <article className="rounded-3xl border border-white/10 bg-slate-950/70 p-6 shadow-[0_25px_80px_-60px_rgba(15,23,42,0.8)]">
@@ -67,6 +77,29 @@ export default function TeamCard({ team }: { team: TeamCardData }) {
           <p className="mt-2 text-base font-semibold text-white">{team.points ?? "-"}</p>
         </div>
       </div>
+
+      {team.statsSummary ? (
+        <div className="mt-4 rounded-2xl border border-white/10 bg-white/5 p-4">
+          <p className="text-[0.65rem] uppercase tracking-[0.35em] text-slate-400">Stats</p>
+          <p className="mt-2 text-sm text-white">{team.statsSummary}</p>
+        </div>
+      ) : null}
+
+      {mainBrawlers.length > 0 ? (
+        <div className="mt-4 space-y-2">
+          <p className="text-[0.65rem] uppercase tracking-[0.35em] text-slate-400">Main brawlers</p>
+          <div className="flex flex-wrap gap-2">
+            {mainBrawlers.map((brawler) => (
+              <span
+                key={brawler}
+                className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-slate-200"
+              >
+                {brawler}
+              </span>
+            ))}
+          </div>
+        </div>
+      ) : null}
     </article>
   );
 }

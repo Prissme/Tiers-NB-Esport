@@ -17,6 +17,8 @@ const mapTeamRow = (row: Record<string, unknown>) => ({
   tag: row[TEAM_COLUMNS.tag] ? String(row[TEAM_COLUMNS.tag]) : null,
   division: row[TEAM_COLUMNS.division] ? String(row[TEAM_COLUMNS.division]) : null,
   logoUrl: row[TEAM_COLUMNS.logoUrl] ? String(row[TEAM_COLUMNS.logoUrl]) : null,
+  statsSummary: row[TEAM_COLUMNS.statsSummary] ? String(row[TEAM_COLUMNS.statsSummary]) : null,
+  mainBrawlers: row[TEAM_COLUMNS.mainBrawlers] ? String(row[TEAM_COLUMNS.mainBrawlers]) : null,
   wins: toNumber(row[TEAM_COLUMNS.wins]),
   losses: toNumber(row[TEAM_COLUMNS.losses]),
   points: toNumber(row[TEAM_COLUMNS.points]),

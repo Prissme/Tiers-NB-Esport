@@ -10,6 +10,8 @@ const updateSchema = z.object({
   tag: z.string().min(1).nullable().optional(),
   division: z.string().min(1).nullable().optional(),
   logoUrl: z.string().url().nullable().optional(),
+  statsSummary: z.string().min(1).nullable().optional(),
+  mainBrawlers: z.string().min(1).nullable().optional(),
 });
 
 export async function PATCH(
@@ -42,6 +44,12 @@ export async function PATCH(
     }
     if (parsed.data.logoUrl !== undefined) {
       updatePayload[TEAM_COLUMNS.logoUrl] = parsed.data.logoUrl;
+    }
+    if (parsed.data.statsSummary !== undefined) {
+      updatePayload[TEAM_COLUMNS.statsSummary] = parsed.data.statsSummary;
+    }
+    if (parsed.data.mainBrawlers !== undefined) {
+      updatePayload[TEAM_COLUMNS.mainBrawlers] = parsed.data.mainBrawlers;
     }
 
     const { data: updated, error } = await supabase

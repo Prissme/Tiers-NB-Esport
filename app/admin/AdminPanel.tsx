@@ -8,6 +8,8 @@ type Team = {
   tag: string | null;
   division: string | null;
   logoUrl: string | null;
+  statsSummary: string | null;
+  mainBrawlers: string | null;
   wins: number | null;
   losses: number | null;
   points: number | null;
@@ -38,6 +40,8 @@ const emptyTeamForm = {
   tag: "",
   division: "",
   logoUrl: "",
+  statsSummary: "",
+  mainBrawlers: "",
 };
 
 const emptyMatchForm = {
@@ -49,6 +53,24 @@ const emptyMatchForm = {
   status: "pending",
 };
 
+const toLocalInputValue = (value: string | null) => {
+  if (!value) {
+    return "";
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return "";
+  }
+  const offset = date.getTimezoneOffset();
+  const local = new Date(date.getTime() - offset * 60_000);
+  return local.toISOString().slice(0, 16);
+};
+
+const normalizeNullable = (value: string | null) => {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : null;
+};
+
 export default function AdminPanel() {
   const [activeTab, setActiveTab] = useState<"teams" | "matches">("teams");
   const [teams, setTeams] = useState<Team[]>([]);
@@ -56,6 +78,9 @@ export default function AdminPanel() {
   const [matchesRecent, setMatchesRecent] = useState<Match[]>([]);
   const [teamForm, setTeamForm] = useState(emptyTeamForm);
   const [matchForm, setMatchForm] = useState(emptyMatchForm);
+  const [matchEdits, setMatchEdits] = useState<
+    Record<string, { scheduledAt: string; status: string; bestOf: string; division: string }>
+  >({});
   const [resultScores, setResultScores] = useState<Record<string, { scoreA: string; scoreB: string }>>({});
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -102,6 +127,24 @@ export default function AdminPanel() {
     void loadData();
   }, [loadData]);
 
+  useEffect(() => {
+    setMatchEdits((prev) => {
+      const next = { ...prev };
+      const allMatches = [...matchesLive, ...matchesRecent];
+      allMatches.forEach((match) => {
+        if (!next[match.id]) {
+          next[match.id] = {
+            scheduledAt: toLocalInputValue(match.scheduledAt),
+            status: match.status ?? "",
+            bestOf: match.bestOf ? String(match.bestOf) : "",
+            division: match.division ?? "",
+          };
+        }
+      });
+      return next;
+    });
+  }, [matchesLive, matchesRecent]);
+
   const handleTeamField = (id: string, field: keyof Team, value: string) => {
     setTeams((prev) =>
       prev.map((team) => (team.id === id ? { ...team, [field]: value } : team))
@@ -117,9 +160,11 @@ export default function AdminPanel() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         name: team.name,
-        tag: team.tag,
-        division: team.division,
-        logoUrl: team.logoUrl,
+        tag: normalizeNullable(team.tag),
+        division: normalizeNullable(team.division),
+        logoUrl: normalizeNullable(team.logoUrl),
+        statsSummary: normalizeNullable(team.statsSummary),
+        mainBrawlers: normalizeNullable(team.mainBrawlers),
       }),
     });
 
@@ -147,9 +192,11 @@ export default function AdminPanel() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         name: teamForm.name,
-        tag: teamForm.tag || null,
-        division: teamForm.division || null,
-        logoUrl: teamForm.logoUrl || null,
+        tag: normalizeNullable(teamForm.tag),
+        division: normalizeNullable(teamForm.division),
+        logoUrl: normalizeNullable(teamForm.logoUrl),
+        statsSummary: normalizeNullable(teamForm.statsSummary),
+        mainBrawlers: normalizeNullable(teamForm.mainBrawlers),
       }),
     });
 
@@ -251,6 +298,63 @@ export default function AdminPanel() {
     await loadData();
   };
 
+  const handleMatchEditChange = (
+    matchId: string,
+    field: "scheduledAt" | "status" | "bestOf" | "division",
+    value: string
+  ) => {
+    setMatchEdits((prev) => ({
+      ...prev,
+      [matchId]: { ...prev[matchId], [field]: value },
+    }));
+  };
+
+  const handleSaveMatch = async (matchId: string) => {
+    setStatusMessage(null);
+    setErrorMessage(null);
+
+    const edits = matchEdits[matchId];
+    if (!edits) {
+      setErrorMessage("Aucune modification à enregistrer.");
+      return;
+    }
+
+    const payload: Record<string, string | number> = {};
+
+    if (edits.scheduledAt) {
+      payload.scheduledAt = new Date(edits.scheduledAt).toISOString();
+    }
+    if (edits.status) {
+      payload.status = edits.status;
+    }
+    if (edits.bestOf) {
+      payload.bestOf = Number(edits.bestOf);
+    }
+    if (edits.division) {
+      payload.division = edits.division;
+    }
+
+    if (Object.keys(payload).length === 0) {
+      setErrorMessage("Aucune modification à enregistrer.");
+      return;
+    }
+
+    const response = await fetch(`/api/admin/matches/${matchId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+
+    const result = await response.json();
+    if (!response.ok) {
+      setErrorMessage(result.error || "Mise à jour impossible.");
+      return;
+    }
+
+    setStatusMessage("Match mis à jour.");
+    await loadData();
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap gap-2">
@@ -308,6 +412,24 @@ export default function AdminPanel() {
                 className="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white"
               />
             </div>
+            <div className="grid gap-3 md:grid-cols-2">
+              <textarea
+                value={teamForm.statsSummary}
+                onChange={(event) =>
+                  setTeamForm((prev) => ({ ...prev, statsSummary: event.target.value }))
+                }
+                placeholder="Stats personnalisées"
+                className="min-h-[96px] rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white"
+              />
+              <textarea
+                value={teamForm.mainBrawlers}
+                onChange={(event) =>
+                  setTeamForm((prev) => ({ ...prev, mainBrawlers: event.target.value }))
+                }
+                placeholder="Main brawlers (séparés par des virgules)"
+                className="min-h-[96px] rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white"
+              />
+            </div>
             <button
               type="button"
               onClick={handleCreateTeam}
@@ -326,7 +448,7 @@ export default function AdminPanel() {
                 teams.map((team) => (
                   <div
                     key={team.id}
-                    className="grid gap-3 rounded-2xl border border-white/10 bg-white/5 p-4 md:grid-cols-[1.5fr,1fr,1fr,1.5fr,auto]"
+                    className="grid gap-3 rounded-2xl border border-white/10 bg-white/5 p-4 md:grid-cols-[1.2fr,0.8fr,0.8fr,1.2fr,1.5fr,1.5fr,auto]"
                   >
                     <input
                       value={team.name}
@@ -350,6 +472,22 @@ export default function AdminPanel() {
                       onChange={(event) => handleTeamField(team.id, "logoUrl", event.target.value)}
                       placeholder="Logo URL"
                       className="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white"
+                    />
+                    <textarea
+                      value={team.statsSummary ?? ""}
+                      onChange={(event) =>
+                        handleTeamField(team.id, "statsSummary", event.target.value)
+                      }
+                      placeholder="Stats personnalisées"
+                      className="min-h-[72px] rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white"
+                    />
+                    <textarea
+                      value={team.mainBrawlers ?? ""}
+                      onChange={(event) =>
+                        handleTeamField(team.id, "mainBrawlers", event.target.value)
+                      }
+                      placeholder="Main brawlers"
+                      className="min-h-[72px] rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white"
                     />
                     <div className="flex gap-2">
                       <button
@@ -460,7 +598,39 @@ export default function AdminPanel() {
                           {match.scheduledAt || "À planifier"} · {match.status || ""}
                         </p>
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-1 flex-wrap items-center justify-end gap-2">
+                        <input
+                          type="datetime-local"
+                          value={matchEdits[match.id]?.scheduledAt ?? ""}
+                          onChange={(event) =>
+                            handleMatchEditChange(match.id, "scheduledAt", event.target.value)
+                          }
+                          className="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-xs text-white"
+                        />
+                        <input
+                          value={matchEdits[match.id]?.division ?? ""}
+                          onChange={(event) =>
+                            handleMatchEditChange(match.id, "division", event.target.value)
+                          }
+                          placeholder="Division"
+                          className="w-24 rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-xs text-white"
+                        />
+                        <input
+                          value={matchEdits[match.id]?.bestOf ?? ""}
+                          onChange={(event) =>
+                            handleMatchEditChange(match.id, "bestOf", event.target.value)
+                          }
+                          placeholder="Best of"
+                          className="w-20 rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-xs text-white"
+                        />
+                        <input
+                          value={matchEdits[match.id]?.status ?? ""}
+                          onChange={(event) =>
+                            handleMatchEditChange(match.id, "status", event.target.value)
+                          }
+                          placeholder="Statut"
+                          className="w-24 rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-xs text-white"
+                        />
                         <input
                           value={resultScores[match.id]?.scoreA ?? ""}
                           onChange={(event) =>
@@ -483,6 +653,13 @@ export default function AdminPanel() {
                           className="rounded-full bg-emerald-400/90 px-4 py-2 text-xs font-semibold text-slate-900"
                         >
                           Valider
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleSaveMatch(match.id)}
+                          className="rounded-full border border-white/10 px-4 py-2 text-xs text-slate-200"
+                        >
+                          Mettre à jour
                         </button>
                       </div>
                     </div>
@@ -510,7 +687,39 @@ export default function AdminPanel() {
                           {match.scheduledAt || ""} · {match.status || ""}
                         </p>
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-1 flex-wrap items-center justify-end gap-2">
+                        <input
+                          type="datetime-local"
+                          value={matchEdits[match.id]?.scheduledAt ?? ""}
+                          onChange={(event) =>
+                            handleMatchEditChange(match.id, "scheduledAt", event.target.value)
+                          }
+                          className="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-xs text-white"
+                        />
+                        <input
+                          value={matchEdits[match.id]?.division ?? ""}
+                          onChange={(event) =>
+                            handleMatchEditChange(match.id, "division", event.target.value)
+                          }
+                          placeholder="Division"
+                          className="w-24 rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-xs text-white"
+                        />
+                        <input
+                          value={matchEdits[match.id]?.bestOf ?? ""}
+                          onChange={(event) =>
+                            handleMatchEditChange(match.id, "bestOf", event.target.value)
+                          }
+                          placeholder="Best of"
+                          className="w-20 rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-xs text-white"
+                        />
+                        <input
+                          value={matchEdits[match.id]?.status ?? ""}
+                          onChange={(event) =>
+                            handleMatchEditChange(match.id, "status", event.target.value)
+                          }
+                          placeholder="Statut"
+                          className="w-24 rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-xs text-white"
+                        />
                         <input
                           value={resultScores[match.id]?.scoreA ?? String(match.scoreA ?? "")}
                           onChange={(event) =>
@@ -532,7 +741,14 @@ export default function AdminPanel() {
                           onClick={() => handleSubmitResult(match.id)}
                           className="rounded-full border border-white/10 px-4 py-2 text-xs text-slate-200"
                         >
-                          Mettre à jour
+                          Mettre à jour score
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleSaveMatch(match.id)}
+                          className="rounded-full border border-white/10 px-4 py-2 text-xs text-slate-200"
+                        >
+                          Mettre à jour match
                         </button>
                       </div>
                     </div>

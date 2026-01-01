@@ -18,6 +18,8 @@ type TeamResponse = {
     tag: string | null;
     division: string | null;
     logoUrl: string | null;
+    statsSummary: string | null;
+    mainBrawlers: string | null;
     wins: number | null;
     losses: number | null;
     points: number | null;
