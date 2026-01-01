@@ -1,103 +1,60 @@
-import Callout from "../components/Callout";
-import MetricCard from "../components/MetricCard";
 import SectionHeader from "../components/SectionHeader";
-import { getLfnData } from "../lib/data-store";
 
-export default async function ReglementPage() {
-  const data = await getLfnData();
+const rulesBlocks = [
+  { label: "Roster", detail: "5 joueurs" },
+  { label: "Retard", detail: "Sanction rapide" },
+  { label: "Tie-break", detail: "Clair" },
+];
 
+const rulesTags = ["Respect", "Fair play", "Timing", "Validation"];
+
+export default function ReglementPage() {
   return (
     <div className="space-y-12">
-      <section className="section-card space-y-8">
-        <SectionHeader
-          kicker="Règlement"
-          title="Règlement simple, ferme, appliqué"
-          description="Cadre clair, décisions appliquées sans débat public."
-        />
-        <div className="grid gap-4 md:grid-cols-3">
-          <MetricCard
-            label="Roster"
-            value={`${data.rules.roster.starters}+${data.rules.roster.subsRequired}`}
-            detail="Joueurs titulaires + subs obligatoires."
+      <section className="motion-field p-8">
+        <div className="motion-orb -left-14 top-8 h-48 w-48 motion-drift" />
+        <div className="motion-orb motion-orb--blue right-2 top-4 h-56 w-56 motion-spin" />
+        <div className="relative z-10 space-y-6">
+          <SectionHeader
+            kicker="Règlement"
+            title="Règles compactes"
+            description="Simple, rapide, appliqué."
           />
-          <MetricCard label="Retards" value="15/20" detail="15 min = set perdu · 20 min = autolose." />
-          <MetricCard label="Tie-break" value={data.rules.tiebreak} detail="Données publiques, calcul transparent." />
-        </div>
-        <div className="grid gap-6 md:grid-cols-2">
-          <div className="space-y-4 text-sm text-slate-200">
-            <div className="rounded-3xl border border-white/10 bg-white/5 p-5">
-              <p className="text-xs uppercase tracking-[0.35em] text-slate-400">Roster</p>
-              <p className="mt-3 text-white">
-                {data.rules.roster.starters} joueurs titulaires + {data.rules.roster.subsRequired} subs obligatoires.
-              </p>
-              <p className="mt-2 text-xs text-slate-400">Coach optionnel. Roster figé après validation.</p>
-            </div>
-            <div className="rounded-3xl border border-white/10 bg-white/5 p-5">
-              <p className="text-xs uppercase tracking-[0.35em] text-slate-400">Départage</p>
-              <p className="mt-3 text-white">Égalités départagées au {data.rules.tiebreak}.</p>
-              <p className="mt-2 text-xs text-slate-400">Données publiques, calcul transparent.</p>
-            </div>
-            <div className="rounded-3xl border border-white/10 bg-white/5 p-5">
-              <p className="text-xs uppercase tracking-[0.35em] text-slate-400">Retards</p>
-              <p className="mt-3 text-white">15 min = 1 set perdu · 20 min = autolose.</p>
-              <p className="mt-2 text-xs text-slate-400">Aucune exception sans preuve claire.</p>
-            </div>
-          </div>
-          <div className="space-y-4 text-sm text-slate-200">
-            <div className="rounded-3xl border border-white/10 bg-white/5 p-5">
-              <p className="text-xs uppercase tracking-[0.35em] text-slate-400">Format D1</p>
-              <p className="mt-3 text-white">
-                {data.format.d1.teams} équipes · BO{data.format.d1.bo} ·
-                {data.format.d1.fearlessDraft ? " Fearless Draft" : ""}
-              </p>
-              <p className="mt-2 text-xs text-slate-400">
-                {data.format.d1.matchesPerDay} matchs par jour.
-              </p>
-            </div>
-            <div className="rounded-3xl border border-white/10 bg-white/5 p-5">
-              <p className="text-xs uppercase tracking-[0.35em] text-slate-400">Format D2</p>
-              <p className="mt-3 text-white">
-                {data.format.d2.teams} équipes · BO{data.format.d2.bo}
-              </p>
-              <p className="mt-2 text-xs text-slate-400">
-                {data.format.d2.matchesPerDay} matchs par jour.
-              </p>
-            </div>
-            <div className="rounded-3xl border border-white/10 bg-white/5 p-5">
-              <p className="text-xs uppercase tracking-[0.35em] text-slate-400">Gouvernance</p>
-              <p className="mt-3 text-white">
-                L’orga statue, applique et clôt les litiges. Autorité assumée.
-              </p>
-              <p className="mt-2 text-xs text-slate-400">
-                Objectif : protéger l’équité et le rythme de la ligue.
-              </p>
-            </div>
+          <div className="grid gap-4 md:grid-cols-3">
+            {rulesBlocks.map((block) => (
+              <div key={block.label} className="motion-card motion-shimmer">
+                <p className="text-xs uppercase tracking-[0.35em] text-slate-400">{block.label}</p>
+                <p className="mt-3 text-sm text-white">{block.detail}</p>
+              </div>
+            ))}
           </div>
         </div>
       </section>
 
       <section className="section-card space-y-6">
         <SectionHeader
-          kicker="Sanctions"
-          title="Sanctions applicables"
-          description="Discipline ferme pour préserver le niveau."
+          kicker="Tags"
+          title="Repères rapides"
+          description="Juste l'essentiel."
         />
-        <div className="grid gap-4 text-sm text-slate-200 md:grid-cols-2">
-          <div className="rounded-3xl border border-white/10 bg-white/5 p-5">
-            <p className="text-xs uppercase tracking-[0.35em] text-slate-400">Comportement</p>
-            <p className="mt-3 text-white">Toxicité, triche ou abus = exclusion immédiate.</p>
+        <div className="flex flex-wrap gap-3">
+          {rulesTags.map((tag) => (
+            <span key={tag} className="motion-pill">
+              {tag}
+            </span>
+          ))}
+        </div>
+        <div className="grid gap-4 md:grid-cols-2">
+          <div className="motion-card">
+            <p className="text-xs uppercase tracking-[0.35em] text-slate-400">Autorité</p>
+            <p className="mt-3 text-sm text-white">Décision rapide.</p>
           </div>
-          <div className="rounded-3xl border border-white/10 bg-white/5 p-5">
-            <p className="text-xs uppercase tracking-[0.35em] text-slate-400">Matches</p>
-            <p className="mt-3 text-white">No-show répété = disqualification.</p>
+          <div className="motion-card">
+            <p className="text-xs uppercase tracking-[0.35em] text-slate-400">Discipline</p>
+            <p className="mt-3 text-sm text-white">Sanction claire.</p>
           </div>
         </div>
       </section>
-
-      <Callout
-        title="Gardez le règlement à portée de main"
-        description="Un comportement pro garantit une saison fluide pour toutes les équipes."
-      />
     </div>
   );
 }

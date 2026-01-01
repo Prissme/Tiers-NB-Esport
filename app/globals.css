@@ -81,3 +81,118 @@ body {
 .glow-pulse {
   animation: pulse-slow 6s ease-in-out infinite;
 }
+
+.motion-field {
+  @apply relative overflow-hidden rounded-3xl border border-white/10 bg-slate-950/70;
+}
+
+.motion-orb {
+  @apply absolute rounded-full blur-3xl opacity-60;
+  background: radial-gradient(circle at 30% 30%, rgba(16, 185, 129, 0.5), transparent 70%);
+  animation: float-y 10s ease-in-out infinite;
+}
+
+.motion-orb--blue {
+  background: radial-gradient(circle at 70% 30%, rgba(56, 189, 248, 0.45), transparent 70%);
+}
+
+.motion-orb--pink {
+  background: radial-gradient(circle at 50% 50%, rgba(244, 114, 182, 0.4), transparent 70%);
+}
+
+.motion-drift {
+  animation: drift-x 14s ease-in-out infinite;
+}
+
+.motion-spin {
+  animation: spin-slow 18s linear infinite;
+}
+
+.motion-shimmer {
+  background: linear-gradient(120deg, rgba(16, 185, 129, 0.08), rgba(56, 189, 248, 0.12), rgba(16, 185, 129, 0.08));
+  background-size: 200% 200%;
+  animation: shimmer 8s ease infinite;
+}
+
+.motion-card {
+  @apply relative overflow-hidden rounded-3xl border border-white/10 bg-white/5 p-5 shadow-[0_20px_70px_-50px_rgba(15,23,42,0.9)];
+}
+
+.motion-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at top right, rgba(16, 185, 129, 0.15), transparent 55%);
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+.motion-line {
+  @apply relative h-px w-full overflow-hidden rounded-full bg-white/10;
+}
+
+.motion-line::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(16, 185, 129, 0.7), transparent);
+  transform: translateX(-100%);
+  animation: line-scan 5s ease-in-out infinite;
+}
+
+.motion-pill {
+  @apply inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-3 py-1 text-xs uppercase tracking-[0.28em] text-slate-200;
+}
+
+@keyframes float-y {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-18px);
+  }
+}
+
+@keyframes drift-x {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  50% {
+    transform: translateX(22px);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+@keyframes line-scan {
+  0% {
+    transform: translateX(-100%);
+  }
+  50% {
+    transform: translateX(100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes spin-slow {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}

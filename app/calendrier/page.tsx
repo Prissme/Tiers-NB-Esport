@@ -1,82 +1,60 @@
-import Callout from "../components/Callout";
-import EmptyState from "../components/EmptyState";
-import MetricCard from "../components/MetricCard";
 import SectionHeader from "../components/SectionHeader";
-import { getLfnData } from "../lib/data-store";
-import { lfnData } from "../lib/lfnData";
-import { groupMatchesByDivision } from "../lib/lfn-helpers";
 
-export default async function CalendrierPage() {
-  const data = await getLfnData();
-  const hasMatches = data.matches.length > 0;
-  const grouped = groupMatchesByDivision(data.matches);
-  const { season, format } = lfnData;
+const calendarTiles = [
+  { label: "Semaine 1", detail: "Bloc court" },
+  { label: "Semaine 2", detail: "Bloc rapide" },
+  { label: "Semaine 3", detail: "Bloc final" },
+];
 
+const calendarTags = ["Lundi", "Mercredi", "Vendredi", "Week-end"];
+
+export default function CalendrierPage() {
   return (
     <div className="space-y-12">
-      <section className="section-card space-y-8">
-        <SectionHeader
-          kicker="Calendrier"
-          title="Matchs à venir"
-          description={`${season.status} • ${season.phase} • ${season.nextStep}`}
-        />
-        <div className="grid gap-4 md:grid-cols-3">
-          <MetricCard
-            label="Rythme officiel"
-            value="Hebdo"
-            detail={`${format.weeklyRhythm.monday}, ${format.weeklyRhythm.wednesday}, ${format.weeklyRhythm.friday} · ${format.weeklyRhythm.weekend}`}
+      <section className="motion-field p-8">
+        <div className="motion-orb -left-14 top-8 h-52 w-52 motion-drift" />
+        <div className="motion-orb motion-orb--blue right-2 top-4 h-56 w-56 motion-spin" />
+        <div className="relative z-10 space-y-6">
+          <SectionHeader
+            kicker="Calendrier"
+            title="Planning condensé"
+            description="Juste les blocs clés."
           />
-          <MetricCard label="Dernière MAJ" value={season.lastUpdated} detail="Mise à jour officielle." />
-          <MetricCard label="Breaks" value="Officiel" detail={format.weeklyRhythm.breaks} />
-        </div>
-        {!hasMatches ? (
-          <EmptyState
-            title="Calendrier en cours de publication"
-            description="Les matchs officiels seront ajoutés ici."
-            secondaryLabel="Voir comment s'inscrire"
-            secondaryHref="/inscription"
-            badge="Planning"
-          />
-        ) : (
-          <div className="space-y-6">
-            {Object.entries(grouped).map(([division, matches]) => (
-              <div key={division} className="space-y-3">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <h3 className="text-sm font-semibold uppercase tracking-[0.3em] text-slate-300">
-                    {division}
-                  </h3>
-                  <span className="text-xs uppercase tracking-[0.35em] text-slate-500">
-                    {matches.length} matchs
-                  </span>
-                </div>
-                <div className="grid gap-3">
-                  {matches.map((match) => (
-                    <div
-                      key={match.id}
-                      className="rounded-3xl border border-white/10 bg-white/5 p-5 text-sm text-slate-200"
-                    >
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <span className="text-white">
-                          {match.teamA || "Non communiqué"} vs {match.teamB || "Non communiqué"}
-                        </span>
-                        <span className="text-xs text-slate-400">
-                          {match.date || "Non communiqué"} · {match.time || "Non communiqué"}
-                        </span>
-                      </div>
-                      <p className="mt-2 text-xs text-slate-400">BO{match.bo}</p>
-                    </div>
-                  ))}
-                </div>
+          <div className="grid gap-4 md:grid-cols-3">
+            {calendarTiles.map((tile) => (
+              <div key={tile.label} className="motion-card motion-shimmer">
+                <p className="text-xs uppercase tracking-[0.35em] text-slate-400">{tile.label}</p>
+                <p className="mt-3 text-sm text-white">{tile.detail}</p>
               </div>
             ))}
           </div>
-        )}
+        </div>
       </section>
 
-      <Callout
-        title="Préparez votre semaine"
-        description="Gardez un œil sur les horaires pour anticiper vos drafts et vos scrims."
-      />
+      <section className="section-card space-y-6">
+        <SectionHeader
+          kicker="Tags"
+          title="Repères rapides"
+          description="Courte lecture."
+        />
+        <div className="flex flex-wrap gap-3">
+          {calendarTags.map((tag) => (
+            <span key={tag} className="motion-pill">
+              {tag}
+            </span>
+          ))}
+        </div>
+        <div className="grid gap-4 md:grid-cols-2">
+          <div className="motion-card">
+            <p className="text-xs uppercase tracking-[0.35em] text-slate-400">Timing</p>
+            <p className="mt-3 text-sm text-white">Créneaux courts.</p>
+          </div>
+          <div className="motion-card">
+            <p className="text-xs uppercase tracking-[0.35em] text-slate-400">Updates</p>
+            <p className="mt-3 text-sm text-white">Annonce rapide.</p>
+          </div>
+        </div>
+      </section>
     </div>
   );
 }
