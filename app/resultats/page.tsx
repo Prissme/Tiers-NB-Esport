@@ -1,14 +1,49 @@
 import SectionHeader from "../components/SectionHeader";
+import { getBaseUrl } from "../lib/get-base-url";
 
-const resultHighlights = [
-  { label: "Dernier match", detail: "Score flash" },
-  { label: "Top action", detail: "Clip court" },
-  { label: "Momentum", detail: "Rush" },
-];
+type MatchData = {
+  id: string;
+  scheduledAt: string | null;
+  dayLabel: string | null;
+  division: string | null;
+  scoreA: number | null;
+  scoreB: number | null;
+  teamA: { name: string };
+  teamB: { name: string };
+};
 
-const resultTags = ["BO5", "Finale", "MVP", "Replay"];
+const loadResults = async () => {
+  const baseUrl = getBaseUrl();
+  const response = await fetch(`${baseUrl}/api/site/matches?status=recent&limit=50`, {
+    next: { revalidate: 60 },
+  });
 
-export default function ResultatsPage() {
+  if (!response.ok) {
+    return [] as MatchData[];
+  }
+
+  const payload = (await response.json()) as { matches?: MatchData[] };
+  return payload.matches ?? [];
+};
+
+const formatDate = (value: string | null) => {
+  if (!value) return "-";
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return value;
+  return parsed.toLocaleDateString("fr-FR");
+};
+
+export default async function ResultatsPage() {
+  const matches = await loadResults();
+  const resultsByDay = matches.reduce<Record<string, MatchData[]>>((acc, match) => {
+    const day = match.dayLabel ?? "Jour";
+    if (!acc[day]) {
+      acc[day] = [];
+    }
+    acc[day].push(match);
+    return acc;
+  }, {});
+
   return (
     <div className="space-y-12">
       <section className="motion-field p-8">
@@ -21,10 +56,15 @@ export default function ResultatsPage() {
             description="Une ligne par match."
           />
           <div className="grid gap-4 md:grid-cols-3">
-            {resultHighlights.map((item) => (
-              <div key={item.label} className="motion-card motion-shimmer">
-                <p className="text-xs uppercase tracking-[0.35em] text-slate-400">{item.label}</p>
-                <p className="mt-3 text-sm text-white">{item.detail}</p>
+            {Object.entries(resultsByDay).map(([dayLabel, dayMatches]) => (
+              <div key={dayLabel} className="motion-card motion-shimmer">
+                <p className="text-xs uppercase tracking-[0.35em] text-slate-400">{dayLabel}</p>
+                <p className="mt-3 text-sm text-white">
+                  {dayMatches.length} match{dayMatches.length > 1 ? "s" : ""}
+                </p>
+                <p className="mt-2 text-xs text-emerald-200/80">
+                  {dayMatches[0]?.scheduledAt ? formatDate(dayMatches[0].scheduledAt) : "-"}
+                </p>
               </div>
             ))}
           </div>
@@ -34,26 +74,37 @@ export default function ResultatsPage() {
       <section className="section-card space-y-6">
         <SectionHeader
           kicker="Tags"
-          title="Repères rapides"
-          description="Pas de liste lourde."
+          title="Résultats officiels"
+          description="Day 1 & Day 2."
         />
-        <div className="flex flex-wrap gap-3">
-          {resultTags.map((tag) => (
-            <span key={tag} className="motion-pill">
-              {tag}
-            </span>
-          ))}
-        </div>
-        <div className="grid gap-4 md:grid-cols-2">
-          <div className="motion-card">
-            <p className="text-xs uppercase tracking-[0.35em] text-slate-400">Focus</p>
-            <p className="mt-3 text-sm text-white">Score officiel.</p>
+        {matches.length === 0 ? (
+          <p className="text-sm text-slate-400">Aucun résultat disponible.</p>
+        ) : (
+          <div className="space-y-6">
+            {Object.entries(resultsByDay).map(([dayLabel, dayMatches]) => (
+              <div key={dayLabel} className="overflow-hidden rounded-2xl border border-white/10">
+                <div className="bg-white/5 px-4 py-3 text-xs uppercase tracking-[0.35em] text-slate-400">
+                  {dayLabel}
+                </div>
+                <ul className="divide-y divide-white/10 text-sm text-slate-200">
+                  {dayMatches.map((match) => (
+                    <li key={match.id} className="flex flex-wrap items-center justify-between gap-4 px-4 py-3">
+                      <div>
+                        <p className="text-white">
+                          {match.teamA.name} {match.scoreA ?? "-"} - {match.scoreB ?? "-"} {match.teamB.name}
+                        </p>
+                        <p className="text-xs text-slate-400">
+                          {formatDate(match.scheduledAt)} · {match.division ?? ""}
+                        </p>
+                      </div>
+                      <span className="text-xs text-emerald-300">Validé</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
           </div>
-          <div className="motion-card">
-            <p className="text-xs uppercase tracking-[0.35em] text-slate-400">Partage</p>
-            <p className="mt-3 text-sm text-white">Clip rapide.</p>
-          </div>
-        </div>
+        )}
       </section>
     </div>
   );

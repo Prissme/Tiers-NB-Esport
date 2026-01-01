@@ -8,40 +8,12 @@ const querySchema = z.object({
   limit: z.coerce.number().int().positive().max(100).optional(),
 });
 
-const pickValue = (row: Record<string, unknown>, keys: string[]) => {
-  for (const key of keys) {
-    const value = row[key];
-    if (value !== undefined && value !== null && value !== "") {
-      return value;
-    }
+const toNumber = (value: unknown) => {
+  if (value === null || value === undefined || value === "") {
+    return null;
   }
-  return null;
-};
-
-const mapStandingRow = (row: Record<string, unknown>, index: number) => {
-  const name = pickValue(row, ["name", "player_name", "nickname", "tag", "id"]);
-  const mmr = pickValue(row, ["mmr", "elo", "rating", "points"]);
-  const rank = pickValue(row, ["rank", "position"]) ?? index + 1;
-  const tier = pickValue(row, ["tier", "division", "league"]);
-
-  return {
-    id: row.id ? String(row.id) : String(name ?? index + 1),
-    name: name ? String(name) : "",
-    mmr: mmr === null ? null : Number(mmr),
-    rank: rank === null ? index + 1 : Number(rank),
-    tier: tier ? String(tier) : null,
-  };
-};
-
-const fetchFallbackTop50 = async (request: Request) => {
-  const url = new URL("/api/getTop50", request.url);
-  const response = await fetch(url);
-  if (!response.ok) {
-    throw new Error("Fallback /api/getTop50 failed.");
-  }
-  const payload = (await response.json()) as { top?: Array<Record<string, unknown>> };
-  const players = (payload.top ?? []).map((row, index) => mapStandingRow(row, index));
-  return players;
+  const parsed = Number(value);
+  return Number.isNaN(parsed) ? null : parsed;
 };
 
 export async function GET(request: Request) {
@@ -59,24 +31,27 @@ export async function GET(request: Request) {
     const { data, error } = await supabase.from(STANDINGS_VIEW).select("*").limit(limit);
 
     if (error) {
-      console.warn("/api/site/standings fallback to /api/getTop50", error);
-      const players = await fetchFallbackTop50(request);
-      return NextResponse.json({ players, source: "fallback" });
-    }
-
-    const players = (data ?? []).map((row, index) =>
-      mapStandingRow(row as Record<string, unknown>, index)
-    );
-
-    return NextResponse.json({ players, source: "supabase" });
-  } catch (error) {
-    console.warn("/api/site/standings fallback to /api/getTop50", error);
-    try {
-      const players = await fetchFallbackTop50(request);
-      return NextResponse.json({ players, source: "fallback" });
-    } catch (fallbackError) {
-      console.error("/api/site/standings fallback failed", fallbackError);
+      console.warn("/api/site/standings error", error);
       return NextResponse.json({ error: "Unable to load standings." }, { status: 500 });
     }
+
+    const standings = (data ?? []).map((row) => ({
+      teamId: row.team_id ? String(row.team_id) : "",
+      teamName: row.team_name ? String(row.team_name) : "",
+      teamTag: row.team_tag ? String(row.team_tag) : null,
+      division: row.division ? String(row.division) : null,
+      wins: toNumber(row.wins),
+      losses: toNumber(row.losses),
+      setsWon: toNumber(row.sets_won),
+      setsLost: toNumber(row.sets_lost),
+      pointsSets: toNumber(row.points_sets),
+      pointsAdmin: toNumber(row.points_admin),
+      pointsTotal: toNumber(row.points_total),
+    }));
+
+    return NextResponse.json({ standings, source: "supabase" });
+  } catch (error) {
+    console.error("/api/site/standings error", error);
+    return NextResponse.json({ error: "Unable to load standings." }, { status: 500 });
   }
 }

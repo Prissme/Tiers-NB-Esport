@@ -7,8 +7,8 @@ export const lfnData = {
   season: {
     status: "Saison en cours",
     phase: "Qualifications",
-    lastUpdated: "Lundi 29/12/2025",
-    nextStep: "Playoffs le 03/01/2026",
+    lastUpdated: "Jeudi 01/01/2026",
+    nextStep: "Prochaine étape à annoncer",
   },
   format: {
     bestOf: 5,
@@ -31,17 +31,17 @@ export const lfnData = {
     },
   },
   stats: {
-    teamsRegistered: 19,
-    teamsActive: 11,
+    teamsRegistered: 8,
+    teamsActive: 8,
     divisions: 2,
-    matchesPerWeek: 3,
+    matchesPerWeek: 4,
   },
   lastResult: {
     teamA: "T2",
-    teamB: "JL",
+    teamB: "LZ",
     scoreA: 3,
-    scoreB: 1,
-    date: "29/12/2025",
+    scoreB: 2,
+    date: "01/01/2026",
     time: "21h",
   },
   organization: {
