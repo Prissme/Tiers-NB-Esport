@@ -1,14 +1,20 @@
 import SectionHeader from "../components/SectionHeader";
 import { getBaseUrl } from "../lib/get-base-url";
 
-const standingsTags = ["Points", "Sets", "Win%", "Δ"];
+const standingsTags = ["Points", "Sets gagnés", "Sets perdus", "Bonus admin"];
 
 type StandingRow = {
-  id: string;
-  name: string;
-  mmr: number | null;
-  rank: number | null;
-  tier: string | null;
+  teamId: string;
+  teamName: string;
+  teamTag: string | null;
+  division: string | null;
+  wins: number | null;
+  losses: number | null;
+  setsWon: number | null;
+  setsLost: number | null;
+  pointsSets: number | null;
+  pointsAdmin: number | null;
+  pointsTotal: number | null;
 };
 
 const loadStandings = async () => {
@@ -21,12 +27,35 @@ const loadStandings = async () => {
     return [] as StandingRow[];
   }
 
-  const payload = (await response.json()) as { players?: StandingRow[] };
-  return payload.players ?? [];
+  const payload = (await response.json()) as { standings?: StandingRow[] };
+  return payload.standings ?? [];
 };
 
 export default async function ClassementPage() {
   const standings = await loadStandings();
+  const topStandings = [...standings].sort((a, b) => {
+    const pointsDelta = (b.pointsTotal ?? 0) - (a.pointsTotal ?? 0);
+    if (pointsDelta !== 0) return pointsDelta;
+    return (a.teamName ?? "").localeCompare(b.teamName ?? "");
+  });
+  const standingsByDivision = standings.reduce<Record<string, StandingRow[]>>((acc, row) => {
+    const division = row.division ?? "Division";
+    if (!acc[division]) {
+      acc[division] = [];
+    }
+    acc[division].push(row);
+    return acc;
+  }, {});
+
+  Object.values(standingsByDivision).forEach((rows) => {
+    rows.sort((a, b) => {
+      const pointsDelta = (b.pointsTotal ?? 0) - (a.pointsTotal ?? 0);
+      if (pointsDelta !== 0) return pointsDelta;
+      const setsDelta = (b.setsWon ?? 0) - (a.setsWon ?? 0);
+      if (setsDelta !== 0) return setsDelta;
+      return (a.teamName ?? "").localeCompare(b.teamName ?? "");
+    });
+  });
 
   return (
     <div className="space-y-12">
@@ -40,10 +69,10 @@ export default async function ClassementPage() {
             description="Classement condensé."
           />
           <div className="grid gap-4 md:grid-cols-3">
-            {standings.slice(0, 3).map((row) => (
-              <div key={row.id} className="motion-card motion-shimmer">
-                <p className="text-xs uppercase tracking-[0.35em] text-slate-400">Top {row.rank}</p>
-                <p className="mt-3 text-sm text-white">{row.name}</p>
+            {topStandings.slice(0, 3).map((row, index) => (
+              <div key={row.teamId} className="motion-card motion-shimmer">
+                <p className="text-xs uppercase tracking-[0.35em] text-slate-400">Top {index + 1}</p>
+                <p className="mt-3 text-sm text-white">{row.teamName}</p>
               </div>
             ))}
           </div>
@@ -53,33 +82,53 @@ export default async function ClassementPage() {
       <section className="section-card space-y-6">
         <SectionHeader
           kicker="Classement"
-          title="Top 50"
+          title="Classement cumulé"
           description="Données à jour."
         />
         {standings.length === 0 ? (
           <p className="text-sm text-slate-400">Aucune donnée disponible.</p>
         ) : (
-          <div className="overflow-hidden rounded-2xl border border-white/10">
-            <table className="w-full text-left text-sm text-slate-200">
-              <thead className="bg-white/5 text-xs uppercase tracking-[0.3em] text-slate-400">
-                <tr>
-                  <th className="px-4 py-3">#</th>
-                  <th className="px-4 py-3">Joueur</th>
-                  <th className="px-4 py-3">MMR</th>
-                  <th className="px-4 py-3">Tier</th>
-                </tr>
-              </thead>
-              <tbody>
-                {standings.map((row, index) => (
-                  <tr key={row.id} className="border-t border-white/10">
-                    <td className="px-4 py-3 text-slate-300">{row.rank ?? index + 1}</td>
-                    <td className="px-4 py-3 text-white">{row.name}</td>
-                    <td className="px-4 py-3 text-slate-300">{row.mmr ?? "-"}</td>
-                    <td className="px-4 py-3 text-slate-300">{row.tier ?? "-"}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="space-y-8">
+            {Object.entries(standingsByDivision).map(([division, rows]) => (
+              <div key={division} className="overflow-hidden rounded-2xl border border-white/10">
+                <div className="bg-white/5 px-4 py-3 text-xs uppercase tracking-[0.35em] text-slate-400">
+                  {division}
+                </div>
+                <table className="w-full text-left text-sm text-slate-200">
+                  <thead className="bg-white/5 text-xs uppercase tracking-[0.3em] text-slate-400">
+                    <tr>
+                      <th className="px-4 py-3">#</th>
+                      <th className="px-4 py-3">Équipe</th>
+                      <th className="px-4 py-3">Points</th>
+                      <th className="px-4 py-3">Sets</th>
+                      <th className="px-4 py-3">V - D</th>
+                      <th className="px-4 py-3">Bonus</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rows.map((row, index) => (
+                      <tr key={row.teamId} className="border-t border-white/10">
+                        <td className="px-4 py-3 text-slate-300">{index + 1}</td>
+                        <td className="px-4 py-3 text-white">
+                          {row.teamName}
+                          {row.teamTag ? ` (${row.teamTag})` : ""}
+                        </td>
+                        <td className="px-4 py-3 text-slate-300">{row.pointsTotal ?? "-"}</td>
+                        <td className="px-4 py-3 text-slate-300">
+                          {row.setsWon ?? "-"} / {row.setsLost ?? "-"}
+                        </td>
+                        <td className="px-4 py-3 text-slate-300">
+                          {row.wins ?? "-"} - {row.losses ?? "-"}
+                        </td>
+                        <td className="px-4 py-3 text-slate-300">
+                          {row.pointsAdmin ?? 0}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ))}
           </div>
         )}
       </section>

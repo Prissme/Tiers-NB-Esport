@@ -1,5 +1,3 @@
-import { readFile } from "fs/promises";
-import path from "path";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createServerClient } from "../../../../src/lib/supabase/server";
@@ -42,74 +40,6 @@ const toNumber = (value: unknown) => {
   return Number.isNaN(parsed) ? null : parsed;
 };
 
-const loadFallbackMatches = async (status: "live" | "recent", limit: number) => {
-  const dataPath = path.join(process.cwd(), "data", "lfn.data.json");
-  const raw = await readFile(dataPath, "utf-8");
-  const parsed = JSON.parse(raw) as {
-    teams?: Array<Record<string, unknown>>;
-    matches?: Array<Record<string, unknown>>;
-    results?: Array<Record<string, unknown>>;
-  };
-
-  const teams = (parsed.teams ?? []).map((team) => ({
-    id: team.id ? String(team.id) : null,
-    name: team.name ? String(team.name) : "",
-    tag: team.tag ? String(team.tag) : null,
-    logoUrl: team.logoUrl ? String(team.logoUrl) : null,
-    division: team.division ? String(team.division) : null,
-  }));
-
-  const teamByName = new Map(teams.map((team) => [team.name, team]));
-  const teamByTag = new Map(teams.map((team) => [team.tag ?? "", team]));
-  const resultsByMatch = new Map(
-    (parsed.results ?? []).map((result) => [String(result.matchId ?? ""), result])
-  );
-
-  const mapped = (parsed.matches ?? []).map((match) => {
-    const matchId = String(match.id ?? "");
-    const result = resultsByMatch.get(matchId);
-    const teamA =
-      teamByTag.get(String(match.teamA ?? "")) ||
-      teamByName.get(String(match.teamA ?? "")) ||
-      null;
-    const teamB =
-      teamByTag.get(String(match.teamB ?? "")) ||
-      teamByName.get(String(match.teamB ?? "")) ||
-      null;
-    const statusValue = result ? "completed" : "scheduled";
-
-    return {
-      id: matchId,
-      status: statusValue,
-      scheduledAt: match.date ? String(match.date) : null,
-      bestOf: match.bo ? Number(match.bo) : null,
-      scoreA: result?.scoreA ?? null,
-      scoreB: result?.scoreB ?? null,
-      division: match.division ? String(match.division) : null,
-      teamA: teamA ?? {
-        id: null,
-        name: String(match.teamA ?? ""),
-        tag: String(match.teamA ?? ""),
-        logoUrl: null,
-        division: match.division ? String(match.division) : null,
-      },
-      teamB: teamB ?? {
-        id: null,
-        name: String(match.teamB ?? ""),
-        tag: String(match.teamB ?? ""),
-        logoUrl: null,
-        division: match.division ? String(match.division) : null,
-      },
-    };
-  });
-
-  const filtered = mapped.filter((match) =>
-    status === "recent" ? match.status === "completed" : match.status !== "completed"
-  );
-
-  return filtered.slice(0, limit);
-};
-
 export async function GET(request: Request) {
   const params = Object.fromEntries(new URL(request.url).searchParams.entries());
   const parsed = querySchema.safeParse(params);
@@ -145,9 +75,8 @@ export async function GET(request: Request) {
       await Promise.all([teamsPromise, matchQuery.limit(limit)]);
 
     if (teamsError || matchesError) {
-      console.warn("/api/site/matches fallback to JSON", teamsError || matchesError);
-      const fallback = await loadFallbackMatches(status, limit);
-      return NextResponse.json({ matches: fallback, source: "fallback" });
+      console.warn("/api/site/matches error", teamsError || matchesError);
+      return NextResponse.json({ error: "Unable to load matches." }, { status: 500 });
     }
 
     const teamMap = new Map(
@@ -188,6 +117,11 @@ export async function GET(request: Request) {
         scheduledAt: row[MATCH_COLUMNS.scheduledAt]
           ? String(row[MATCH_COLUMNS.scheduledAt])
           : null,
+        dayLabel: MATCH_COLUMNS.dayLabel
+          ? row[MATCH_COLUMNS.dayLabel]
+            ? String(row[MATCH_COLUMNS.dayLabel])
+            : null
+          : null,
         bestOf: toNumber(row[MATCH_COLUMNS.bestOf]),
         scoreA: toNumber(row[MATCH_COLUMNS.scoreA]),
         scoreB: toNumber(row[MATCH_COLUMNS.scoreB]),
@@ -199,13 +133,7 @@ export async function GET(request: Request) {
 
     return NextResponse.json({ matches: matchesResponse, source: "supabase" });
   } catch (error) {
-    console.warn("/api/site/matches fallback to JSON", error);
-    try {
-      const fallback = await loadFallbackMatches(status, limit);
-      return NextResponse.json({ matches: fallback, source: "fallback" });
-    } catch (fallbackError) {
-      console.error("/api/site/matches fallback failed", fallbackError);
-      return NextResponse.json({ error: "Unable to load matches." }, { status: 500 });
-    }
+    console.error("/api/site/matches error", error);
+    return NextResponse.json({ error: "Unable to load matches." }, { status: 500 });
   }
 }

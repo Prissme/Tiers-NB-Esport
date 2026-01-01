@@ -1,8 +1,8 @@
 export const SUPABASE_SCHEMA = process.env.SUPABASE_SCHEMA?.trim() || "";
 
-export const TEAMS_TABLE = process.env.LFN_TEAMS_TABLE || "teams";
-export const MATCHES_TABLE = process.env.LFN_MATCHES_TABLE || "matches";
-export const STANDINGS_VIEW = process.env.LFN_STANDINGS_VIEW || "standings";
+export const TEAMS_TABLE = process.env.LFN_TEAMS_TABLE || "lfn_teams";
+export const MATCHES_TABLE = process.env.LFN_MATCHES_TABLE || "lfn_matches";
+export const STANDINGS_VIEW = process.env.LFN_STANDINGS_VIEW || "lfn_standings";
 export const TOURNAMENTS_TABLE = process.env.LFN_TOURNAMENTS_TABLE || "tournaments";
 
 export const TEAM_COLUMNS = {
@@ -29,6 +29,7 @@ export const MATCH_COLUMNS = {
   teamAName: process.env.LFN_MATCH_TEAM_A_NAME_COLUMN || "",
   teamBName: process.env.LFN_MATCH_TEAM_B_NAME_COLUMN || "",
   division: process.env.LFN_MATCH_DIVISION_COLUMN || "division",
+  dayLabel: process.env.LFN_MATCH_DAY_LABEL_COLUMN || "day_label",
 };
 
 const parseStatusValues = (value: string | undefined, fallback: string[]) => {

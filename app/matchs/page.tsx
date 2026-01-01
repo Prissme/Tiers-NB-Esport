@@ -13,6 +13,7 @@ type MatchData = {
   id: string;
   status: string | null;
   scheduledAt: string | null;
+  dayLabel: string | null;
   bestOf: number | null;
   scoreA: number | null;
   scoreB: number | null;
@@ -35,11 +36,26 @@ const loadMatches = async (status: "live" | "recent") => {
   return payload.matches ?? [];
 };
 
+const formatDate = (value: string | null) => {
+  if (!value) return "-";
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return value;
+  return parsed.toLocaleDateString("fr-FR");
+};
+
 export default async function MatchsPage() {
   const [liveMatches, recentMatches] = await Promise.all([
     loadMatches("live"),
     loadMatches("recent"),
   ]);
+  const recentByDay = recentMatches.reduce<Record<string, MatchData[]>>((acc, match) => {
+    const day = match.dayLabel ?? "Jour";
+    if (!acc[day]) {
+      acc[day] = [];
+    }
+    acc[day].push(match);
+    return acc;
+  }, {});
 
   return (
     <div className="space-y-12">
@@ -96,27 +112,36 @@ export default async function MatchsPage() {
       <section className="section-card space-y-6">
         <SectionHeader
           kicker="Récents"
-          title="Derniers scores"
-          description="Résultats validés."
+          title="Scores officiels"
+          description="Résultats Day 1 / Day 2."
         />
         {recentMatches.length === 0 ? (
           <p className="text-sm text-slate-400">Aucun match récent.</p>
         ) : (
-          <div className="space-y-3">
-            {recentMatches.map((match) => (
-              <div
-                key={match.id}
-                className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/5 p-4"
-              >
-                <div>
-                  <p className="text-sm text-white">
-                    {match.teamA.name} {match.scoreA ?? "-"} - {match.scoreB ?? "-"} {match.teamB.name}
-                  </p>
-                  <p className="text-xs text-slate-400">
-                    {match.scheduledAt || ""} · {match.division ?? ""}
-                  </p>
+          <div className="space-y-6">
+            {Object.entries(recentByDay).map(([dayLabel, matches]) => (
+              <div key={dayLabel} className="overflow-hidden rounded-2xl border border-white/10">
+                <div className="bg-white/5 px-4 py-3 text-xs uppercase tracking-[0.35em] text-slate-400">
+                  {dayLabel}
                 </div>
-                <div className="text-xs text-slate-300">BO{match.bestOf ?? "-"}</div>
+                <div className="divide-y divide-white/10">
+                  {matches.map((match) => (
+                    <div
+                      key={match.id}
+                      className="flex flex-wrap items-center justify-between gap-3 px-4 py-3"
+                    >
+                      <div>
+                        <p className="text-sm text-white">
+                          {match.teamA.name} {match.scoreA ?? "-"} - {match.scoreB ?? "-"} {match.teamB.name}
+                        </p>
+                        <p className="text-xs text-slate-400">
+                          {formatDate(match.scheduledAt)} · {match.division ?? ""}
+                        </p>
+                      </div>
+                      <div className="text-xs text-slate-300">BO{match.bestOf ?? "-"}</div>
+                    </div>
+                  ))}
+                </div>
               </div>
             ))}
           </div>
