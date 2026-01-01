@@ -11,6 +11,8 @@ export const TEAM_COLUMNS = {
   tag: process.env.LFN_TEAM_TAG_COLUMN || "tag",
   division: process.env.LFN_TEAM_DIVISION_COLUMN || "division",
   logoUrl: process.env.LFN_TEAM_LOGO_COLUMN || "logo_url",
+  statsSummary: process.env.LFN_TEAM_STATS_SUMMARY_COLUMN || "stats_summary",
+  mainBrawlers: process.env.LFN_TEAM_MAIN_BRAWLERS_COLUMN || "main_brawlers",
   wins: process.env.LFN_TEAM_WINS_COLUMN || "wins",
   losses: process.env.LFN_TEAM_LOSSES_COLUMN || "losses",
   points: process.env.LFN_TEAM_POINTS_COLUMN || "points",

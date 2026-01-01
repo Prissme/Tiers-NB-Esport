@@ -11,6 +11,8 @@ const teamSchema = z.object({
   tag: z.string().min(1).optional().nullable(),
   division: z.string().min(1).optional().nullable(),
   logoUrl: z.string().url().optional().nullable(),
+  statsSummary: z.string().min(1).optional().nullable(),
+  mainBrawlers: z.string().min(1).optional().nullable(),
 });
 
 export async function POST(request: Request) {
@@ -33,6 +35,8 @@ export async function POST(request: Request) {
       [TEAM_COLUMNS.tag]: data.tag ?? null,
       [TEAM_COLUMNS.division]: data.division ?? null,
       [TEAM_COLUMNS.logoUrl]: data.logoUrl ?? null,
+      [TEAM_COLUMNS.statsSummary]: data.statsSummary ?? null,
+      [TEAM_COLUMNS.mainBrawlers]: data.mainBrawlers ?? null,
     };
 
     if (data.id) {
