@@ -2,6 +2,12 @@ FROM node:18-alpine AS builder
 
 WORKDIR /app
 
+# Supabase build-time configuration
+ARG NEXT_PUBLIC_SUPABASE_URL
+ARG NEXT_PUBLIC_SUPABASE_ANON_KEY
+ENV NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL
+ENV NEXT_PUBLIC_SUPABASE_ANON_KEY=$NEXT_PUBLIC_SUPABASE_ANON_KEY
+
 # Installation outils build
 RUN apk add --no-cache libc6-compat python3 make g++
 
