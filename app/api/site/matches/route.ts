@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { createServerClient } from "../../../../src/lib/supabase/server";
+import { createAdminClient } from "../../../../src/lib/supabase/admin";
 import { withSchema } from "../../../../src/lib/supabase/schema";
 import {
   MATCH_COLUMNS,
@@ -52,7 +52,7 @@ export async function GET(request: Request) {
   const limit = parsed.data.limit ?? 20;
 
   try {
-    const supabase = withSchema(createServerClient());
+    const supabase = withSchema(createAdminClient());
 
     const teamsPromise = supabase.from(TEAMS_TABLE).select("*");
 
