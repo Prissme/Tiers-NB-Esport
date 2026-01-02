@@ -6,7 +6,6 @@ import {
   TEAM_COLUMNS,
   TEAM_MEMBER_COLUMNS,
   TEAM_MEMBERS_TABLE,
-  TEAMS_TABLE,
 } from "../../../../src/lib/supabase/config";
 import { isAdminAuthenticated } from "../../../../src/lib/admin/auth";
 
@@ -34,6 +33,32 @@ const teamSchema = z.object({
   roster: z.array(memberSchema).optional(),
 });
 
+const normalizeDivision = (division?: string | null) => {
+  const raw = String(division ?? "").trim();
+  const upper = raw.toUpperCase();
+  if (["D1", "DIV1", "DIVISION 1", "DIVISION_1", "division_1"].includes(upper) || raw === "division_1") {
+    return "Division 1";
+  }
+  if (["D2", "DIV2", "DIVISION 2", "DIVISION_2", "division_2"].includes(upper) || raw === "division_2") {
+    return "Division 2";
+  }
+  if (raw === "Division 1" || raw === "Division 2") {
+    return raw;
+  }
+  return raw;
+};
+
+const normalizeMainBrawlers = (value?: string | null) => {
+  if (!value) {
+    return null;
+  }
+  const entries = value
+    .split(",")
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+  return entries.length ? entries : null;
+};
+
 export async function POST(request: Request) {
   if (!isAdminAuthenticated()) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -49,33 +74,45 @@ export async function POST(request: Request) {
   try {
     const supabase = withSchema(createAdminClient());
     const data = parsed.data;
-    const insertPayload: Record<string, unknown> = {
-      [TEAM_COLUMNS.name]: data.name,
-      [TEAM_COLUMNS.tag]: data.tag ?? null,
-      [TEAM_COLUMNS.division]: data.division ?? null,
-      [TEAM_COLUMNS.logoUrl]: data.logoUrl ?? null,
-      [TEAM_COLUMNS.statsSummary]: data.statsSummary ?? null,
-      [TEAM_COLUMNS.mainBrawlers]: data.mainBrawlers ?? null,
+    const tag = data.tag ? data.tag.trim().toUpperCase() : null;
+    const normalizedDivision = normalizeDivision(data.division ?? null);
+    const rpcPayload = {
+      p_tag: tag,
+      p_name: data.name ?? null,
+      p_division: normalizedDivision ? normalizedDivision : null,
+      p_logo_url: data.logoUrl ?? null,
+      p_main_brawlers: normalizeMainBrawlers(data.mainBrawlers),
+      p_stats_summary: data.statsSummary ?? null,
     };
 
-    if (data.id) {
-      insertPayload[TEAM_COLUMNS.id] = data.id;
-    }
+    console.log("RPC upsert_lfn_team payload:", rpcPayload);
 
-    const { data: inserted, error } = await supabase
-      .from(TEAMS_TABLE)
-      .insert(insertPayload)
-      .select("*")
-      .single();
+    const { data: rpcData, error } = await supabase.rpc("upsert_lfn_team", rpcPayload);
 
     if (error) {
-      console.error("/api/admin/teams insert error", error);
+      console.error("/api/admin/teams upsert error", error);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
+    const team = Array.isArray(rpcData) ? rpcData[0] : rpcData;
+
+    if (!team) {
+      return NextResponse.json({ error: "Unable to create team." }, { status: 500 });
+    }
+
     if (data.roster?.length) {
+      const { error: deleteError } = await supabase
+        .from(TEAM_MEMBERS_TABLE)
+        .delete()
+        .eq(TEAM_MEMBER_COLUMNS.teamId, team[TEAM_COLUMNS.id]);
+
+      if (deleteError) {
+        console.error("/api/admin/teams roster delete error", deleteError);
+        return NextResponse.json({ error: deleteError.message }, { status: 500 });
+      }
+
       const rosterPayload = data.roster.map((member) => ({
-        [TEAM_MEMBER_COLUMNS.teamId]: inserted[TEAM_COLUMNS.id],
+        [TEAM_MEMBER_COLUMNS.teamId]: team[TEAM_COLUMNS.id],
         [TEAM_MEMBER_COLUMNS.role]: member.role,
         [TEAM_MEMBER_COLUMNS.slot]: member.slot ?? null,
         [TEAM_MEMBER_COLUMNS.name]: member.name,
@@ -87,13 +124,12 @@ export async function POST(request: Request) {
         .insert(rosterPayload);
 
       if (rosterError) {
-        await supabase.from(TEAMS_TABLE).delete().eq(TEAM_COLUMNS.id, inserted[TEAM_COLUMNS.id]);
         console.error("/api/admin/teams roster insert error", rosterError);
         return NextResponse.json({ error: rosterError.message }, { status: 500 });
       }
     }
 
-    return NextResponse.json({ team: inserted });
+    return NextResponse.json({ team });
   } catch (error) {
     console.error("/api/admin/teams error", error);
     return NextResponse.json({ error: "Unable to create team." }, { status: 500 });

@@ -157,6 +157,21 @@ const normalizeNullable = (value: string | null) => {
   return trimmed ? trimmed : null;
 };
 
+const normalizeDivision = (division?: string | null) => {
+  const raw = String(division ?? "").trim();
+  const upper = raw.toUpperCase();
+  if (["D1", "DIV1", "DIVISION 1", "DIVISION_1", "division_1"].includes(upper) || raw === "division_1") {
+    return "Division 1";
+  }
+  if (["D2", "DIV2", "DIVISION 2", "DIVISION_2", "division_2"].includes(upper) || raw === "division_2") {
+    return "Division 2";
+  }
+  if (raw === "Division 1" || raw === "Division 2") {
+    return raw;
+  }
+  return raw;
+};
+
 const formatSchedule = (value: string | null) => {
   if (!value) {
     return "À planifier";
@@ -445,28 +460,37 @@ export default function AdminPanel() {
     setStatusMessage(null);
     setErrorMessage(null);
 
-    const response = await fetch(`/api/admin/teams/${team.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        name: team.name,
-        tag: normalizeNullable(team.tag),
-        division: normalizeNullable(team.division),
-        logoUrl: normalizeNullable(team.logoUrl),
-        statsSummary: normalizeNullable(team.statsSummary),
-        mainBrawlers: normalizeNullable(team.mainBrawlers),
-        roster: buildRosterPayload(team.roster),
-      }),
-    });
+    const normalizedTag = team.tag ? team.tag.trim().toUpperCase() : null;
+    const normalizedDivision = normalizeDivision(team.division ?? null);
 
-    const payload = await response.json();
-    if (!response.ok) {
-      setErrorMessage(payload.error || "Échec de la mise à jour.");
-      return;
+    try {
+      const response = await fetch(`/api/admin/teams/${team.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: team.name,
+          tag: normalizeNullable(normalizedTag),
+          division: normalizeNullable(normalizedDivision),
+          logoUrl: normalizeNullable(team.logoUrl),
+          statsSummary: normalizeNullable(team.statsSummary),
+          mainBrawlers: normalizeNullable(team.mainBrawlers),
+          roster: buildRosterPayload(team.roster),
+        }),
+      });
+
+      const payload = await response.json();
+      if (!response.ok) {
+        console.error("Admin team update error:", payload.error || payload);
+        setErrorMessage(payload.error || "Échec de la mise à jour.");
+        return;
+      }
+
+      setStatusMessage("Équipe mise à jour.");
+      await loadData();
+    } catch (error) {
+      console.error("Admin team update error:", error);
+      setErrorMessage("Échec de la mise à jour.");
     }
-
-    setStatusMessage("Équipe mise à jour.");
-    await loadData();
   };
 
   const handleCreateTeam = async () => {
@@ -490,29 +514,38 @@ export default function AdminPanel() {
       return;
     }
 
-    const response = await fetch("/api/admin/teams", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        name: teamForm.name,
-        tag: normalizeNullable(teamForm.tag),
-        division: normalizeNullable(teamForm.division),
-        logoUrl: normalizeNullable(teamForm.logoUrl),
-        statsSummary: normalizeNullable(teamForm.statsSummary),
-        mainBrawlers: normalizeNullable(teamForm.mainBrawlers),
-        roster: buildRosterPayload(teamForm.roster),
-      }),
-    });
+    const normalizedTag = teamForm.tag ? teamForm.tag.trim().toUpperCase() : null;
+    const normalizedDivision = normalizeDivision(teamForm.division ?? null);
 
-    const payload = await response.json();
-    if (!response.ok) {
-      setErrorMessage(payload.error || "Création impossible.");
-      return;
+    try {
+      const response = await fetch("/api/admin/teams", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: teamForm.name,
+          tag: normalizeNullable(normalizedTag),
+          division: normalizeNullable(normalizedDivision),
+          logoUrl: normalizeNullable(teamForm.logoUrl),
+          statsSummary: normalizeNullable(teamForm.statsSummary),
+          mainBrawlers: normalizeNullable(teamForm.mainBrawlers),
+          roster: buildRosterPayload(teamForm.roster),
+        }),
+      });
+
+      const payload = await response.json();
+      if (!response.ok) {
+        console.error("Admin team create error:", payload.error || payload);
+        setErrorMessage(payload.error || "Création impossible.");
+        return;
+      }
+
+      setStatusMessage("Équipe créée.");
+      setTeamForm({ ...emptyTeamForm, roster: buildRosterTemplate() });
+      await loadData();
+    } catch (error) {
+      console.error("Admin team create error:", error);
+      setErrorMessage("Création impossible.");
     }
-
-    setStatusMessage("Équipe créée.");
-    setTeamForm({ ...emptyTeamForm, roster: buildRosterTemplate() });
-    await loadData();
   };
 
   const handleDeleteTeam = async (teamId: string) => {
