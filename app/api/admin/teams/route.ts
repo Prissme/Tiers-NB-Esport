@@ -28,18 +28,18 @@ const teamSchema = z.object({
   tag: z.string().min(1).optional().nullable(),
   division: z.string().min(1).optional().nullable(),
   logoUrl: z.string().url().optional().nullable(),
-  statsSummary: z.string().min(1).optional().nullable(),
-  mainBrawlers: z.string().min(1).optional().nullable(),
+  statsSummary: z.union([z.string(), z.record(z.unknown())]).optional().nullable(),
+  mainBrawlers: z.union([z.string(), z.array(z.string())]).optional().nullable(),
   roster: z.array(memberSchema).optional(),
 });
 
 const normalizeDivision = (division?: string | null) => {
   const raw = String(division ?? "").trim();
   const upper = raw.toUpperCase();
-  if (["D1", "DIV1", "DIVISION 1", "DIVISION_1", "division_1"].includes(upper) || raw === "division_1") {
+  if (["D1", "DIV1", "DIVISION 1", "DIVISION_1"].includes(upper) || raw === "division_1") {
     return "Division 1";
   }
-  if (["D2", "DIV2", "DIVISION 2", "DIVISION_2", "division_2"].includes(upper) || raw === "division_2") {
+  if (["D2", "DIV2", "DIVISION 2", "DIVISION_2"].includes(upper) || raw === "division_2") {
     return "Division 2";
   }
   if (raw === "Division 1" || raw === "Division 2") {
@@ -48,15 +48,40 @@ const normalizeDivision = (division?: string | null) => {
   return raw;
 };
 
-const normalizeMainBrawlers = (value?: string | null) => {
-  if (!value) {
-    return null;
+const normalizeTag = (value?: string | null) => {
+  const tag = (value ?? "").trim().toUpperCase();
+  return tag.length ? tag : null;
+};
+
+const normalizeMainBrawlers = (value?: string | string[] | null) => {
+  if (Array.isArray(value)) {
+    return value.map((entry) => String(entry).trim()).filter(Boolean);
   }
-  const entries = value
-    .split(",")
-    .map((entry) => entry.trim())
-    .filter(Boolean);
-  return entries.length ? entries : null;
+  if (typeof value === "string") {
+    return value
+      .split(",")
+      .map((entry) => entry.trim())
+      .filter(Boolean);
+  }
+  return [];
+};
+
+const normalizeStatsSummary = (value?: unknown) => {
+  if (value && typeof value === "object" && !Array.isArray(value)) {
+    return value;
+  }
+  if (typeof value === "string" && value.trim()) {
+    try {
+      const parsed = JSON.parse(value);
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        return parsed;
+      }
+      return {};
+    } catch {
+      return {};
+    }
+  }
+  return {};
 };
 
 export async function POST(request: Request) {
@@ -74,23 +99,22 @@ export async function POST(request: Request) {
   try {
     const supabase = withSchema(createAdminClient());
     const data = parsed.data;
-    const tag = data.tag ? data.tag.trim().toUpperCase() : null;
+    const tag = normalizeTag(data.tag);
     const normalizedDivision = normalizeDivision(data.division ?? null);
     const rpcPayload = {
-      p_tag: tag,
-      p_name: data.name ?? null,
-      p_division: normalizedDivision ? normalizedDivision : null,
-      p_logo_url: data.logoUrl ?? null,
-      p_main_brawlers: normalizeMainBrawlers(data.mainBrawlers),
-      p_stats_summary: data.statsSummary ?? null,
+      ...(data.id ? { [TEAM_COLUMNS.id]: data.id } : {}),
+      [TEAM_COLUMNS.name]: data.name ?? null,
+      [TEAM_COLUMNS.tag]: tag,
+      [TEAM_COLUMNS.division]: normalizedDivision ? normalizedDivision : null,
+      [TEAM_COLUMNS.logoUrl]: data.logoUrl ?? null,
+      [TEAM_COLUMNS.mainBrawlers]: normalizeMainBrawlers(data.mainBrawlers),
+      [TEAM_COLUMNS.statsSummary]: normalizeStatsSummary(data.statsSummary),
     };
 
-    console.log("RPC upsert_lfn_team payload:", rpcPayload);
-
-    const { data: rpcData, error } = await supabase.rpc("upsert_lfn_team", rpcPayload);
+    const { data: rpcData, error } = await supabase.rpc("save_lfn_team", { p: rpcPayload });
 
     if (error) {
-      console.error("/api/admin/teams upsert error", error);
+      console.error("/api/admin/teams save error", error);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
