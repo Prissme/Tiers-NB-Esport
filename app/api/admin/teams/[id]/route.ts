@@ -2,8 +2,26 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createAdminClient } from "../../../../../src/lib/supabase/admin";
 import { withSchema } from "../../../../../src/lib/supabase/schema";
-import { TEAM_COLUMNS, TEAMS_TABLE } from "../../../../../src/lib/supabase/config";
+import {
+  TEAM_COLUMNS,
+  TEAM_MEMBER_COLUMNS,
+  TEAM_MEMBERS_TABLE,
+  TEAMS_TABLE,
+} from "../../../../../src/lib/supabase/config";
 import { isAdminAuthenticated } from "../../../../../src/lib/admin/auth";
+
+const memberSchema = z
+  .object({
+    role: z.enum(["starter", "sub", "coach"]),
+    slot: z.number().int().min(1).max(3).nullable().optional(),
+    name: z.string().min(1),
+    mains: z.string().min(1).optional().nullable(),
+    description: z.string().min(1).optional().nullable(),
+  })
+  .refine(
+    (member) => (member.role === "coach" ? member.slot == null : member.slot != null),
+    "Slot must be defined for starters/subs and omitted for coaches."
+  );
 
 const updateSchema = z.object({
   name: z.string().min(1).optional(),
@@ -12,6 +30,7 @@ const updateSchema = z.object({
   logoUrl: z.string().url().nullable().optional(),
   statsSummary: z.string().min(1).nullable().optional(),
   mainBrawlers: z.string().min(1).nullable().optional(),
+  roster: z.array(memberSchema).optional(),
 });
 
 export async function PATCH(
@@ -50,6 +69,37 @@ export async function PATCH(
     }
     if (parsed.data.mainBrawlers !== undefined) {
       updatePayload[TEAM_COLUMNS.mainBrawlers] = parsed.data.mainBrawlers;
+    }
+
+    if (parsed.data.roster !== undefined) {
+      const { error: deleteError } = await supabase
+        .from(TEAM_MEMBERS_TABLE)
+        .delete()
+        .eq(TEAM_MEMBER_COLUMNS.teamId, params.id);
+
+      if (deleteError) {
+        console.error("/api/admin/teams roster delete error", deleteError);
+        return NextResponse.json({ error: deleteError.message }, { status: 500 });
+      }
+
+      if (parsed.data.roster.length > 0) {
+        const rosterPayload = parsed.data.roster.map((member) => ({
+          [TEAM_MEMBER_COLUMNS.teamId]: params.id,
+          [TEAM_MEMBER_COLUMNS.role]: member.role,
+          [TEAM_MEMBER_COLUMNS.slot]: member.slot ?? null,
+          [TEAM_MEMBER_COLUMNS.name]: member.name,
+          [TEAM_MEMBER_COLUMNS.mains]: member.mains ?? null,
+          [TEAM_MEMBER_COLUMNS.description]: member.description ?? null,
+        }));
+        const { error: rosterError } = await supabase
+          .from(TEAM_MEMBERS_TABLE)
+          .insert(rosterPayload);
+
+        if (rosterError) {
+          console.error("/api/admin/teams roster insert error", rosterError);
+          return NextResponse.json({ error: rosterError.message }, { status: 500 });
+        }
+      }
     }
 
     const { data: updated, error } = await supabase

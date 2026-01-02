@@ -13,6 +13,18 @@ type Team = {
   wins: number | null;
   losses: number | null;
   points: number | null;
+  roster: TeamRosterMember[];
+};
+
+type TeamRosterMember = {
+  role: "starter" | "sub" | "coach";
+  slot: number | null;
+  name: string;
+  mains: string | null;
+  description: string | null;
+  wins?: number | null;
+  losses?: number | null;
+  points?: number | null;
 };
 
 type MatchTeam = {
@@ -48,6 +60,7 @@ const emptyTeamForm = {
   logoUrl: "",
   statsSummary: "",
   mainBrawlers: "",
+  roster: [] as TeamRosterMember[],
 };
 
 const emptyMatchForm = {
@@ -70,6 +83,61 @@ const DIVISION_OPTIONS = [
   { value: "D1", label: "Division 1" },
   { value: "D2", label: "Division 2" },
 ];
+
+const ROSTER_SLOTS: Array<{ role: TeamRosterMember["role"]; slot: number | null; label: string }> =
+  [
+    { role: "starter", slot: 1, label: "Joueur 1" },
+    { role: "starter", slot: 2, label: "Joueur 2" },
+    { role: "starter", slot: 3, label: "Joueur 3" },
+    { role: "sub", slot: 1, label: "Sub 1" },
+    { role: "sub", slot: 2, label: "Sub 2" },
+    { role: "sub", slot: 3, label: "Sub 3" },
+    { role: "coach", slot: null, label: "Coach" },
+  ];
+
+const buildRosterTemplate = () =>
+  ROSTER_SLOTS.map((slot) => ({
+    role: slot.role,
+    slot: slot.slot,
+    name: "",
+    mains: "",
+    description: "",
+  }));
+
+const normalizeRoster = (roster?: TeamRosterMember[] | null) => {
+  const template = buildRosterTemplate();
+  if (!roster || roster.length === 0) {
+    return template;
+  }
+  return template.map((entry) => {
+    const existing = roster.find(
+      (member) => member.role === entry.role && (member.slot ?? null) === (entry.slot ?? null)
+    );
+    if (!existing) {
+      return entry;
+    }
+    return {
+      ...entry,
+      ...existing,
+      name: existing.name ?? "",
+      mains: existing.mains ?? "",
+      description: existing.description ?? "",
+    };
+  });
+};
+
+const findRosterEntry = (
+  roster: TeamRosterMember[],
+  role: TeamRosterMember["role"],
+  slot: number | null
+) =>
+  roster.find((member) => member.role === role && (member.slot ?? null) === (slot ?? null)) ?? {
+    role,
+    slot,
+    name: "",
+    mains: "",
+    description: "",
+  };
 
 const toLocalInputValue = (value: string | null) => {
   if (!value) {
@@ -125,7 +193,10 @@ export default function AdminPanel() {
   const [teams, setTeams] = useState<Team[]>([]);
   const [matchesLive, setMatchesLive] = useState<Match[]>([]);
   const [matchesRecent, setMatchesRecent] = useState<Match[]>([]);
-  const [teamForm, setTeamForm] = useState(emptyTeamForm);
+  const [teamForm, setTeamForm] = useState({
+    ...emptyTeamForm,
+    roster: buildRosterTemplate(),
+  });
   const [matchForm, setMatchForm] = useState(emptyMatchForm);
   const [teamFormErrors, setTeamFormErrors] = useState<string[]>([]);
   const [matchFormErrors, setMatchFormErrors] = useState<string[]>([]);
@@ -172,7 +243,12 @@ export default function AdminPanel() {
         throw new Error("Erreur lors du chargement des matchs.");
       }
 
-      setTeams(teamsPayload.teams ?? []);
+      setTeams(
+        (teamsPayload.teams ?? []).map((team: Team) => ({
+          ...team,
+          roster: normalizeRoster(team.roster),
+        }))
+      );
       setMatchesLive(livePayload.matches ?? []);
       setMatchesRecent(recentPayload.matches ?? []);
     } catch (error) {
@@ -285,9 +361,83 @@ export default function AdminPanel() {
     });
   }, [matchDivision, matchSearch, matchStatus, matchesLive, matchesRecent]);
 
-  const handleTeamField = (id: string, field: keyof Team, value: string) => {
+  type TeamEditableField =
+    | "name"
+    | "tag"
+    | "division"
+    | "logoUrl"
+    | "statsSummary"
+    | "mainBrawlers";
+
+  const handleTeamField = (id: string, field: TeamEditableField, value: string) => {
     setTeams((prev) =>
       prev.map((team) => (team.id === id ? { ...team, [field]: value } : team))
+    );
+  };
+
+  const updateRosterEntry = (
+    roster: TeamRosterMember[],
+    role: TeamRosterMember["role"],
+    slot: number | null,
+    field: "name" | "mains" | "description",
+    value: string
+  ) => {
+    let updated = false;
+    const nextRoster = roster.map((member) => {
+      if (member.role === role && (member.slot ?? null) === (slot ?? null)) {
+        updated = true;
+        return { ...member, [field]: value };
+      }
+      return member;
+    });
+
+    if (!updated) {
+      nextRoster.push({
+        role,
+        slot,
+        name: field === "name" ? value : "",
+        mains: field === "mains" ? value : "",
+        description: field === "description" ? value : "",
+      });
+    }
+
+    return normalizeRoster(nextRoster);
+  };
+
+  const buildRosterPayload = (roster: TeamRosterMember[]) =>
+    roster
+      .map((member) => ({
+        role: member.role,
+        slot: member.slot ?? null,
+        name: sanitizeInput(member.name ?? ""),
+        mains: member.mains ? member.mains.trim() : "",
+        description: member.description ? member.description.trim() : "",
+      }))
+      .filter((member) => member.name.length > 0)
+      .map((member) => ({
+        role: member.role,
+        slot: member.slot ?? null,
+        name: member.name,
+        mains: normalizeNullable(member.mains),
+        description: normalizeNullable(member.description),
+      }));
+
+  const handleTeamRosterField = (
+    id: string,
+    role: TeamRosterMember["role"],
+    slot: number | null,
+    field: "name" | "mains" | "description",
+    value: string
+  ) => {
+    setTeams((prev) =>
+      prev.map((team) =>
+        team.id === id
+          ? {
+              ...team,
+              roster: updateRosterEntry(team.roster, role, slot, field, value),
+            }
+          : team
+      )
     );
   };
 
@@ -305,6 +455,7 @@ export default function AdminPanel() {
         logoUrl: normalizeNullable(team.logoUrl),
         statsSummary: normalizeNullable(team.statsSummary),
         mainBrawlers: normalizeNullable(team.mainBrawlers),
+        roster: buildRosterPayload(team.roster),
       }),
     });
 
@@ -349,6 +500,7 @@ export default function AdminPanel() {
         logoUrl: normalizeNullable(teamForm.logoUrl),
         statsSummary: normalizeNullable(teamForm.statsSummary),
         mainBrawlers: normalizeNullable(teamForm.mainBrawlers),
+        roster: buildRosterPayload(teamForm.roster),
       }),
     });
 
@@ -359,7 +511,7 @@ export default function AdminPanel() {
     }
 
     setStatusMessage("Équipe créée.");
-    setTeamForm(emptyTeamForm);
+    setTeamForm({ ...emptyTeamForm, roster: buildRosterTemplate() });
     await loadData();
   };
 
@@ -661,6 +813,85 @@ export default function AdminPanel() {
                 className="min-h-[96px] rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white"
               />
             </div>
+            <div className="space-y-3">
+              <div>
+                <p className="text-sm font-semibold text-white">Roster</p>
+                <p className="text-xs text-slate-400">
+                  Mains et descriptions par joueur. Les perfs se remplissent selon l'équipe.
+                </p>
+              </div>
+              <div className="grid gap-3 md:grid-cols-2">
+                {ROSTER_SLOTS.map((slot) => {
+                  const entry = findRosterEntry(teamForm.roster, slot.role, slot.slot);
+                  return (
+                    <div
+                      key={`${slot.role}-${slot.slot ?? "coach"}`}
+                      className="rounded-xl border border-white/10 bg-slate-950/50 p-3"
+                    >
+                      <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
+                        {slot.label}
+                      </p>
+                      <div className="mt-2 space-y-2">
+                        <input
+                          value={entry.name}
+                          onChange={(event) =>
+                            setTeamForm((prev) => ({
+                              ...prev,
+                              roster: updateRosterEntry(
+                                prev.roster,
+                                slot.role,
+                                slot.slot,
+                                "name",
+                                sanitizeInput(event.target.value)
+                              ),
+                            }))
+                          }
+                          placeholder="Pseudo"
+                          className="w-full rounded-lg border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white"
+                        />
+                        <input
+                          value={entry.mains ?? ""}
+                          onChange={(event) =>
+                            setTeamForm((prev) => ({
+                              ...prev,
+                              roster: updateRosterEntry(
+                                prev.roster,
+                                slot.role,
+                                slot.slot,
+                                "mains",
+                                event.target.value
+                              ),
+                            }))
+                          }
+                          placeholder="Mains (ex: Shelly, Max)"
+                          className="w-full rounded-lg border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white"
+                        />
+                        <textarea
+                          value={entry.description ?? ""}
+                          onChange={(event) =>
+                            setTeamForm((prev) => ({
+                              ...prev,
+                              roster: updateRosterEntry(
+                                prev.roster,
+                                slot.role,
+                                slot.slot,
+                                "description",
+                                event.target.value
+                              ),
+                            }))
+                          }
+                          placeholder="Description"
+                          className="min-h-[64px] w-full rounded-lg border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white"
+                        />
+                        <p className="text-[11px] text-slate-500">
+                          Perfs auto après enregistrement.
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
             <button
               type="button"
               onClick={handleCreateTeam}
@@ -783,6 +1014,73 @@ export default function AdminPanel() {
                         placeholder="Main brawlers"
                         className="min-h-[72px] rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white"
                       />
+                    </div>
+                    <div className="space-y-3">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <p className="text-sm font-semibold text-white">Roster</p>
+                        <span className="text-xs text-slate-400">
+                          Perfs auto: {team.wins ?? 0}W · {team.losses ?? 0}L · {team.points ?? 0} pts
+                        </span>
+                      </div>
+                      <div className="grid gap-3 md:grid-cols-2">
+                        {ROSTER_SLOTS.map((slot) => {
+                          const entry = findRosterEntry(team.roster, slot.role, slot.slot);
+                          return (
+                            <div
+                              key={`${team.id}-${slot.role}-${slot.slot ?? "coach"}`}
+                              className="rounded-xl border border-white/10 bg-slate-950/50 p-3"
+                            >
+                              <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
+                                {slot.label}
+                              </p>
+                              <div className="mt-2 space-y-2">
+                                <input
+                                  value={entry.name}
+                                  onChange={(event) =>
+                                    handleTeamRosterField(
+                                      team.id,
+                                      slot.role,
+                                      slot.slot,
+                                      "name",
+                                      sanitizeInput(event.target.value)
+                                    )
+                                  }
+                                  placeholder="Pseudo"
+                                  className="w-full rounded-lg border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white"
+                                />
+                                <input
+                                  value={entry.mains ?? ""}
+                                  onChange={(event) =>
+                                    handleTeamRosterField(
+                                      team.id,
+                                      slot.role,
+                                      slot.slot,
+                                      "mains",
+                                      event.target.value
+                                    )
+                                  }
+                                  placeholder="Mains (ex: Shelly, Max)"
+                                  className="w-full rounded-lg border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white"
+                                />
+                                <textarea
+                                  value={entry.description ?? ""}
+                                  onChange={(event) =>
+                                    handleTeamRosterField(
+                                      team.id,
+                                      slot.role,
+                                      slot.slot,
+                                      "description",
+                                      event.target.value
+                                    )
+                                  }
+                                  placeholder="Description"
+                                  className="min-h-[64px] w-full rounded-lg border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white"
+                                />
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
                     <div className="flex flex-wrap gap-2">
                       <button

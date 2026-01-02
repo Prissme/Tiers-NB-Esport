@@ -4,6 +4,8 @@ export const TEAMS_TABLE = process.env.LFN_TEAMS_TABLE || "lfn_teams";
 export const MATCHES_TABLE = process.env.LFN_MATCHES_TABLE || "lfn_matches";
 export const STANDINGS_VIEW = process.env.LFN_STANDINGS_VIEW || "lfn_standings";
 export const TOURNAMENTS_TABLE = process.env.LFN_TOURNAMENTS_TABLE || "tournaments";
+export const TEAM_MEMBERS_TABLE =
+  process.env.LFN_TEAM_MEMBERS_TABLE || "lfn_team_members";
 
 export const TEAM_COLUMNS = {
   id: process.env.LFN_TEAM_ID_COLUMN || "id",
@@ -17,6 +19,16 @@ export const TEAM_COLUMNS = {
   losses: process.env.LFN_TEAM_LOSSES_COLUMN || "losses",
   points: process.env.LFN_TEAM_POINTS_COLUMN || "points",
   deletedAt: process.env.LFN_TEAM_DELETED_AT_COLUMN || "",
+};
+
+export const TEAM_MEMBER_COLUMNS = {
+  id: process.env.LFN_TEAM_MEMBER_ID_COLUMN || "id",
+  teamId: process.env.LFN_TEAM_MEMBER_TEAM_ID_COLUMN || "team_id",
+  role: process.env.LFN_TEAM_MEMBER_ROLE_COLUMN || "role",
+  slot: process.env.LFN_TEAM_MEMBER_SLOT_COLUMN || "slot",
+  name: process.env.LFN_TEAM_MEMBER_NAME_COLUMN || "player_name",
+  mains: process.env.LFN_TEAM_MEMBER_MAINS_COLUMN || "mains",
+  description: process.env.LFN_TEAM_MEMBER_DESCRIPTION_COLUMN || "description",
 };
 
 export const MATCH_COLUMNS = {
