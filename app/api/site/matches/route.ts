@@ -8,7 +8,6 @@ import {
   MATCH_STATUS_RECENT_VALUES,
   TEAM_COLUMNS,
   TEAMS_TABLE,
-  MATCHES_TABLE,
 } from "../../../../src/lib/supabase/config";
 
 const querySchema = z.object({
@@ -56,23 +55,13 @@ export async function GET(request: Request) {
 
     const teamsPromise = supabase.from(TEAMS_TABLE).select("*");
 
-    let matchQuery = supabase.from(MATCHES_TABLE).select("*");
-
-    const statusColumn = MATCH_COLUMNS.status;
-    if (statusColumn) {
-      if (status === "live") {
-        matchQuery = matchQuery.in(statusColumn, MATCH_STATUS_LIVE_VALUES);
-      } else {
-        matchQuery = matchQuery.in(statusColumn, MATCH_STATUS_RECENT_VALUES);
-      }
-    }
-
-    if (MATCH_COLUMNS.scheduledAt) {
-      matchQuery = matchQuery.order(MATCH_COLUMNS.scheduledAt, { ascending: status === "live" });
-    }
+    const matchQuery = supabase
+      .from("lfn_matches_view")
+      .select("*")
+      .order("played_at", { ascending: true });
 
     const [{ data: teams, error: teamsError }, { data: matches, error: matchesError }] =
-      await Promise.all([teamsPromise, matchQuery.limit(limit)]);
+      await Promise.all([teamsPromise, matchQuery]);
 
     if (teamsError || matchesError) {
       console.warn("/api/site/matches error", teamsError || matchesError);
@@ -86,7 +75,19 @@ export async function GET(request: Request) {
       })
     );
 
-    const matchesResponse = (matches ?? []).map((match) => {
+    const statusColumn = MATCH_COLUMNS.status;
+    const filteredMatches = (matches ?? []).filter((match) => {
+      if (!statusColumn) {
+        return true;
+      }
+      const row = match as Record<string, unknown>;
+      const value = row[statusColumn] ? String(row[statusColumn]) : "";
+      return status === "live"
+        ? MATCH_STATUS_LIVE_VALUES.includes(value)
+        : MATCH_STATUS_RECENT_VALUES.includes(value);
+    });
+
+    const matchesResponse = filteredMatches.slice(0, limit).map((match) => {
       const row = match as Record<string, unknown>;
       const teamAKey = row[MATCH_COLUMNS.teamAId];
       const teamBKey = row[MATCH_COLUMNS.teamBId];
