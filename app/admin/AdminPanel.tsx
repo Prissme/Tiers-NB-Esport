@@ -157,6 +157,37 @@ const normalizeNullable = (value: string | null) => {
   return trimmed ? trimmed : null;
 };
 
+const normalizeMainBrawlers = (value: unknown) => {
+  if (Array.isArray(value)) {
+    return value.map((entry) => String(entry).trim()).filter(Boolean);
+  }
+  if (typeof value === "string") {
+    return value
+      .split(",")
+      .map((entry) => entry.trim())
+      .filter(Boolean);
+  }
+  return [];
+};
+
+const normalizeStatsSummary = (value: unknown) => {
+  if (value && typeof value === "object" && !Array.isArray(value)) {
+    return value;
+  }
+  if (typeof value === "string" && value.trim()) {
+    try {
+      const parsed = JSON.parse(value);
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        return parsed;
+      }
+      return {};
+    } catch {
+      return {};
+    }
+  }
+  return {};
+};
+
 const normalizeDivision = (division?: string | null) => {
   const raw = String(division ?? "").trim();
   const upper = raw.toUpperCase();
@@ -170,6 +201,17 @@ const normalizeDivision = (division?: string | null) => {
     return raw;
   }
   return raw;
+};
+
+const toDivisionOption = (division?: string | null) => {
+  const normalized = normalizeDivision(division ?? "");
+  if (normalized === "Division 1") {
+    return "D1";
+  }
+  if (normalized === "Division 2") {
+    return "D2";
+  }
+  return division ?? "";
 };
 
 const formatSchedule = (value: string | null) => {
@@ -206,6 +248,7 @@ const sanitizeInput = (value: string) => value.replace(/\s+/g, " ").trimStart();
 export default function AdminPanel() {
   const [activeTab, setActiveTab] = useState<"teams" | "matches">("teams");
   const [teams, setTeams] = useState<Team[]>([]);
+  const [teamsSnapshot, setTeamsSnapshot] = useState<Team[]>([]);
   const [matchesLive, setMatchesLive] = useState<Match[]>([]);
   const [matchesRecent, setMatchesRecent] = useState<Match[]>([]);
   const [teamForm, setTeamForm] = useState({
@@ -227,6 +270,8 @@ export default function AdminPanel() {
   const [teamDivision, setTeamDivision] = useState("all");
   const [teamSortKey, setTeamSortKey] = useState<"name" | "wins" | "points">("name");
   const [teamSortDir, setTeamSortDir] = useState<"asc" | "desc">("asc");
+  const [openTeamIds, setOpenTeamIds] = useState<string[]>([]);
+  const [multiOpenTeams, setMultiOpenTeams] = useState(false);
   const [matchSearch, setMatchSearch] = useState("");
   const [matchDivision, setMatchDivision] = useState("all");
   const [matchStatus, setMatchStatus] = useState("all");
@@ -249,12 +294,12 @@ export default function AdminPanel() {
       }
 
       const teamsList = Array.isArray(teamsPayload?.teams) ? teamsPayload.teams : [];
-      setTeams(
-        teamsList.map((team: Team) => ({
+      const normalizedTeams = teamsList.map((team: Team) => ({
           ...team,
           roster: normalizeRoster(team.roster),
-        }))
-      );
+        }));
+      setTeams(normalizedTeams);
+      setTeamsSnapshot(normalizedTeams);
 
       if (teamsList.length === 0) {
         setMatchesLive([]);
@@ -298,6 +343,10 @@ export default function AdminPanel() {
   useEffect(() => {
     void loadData();
   }, [loadData]);
+
+  useEffect(() => {
+    setOpenTeamIds((prev) => prev.filter((id) => teams.some((team) => team.id === id)));
+  }, [teams]);
 
   useEffect(() => {
     setMatchEdits((prev) => {
@@ -362,7 +411,9 @@ export default function AdminPanel() {
         !searchLower ||
         team.name.toLowerCase().includes(searchLower) ||
         (team.tag ?? "").toLowerCase().includes(searchLower);
-      const matchesDivision = teamDivision === "all" || (team.division ?? "") === teamDivision;
+      const matchesDivision =
+        teamDivision === "all" ||
+        normalizeDivision(team.division ?? "") === normalizeDivision(teamDivision);
       return matchesSearch && matchesDivision;
     });
     const sorted = [...filtered].sort((teamA, teamB) => {
@@ -377,6 +428,32 @@ export default function AdminPanel() {
     });
     return sorted;
   }, [teamDivision, teamSearch, teamSortDir, teamSortKey, teams]);
+
+  const toggleTeamOpen = (id: string) => {
+    setOpenTeamIds((prev) => {
+      const isOpen = prev.includes(id);
+      if (multiOpenTeams) {
+        return isOpen ? prev.filter((teamId) => teamId !== id) : [...prev, id];
+      }
+      return isOpen ? [] : [id];
+    });
+  };
+
+  const expandAllTeams = () => {
+    setMultiOpenTeams(true);
+    setOpenTeamIds(filteredTeams.map((team) => team.id));
+  };
+
+  const collapseAllTeams = () => {
+    setOpenTeamIds([]);
+  };
+
+  const handleMultiOpenToggle = (enabled: boolean) => {
+    setMultiOpenTeams(enabled);
+    if (!enabled) {
+      setOpenTeamIds((prev) => (prev.length > 0 ? [prev[0]] : []));
+    }
+  };
 
   const filteredMatches = useMemo(() => {
     const searchLower = matchSearch.trim().toLowerCase();
@@ -488,8 +565,8 @@ export default function AdminPanel() {
           tag: normalizeNullable(normalizedTag),
           division: normalizeNullable(normalizedDivision),
           logoUrl: normalizeNullable(team.logoUrl),
-          statsSummary: normalizeNullable(team.statsSummary),
-          mainBrawlers: normalizeNullable(team.mainBrawlers),
+          statsSummary: normalizeStatsSummary(team.statsSummary),
+          mainBrawlers: normalizeMainBrawlers(team.mainBrawlers),
           roster: buildRosterPayload(team.roster),
         }),
       });
@@ -505,7 +582,7 @@ export default function AdminPanel() {
       await loadData();
     } catch (error) {
       console.error("Admin team update error:", error);
-      setErrorMessage("Échec de la mise à jour.");
+      setErrorMessage(error instanceof Error ? error.message : "Échec de la mise à jour.");
     }
   };
 
@@ -542,8 +619,8 @@ export default function AdminPanel() {
           tag: normalizeNullable(normalizedTag),
           division: normalizeNullable(normalizedDivision),
           logoUrl: normalizeNullable(teamForm.logoUrl),
-          statsSummary: normalizeNullable(teamForm.statsSummary),
-          mainBrawlers: normalizeNullable(teamForm.mainBrawlers),
+          statsSummary: normalizeStatsSummary(teamForm.statsSummary),
+          mainBrawlers: normalizeMainBrawlers(teamForm.mainBrawlers),
           roster: buildRosterPayload(teamForm.roster),
         }),
       });
@@ -560,8 +637,19 @@ export default function AdminPanel() {
       await loadData();
     } catch (error) {
       console.error("Admin team create error:", error);
-      setErrorMessage("Création impossible.");
+      setErrorMessage(error instanceof Error ? error.message : "Création impossible.");
     }
+  };
+
+  const handleCancelTeamEdits = (teamId: string) => {
+    setTeams((prev) => {
+      const original = teamsSnapshot.find((team) => team.id === teamId);
+      if (!original) {
+        return prev;
+      }
+      return prev.map((team) => (team.id === teamId ? original : team));
+    });
+    setStatusMessage("Modifications annulées.");
   };
 
   const handleDeleteTeam = async (teamId: string) => {
@@ -988,174 +1076,225 @@ export default function AdminPanel() {
                 >
                   {teamSortDir === "asc" ? "Ascendant" : "Descendant"}
                 </button>
+                <label className="flex items-center gap-2 rounded-full border border-white/10 px-3 py-2 text-[11px] text-slate-200">
+                  <input
+                    type="checkbox"
+                    checked={multiOpenTeams}
+                    onChange={(event) => handleMultiOpenToggle(event.target.checked)}
+                    className="h-3 w-3 rounded border-white/20 bg-transparent text-emerald-300"
+                  />
+                  Multi-ouverture
+                </label>
+                <button
+                  type="button"
+                  onClick={expandAllTeams}
+                  className="rounded-full border border-white/10 px-4 py-2 text-xs text-slate-200"
+                >
+                  Tout déplier
+                </button>
+                <button
+                  type="button"
+                  onClick={collapseAllTeams}
+                  className="rounded-full border border-white/10 px-4 py-2 text-xs text-slate-200"
+                >
+                  Tout replier
+                </button>
               </div>
             </div>
             <div className="space-y-4">
               {filteredTeams.length === 0 && !errorMessage ? (
                 <p className="text-sm text-slate-400">Aucune équipe.</p>
               ) : (
-                filteredTeams.map((team) => (
-                  <div
-                    key={team.id}
-                    className="space-y-4 rounded-2xl border border-white/10 bg-white/5 p-4"
-                  >
-                    <div className="flex flex-wrap items-start justify-between gap-3">
-                      <div>
-                        <p className="text-sm font-semibold text-white">{team.name}</p>
-                        <p className="text-xs text-slate-400">
-                          ID: {team.id} · Division {team.division ?? "?"} · Tag {team.tag ?? "?"}
-                        </p>
-                      </div>
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="rounded-full bg-white/10 px-3 py-1 text-xs text-slate-200">
-                          {team.wins ?? 0}W - {team.losses ?? 0}L
-                        </span>
-                        <span className="rounded-full bg-white/10 px-3 py-1 text-xs text-slate-200">
-                          {team.points ?? 0} pts
-                        </span>
-                      </div>
-                    </div>
-                    <div className="grid gap-3 md:grid-cols-4">
-                      <input
-                        value={team.name}
-                        onChange={(event) => handleTeamField(team.id, "name", event.target.value)}
-                        className="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white"
-                      />
-                      <input
-                        value={team.tag ?? ""}
-                        onChange={(event) => handleTeamField(team.id, "tag", event.target.value)}
-                        placeholder="Tag"
-                        className="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white"
-                      />
-                      <select
-                        value={team.division ?? ""}
-                        onChange={(event) => handleTeamField(team.id, "division", event.target.value)}
-                        className="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white"
+                filteredTeams.map((team) => {
+                  const isOpen = openTeamIds.includes(team.id);
+                  const normalizedDivision = normalizeDivision(team.division ?? "");
+                  return (
+                    <div
+                      key={team.id}
+                      className="rounded-2xl border border-white/10 bg-white/5 p-4"
+                    >
+                      <button
+                        type="button"
+                        onClick={() => toggleTeamOpen(team.id)}
+                        className="flex w-full flex-wrap items-center justify-between gap-3 text-left"
+                        aria-expanded={isOpen}
                       >
-                        <option value="">Division</option>
-                        {DIVISION_OPTIONS.map((option) => (
-                          <option key={option.value} value={option.value}>
-                            {option.label}
-                          </option>
-                        ))}
-                      </select>
-                      <input
-                        value={team.logoUrl ?? ""}
-                        onChange={(event) => handleTeamField(team.id, "logoUrl", event.target.value)}
-                        placeholder="Logo URL"
-                        className="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white"
-                      />
-                    </div>
-                    <div className="grid gap-3 md:grid-cols-2">
-                      <textarea
-                        value={team.statsSummary ?? ""}
-                        onChange={(event) =>
-                          handleTeamField(team.id, "statsSummary", event.target.value)
-                        }
-                        placeholder="Stats personnalisées"
-                        className="min-h-[72px] rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white"
-                      />
-                      <textarea
-                        value={team.mainBrawlers ?? ""}
-                        onChange={(event) =>
-                          handleTeamField(team.id, "mainBrawlers", event.target.value)
-                        }
-                        placeholder="Main brawlers"
-                        className="min-h-[72px] rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white"
-                      />
-                    </div>
-                    <div className="space-y-3">
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <p className="text-sm font-semibold text-white">Roster</p>
-                        <span className="text-xs text-slate-400">
-                          Perfs auto: {team.wins ?? 0}W · {team.losses ?? 0}L · {team.points ?? 0} pts
-                        </span>
-                      </div>
-                      <div className="grid gap-3 md:grid-cols-2">
-                        {ROSTER_SLOTS.map((slot) => {
-                          const entry = findRosterEntry(team.roster, slot.role, slot.slot);
-                          return (
-                            <div
-                              key={`${team.id}-${slot.role}-${slot.slot ?? "coach"}`}
-                              className="rounded-xl border border-white/10 bg-slate-950/50 p-3"
+                        <div>
+                          <p className="text-sm font-semibold text-white">{team.name}</p>
+                          <p className="text-xs text-slate-400">
+                            Tag {team.tag ?? "?"} · {normalizedDivision || "Division ?"} · Logo{" "}
+                            {team.logoUrl ?? "—"}
+                          </p>
+                          <p className="text-[11px] text-slate-500">ID: {team.id}</p>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="rounded-full bg-white/10 px-3 py-1 text-xs text-slate-200">
+                            {team.wins ?? 0}W - {team.losses ?? 0}L
+                          </span>
+                          <span className="rounded-full bg-white/10 px-3 py-1 text-xs text-slate-200">
+                            {team.points ?? 0} pts
+                          </span>
+                          <span className="rounded-full border border-white/10 px-3 py-1 text-[11px] text-slate-200">
+                            {isOpen ? "Replier" : "Déplier"}
+                          </span>
+                        </div>
+                      </button>
+                      {isOpen ? (
+                        <div className="mt-4 space-y-4">
+                          <div className="grid gap-3 md:grid-cols-4">
+                            <input
+                              value={team.name}
+                              onChange={(event) => handleTeamField(team.id, "name", event.target.value)}
+                              className="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white"
+                            />
+                            <input
+                              value={team.tag ?? ""}
+                              onChange={(event) => handleTeamField(team.id, "tag", event.target.value)}
+                              placeholder="Tag"
+                              className="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white"
+                            />
+                            <select
+                              value={toDivisionOption(team.division)}
+                              onChange={(event) =>
+                                handleTeamField(team.id, "division", event.target.value)
+                              }
+                              className="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white"
                             >
-                              <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
-                                {slot.label}
-                              </p>
-                              <div className="mt-2 space-y-2">
-                                <input
-                                  value={entry.name}
-                                  onChange={(event) =>
-                                    handleTeamRosterField(
-                                      team.id,
-                                      slot.role,
-                                      slot.slot,
-                                      "name",
-                                      sanitizeInput(event.target.value)
-                                    )
-                                  }
-                                  placeholder="Pseudo"
-                                  className="w-full rounded-lg border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white"
-                                />
-                                <input
-                                  value={entry.mains ?? ""}
-                                  onChange={(event) =>
-                                    handleTeamRosterField(
-                                      team.id,
-                                      slot.role,
-                                      slot.slot,
-                                      "mains",
-                                      event.target.value
-                                    )
-                                  }
-                                  placeholder="Mains (ex: Shelly, Max)"
-                                  className="w-full rounded-lg border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white"
-                                />
-                                <textarea
-                                  value={entry.description ?? ""}
-                                  onChange={(event) =>
-                                    handleTeamRosterField(
-                                      team.id,
-                                      slot.role,
-                                      slot.slot,
-                                      "description",
-                                      event.target.value
-                                    )
-                                  }
-                                  placeholder="Description"
-                                  className="min-h-[64px] w-full rounded-lg border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white"
-                                />
-                              </div>
+                              <option value="">Division</option>
+                              {DIVISION_OPTIONS.map((option) => (
+                                <option key={option.value} value={option.value}>
+                                  {option.label}
+                                </option>
+                              ))}
+                            </select>
+                            <input
+                              value={team.logoUrl ?? ""}
+                              onChange={(event) => handleTeamField(team.id, "logoUrl", event.target.value)}
+                              placeholder="Logo URL"
+                              className="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white"
+                            />
+                          </div>
+                          <div className="grid gap-3 md:grid-cols-2">
+                            <textarea
+                              value={team.statsSummary ?? ""}
+                              onChange={(event) =>
+                                handleTeamField(team.id, "statsSummary", event.target.value)
+                              }
+                              placeholder="Stats personnalisées"
+                              className="min-h-[72px] rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white"
+                            />
+                            <textarea
+                              value={team.mainBrawlers ?? ""}
+                              onChange={(event) =>
+                                handleTeamField(team.id, "mainBrawlers", event.target.value)
+                              }
+                              placeholder="Main brawlers"
+                              className="min-h-[72px] rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white"
+                            />
+                          </div>
+                          <div className="space-y-3">
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <p className="text-sm font-semibold text-white">Roster</p>
+                              <span className="text-xs text-slate-400">
+                                Perfs auto: {team.wins ?? 0}W · {team.losses ?? 0}L ·{" "}
+                                {team.points ?? 0} pts
+                              </span>
                             </div>
-                          );
-                        })}
-                      </div>
+                            <div className="grid gap-3 md:grid-cols-2">
+                              {ROSTER_SLOTS.map((slot) => {
+                                const entry = findRosterEntry(team.roster, slot.role, slot.slot);
+                                return (
+                                  <div
+                                    key={`${team.id}-${slot.role}-${slot.slot ?? "coach"}`}
+                                    className="rounded-xl border border-white/10 bg-slate-950/50 p-3"
+                                  >
+                                    <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
+                                      {slot.label}
+                                    </p>
+                                    <div className="mt-2 space-y-2">
+                                      <input
+                                        value={entry.name}
+                                        onChange={(event) =>
+                                          handleTeamRosterField(
+                                            team.id,
+                                            slot.role,
+                                            slot.slot,
+                                            "name",
+                                            sanitizeInput(event.target.value)
+                                          )
+                                        }
+                                        placeholder="Pseudo"
+                                        className="w-full rounded-lg border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white"
+                                      />
+                                      <input
+                                        value={entry.mains ?? ""}
+                                        onChange={(event) =>
+                                          handleTeamRosterField(
+                                            team.id,
+                                            slot.role,
+                                            slot.slot,
+                                            "mains",
+                                            event.target.value
+                                          )
+                                        }
+                                        placeholder="Mains (ex: Shelly, Max)"
+                                        className="w-full rounded-lg border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white"
+                                      />
+                                      <textarea
+                                        value={entry.description ?? ""}
+                                        onChange={(event) =>
+                                          handleTeamRosterField(
+                                            team.id,
+                                            slot.role,
+                                            slot.slot,
+                                            "description",
+                                            event.target.value
+                                          )
+                                        }
+                                        placeholder="Description"
+                                        className="min-h-[64px] w-full rounded-lg border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white"
+                                      />
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            <button
+                              type="button"
+                              onClick={() => handleSaveTeam(team)}
+                              className="rounded-full bg-emerald-400/90 px-4 py-2 text-xs font-semibold text-slate-900"
+                            >
+                              Sauvegarder
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleCancelTeamEdits(team.id)}
+                              className="rounded-full border border-white/10 px-4 py-2 text-xs text-slate-200"
+                            >
+                              Annuler
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleCopyTeamId(team.id)}
+                              className="rounded-full border border-white/10 px-4 py-2 text-xs text-slate-200"
+                            >
+                              Copier l'ID
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteTeam(team.id)}
+                              className="rounded-full border border-rose-400/40 px-4 py-2 text-xs text-rose-200"
+                            >
+                              Supprimer
+                            </button>
+                          </div>
+                        </div>
+                      ) : null}
                     </div>
-                    <div className="flex flex-wrap gap-2">
-                      <button
-                        type="button"
-                        onClick={() => handleSaveTeam(team)}
-                        className="rounded-full bg-emerald-400/90 px-4 py-2 text-xs font-semibold text-slate-900"
-                      >
-                        Sauver
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleCopyTeamId(team.id)}
-                        className="rounded-full border border-white/10 px-4 py-2 text-xs text-slate-200"
-                      >
-                        Copier l'ID
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteTeam(team.id)}
-                        className="rounded-full border border-rose-400/40 px-4 py-2 text-xs text-rose-200"
-                      >
-                        Supprimer
-                      </button>
-                    </div>
-                  </div>
-                ))
+                  );
+                })
               )}
             </div>
           </div>

@@ -28,10 +28,61 @@ const updateSchema = z.object({
   tag: z.string().min(1).nullable().optional(),
   division: z.string().min(1).nullable().optional(),
   logoUrl: z.string().url().nullable().optional(),
-  statsSummary: z.string().min(1).nullable().optional(),
-  mainBrawlers: z.string().min(1).nullable().optional(),
+  statsSummary: z.union([z.string(), z.record(z.unknown())]).nullable().optional(),
+  mainBrawlers: z.union([z.string(), z.array(z.string())]).nullable().optional(),
   roster: z.array(memberSchema).optional(),
 });
+
+const normalizeDivision = (division?: string | null) => {
+  const raw = String(division ?? "").trim();
+  const upper = raw.toUpperCase();
+  if (["D1", "DIV1", "DIVISION 1", "DIVISION_1"].includes(upper) || raw === "division_1") {
+    return "Division 1";
+  }
+  if (["D2", "DIV2", "DIVISION 2", "DIVISION_2"].includes(upper) || raw === "division_2") {
+    return "Division 2";
+  }
+  if (raw === "Division 1" || raw === "Division 2") {
+    return raw;
+  }
+  return raw;
+};
+
+const normalizeTag = (value?: string | null) => {
+  const tag = (value ?? "").trim().toUpperCase();
+  return tag.length ? tag : null;
+};
+
+const normalizeMainBrawlers = (value?: string | string[] | null) => {
+  if (Array.isArray(value)) {
+    return value.map((entry) => String(entry).trim()).filter(Boolean);
+  }
+  if (typeof value === "string") {
+    return value
+      .split(",")
+      .map((entry) => entry.trim())
+      .filter(Boolean);
+  }
+  return [];
+};
+
+const normalizeStatsSummary = (value?: unknown) => {
+  if (value && typeof value === "object" && !Array.isArray(value)) {
+    return value;
+  }
+  if (typeof value === "string" && value.trim()) {
+    try {
+      const parsed = JSON.parse(value);
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        return parsed;
+      }
+      return {};
+    } catch {
+      return {};
+    }
+  }
+  return {};
+};
 
 export async function PATCH(
   request: Request,
@@ -50,25 +101,28 @@ export async function PATCH(
 
   try {
     const supabase = withSchema(createAdminClient());
-    const updatePayload: Record<string, unknown> = {};
+    const updatePayload: Record<string, unknown> = {
+      [TEAM_COLUMNS.id]: params.id,
+    };
 
     if (parsed.data.name !== undefined) {
       updatePayload[TEAM_COLUMNS.name] = parsed.data.name;
     }
     if (parsed.data.tag !== undefined) {
-      updatePayload[TEAM_COLUMNS.tag] = parsed.data.tag;
+      updatePayload[TEAM_COLUMNS.tag] = normalizeTag(parsed.data.tag);
     }
     if (parsed.data.division !== undefined) {
-      updatePayload[TEAM_COLUMNS.division] = parsed.data.division;
+      const normalizedDivision = normalizeDivision(parsed.data.division);
+      updatePayload[TEAM_COLUMNS.division] = normalizedDivision || null;
     }
     if (parsed.data.logoUrl !== undefined) {
       updatePayload[TEAM_COLUMNS.logoUrl] = parsed.data.logoUrl;
     }
     if (parsed.data.statsSummary !== undefined) {
-      updatePayload[TEAM_COLUMNS.statsSummary] = parsed.data.statsSummary;
+      updatePayload[TEAM_COLUMNS.statsSummary] = normalizeStatsSummary(parsed.data.statsSummary);
     }
     if (parsed.data.mainBrawlers !== undefined) {
-      updatePayload[TEAM_COLUMNS.mainBrawlers] = parsed.data.mainBrawlers;
+      updatePayload[TEAM_COLUMNS.mainBrawlers] = normalizeMainBrawlers(parsed.data.mainBrawlers);
     }
 
     if (parsed.data.roster !== undefined) {
@@ -102,19 +156,20 @@ export async function PATCH(
       }
     }
 
-    const { data: updated, error } = await supabase
-      .from(TEAMS_TABLE)
-      .update(updatePayload)
-      .eq(TEAM_COLUMNS.id, params.id)
-      .select("*")
-      .single();
+    const { data: updated, error } = await supabase.rpc("save_lfn_team", { p: updatePayload });
 
     if (error) {
-      console.error("/api/admin/teams update error", error);
+      console.error("/api/admin/teams save error", error);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json({ team: updated });
+    const team = Array.isArray(updated) ? updated[0] : updated;
+
+    if (!team) {
+      return NextResponse.json({ error: "Unable to update team." }, { status: 500 });
+    }
+
+    return NextResponse.json({ team });
   } catch (error) {
     console.error("/api/admin/teams error", error);
     return NextResponse.json({ error: "Unable to update team." }, { status: 500 });
