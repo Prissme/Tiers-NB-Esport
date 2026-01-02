@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createServerClient } from "../../../../src/lib/supabase/server";
+import { createAdminClient } from "../../../../src/lib/supabase/admin";
 import { withSchema } from "../../../../src/lib/supabase/schema";
 import {
   STANDINGS_VIEW,
@@ -8,6 +8,19 @@ import {
   TEAM_MEMBERS_TABLE,
   TEAMS_TABLE,
 } from "../../../../src/lib/supabase/config";
+
+const toTextValue = (value: unknown) => {
+  if (value === null || value === undefined) {
+    return null;
+  }
+  if (Array.isArray(value)) {
+    return value.join(", ");
+  }
+  if (typeof value === "object") {
+    return JSON.stringify(value);
+  }
+  return String(value);
+};
 
 const toNumber = (value: unknown) => {
   if (value === null || value === undefined || value === "") {
@@ -23,8 +36,8 @@ const mapTeamRow = (row: Record<string, unknown>) => ({
   tag: row[TEAM_COLUMNS.tag] ? String(row[TEAM_COLUMNS.tag]) : null,
   division: row[TEAM_COLUMNS.division] ? String(row[TEAM_COLUMNS.division]) : null,
   logoUrl: row[TEAM_COLUMNS.logoUrl] ? String(row[TEAM_COLUMNS.logoUrl]) : null,
-  statsSummary: row[TEAM_COLUMNS.statsSummary] ? String(row[TEAM_COLUMNS.statsSummary]) : null,
-  mainBrawlers: row[TEAM_COLUMNS.mainBrawlers] ? String(row[TEAM_COLUMNS.mainBrawlers]) : null,
+  statsSummary: toTextValue(row[TEAM_COLUMNS.statsSummary]),
+  mainBrawlers: toTextValue(row[TEAM_COLUMNS.mainBrawlers]),
   wins: toNumber(row[TEAM_COLUMNS.wins]),
   losses: toNumber(row[TEAM_COLUMNS.losses]),
   points: toNumber(row[TEAM_COLUMNS.points]),
@@ -36,15 +49,20 @@ const mapMemberRow = (row: Record<string, unknown>) => ({
   role: String(row[TEAM_MEMBER_COLUMNS.role] ?? ""),
   slot: toNumber(row[TEAM_MEMBER_COLUMNS.slot]),
   name: String(row[TEAM_MEMBER_COLUMNS.name] ?? ""),
-  mains: row[TEAM_MEMBER_COLUMNS.mains] ? String(row[TEAM_MEMBER_COLUMNS.mains]) : null,
+  mains: toTextValue(row[TEAM_MEMBER_COLUMNS.mains]),
   description: row[TEAM_MEMBER_COLUMNS.description]
     ? String(row[TEAM_MEMBER_COLUMNS.description])
     : null,
 });
 
+const resolveErrorMessage = (...errors: Array<{ message?: string } | null | undefined>) => {
+  const resolved = errors.find((entry) => entry?.message)?.message;
+  return resolved || "Unable to load teams.";
+};
+
 export async function GET() {
   try {
-    const supabase = withSchema(createServerClient());
+    const supabase = withSchema(createAdminClient());
     let query = supabase.from(TEAMS_TABLE).select("*");
     const standingsQuery = supabase.from(STANDINGS_VIEW).select("*");
 
@@ -60,8 +78,15 @@ export async function GET() {
       ]);
 
     if (error || standingsError || membersResponse.error) {
-      console.warn("/api/site/teams error", error || standingsError || membersResponse.error);
-      return NextResponse.json({ error: "Unable to load teams." }, { status: 500 });
+      console.warn("/api/site/teams error", {
+        teamsError: error ?? null,
+        standingsError: standingsError ?? null,
+        membersError: membersResponse.error ?? null,
+      });
+      return NextResponse.json(
+        { error: resolveErrorMessage(error, standingsError, membersResponse.error) },
+        { status: 500 }
+      );
     }
 
     const membersByTeam = new Map<string, ReturnType<typeof mapMemberRow>[]>();
@@ -101,6 +126,9 @@ export async function GET() {
     return NextResponse.json({ teams, source: "supabase" });
   } catch (error) {
     console.error("/api/site/teams error", error);
-    return NextResponse.json({ error: "Unable to load teams." }, { status: 500 });
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Unable to load teams." },
+      { status: 500 }
+    );
   }
 }
