@@ -23,6 +23,7 @@ type TeamResponse = {
     wins: number | null;
     losses: number | null;
     points: number | null;
+    roster?: Array<{ name: string }>;
   }>;
 };
 
@@ -41,6 +42,7 @@ const loadTeams = async (): Promise<TeamResponse> => {
 
 export default async function EquipesPage() {
   const { teams } = await loadTeams();
+  const activeRosters = teams.filter((team) => (team.roster ?? []).length > 0);
 
   return (
     <div className="space-y-12">
@@ -74,11 +76,11 @@ export default async function EquipesPage() {
 
       <section className="section-card space-y-6">
         <SectionHeader kicker="Équipes" title="Rosters actifs" description="Données en direct." />
-        {teams.length === 0 ? (
-          <p className="text-sm text-slate-400">Aucune équipe enregistrée.</p>
+        {activeRosters.length === 0 ? (
+          <p className="text-sm text-slate-400">Aucun roster actif (aucun membre enregistré).</p>
         ) : (
           <div className="grid gap-6 lg:grid-cols-2">
-            {teams.map((team) => (
+            {activeRosters.map((team) => (
               <TeamCard key={team.id} team={team} />
             ))}
           </div>

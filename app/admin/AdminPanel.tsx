@@ -1,6 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { createBrowserClient } from "../../src/lib/supabase/browser";
+import {
+  STANDINGS_VIEW,
+  TEAM_COLUMNS,
+  TEAM_MEMBER_COLUMNS,
+  TEAM_MEMBERS_TABLE,
+} from "../../src/lib/supabase/config";
+import { withSchema } from "../../src/lib/supabase/schema";
 
 type Team = {
   id: string;
@@ -246,6 +254,7 @@ const statusBadgeClass = (status?: string | null) => {
 const sanitizeInput = (value: string) => value.replace(/\s+/g, " ").trimStart();
 
 export default function AdminPanel() {
+  const supabase = useMemo(() => withSchema(createBrowserClient()), []);
   const [activeTab, setActiveTab] = useState<"teams" | "matches">("teams");
   const [teams, setTeams] = useState<Team[]>([]);
   const [teamsSnapshot, setTeamsSnapshot] = useState<Team[]>([]);
@@ -276,30 +285,121 @@ export default function AdminPanel() {
   const [matchDivision, setMatchDivision] = useState("all");
   const [matchStatus, setMatchStatus] = useState("all");
 
+  const toTextValue = (value: unknown) => {
+    if (value === null || value === undefined) {
+      return null;
+    }
+    if (Array.isArray(value)) {
+      return value.join(", ");
+    }
+    if (typeof value === "object") {
+      return JSON.stringify(value);
+    }
+    return String(value);
+  };
+
+  const toNumber = (value: unknown) => {
+    if (value === null || value === undefined || value === "") {
+      return null;
+    }
+    const parsed = Number(value);
+    return Number.isNaN(parsed) ? null : parsed;
+  };
+
+  const mapTeamRow = (row: Record<string, unknown>) => ({
+    id: String(row[TEAM_COLUMNS.id] ?? ""),
+    name: String(row[TEAM_COLUMNS.name] ?? ""),
+    tag: row[TEAM_COLUMNS.tag] ? String(row[TEAM_COLUMNS.tag]) : null,
+    division: row[TEAM_COLUMNS.division] ? String(row[TEAM_COLUMNS.division]) : null,
+    logoUrl: row[TEAM_COLUMNS.logoUrl] ? String(row[TEAM_COLUMNS.logoUrl]) : null,
+    statsSummary: toTextValue(row[TEAM_COLUMNS.statsSummary]),
+    mainBrawlers: toTextValue(row[TEAM_COLUMNS.mainBrawlers]),
+    wins: toNumber(row[TEAM_COLUMNS.wins]),
+    losses: toNumber(row[TEAM_COLUMNS.losses]),
+    points: toNumber(row[TEAM_COLUMNS.points]),
+  });
+
+  const mapMemberRow = (row: Record<string, unknown>) => ({
+    teamId: String(row[TEAM_MEMBER_COLUMNS.teamId] ?? ""),
+    role: String(row[TEAM_MEMBER_COLUMNS.role] ?? ""),
+    slot: toNumber(row[TEAM_MEMBER_COLUMNS.slot]),
+    name: String(row[TEAM_MEMBER_COLUMNS.name] ?? ""),
+    mains: toTextValue(row[TEAM_MEMBER_COLUMNS.mains]),
+    description: row[TEAM_MEMBER_COLUMNS.description]
+      ? String(row[TEAM_MEMBER_COLUMNS.description])
+      : null,
+  });
+
   const teamOptions = useMemo(
     () => teams.map((team) => ({ label: `${team.name} (${team.tag ?? "?"})`, value: team.id })),
     [teams]
   );
+
+  const loadTeams = useCallback(async () => {
+    const [{ data, error }, standingsResponse, membersResponse] = await Promise.all([
+      supabase.from("lfn_teams").select("*").order("created_at", { ascending: false }),
+      supabase.from(STANDINGS_VIEW).select("*"),
+      supabase.from(TEAM_MEMBERS_TABLE).select("*"),
+    ]);
+
+    if (error || standingsResponse.error || membersResponse.error) {
+      throw new Error(
+        error?.message || standingsResponse.error?.message || membersResponse.error?.message
+      );
+    }
+
+    const membersByTeam = new Map<string, ReturnType<typeof mapMemberRow>[]>();
+    (membersResponse.data ?? []).forEach((row) => {
+      const mapped = mapMemberRow(row as Record<string, unknown>);
+      if (!membersByTeam.has(mapped.teamId)) {
+        membersByTeam.set(mapped.teamId, []);
+      }
+      membersByTeam.get(mapped.teamId)?.push(mapped);
+    });
+
+    const standingsByTeam = new Map(
+      (standingsResponse.data ?? []).map((row) => [String(row.team_id ?? row.teamId ?? ""), row])
+    );
+
+    const teamsList = Array.isArray(data) ? data : [];
+    const normalizedTeams = teamsList.map((row) => {
+      const mapped = mapTeamRow(row as Record<string, unknown>);
+      const standing = standingsByTeam.get(mapped.id);
+      const resolved = standing
+        ? {
+            ...mapped,
+            wins: toNumber(standing.wins ?? standing.wins_count),
+            losses: toNumber(standing.losses ?? standing.losses_count),
+            points: toNumber(standing.points_total ?? standing.points ?? standing.points_total_count),
+          }
+        : mapped;
+      const roster = (membersByTeam.get(mapped.id) ?? []).map((member) => ({
+        ...member,
+        wins: resolved.wins,
+        losses: resolved.losses,
+        points: resolved.points,
+      }));
+      return {
+        ...resolved,
+        roster: normalizeRoster(roster as TeamRosterMember[]),
+      };
+    });
+
+    setTeams(normalizedTeams);
+    setTeamsSnapshot(normalizedTeams);
+    setOpenTeamIds((prev) =>
+      prev.length > 0 ? prev : normalizedTeams[0] ? [normalizedTeams[0].id] : []
+    );
+
+    return normalizedTeams;
+  }, [supabase]);
 
   const loadData = useCallback(async () => {
     setLoading(true);
     setErrorMessage(null);
 
     try {
-      const teamsResponse = await fetch("/api/site/teams", { cache: "no-store" });
-      const teamsPayload = await teamsResponse.json();
-
-      if (!teamsResponse.ok) {
-        throw new Error(teamsPayload.error || "Erreur lors du chargement des équipes.");
-      }
-
-      const teamsList = Array.isArray(teamsPayload?.teams) ? teamsPayload.teams : [];
-      const normalizedTeams = teamsList.map((team: Team) => ({
-          ...team,
-          roster: normalizeRoster(team.roster),
-        }));
-      setTeams(normalizedTeams);
-      setTeamsSnapshot(normalizedTeams);
+      const teamsList = await loadTeams();
 
       if (teamsList.length === 0) {
         setMatchesLive([]);
@@ -332,7 +432,7 @@ export default function AdminPanel() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [loadTeams]);
 
   const refreshData = useCallback(async () => {
     setRefreshing(true);
@@ -549,37 +649,73 @@ export default function AdminPanel() {
     );
   };
 
+  const normalizeTeamPayload = (team: Team) => {
+    const normalizedTag = team.tag ? team.tag.trim().toUpperCase() : "";
+    const normalizedDivision = normalizeDivision(team.division ?? null);
+
+    return {
+      [TEAM_COLUMNS.id]: team.id,
+      [TEAM_COLUMNS.name]: sanitizeInput(team.name),
+      [TEAM_COLUMNS.tag]: normalizeNullable(normalizedTag),
+      [TEAM_COLUMNS.division]: normalizeNullable(normalizedDivision),
+      [TEAM_COLUMNS.logoUrl]: normalizeNullable(team.logoUrl),
+      [TEAM_COLUMNS.statsSummary]: normalizeStatsSummary(team.statsSummary),
+      [TEAM_COLUMNS.mainBrawlers]: normalizeMainBrawlers(team.mainBrawlers),
+    };
+  };
+
   const handleSaveTeam = async (team: Team) => {
     setStatusMessage(null);
     setErrorMessage(null);
 
-    const normalizedTag = team.tag ? team.tag.trim().toUpperCase() : null;
-    const normalizedDivision = normalizeDivision(team.division ?? null);
+    const normalizedPayload = normalizeTeamPayload(team);
 
     try {
-      const response = await fetch(`/api/admin/teams/${team.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: team.name,
-          tag: normalizeNullable(normalizedTag),
-          division: normalizeNullable(normalizedDivision),
-          logoUrl: normalizeNullable(team.logoUrl),
-          statsSummary: normalizeStatsSummary(team.statsSummary),
-          mainBrawlers: normalizeMainBrawlers(team.mainBrawlers),
-          roster: buildRosterPayload(team.roster),
-        }),
-      });
+      const rosterPayload = buildRosterPayload(team.roster);
+      const { error: deleteError } = await supabase
+        .from(TEAM_MEMBERS_TABLE)
+        .delete()
+        .eq(TEAM_MEMBER_COLUMNS.teamId, team.id);
 
-      const payload = await response.json();
-      if (!response.ok) {
-        console.error("Admin team update error:", payload.error || payload);
-        setErrorMessage(payload.error || "Échec de la mise à jour.");
-        return;
+      if (deleteError) {
+        console.error("Admin team roster delete error:", deleteError);
+        throw deleteError;
       }
 
-      setStatusMessage("Équipe mise à jour.");
-      await loadData();
+      if (rosterPayload.length > 0) {
+        const rosterInsertPayload = rosterPayload.map((member) => ({
+          [TEAM_MEMBER_COLUMNS.teamId]: team.id,
+          [TEAM_MEMBER_COLUMNS.role]: member.role,
+          [TEAM_MEMBER_COLUMNS.slot]: member.slot ?? null,
+          [TEAM_MEMBER_COLUMNS.name]: member.name,
+          [TEAM_MEMBER_COLUMNS.mains]: member.mains ?? null,
+          [TEAM_MEMBER_COLUMNS.description]: member.description ?? null,
+        }));
+        const { error: rosterError } = await supabase
+          .from(TEAM_MEMBERS_TABLE)
+          .insert(rosterInsertPayload);
+
+        if (rosterError) {
+          console.error("Admin team roster insert error:", rosterError);
+          throw rosterError;
+        }
+      }
+
+      const { data, error } = await supabase.rpc("save_lfn_team", { p: normalizedPayload });
+      if (error) {
+        console.error("Admin team update error:", error);
+        throw error;
+      }
+
+      const saved = Array.isArray(data) ? data[0] : data;
+
+      await loadTeams();
+      if (saved?.id) {
+        setOpenTeamIds((prev) =>
+          multiOpenTeams ? Array.from(new Set([...prev, saved.id])) : [saved.id]
+        );
+      }
+      setStatusMessage("Équipe sauvegardée.");
     } catch (error) {
       console.error("Admin team update error:", error);
       setErrorMessage(error instanceof Error ? error.message : "Échec de la mise à jour.");
