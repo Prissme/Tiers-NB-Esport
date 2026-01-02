@@ -6,7 +6,6 @@ import {
   TEAM_COLUMNS,
   TEAM_MEMBER_COLUMNS,
   TEAM_MEMBERS_TABLE,
-  TEAMS_TABLE,
 } from "../../../../src/lib/supabase/config";
 
 const toTextValue = (value: unknown) => {
@@ -63,19 +62,14 @@ const resolveErrorMessage = (...errors: Array<{ message?: string } | null | unde
 export async function GET() {
   try {
     const supabase = withSchema(createAdminClient());
-    let query = supabase.from(TEAMS_TABLE).select("*");
+    const teamsPromise = supabase
+      .from("lfn_teams")
+      .select("*")
+      .order("created_at", { ascending: false });
     const standingsQuery = supabase.from(STANDINGS_VIEW).select("*");
 
-    if (TEAM_COLUMNS.deletedAt) {
-      query = query.is(TEAM_COLUMNS.deletedAt, null);
-    }
-
     const [{ data, error }, { data: standings, error: standingsError }, membersResponse] =
-      await Promise.all([
-        query.order(TEAM_COLUMNS.name, { ascending: true }),
-        standingsQuery,
-        supabase.from(TEAM_MEMBERS_TABLE).select("*"),
-      ]);
+      await Promise.all([teamsPromise, standingsQuery, supabase.from(TEAM_MEMBERS_TABLE).select("*")]);
 
     if (error || standingsError || membersResponse.error) {
       console.warn("/api/site/teams error", {
