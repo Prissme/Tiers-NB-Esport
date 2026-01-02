@@ -241,33 +241,49 @@ export default function AdminPanel() {
     setErrorMessage(null);
 
     try {
-      const [teamsResponse, liveResponse, recentResponse] = await Promise.all([
-        fetch("/api/site/teams", { cache: "no-store" }),
-        fetch("/api/site/matches?status=live&limit=20", { cache: "no-store" }),
-        fetch("/api/site/matches?status=recent&limit=20", { cache: "no-store" }),
-      ]);
-
+      const teamsResponse = await fetch("/api/site/teams", { cache: "no-store" });
       const teamsPayload = await teamsResponse.json();
-      const livePayload = await liveResponse.json();
-      const recentPayload = await recentResponse.json();
 
       if (!teamsResponse.ok) {
         throw new Error(teamsPayload.error || "Erreur lors du chargement des équipes.");
       }
-      if (!liveResponse.ok || !recentResponse.ok) {
-        throw new Error("Erreur lors du chargement des matchs.");
-      }
 
+      const teamsList = Array.isArray(teamsPayload?.teams) ? teamsPayload.teams : [];
       setTeams(
-        (teamsPayload.teams ?? []).map((team: Team) => ({
+        teamsList.map((team: Team) => ({
           ...team,
           roster: normalizeRoster(team.roster),
         }))
       );
-      setMatchesLive(livePayload.matches ?? []);
-      setMatchesRecent(recentPayload.matches ?? []);
+
+      if (teamsList.length === 0) {
+        setMatchesLive([]);
+        setMatchesRecent([]);
+        return;
+      }
+
+      const [liveResponse, recentResponse] = await Promise.all([
+        fetch("/api/site/matches?status=live&limit=20", { cache: "no-store" }),
+        fetch("/api/site/matches?status=recent&limit=20", { cache: "no-store" }),
+      ]);
+
+      const livePayload = await liveResponse.json();
+      const recentPayload = await recentResponse.json();
+
+      if (!liveResponse.ok || !recentResponse.ok) {
+        throw new Error(
+          livePayload.error || recentPayload.error || "Erreur lors du chargement des matchs."
+        );
+      }
+
+      setMatchesLive(Array.isArray(livePayload?.matches) ? livePayload.matches : []);
+      setMatchesRecent(Array.isArray(recentPayload?.matches) ? recentPayload.matches : []);
     } catch (error) {
+      console.error("Admin load data error:", error);
       setErrorMessage(error instanceof Error ? error.message : "Erreur inconnue.");
+      setTeams([]);
+      setMatchesLive([]);
+      setMatchesRecent([]);
     } finally {
       setLoading(false);
     }
@@ -975,7 +991,7 @@ export default function AdminPanel() {
               </div>
             </div>
             <div className="space-y-4">
-              {filteredTeams.length === 0 ? (
+              {filteredTeams.length === 0 && !errorMessage ? (
                 <p className="text-sm text-slate-400">Aucune équipe.</p>
               ) : (
                 filteredTeams.map((team) => (
