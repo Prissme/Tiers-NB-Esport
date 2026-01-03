@@ -4,8 +4,7 @@ import { createAdminClient } from "../../../../src/lib/supabase/admin";
 import { withSchema } from "../../../../src/lib/supabase/schema";
 import {
   MATCH_COLUMNS,
-  MATCH_STATUS_LIVE_VALUES,
-  MATCH_STATUS_RECENT_VALUES,
+  MATCHES_TABLE,
   TEAM_COLUMNS,
   TEAMS_TABLE,
 } from "../../../../src/lib/supabase/config";
@@ -49,6 +48,7 @@ export async function GET(request: Request) {
 
   const status = parsed.data.status ?? "recent";
   const limit = parsed.data.limit ?? 20;
+  const statusValue = status === "live" ? "live" : "completed";
 
   try {
     const supabase = withSchema(createAdminClient());
@@ -56,9 +56,18 @@ export async function GET(request: Request) {
     const teamsPromise = supabase.from(TEAMS_TABLE).select("*");
 
     const matchQuery = supabase
-      .from("lfn_matches_view")
+      .from(MATCHES_TABLE)
       .select("*")
-      .order("played_at", { ascending: true });
+      .eq(MATCH_COLUMNS.status, statusValue)
+      .order(
+        status === "live" ? MATCH_COLUMNS.scheduledAt : "played_at",
+        status === "live"
+          ? { ascending: true, nullsFirst: false }
+          : { ascending: false, nullsFirst: false }
+      )
+      .order(status === "live" ? "created_at" : "updated_at", { ascending: false })
+      .order("created_at", { ascending: false })
+      .limit(limit);
 
     const [{ data: teams, error: teamsError }, { data: matches, error: matchesError }] =
       await Promise.all([teamsPromise, matchQuery]);
@@ -75,19 +84,7 @@ export async function GET(request: Request) {
       })
     );
 
-    const statusColumn = MATCH_COLUMNS.status;
-    const filteredMatches = (matches ?? []).filter((match) => {
-      if (!statusColumn) {
-        return true;
-      }
-      const row = match as Record<string, unknown>;
-      const value = row[statusColumn] ? String(row[statusColumn]) : "";
-      return status === "live"
-        ? MATCH_STATUS_LIVE_VALUES.includes(value)
-        : MATCH_STATUS_RECENT_VALUES.includes(value);
-    });
-
-    const matchesResponse = filteredMatches.slice(0, limit).map((match) => {
+    const matchesResponse = (matches ?? []).map((match) => {
       const row = match as Record<string, unknown>;
       const teamAKey = row[MATCH_COLUMNS.teamAId];
       const teamBKey = row[MATCH_COLUMNS.teamBId];
@@ -118,6 +115,9 @@ export async function GET(request: Request) {
         scheduledAt: row[MATCH_COLUMNS.scheduledAt]
           ? String(row[MATCH_COLUMNS.scheduledAt])
           : null,
+        playedAt: row.played_at ? String(row.played_at) : null,
+        createdAt: row.created_at ? String(row.created_at) : null,
+        updatedAt: row.updated_at ? String(row.updated_at) : null,
         dayLabel: MATCH_COLUMNS.dayLabel
           ? row[MATCH_COLUMNS.dayLabel]
             ? String(row[MATCH_COLUMNS.dayLabel])
