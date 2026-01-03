@@ -19,6 +19,12 @@ type MatchData = {
   teamB: { name: string; tag: string | null };
 };
 
+type MatchesError = {
+  message: string;
+  code?: string | null;
+  hint?: string | null;
+};
+
 const DEFAULT_RECENT_LIMIT = 10;
 
 const getStatusLabel = (status?: string | null) => {
@@ -93,7 +99,7 @@ export default function MatchesContent() {
   const [liveMatches, setLiveMatches] = useState<MatchData[]>([]);
   const [recentMatches, setRecentMatches] = useState<MatchData[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<MatchesError | null>(null);
   const [recentLimit, setRecentLimit] = useState(DEFAULT_RECENT_LIMIT);
 
   const loadMatches = useCallback(async () => {
@@ -110,13 +116,30 @@ export default function MatchesContent() {
       const recentPayload = await recentResponse.json();
 
       if (!liveResponse.ok || !recentResponse.ok) {
-        throw new Error(livePayload.error || recentPayload.error || "Impossible de charger les matchs.");
+        const payload = !liveResponse.ok ? livePayload : recentPayload;
+        if (payload?.error && typeof payload.error === "object") {
+          setError({
+            message: payload.error.message ?? "Impossible de charger les matchs.",
+            code: payload.error.code ?? null,
+            hint: payload.error.hint ?? null,
+          });
+        } else {
+          setError({
+            message:
+              typeof payload?.error === "string"
+                ? payload.error
+                : "Impossible de charger les matchs.",
+          });
+        }
+        return;
       }
 
       setLiveMatches(Array.isArray(livePayload?.matches) ? livePayload.matches : []);
       setRecentMatches(Array.isArray(recentPayload?.matches) ? recentPayload.matches : []);
     } catch (fetchError) {
-      setError(fetchError instanceof Error ? fetchError.message : "Erreur inattendue.");
+      setError({
+        message: fetchError instanceof Error ? fetchError.message : "Erreur inattendue.",
+      });
     } finally {
       setLoading(false);
     }
@@ -151,7 +174,14 @@ export default function MatchesContent() {
           <MatchSkeleton />
         ) : error ? (
           <div className="space-y-2 text-sm text-rose-300">
-            <p>{error}</p>
+            <p>Impossible de charger les matchs: {error.message}</p>
+            {(error.code || error.hint) && (
+              <p className="text-xs text-rose-200/80">
+                {[error.code ? `Code: ${error.code}` : null, error.hint ? `Hint: ${error.hint}` : null]
+                  .filter(Boolean)
+                  .join(" • ")}
+              </p>
+            )}
             <button
               type="button"
               onClick={loadMatches}
@@ -205,7 +235,14 @@ export default function MatchesContent() {
           <MatchSkeleton />
         ) : error ? (
           <div className="space-y-2 text-sm text-rose-300">
-            <p>{error}</p>
+            <p>Impossible de charger les matchs: {error.message}</p>
+            {(error.code || error.hint) && (
+              <p className="text-xs text-rose-200/80">
+                {[error.code ? `Code: ${error.code}` : null, error.hint ? `Hint: ${error.hint}` : null]
+                  .filter(Boolean)
+                  .join(" • ")}
+              </p>
+            )}
             <button
               type="button"
               onClick={loadMatches}
