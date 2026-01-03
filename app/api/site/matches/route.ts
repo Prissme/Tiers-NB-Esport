@@ -73,8 +73,24 @@ export async function GET(request: Request) {
       await Promise.all([teamsPromise, matchQuery]);
 
     if (teamsError || matchesError) {
-      console.warn("/api/site/matches error", teamsError || matchesError);
-      return NextResponse.json({ error: "Unable to load matches." }, { status: 500 });
+      const error = teamsError || matchesError;
+      console.error("matches load error", {
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        code: error.code,
+      });
+      return NextResponse.json(
+        {
+          error: {
+            message: error.message,
+            details: error.details,
+            hint: error.hint,
+            code: error.code,
+          },
+        },
+        { status: 500 }
+      );
     }
 
     const teamMap = new Map(
