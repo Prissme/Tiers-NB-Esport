@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import "server-only";
+import { getPublicSupabaseEnv } from "../env/public";
 
 let serverClient: ReturnType<typeof createClient> | null = null;
 
@@ -8,8 +9,7 @@ export const createServerClient = () => {
     return serverClient;
   }
 
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const { supabaseUrl, supabaseAnonKey } = getPublicSupabaseEnv();
 
   if (!supabaseUrl || !supabaseAnonKey) {
     throw new Error("Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY.");

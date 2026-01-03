@@ -3,6 +3,9 @@ import SectionHeader from "../components/SectionHeader";
 import { createAdminClient } from "../../src/lib/supabase/admin";
 import { withSchema } from "../../src/lib/supabase/schema";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 const teamTiles = [
   { label: "D1", detail: "Élite" },
   { label: "D2", detail: "Challengers" },

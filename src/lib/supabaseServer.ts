@@ -1,9 +1,9 @@
 import { createClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
+import { getPublicSupabaseEnv } from "./env/public";
 
 export function createSupabaseServerClient() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const { supabaseUrl, supabaseAnonKey } = getPublicSupabaseEnv();
 
   if (!supabaseUrl || !supabaseAnonKey) {
     throw new Error(
