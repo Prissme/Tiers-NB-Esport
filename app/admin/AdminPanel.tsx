@@ -784,31 +784,31 @@ export default function AdminPanel() {
     );
   };
 
-  const normalizeTeamPayload = (team: Team) => {
-    const normalizedTag = team.tag ? team.tag.trim().toUpperCase() : "";
-    const normalizedDivision = normalizeDivision(team.division ?? null);
-
-    return {
-      [TEAM_COLUMNS.id]: team.id,
-      [TEAM_COLUMNS.name]: sanitizeInput(team.name),
-      [TEAM_COLUMNS.tag]: normalizeNullable(normalizedTag),
-      [TEAM_COLUMNS.division]: normalizeNullable(normalizedDivision),
-      [TEAM_COLUMNS.logoUrl]: normalizeNullable(team.logoUrl),
-      [TEAM_COLUMNS.statsSummary]: normalizeStatsSummary(team.statsSummary),
-      [TEAM_COLUMNS.mainBrawlers]: normalizeMainBrawlers(team.mainBrawlers),
-    };
-  };
-
   const handleSaveTeam = async (team: Team) => {
     setStatusMessage(null);
     setErrorMessage(null);
 
     if (isDuplicateTag(team.tag, team.id)) {
-      setErrorMessage("Tag déjà utilisé.");
+      const message = "Tag déjà utilisé.";
+      setErrorMessage(message);
+      showToast("error", message);
       return;
     }
 
-    const normalizedPayload = normalizeTeamPayload(team);
+    const payload = {
+      name: team.name?.trim() || null,
+      tag: team.tag?.trim().toUpperCase() || null,
+      division: team.division,
+      logo_url: team.logoUrl?.trim() || null,
+      main_brawlers: team.mainBrawlers ?? null,
+      stats_summary: team.statsSummary?.trim() || null,
+    };
+
+    Object.keys(payload).forEach((key) => {
+      if (payload[key as keyof typeof payload] === undefined) {
+        delete payload[key as keyof typeof payload];
+      }
+    });
 
     try {
       const rosterPayload = buildRosterPayload(team.roster);
@@ -841,24 +841,40 @@ export default function AdminPanel() {
         }
       }
 
-      const { data, error } = await supabase.rpc("save_lfn_team", { p: normalizedPayload });
+      const { error } = await supabase.from("lfn_teams").update(payload).eq("id", team.id);
       if (error) {
-        console.error("Admin team update error:", error);
-        throw error;
+        const errorDetails = {
+          message: error.message,
+          code: (error as any).code,
+          details: (error as any).details,
+          hint: (error as any).hint,
+        };
+        console.error("update team error", errorDetails);
+        if (error.message?.includes("lfn_teams_tag_key")) {
+          const message = "Tag déjà utilisé.";
+          setErrorMessage(message);
+          showToast("error", message);
+          return;
+        }
+        const errorMessage = `Échec de la mise à jour: ${error.message} (code: ${
+          errorDetails.code ?? "n/a"
+        }, details: ${errorDetails.details ?? "n/a"}, hint: ${errorDetails.hint ?? "n/a"})`;
+        setErrorMessage(errorMessage);
+        showToast("error", errorMessage);
+        return;
       }
-
-      const saved = Array.isArray(data) ? data[0] : data;
 
       await loadTeams();
-      if (saved?.id) {
-        setOpenTeamIds((prev) =>
-          multiOpenTeams ? Array.from(new Set([...prev, saved.id])) : [saved.id]
-        );
-      }
-      setStatusMessage("Équipe sauvegardée.");
+      setOpenTeamIds((prev) =>
+        multiOpenTeams ? Array.from(new Set([...prev, team.id])) : [team.id]
+      );
+      setStatusMessage("Équipe mise à jour.");
+      showToast("success", "Équipe mise à jour.");
     } catch (error) {
       console.error("Admin team update error:", error);
-      setErrorMessage(error instanceof Error ? error.message : "Échec de la mise à jour.");
+      const errorMessage = error instanceof Error ? error.message : "Échec de la mise à jour.";
+      setErrorMessage(errorMessage);
+      showToast("error", errorMessage);
     }
   };
 
