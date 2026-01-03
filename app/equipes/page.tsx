@@ -1,7 +1,7 @@
 import Button from "../components/Button";
 import SectionHeader from "../components/SectionHeader";
-import TeamCard from "./TeamCard";
-import { getBaseUrl } from "../lib/get-base-url";
+import { createAdminClient } from "../../src/lib/supabase/admin";
+import { withSchema } from "../../src/lib/supabase/schema";
 
 const teamTiles = [
   { label: "D1", detail: "Élite" },
@@ -11,38 +11,35 @@ const teamTiles = [
 
 const teamTags = ["Roster", "Logo", "Stats", "Clip"];
 
-type TeamResponse = {
-  teams: Array<{
-    id: string;
-    name: string;
-    tag: string | null;
-    division: string | null;
-    logoUrl: string | null;
-    statsSummary: string | null;
-    mainBrawlers: string | null;
-    wins: number | null;
-    losses: number | null;
-    points: number | null;
-    roster?: Array<{ name: string }>;
-  }>;
+type ActiveRosterRow = {
+  tag: string | null;
+  division: string | null;
+  members_count: number | null;
+  members: unknown;
 };
 
-const loadTeams = async (): Promise<TeamResponse> => {
-  const baseUrl = getBaseUrl();
-  const response = await fetch(`${baseUrl}/api/site/teams`, {
-    next: { revalidate: 60 },
-  });
+const loadActiveRosters = async (): Promise<{
+  rosters: ActiveRosterRow[];
+  errorMessage: string | null;
+}> => {
+  const supabase = withSchema(createAdminClient());
+  const { data, error } = await supabase
+    .from("lfn_active_rosters")
+    .select("*")
+    .order("tag", { ascending: true });
 
-  if (!response.ok) {
-    return { teams: [] };
+  if (error) {
+    console.error("lfn_active_rosters error", error);
   }
 
-  return response.json();
+  return {
+    rosters: Array.isArray(data) ? (data as ActiveRosterRow[]) : [],
+    errorMessage: error?.message ?? null,
+  };
 };
 
 export default async function EquipesPage() {
-  const { teams } = await loadTeams();
-  const activeRosters = teams.filter((team) => (team.roster ?? []).length > 0);
+  const { rosters, errorMessage } = await loadActiveRosters();
 
   return (
     <div className="space-y-12">
@@ -76,13 +73,67 @@ export default async function EquipesPage() {
 
       <section className="section-card space-y-6">
         <SectionHeader kicker="Équipes" title="Rosters actifs" description="Données en direct." />
-        {activeRosters.length === 0 ? (
+        {errorMessage ? (
+          <p className="text-sm text-rose-400">Erreur: {errorMessage}</p>
+        ) : null}
+        {rosters.length === 0 ? (
           <p className="text-sm text-slate-400">Aucun roster actif (aucun membre enregistré).</p>
         ) : (
           <div className="grid gap-6 lg:grid-cols-2">
-            {activeRosters.map((team) => (
-              <TeamCard key={team.id} team={team} />
-            ))}
+            {rosters.map((team, index) => {
+              const members = Array.isArray(team.members) ? team.members : [];
+              const memberLabels = members.map((member, memberIndex) => {
+                if (typeof member === "string") {
+                  return member;
+                }
+                if (member && typeof member === "object") {
+                  const name =
+                    "name" in member
+                      ? String((member as { name?: unknown }).name ?? "")
+                      : "";
+                  return name || JSON.stringify(member);
+                }
+                return String(member);
+              });
+
+              return (
+                <article
+                  key={`${team.tag ?? "team"}-${index}`}
+                  className="rounded-3xl border border-white/10 bg-slate-950/70 p-6 shadow-[0_25px_80px_-60px_rgba(15,23,42,0.8)]"
+                >
+                  <div className="flex flex-wrap items-start justify-between gap-4">
+                    <div>
+                      <p className="text-xs uppercase tracking-[0.35em] text-slate-400">
+                        {team.division ?? "Division"}
+                      </p>
+                      <h3 className="text-lg font-semibold text-white">
+                        {team.tag ?? "Tag"}
+                      </h3>
+                    </div>
+                    <div className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs uppercase tracking-[0.2em] text-emerald-200">
+                      {team.members_count ?? members.length} membres
+                    </div>
+                  </div>
+
+                  {memberLabels.length > 0 ? (
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      {memberLabels.map((memberLabel, memberIndex) => (
+                        <span
+                          key={`${memberLabel}-${memberIndex}`}
+                          className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-slate-200"
+                        >
+                          {memberLabel}
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="mt-4 text-xs text-slate-400">
+                      Aucun membre listé pour ce roster.
+                    </p>
+                  )}
+                </article>
+              );
+            })}
           </div>
         )}
       </section>
