@@ -18,6 +18,8 @@ type Team = {
   logoUrl: string | null;
   statsSummary: string | null;
   mainBrawlers: string | null;
+  statsSummaryType: "object" | "string" | null;
+  mainBrawlersType: "array" | "string" | null;
   wins: number | null;
   losses: number | null;
   points: number | null;
@@ -171,17 +173,23 @@ const normalizeNullable = (value: string | null) => {
   return trimmed ? trimmed : null;
 };
 
-const normalizeMainBrawlers = (value: unknown) => {
+const normalizeMainBrawlers = (value: unknown): string[] | null => {
+  if (value == null) {
+    return null;
+  }
   if (Array.isArray(value)) {
-    return value.map((entry) => String(entry).trim()).filter(Boolean);
+    const normalized = value.map((entry) => String(entry).trim()).filter(Boolean);
+    return normalized.length ? normalized : null;
   }
-  if (typeof value === "string") {
-    return value
-      .split(",")
-      .map((entry) => entry.trim())
-      .filter(Boolean);
+  const raw = String(value).trim();
+  if (!raw) {
+    return null;
   }
-  return [];
+  const normalized = raw
+    .split(",")
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+  return normalized.length ? normalized : null;
 };
 
 const normalizeStatsSummary = (value: unknown) => {
@@ -202,30 +210,53 @@ const normalizeStatsSummary = (value: unknown) => {
   return {};
 };
 
-const normalizeDivision = (division?: string | null) => {
-  const raw = String(division ?? "").trim();
-  const upper = raw.toUpperCase();
-  if (["D1", "DIV1", "DIVISION 1", "DIVISION_1", "division_1"].includes(upper) || raw === "division_1") {
-    return "Division 1";
+const normalizeDivision = (input: unknown): string => {
+  const raw = String(input ?? "").trim();
+  if (!raw) {
+    return "";
   }
-  if (["D2", "DIV2", "DIVISION 2", "DIVISION_2", "division_2"].includes(upper) || raw === "division_2") {
-    return "Division 2";
+  const v = raw.toLowerCase();
+  if (["d1", "division 1", "division1", "1", "division_1"].includes(v)) {
+    return "D1";
   }
-  if (raw === "Division 1" || raw === "Division 2") {
-    return raw;
+  if (["d2", "division 2", "division2", "2", "division_2"].includes(v)) {
+    return "D2";
   }
+  console.warn("Unknown division value", { input });
   return raw;
 };
 
 const toDivisionOption = (division?: string | null) => {
   const normalized = normalizeDivision(division ?? "");
-  if (normalized === "Division 1") {
+  if (normalized === "D1") {
     return "D1";
   }
-  if (normalized === "Division 2") {
+  if (normalized === "D2") {
     return "D2";
   }
   return division ?? "";
+};
+
+const normalizeStatsSummaryPayload = (value: unknown) => {
+  if (value && typeof value === "object" && !Array.isArray(value)) {
+    return value;
+  }
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (!trimmed) {
+      return null;
+    }
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        return parsed;
+      }
+    } catch {
+      // fall through to return string
+    }
+    return trimmed;
+  }
+  return null;
 };
 
 const formatSchedule = (value: string | null) => {
@@ -337,18 +368,36 @@ export default function AdminPanel() {
     return Number.isNaN(parsed) ? null : parsed;
   };
 
-  const mapTeamRow = (row: Record<string, unknown>) => ({
-    id: String(row[TEAM_COLUMNS.id] ?? ""),
-    name: String(row[TEAM_COLUMNS.name] ?? ""),
-    tag: row[TEAM_COLUMNS.tag] ? String(row[TEAM_COLUMNS.tag]) : null,
-    division: row[TEAM_COLUMNS.division] ? String(row[TEAM_COLUMNS.division]) : null,
-    logoUrl: row[TEAM_COLUMNS.logoUrl] ? String(row[TEAM_COLUMNS.logoUrl]) : null,
-    statsSummary: toTextValue(row[TEAM_COLUMNS.statsSummary]),
-    mainBrawlers: toTextValue(row[TEAM_COLUMNS.mainBrawlers]),
-    wins: toNumber(row[TEAM_COLUMNS.wins]),
-    losses: toNumber(row[TEAM_COLUMNS.losses]),
-    points: toNumber(row[TEAM_COLUMNS.points]),
-  });
+  const mapTeamRow = (row: Record<string, unknown>) => {
+    const rawStatsSummary = row[TEAM_COLUMNS.statsSummary];
+    const rawMainBrawlers = row[TEAM_COLUMNS.mainBrawlers];
+    const statsSummaryType =
+      rawStatsSummary && typeof rawStatsSummary === "object" && !Array.isArray(rawStatsSummary)
+        ? "object"
+        : rawStatsSummary == null
+          ? null
+          : "string";
+    const mainBrawlersType = Array.isArray(rawMainBrawlers)
+      ? "array"
+      : rawMainBrawlers == null
+        ? null
+        : "string";
+
+    return {
+      id: String(row[TEAM_COLUMNS.id] ?? ""),
+      name: String(row[TEAM_COLUMNS.name] ?? ""),
+      tag: row[TEAM_COLUMNS.tag] ? String(row[TEAM_COLUMNS.tag]) : null,
+      division: row[TEAM_COLUMNS.division] ? String(row[TEAM_COLUMNS.division]) : null,
+      logoUrl: row[TEAM_COLUMNS.logoUrl] ? String(row[TEAM_COLUMNS.logoUrl]) : null,
+      statsSummary: toTextValue(rawStatsSummary),
+      mainBrawlers: toTextValue(rawMainBrawlers),
+      statsSummaryType,
+      mainBrawlersType,
+      wins: toNumber(row[TEAM_COLUMNS.wins]),
+      losses: toNumber(row[TEAM_COLUMNS.losses]),
+      points: toNumber(row[TEAM_COLUMNS.points]),
+    };
+  };
 
   const mapMemberRow = (row: Record<string, unknown>) => ({
     teamId: String(row[TEAM_MEMBER_COLUMNS.teamId] ?? ""),
@@ -590,7 +639,7 @@ export default function AdminPanel() {
     };
   };
 
-  const getBrawlerChips = (value: string | null) => normalizeMainBrawlers(value);
+  const getBrawlerChips = (value: string | null) => normalizeMainBrawlers(value) ?? [];
 
   const toggleTeamOpen = (id: string) => {
     setOpenTeamIds((prev) => {
@@ -795,13 +844,24 @@ export default function AdminPanel() {
       return;
     }
 
+    const normalizedDivision = normalizeDivision(team.division);
+    const normalizedMainBrawlers = normalizeMainBrawlers(team.mainBrawlers);
+    const mainBrawlersPayload =
+      team.mainBrawlersType === "string"
+        ? normalizedMainBrawlers?.join(", ") ?? null
+        : normalizedMainBrawlers;
+    const statsSummaryPayload =
+      team.statsSummaryType === "string"
+        ? team.statsSummary?.trim() || null
+        : normalizeStatsSummaryPayload(team.statsSummary);
+
     const payload = {
       name: team.name?.trim() || null,
       tag: team.tag?.trim().toUpperCase() || null,
-      division: team.division,
+      division: normalizedDivision || null,
       logo_url: team.logoUrl?.trim() || null,
-      main_brawlers: team.mainBrawlers ?? null,
-      stats_summary: team.statsSummary?.trim() || null,
+      stats_summary: statsSummaryPayload ?? null,
+      main_brawlers: mainBrawlersPayload ?? null,
     };
 
     Object.keys(payload).forEach((key) => {
@@ -843,22 +903,40 @@ export default function AdminPanel() {
 
       const { error } = await supabase.from("lfn_teams").update(payload).eq("id", team.id);
       if (error) {
-        const errorDetails = {
+        const code = (error as any).code;
+        const details = (error as any).details;
+        const hint = (error as any).hint;
+        console.error("updateTeam error", {
           message: error.message,
-          code: (error as any).code,
-          details: (error as any).details,
-          hint: (error as any).hint,
-        };
-        console.error("update team error", errorDetails);
-        if (error.message?.includes("lfn_teams_tag_key")) {
-          const message = "Tag déjà utilisé.";
+          code,
+          details,
+          hint,
+          payload,
+          teamId: team.id,
+          raw: error,
+        });
+        if (String(error.message).includes("lfn_teams_tag_key")) {
+          const message = "Tag déjà utilisé. Choisis un autre tag.";
+          setErrorMessage(message);
+          showToast("error", message);
+          return;
+        }
+        if (String(error.message).toLowerCase().includes("row level security")) {
+          const message =
+            "Mise à jour refusée (RLS). Vérifie les policies UPDATE sur lfn_teams.";
+          setErrorMessage(message);
+          showToast("error", message);
+          return;
+        }
+        if (code === "23514") {
+          const message = "Valeur invalide (contrainte DB). Vérifie Division / champs requis.";
           setErrorMessage(message);
           showToast("error", message);
           return;
         }
         const errorMessage = `Échec de la mise à jour: ${error.message} (code: ${
-          errorDetails.code ?? "n/a"
-        }, details: ${errorDetails.details ?? "n/a"}, hint: ${errorDetails.hint ?? "n/a"})`;
+          code ?? "n/a"
+        }, details: ${details ?? "n/a"}, hint: ${hint ?? "n/a"})`;
         setErrorMessage(errorMessage);
         showToast("error", errorMessage);
         return;
