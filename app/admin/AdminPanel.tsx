@@ -310,6 +310,11 @@ export default function AdminPanel() {
   const [matchSearch, setMatchSearch] = useState("");
   const [matchDivision, setMatchDivision] = useState("all");
   const [matchStatus, setMatchStatus] = useState("all");
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [toastMessage, setToastMessage] = useState<{
+    type: "success" | "error";
+    message: string;
+  } | null>(null);
 
   const toTextValue = (value: unknown) => {
     if (value === null || value === undefined) {
@@ -420,6 +425,25 @@ export default function AdminPanel() {
     return normalizedTeams;
   }, [supabase]);
 
+  const loadMatches = useCallback(async () => {
+    const [liveResponse, recentResponse] = await Promise.all([
+      fetch("/api/site/matches?status=live&limit=20", { cache: "no-store" }),
+      fetch("/api/site/matches?status=recent&limit=20", { cache: "no-store" }),
+    ]);
+
+    const livePayload = await liveResponse.json();
+    const recentPayload = await recentResponse.json();
+
+    if (!liveResponse.ok || !recentResponse.ok) {
+      throw new Error(
+        livePayload.error || recentPayload.error || "Erreur lors du chargement des matchs."
+      );
+    }
+
+    setMatchesLive(Array.isArray(livePayload?.matches) ? livePayload.matches : []);
+    setMatchesRecent(Array.isArray(recentPayload?.matches) ? recentPayload.matches : []);
+  }, []);
+
   const loadData = useCallback(async () => {
     setLoading(true);
     setErrorMessage(null);
@@ -433,22 +457,7 @@ export default function AdminPanel() {
         return;
       }
 
-      const [liveResponse, recentResponse] = await Promise.all([
-        fetch("/api/site/matches?status=live&limit=20", { cache: "no-store" }),
-        fetch("/api/site/matches?status=recent&limit=20", { cache: "no-store" }),
-      ]);
-
-      const livePayload = await liveResponse.json();
-      const recentPayload = await recentResponse.json();
-
-      if (!liveResponse.ok || !recentResponse.ok) {
-        throw new Error(
-          livePayload.error || recentPayload.error || "Erreur lors du chargement des matchs."
-        );
-      }
-
-      setMatchesLive(Array.isArray(livePayload?.matches) ? livePayload.matches : []);
-      setMatchesRecent(Array.isArray(recentPayload?.matches) ? recentPayload.matches : []);
+      await loadMatches();
     } catch (error) {
       console.error("Admin load data error:", error);
       setErrorMessage(error instanceof Error ? error.message : "Erreur inconnue.");
@@ -458,7 +467,7 @@ export default function AdminPanel() {
     } finally {
       setLoading(false);
     }
-  }, [loadTeams]);
+  }, [loadMatches, loadTeams]);
 
   const refreshData = useCallback(async () => {
     setRefreshing(true);
@@ -491,6 +500,20 @@ export default function AdminPanel() {
       return next;
     });
   }, [matchesLive, matchesRecent]);
+
+  useEffect(() => {
+    if (!toastMessage) {
+      return;
+    }
+    const timeout = setTimeout(() => {
+      setToastMessage(null);
+    }, 4000);
+    return () => clearTimeout(timeout);
+  }, [toastMessage]);
+
+  const showToast = useCallback((type: "success" | "error", message: string) => {
+    setToastMessage({ type, message });
+  }, []);
 
   const teamSummary = useMemo(() => {
     const totalTeams = teams.length;
@@ -1091,6 +1114,36 @@ export default function AdminPanel() {
     await loadData();
   };
 
+  const deleteMatch = async (matchId: string) => {
+    const ok = window.confirm(
+      "Supprimer définitivement ce match ? Cette action est irréversible."
+    );
+    if (!ok) {
+      return;
+    }
+
+    setDeletingId(matchId);
+
+    try {
+      const { error } = await supabase.from("lfn_matches").delete().eq("id", matchId);
+
+      if (error) {
+        throw error;
+      }
+
+      showToast("success", "Match supprimé.");
+      await loadMatches();
+    } catch (error) {
+      console.error("deleteMatch error", error);
+      showToast(
+        "error",
+        error instanceof Error ? error.message : "Erreur lors de la suppression du match."
+      );
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <header className="flex flex-wrap items-center justify-between gap-4">
@@ -1136,6 +1189,17 @@ export default function AdminPanel() {
         </div>
       </header>
 
+      {toastMessage ? (
+        <div
+          className={`fixed right-6 top-6 z-50 w-[280px] rounded-2xl border px-4 py-3 text-sm shadow-lg ${
+            toastMessage.type === "success"
+              ? "border-emerald-400/40 bg-emerald-400/90 text-slate-900"
+              : "border-rose-400/40 bg-rose-500/90 text-white"
+          }`}
+        >
+          {toastMessage.message}
+        </div>
+      ) : null}
       {statusMessage ? <p className="text-sm text-emerald-300">{statusMessage}</p> : null}
       {errorMessage ? <p className="text-sm text-rose-300">{errorMessage}</p> : null}
       {loading ? <p className="text-sm text-slate-400">Chargement...</p> : null}
@@ -1857,116 +1921,152 @@ export default function AdminPanel() {
                 {matchesLive.length === 0 ? (
                   <p className="text-sm text-slate-400">Aucun match en cours.</p>
                 ) : (
-                  matchesLive.map((match) => (
-                    <div
-                      key={match.id}
-                      className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/5 p-4"
-                    >
-                      <div>
-                        <p className="text-sm text-white">
-                          {match.teamA.name} vs {match.teamB.name}
-                        </p>
-                        <p className="text-xs text-slate-400">
-                          {formatSchedule(match.scheduledAt)} ·{" "}
-                          {statusLabel(normalizeMatchStatus(match.status))}
-                        </p>
-                      </div>
-                      <div className="flex flex-1 flex-wrap items-center justify-end gap-2">
-                        <span
-                          className={`rounded-full px-3 py-1 text-[11px] font-medium ${statusBadgeClass(
-                            match.status
-                          )}`}
-                        >
-                          {statusLabel(normalizeMatchStatus(match.status))}
-                        </span>
-                        <input
-                          type="datetime-local"
-                          value={matchEdits[match.id]?.scheduledAt ?? ""}
-                          onChange={(event) =>
-                            handleMatchEditChange(match.id, "scheduledAt", event.target.value)
-                          }
-                          className="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-xs text-white"
-                        />
-                        <select
-                          value={matchEdits[match.id]?.division ?? ""}
-                          onChange={(event) =>
-                            handleMatchEditChange(match.id, "division", event.target.value)
-                          }
-                          className="w-28 rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-xs text-white"
-                        >
-                          <option value="">Division</option>
-                          {DIVISION_OPTIONS.map((option) => (
-                            <option key={option.value} value={option.value}>
-                              {option.label}
-                            </option>
-                          ))}
-                        </select>
-                        <input
-                          value={matchEdits[match.id]?.bestOf ?? ""}
-                          onChange={(event) =>
-                            handleMatchEditChange(match.id, "bestOf", event.target.value)
-                          }
-                          placeholder="Best of"
-                          className="w-20 rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-xs text-white"
-                        />
-                        <select
-                          value={matchEdits[match.id]?.status ?? ""}
-                          onChange={(event) =>
-                            handleMatchEditChange(match.id, "status", event.target.value)
-                          }
-                          className="w-28 rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-xs text-white"
-                        >
-                          {STATUS_OPTIONS.map((option) => (
-                            <option key={option.value} value={option.value}>
-                              {option.label}
-                            </option>
-                          ))}
-                        </select>
-                        <div className="flex items-center gap-1">
-                          {STATUS_OPTIONS.map((option) => (
-                            <button
-                              key={option.value}
-                              type="button"
-                              onClick={() => handleQuickStatus(match.id, option.value)}
-                              className="rounded-full border border-white/10 px-2 py-1 text-[10px] text-slate-200"
-                            >
-                              {option.label}
-                            </button>
-                          ))}
+                  matchesLive.map((match) => {
+                    const isCompleted = match.status === "completed";
+                    const isDeleting = deletingId === match.id;
+
+                    return (
+                      <div
+                        key={match.id}
+                        className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/5 p-4"
+                      >
+                        <div>
+                          <p className="text-sm text-white">
+                            {match.teamA.name} vs {match.teamB.name}
+                          </p>
+                          <p className="text-xs text-slate-400">
+                            {formatSchedule(match.scheduledAt)} ·{" "}
+                            {statusLabel(normalizeMatchStatus(match.status))}
+                          </p>
                         </div>
-                        <input
-                          value={resultScores[match.id]?.scoreA ?? ""}
-                          onChange={(event) =>
-                            handleResultChange(match.id, "scoreA", event.target.value)
-                          }
-                          placeholder="Score A"
-                          className="w-20 rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-xs text-white"
-                        />
-                        <input
-                          value={resultScores[match.id]?.scoreB ?? ""}
-                          onChange={(event) =>
-                            handleResultChange(match.id, "scoreB", event.target.value)
-                          }
-                          placeholder="Score B"
-                          className="w-20 rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-xs text-white"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => handleSubmitResult(match.id)}
-                          className="rounded-full bg-emerald-400/90 px-4 py-2 text-xs font-semibold text-slate-900"
-                        >
-                          Valider
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleSaveMatch(match.id)}
-                          className="rounded-full border border-white/10 px-4 py-2 text-xs text-slate-200"
-                        >
-                          Mettre à jour
-                        </button>
+                        <div className="flex flex-1 flex-wrap items-center justify-end gap-2">
+                          <span
+                            className={`rounded-full px-3 py-1 text-[11px] font-medium ${statusBadgeClass(
+                              match.status
+                            )}`}
+                          >
+                            {statusLabel(normalizeMatchStatus(match.status))}
+                          </span>
+                          <input
+                            type="datetime-local"
+                            value={matchEdits[match.id]?.scheduledAt ?? ""}
+                            onChange={(event) =>
+                              handleMatchEditChange(match.id, "scheduledAt", event.target.value)
+                            }
+                            className="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-xs text-white"
+                          />
+                          <select
+                            value={matchEdits[match.id]?.division ?? ""}
+                            onChange={(event) =>
+                              handleMatchEditChange(match.id, "division", event.target.value)
+                            }
+                            className="w-28 rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-xs text-white"
+                          >
+                            <option value="">Division</option>
+                            {DIVISION_OPTIONS.map((option) => (
+                              <option key={option.value} value={option.value}>
+                                {option.label}
+                              </option>
+                            ))}
+                          </select>
+                          <input
+                            value={matchEdits[match.id]?.bestOf ?? ""}
+                            onChange={(event) =>
+                              handleMatchEditChange(match.id, "bestOf", event.target.value)
+                            }
+                            placeholder="Best of"
+                            className="w-20 rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-xs text-white"
+                          />
+                          <select
+                            value={matchEdits[match.id]?.status ?? ""}
+                            onChange={(event) =>
+                              handleMatchEditChange(match.id, "status", event.target.value)
+                            }
+                            className="w-28 rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-xs text-white"
+                          >
+                            {STATUS_OPTIONS.map((option) => (
+                              <option key={option.value} value={option.value}>
+                                {option.label}
+                              </option>
+                            ))}
+                          </select>
+                          <div className="flex items-center gap-1">
+                            {STATUS_OPTIONS.map((option) => (
+                              <button
+                                key={option.value}
+                                type="button"
+                                onClick={() => handleQuickStatus(match.id, option.value)}
+                                className="rounded-full border border-white/10 px-2 py-1 text-[10px] text-slate-200"
+                              >
+                                {option.label}
+                              </button>
+                            ))}
+                          </div>
+                          <input
+                            value={resultScores[match.id]?.scoreA ?? ""}
+                            onChange={(event) =>
+                              handleResultChange(match.id, "scoreA", event.target.value)
+                            }
+                            placeholder="Score A"
+                            className="w-20 rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-xs text-white"
+                          />
+                          <input
+                            value={resultScores[match.id]?.scoreB ?? ""}
+                            onChange={(event) =>
+                              handleResultChange(match.id, "scoreB", event.target.value)
+                            }
+                            placeholder="Score B"
+                            className="w-20 rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-xs text-white"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => handleSubmitResult(match.id)}
+                            className="rounded-full bg-emerald-400/90 px-4 py-2 text-xs font-semibold text-slate-900"
+                          >
+                            Valider
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleSaveMatch(match.id)}
+                            className="rounded-full border border-white/10 px-4 py-2 text-xs text-slate-200"
+                          >
+                            Mettre à jour
+                          </button>
+                          <div className="flex flex-col items-end gap-1">
+                            <button
+                              type="button"
+                              onClick={() => deleteMatch(match.id)}
+                              disabled={isCompleted || isDeleting}
+                              title={
+                                isCompleted
+                                  ? "Impossible de supprimer un match terminé."
+                                  : "Supprimer ce match"
+                              }
+                              className={`inline-flex items-center gap-2 rounded-full border border-rose-400/40 px-4 py-2 text-xs ${
+                                isCompleted || isDeleting
+                                  ? "cursor-not-allowed bg-rose-500/30 text-rose-100/70"
+                                  : "bg-rose-500/90 text-white"
+                              }`}
+                            >
+                              {isDeleting ? (
+                                "Suppression..."
+                              ) : (
+                                <>
+                                  <span aria-hidden="true">🗑️</span>
+                                  <span>Supprimer</span>
+                                </>
+                              )}
+                            </button>
+                            {isCompleted ? (
+                              <span className="text-[10px] text-rose-300">
+                                Impossible de supprimer un match terminé.
+                              </span>
+                            ) : null}
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                  ))
+                    );
+                  })
                 )}
               </div>
             </div>
@@ -1977,116 +2077,152 @@ export default function AdminPanel() {
                 {matchesRecent.length === 0 ? (
                   <p className="text-sm text-slate-400">Aucun match récent.</p>
                 ) : (
-                  matchesRecent.map((match) => (
-                    <div
-                      key={match.id}
-                      className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/5 p-4"
-                    >
-                      <div>
-                        <p className="text-sm text-white">
-                          {match.teamA.name} {match.scoreA ?? "-"} - {match.scoreB ?? "-"} {match.teamB.name}
-                        </p>
-                        <p className="text-xs text-slate-400">
-                          {formatSchedule(match.scheduledAt)} ·{" "}
-                          {statusLabel(normalizeMatchStatus(match.status))}
-                        </p>
-                      </div>
-                      <div className="flex flex-1 flex-wrap items-center justify-end gap-2">
-                        <span
-                          className={`rounded-full px-3 py-1 text-[11px] font-medium ${statusBadgeClass(
-                            match.status
-                          )}`}
-                        >
-                          {statusLabel(normalizeMatchStatus(match.status))}
-                        </span>
-                        <input
-                          type="datetime-local"
-                          value={matchEdits[match.id]?.scheduledAt ?? ""}
-                          onChange={(event) =>
-                            handleMatchEditChange(match.id, "scheduledAt", event.target.value)
-                          }
-                          className="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-xs text-white"
-                        />
-                        <select
-                          value={matchEdits[match.id]?.division ?? ""}
-                          onChange={(event) =>
-                            handleMatchEditChange(match.id, "division", event.target.value)
-                          }
-                          className="w-28 rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-xs text-white"
-                        >
-                          <option value="">Division</option>
-                          {DIVISION_OPTIONS.map((option) => (
-                            <option key={option.value} value={option.value}>
-                              {option.label}
-                            </option>
-                          ))}
-                        </select>
-                        <input
-                          value={matchEdits[match.id]?.bestOf ?? ""}
-                          onChange={(event) =>
-                            handleMatchEditChange(match.id, "bestOf", event.target.value)
-                          }
-                          placeholder="Best of"
-                          className="w-20 rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-xs text-white"
-                        />
-                        <select
-                          value={matchEdits[match.id]?.status ?? ""}
-                          onChange={(event) =>
-                            handleMatchEditChange(match.id, "status", event.target.value)
-                          }
-                          className="w-28 rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-xs text-white"
-                        >
-                          {STATUS_OPTIONS.map((option) => (
-                            <option key={option.value} value={option.value}>
-                              {option.label}
-                            </option>
-                          ))}
-                        </select>
-                        <div className="flex items-center gap-1">
-                          {DIVISION_OPTIONS.map((option) => (
-                            <button
-                              key={option.value}
-                              type="button"
-                              onClick={() => handleQuickDivision(match.id, option.value)}
-                              className="rounded-full border border-white/10 px-2 py-1 text-[10px] text-slate-200"
-                            >
-                              {option.label}
-                            </button>
-                          ))}
+                  matchesRecent.map((match) => {
+                    const isCompleted = match.status === "completed";
+                    const isDeleting = deletingId === match.id;
+
+                    return (
+                      <div
+                        key={match.id}
+                        className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/5 p-4"
+                      >
+                        <div>
+                          <p className="text-sm text-white">
+                            {match.teamA.name} {match.scoreA ?? "-"} - {match.scoreB ?? "-"} {match.teamB.name}
+                          </p>
+                          <p className="text-xs text-slate-400">
+                            {formatSchedule(match.scheduledAt)} ·{" "}
+                            {statusLabel(normalizeMatchStatus(match.status))}
+                          </p>
                         </div>
-                        <input
-                          value={resultScores[match.id]?.scoreA ?? String(match.scoreA ?? "")}
-                          onChange={(event) =>
-                            handleResultChange(match.id, "scoreA", event.target.value)
-                          }
-                          placeholder="Score A"
-                          className="w-20 rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-xs text-white"
-                        />
-                        <input
-                          value={resultScores[match.id]?.scoreB ?? String(match.scoreB ?? "")}
-                          onChange={(event) =>
-                            handleResultChange(match.id, "scoreB", event.target.value)
-                          }
-                          placeholder="Score B"
-                          className="w-20 rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-xs text-white"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => handleSubmitResult(match.id)}
-                          className="rounded-full border border-white/10 px-4 py-2 text-xs text-slate-200"
-                        >
-                          Mettre à jour score
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleSaveMatch(match.id)}
-                          className="rounded-full border border-white/10 px-4 py-2 text-xs text-slate-200"
-                        >
-                          Mettre à jour match
-                        </button>
+                        <div className="flex flex-1 flex-wrap items-center justify-end gap-2">
+                          <span
+                            className={`rounded-full px-3 py-1 text-[11px] font-medium ${statusBadgeClass(
+                              match.status
+                            )}`}
+                          >
+                            {statusLabel(normalizeMatchStatus(match.status))}
+                          </span>
+                          <input
+                            type="datetime-local"
+                            value={matchEdits[match.id]?.scheduledAt ?? ""}
+                            onChange={(event) =>
+                              handleMatchEditChange(match.id, "scheduledAt", event.target.value)
+                            }
+                            className="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-xs text-white"
+                          />
+                          <select
+                            value={matchEdits[match.id]?.division ?? ""}
+                            onChange={(event) =>
+                              handleMatchEditChange(match.id, "division", event.target.value)
+                            }
+                            className="w-28 rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-xs text-white"
+                          >
+                            <option value="">Division</option>
+                            {DIVISION_OPTIONS.map((option) => (
+                              <option key={option.value} value={option.value}>
+                                {option.label}
+                              </option>
+                            ))}
+                          </select>
+                          <input
+                            value={matchEdits[match.id]?.bestOf ?? ""}
+                            onChange={(event) =>
+                              handleMatchEditChange(match.id, "bestOf", event.target.value)
+                            }
+                            placeholder="Best of"
+                            className="w-20 rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-xs text-white"
+                          />
+                          <select
+                            value={matchEdits[match.id]?.status ?? ""}
+                            onChange={(event) =>
+                              handleMatchEditChange(match.id, "status", event.target.value)
+                            }
+                            className="w-28 rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-xs text-white"
+                          >
+                            {STATUS_OPTIONS.map((option) => (
+                              <option key={option.value} value={option.value}>
+                                {option.label}
+                              </option>
+                            ))}
+                          </select>
+                          <div className="flex items-center gap-1">
+                            {DIVISION_OPTIONS.map((option) => (
+                              <button
+                                key={option.value}
+                                type="button"
+                                onClick={() => handleQuickDivision(match.id, option.value)}
+                                className="rounded-full border border-white/10 px-2 py-1 text-[10px] text-slate-200"
+                              >
+                                {option.label}
+                              </button>
+                            ))}
+                          </div>
+                          <input
+                            value={resultScores[match.id]?.scoreA ?? String(match.scoreA ?? "")}
+                            onChange={(event) =>
+                              handleResultChange(match.id, "scoreA", event.target.value)
+                            }
+                            placeholder="Score A"
+                            className="w-20 rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-xs text-white"
+                          />
+                          <input
+                            value={resultScores[match.id]?.scoreB ?? String(match.scoreB ?? "")}
+                            onChange={(event) =>
+                              handleResultChange(match.id, "scoreB", event.target.value)
+                            }
+                            placeholder="Score B"
+                            className="w-20 rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-xs text-white"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => handleSubmitResult(match.id)}
+                            className="rounded-full border border-white/10 px-4 py-2 text-xs text-slate-200"
+                          >
+                            Mettre à jour score
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleSaveMatch(match.id)}
+                            className="rounded-full border border-white/10 px-4 py-2 text-xs text-slate-200"
+                          >
+                            Mettre à jour match
+                          </button>
+                          <div className="flex flex-col items-end gap-1">
+                            <button
+                              type="button"
+                              onClick={() => deleteMatch(match.id)}
+                              disabled={isCompleted || isDeleting}
+                              title={
+                                isCompleted
+                                  ? "Impossible de supprimer un match terminé."
+                                  : "Supprimer ce match"
+                              }
+                              className={`inline-flex items-center gap-2 rounded-full border border-rose-400/40 px-4 py-2 text-xs ${
+                                isCompleted || isDeleting
+                                  ? "cursor-not-allowed bg-rose-500/30 text-rose-100/70"
+                                  : "bg-rose-500/90 text-white"
+                              }`}
+                            >
+                              {isDeleting ? (
+                                "Suppression..."
+                              ) : (
+                                <>
+                                  <span aria-hidden="true">🗑️</span>
+                                  <span>Supprimer</span>
+                                </>
+                              )}
+                            </button>
+                            {isCompleted ? (
+                              <span className="text-[10px] text-rose-300">
+                                Impossible de supprimer un match terminé.
+                              </span>
+                            ) : null}
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                  ))
+                    );
+                  })
                 )}
               </div>
             </div>
