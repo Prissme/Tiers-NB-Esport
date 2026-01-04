@@ -1,5 +1,6 @@
 import Button from "../components/Button";
 import SectionHeader from "../components/SectionHeader";
+import ActiveRostersClient from "./ActiveRostersClient";
 import { createAdminClient } from "../../src/lib/supabase/admin";
 import { withSchema } from "../../src/lib/supabase/schema";
 
@@ -19,6 +20,9 @@ type ActiveRosterRow = {
   division: string | null;
   members_count: number | null;
   members: unknown;
+  name?: string | null;
+  logo_url?: string | null;
+  logoUrl?: string | null;
 };
 
 const loadActiveRosters = async (): Promise<{
@@ -82,62 +86,7 @@ export default async function EquipesPage() {
         {rosters.length === 0 ? (
           <p className="text-sm text-slate-400">Aucun roster actif (aucun membre enregistré).</p>
         ) : (
-          <div className="grid gap-6 lg:grid-cols-2">
-            {rosters.map((team, index) => {
-              const members = Array.isArray(team.members) ? team.members : [];
-              const memberLabels = members.map((member, memberIndex) => {
-                if (typeof member === "string") {
-                  return member;
-                }
-                if (member && typeof member === "object") {
-                  const name =
-                    "name" in member
-                      ? String((member as { name?: unknown }).name ?? "")
-                      : "";
-                  return name || JSON.stringify(member);
-                }
-                return String(member);
-              });
-
-              return (
-                <article
-                  key={`${team.tag ?? "team"}-${index}`}
-                  className="rounded-3xl border border-white/10 bg-slate-950/70 p-6 shadow-[0_25px_80px_-60px_rgba(15,23,42,0.8)]"
-                >
-                  <div className="flex flex-wrap items-start justify-between gap-4">
-                    <div>
-                      <p className="text-xs uppercase tracking-[0.35em] text-slate-400">
-                        {team.division ?? "Division"}
-                      </p>
-                      <h3 className="text-lg font-semibold text-white">
-                        {team.tag ?? "Tag"}
-                      </h3>
-                    </div>
-                    <div className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs uppercase tracking-[0.2em] text-emerald-200">
-                      {team.members_count ?? members.length} membres
-                    </div>
-                  </div>
-
-                  {memberLabels.length > 0 ? (
-                    <div className="mt-4 flex flex-wrap gap-2">
-                      {memberLabels.map((memberLabel, memberIndex) => (
-                        <span
-                          key={`${memberLabel}-${memberIndex}`}
-                          className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-slate-200"
-                        >
-                          {memberLabel}
-                        </span>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="mt-4 text-xs text-slate-400">
-                      Aucun membre listé pour ce roster.
-                    </p>
-                  )}
-                </article>
-              );
-            })}
-          </div>
+          <ActiveRostersClient rosters={rosters} />
         )}
       </section>
 
