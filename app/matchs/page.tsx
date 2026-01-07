@@ -17,7 +17,7 @@ export default function MatchsPage() {
           <SectionHeader
             kicker="Matchs"
             title="Planning condensé"
-            description="Tout est visuel, rien de lourd."
+            description="DEBUT MATCH 1 LE 12 JANVIER 2026 à 18H"
           />
           <div className="grid gap-4 md:grid-cols-3">
             {matchPanels.map((panel) => (
