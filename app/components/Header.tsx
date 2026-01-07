@@ -1,5 +1,6 @@
 import Link from "next/link";
 import Button from "./Button";
+import Countdown from "./Countdown";
 
 const navItems = [
   { label: "Matchs", href: "/matchs" },
@@ -33,17 +34,8 @@ export default function Header() {
             </Link>
           ))}
         </nav>
-        <div className="flex items-center gap-3">
-          <iframe
-            title="Discord Prissme TV"
-            src="https://discord.com/widget?id=1236724293027496047&theme=dark"
-            width="350"
-            height="500"
-            allowTransparency={true}
-            frameBorder="0"
-            sandbox="allow-popups allow-popups-to-escape-sandbox allow-same-origin allow-scripts"
-            className="rounded-2xl border border-white/10 bg-white/5"
-          />
+        <div className="flex flex-wrap items-center justify-end gap-3">
+          <Countdown targetDate="2026-01-12T18:00:00+01:00" />
           <Button href="https://ko-fi.com/prissme" variant="ghost" external>
             Soutenir la LFN
           </Button>
