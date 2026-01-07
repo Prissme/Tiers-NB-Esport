@@ -1,8 +1,6 @@
 import SectionHeader from "../components/SectionHeader";
 import { getBaseUrl } from "../lib/get-base-url";
 
-const standingsTags = ["Points", "Sets gagnés", "Sets perdus", "Bonus admin"];
-
 type StandingRow = {
   teamId: string;
   teamName: string;
@@ -133,30 +131,6 @@ export default async function ClassementPage() {
         )}
       </section>
 
-      <section className="section-card space-y-6">
-        <SectionHeader
-          kicker="Repères"
-          title="Tags essentiels"
-          description="Pas de tableau lourd."
-        />
-        <div className="flex flex-wrap gap-3">
-          {standingsTags.map((tag) => (
-            <span key={tag} className="motion-pill">
-              {tag}
-            </span>
-          ))}
-        </div>
-        <div className="grid gap-4 md:grid-cols-2">
-          <div className="motion-card">
-            <p className="text-xs uppercase tracking-[0.35em] text-slate-400">Focus</p>
-            <p className="mt-3 text-sm text-white">Un score = un bloc.</p>
-          </div>
-          <div className="motion-card">
-            <p className="text-xs uppercase tracking-[0.35em] text-slate-400">Synthèse</p>
-            <p className="mt-3 text-sm text-white">Lecture immédiate.</p>
-          </div>
-        </div>
-      </section>
     </div>
   );
 }

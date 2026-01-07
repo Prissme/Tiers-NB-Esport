@@ -7,8 +7,6 @@ const partnerBlocks = [
   { label: "Contact", detail: "Fluide" },
 ];
 
-const partnerTags = ["Overlay", "Clip", "Annonce", "Badge"];
-
 export default function PartenariatsPage() {
   return (
     <div className="space-y-12">
@@ -30,37 +28,9 @@ export default function PartenariatsPage() {
             ))}
           </div>
           <div className="flex flex-wrap gap-3">
-            <Button href="/participer" variant="primary">
-              Devenir partenaire
-            </Button>
             <Button href="/matchs" variant="secondary">
               Voir la ligue
             </Button>
-          </div>
-        </div>
-      </section>
-
-      <section className="section-card space-y-6">
-        <SectionHeader
-          kicker="Tags"
-          title="Repères rapides"
-          description="Simple et visuel."
-        />
-        <div className="flex flex-wrap gap-3">
-          {partnerTags.map((tag) => (
-            <span key={tag} className="motion-pill">
-              {tag}
-            </span>
-          ))}
-        </div>
-        <div className="grid gap-4 md:grid-cols-2">
-          <div className="motion-card">
-            <p className="text-xs uppercase tracking-[0.35em] text-slate-400">Pitch</p>
-            <p className="mt-3 text-sm text-white">Plan court.</p>
-          </div>
-          <div className="motion-card">
-            <p className="text-xs uppercase tracking-[0.35em] text-slate-400">Activation</p>
-            <p className="mt-3 text-sm text-white">Cadence claire.</p>
           </div>
         </div>
       </section>

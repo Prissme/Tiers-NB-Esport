@@ -7,8 +7,6 @@ const joinSteps = [
   { label: "3. Validation", detail: "Réponse rapide" },
 ];
 
-const joinTags = ["Discord", "Roster", "Timing", "Fair play"];
-
 export default function ParticiperPage() {
   return (
     <div className="space-y-12">
@@ -36,31 +34,6 @@ export default function ParticiperPage() {
             <Button href="/reglement" variant="secondary">
               Règlement
             </Button>
-          </div>
-        </div>
-      </section>
-
-      <section className="section-card space-y-6">
-        <SectionHeader
-          kicker="Focus"
-          title="Repères rapides"
-          description="Juste l'essentiel."
-        />
-        <div className="flex flex-wrap gap-3">
-          {joinTags.map((tag) => (
-            <span key={tag} className="motion-pill">
-              {tag}
-            </span>
-          ))}
-        </div>
-        <div className="grid gap-4 md:grid-cols-2">
-          <div className="motion-card">
-            <p className="text-xs uppercase tracking-[0.35em] text-slate-400">Staff</p>
-            <p className="mt-3 text-sm text-white">Réponse rapide.</p>
-          </div>
-          <div className="motion-card">
-            <p className="text-xs uppercase tracking-[0.35em] text-slate-400">Support</p>
-            <p className="mt-3 text-sm text-white">Aide ciblée.</p>
           </div>
         </div>
       </section>

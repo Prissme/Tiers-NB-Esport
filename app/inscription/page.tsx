@@ -28,9 +28,6 @@ export default function InscriptionPage() {
             ))}
           </div>
           <div className="flex flex-wrap gap-3">
-            <Button href="/participer" variant="primary">
-              Préparer
-            </Button>
             <Button href="/reglement" variant="secondary">
               Règles
             </Button>

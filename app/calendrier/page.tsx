@@ -6,8 +6,6 @@ const calendarTiles = [
   { label: "Semaine 3", detail: "Bloc final" },
 ];
 
-const calendarTags = ["Lundi", "Mercredi", "Vendredi", "Week-end"];
-
 export default function CalendrierPage() {
   return (
     <div className="space-y-12">
@@ -27,31 +25,6 @@ export default function CalendrierPage() {
                 <p className="mt-3 text-sm text-white">{tile.detail}</p>
               </div>
             ))}
-          </div>
-        </div>
-      </section>
-
-      <section className="section-card space-y-6">
-        <SectionHeader
-          kicker="Tags"
-          title="Repères rapides"
-          description="Courte lecture."
-        />
-        <div className="flex flex-wrap gap-3">
-          {calendarTags.map((tag) => (
-            <span key={tag} className="motion-pill">
-              {tag}
-            </span>
-          ))}
-        </div>
-        <div className="grid gap-4 md:grid-cols-2">
-          <div className="motion-card">
-            <p className="text-xs uppercase tracking-[0.35em] text-slate-400">Timing</p>
-            <p className="mt-3 text-sm text-white">Créneaux courts.</p>
-          </div>
-          <div className="motion-card">
-            <p className="text-xs uppercase tracking-[0.35em] text-slate-400">Updates</p>
-            <p className="mt-3 text-sm text-white">Annonce rapide.</p>
           </div>
         </div>
       </section>

@@ -6,8 +6,6 @@ const poolTiles = [
   { label: "Suivi", detail: "Transparence" },
 ];
 
-const poolTags = ["Sponsor", "Cash", "Gear", "Bonus"];
-
 export default function PrizepoolPage() {
   return (
     <div className="space-y-12">
@@ -27,31 +25,6 @@ export default function PrizepoolPage() {
                 <p className="mt-3 text-sm text-white">{tile.detail}</p>
               </div>
             ))}
-          </div>
-        </div>
-      </section>
-
-      <section className="section-card space-y-6">
-        <SectionHeader
-          kicker="Tags"
-          title="Repères rapides"
-          description="Pas de détails lourds."
-        />
-        <div className="flex flex-wrap gap-3">
-          {poolTags.map((tag) => (
-            <span key={tag} className="motion-pill">
-              {tag}
-            </span>
-          ))}
-        </div>
-        <div className="grid gap-4 md:grid-cols-2">
-          <div className="motion-card">
-            <p className="text-xs uppercase tracking-[0.35em] text-slate-400">Impact</p>
-            <p className="mt-3 text-sm text-white">Boost rapide.</p>
-          </div>
-          <div className="motion-card">
-            <p className="text-xs uppercase tracking-[0.35em] text-slate-400">Partage</p>
-            <p className="mt-3 text-sm text-white">Visuel clair.</p>
           </div>
         </div>
       </section>
