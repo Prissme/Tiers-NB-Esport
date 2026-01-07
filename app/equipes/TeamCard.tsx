@@ -37,27 +37,27 @@ export default function TeamCard({ team }: { team: TeamCardData }) {
   );
 
   return (
-    <article className="group relative overflow-hidden rounded-3xl border border-white/15 bg-white/10 p-6 shadow-[0_30px_90px_-50px_rgba(15,23,42,0.9)] backdrop-blur-2xl">
+    <article className="group relative min-h-[360px] overflow-hidden rounded-3xl border border-white/15 bg-white/10 p-8 shadow-[0_30px_90px_-50px_rgba(15,23,42,0.9)] backdrop-blur-2xl">
       {team.logoUrl && !logoFailed ? (
         <div
-          className="pointer-events-none absolute inset-0 opacity-25 mix-blend-screen"
+          className="pointer-events-none absolute inset-0 opacity-30 mix-blend-screen"
           style={{
             backgroundImage: `url(${team.logoUrl})`,
             backgroundRepeat: "no-repeat",
             backgroundPosition: "center",
-            backgroundSize: "contain",
+            backgroundSize: "cover",
           }}
         />
       ) : null}
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-slate-950/20 via-slate-950/60 to-slate-950/80" />
       <div className="pointer-events-none absolute -top-12 right-0 h-40 w-40 rounded-full bg-fuchsia-400/20 blur-3xl transition-opacity duration-500 group-hover:opacity-90" />
-      <div className="relative flex items-center gap-4">
-        <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-2xl border border-white/20 bg-slate-900/60 backdrop-blur">
+      <div className="relative flex items-center gap-5">
+        <div className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-3xl border border-white/20 bg-slate-900/60 backdrop-blur">
           {team.logoUrl && !logoFailed ? (
             <img
               src={team.logoUrl}
               alt={`Logo ${team.name}`}
-              className="h-full w-full object-contain p-2"
+              className="h-full w-full object-contain p-3"
               onError={() => setLogoFailed(true)}
               loading="lazy"
             />
