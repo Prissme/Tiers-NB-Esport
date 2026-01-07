@@ -34,14 +34,16 @@ export default function Header() {
           ))}
         </nav>
         <div className="flex items-center gap-3">
-          <Button
-            href="https://discord.gg/prissme"
-            variant="primary"
-            target="_blank"
-            rel="noreferrer"
-          >
-            Prissme TV — Le hub français sur Null&apos;s Brawl
-          </Button>
+          <iframe
+            title="Discord Prissme TV"
+            src="https://discord.com/widget?id=1236724293027496047&theme=dark"
+            width="350"
+            height="500"
+            allowTransparency={true}
+            frameBorder="0"
+            sandbox="allow-popups allow-popups-to-escape-sandbox allow-same-origin allow-scripts"
+            className="rounded-2xl border border-white/10 bg-white/5"
+          />
           <Button href="https://ko-fi.com/prissme" variant="ghost" external>
             Soutenir la LFN
           </Button>
