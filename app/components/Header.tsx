@@ -37,11 +37,13 @@ export default function Header() {
           ))}
         </nav>
         <div className="flex items-center gap-3">
-          <Button href="/participer" variant="secondary">
-            Rejoindre la saison
-          </Button>
-          <Button href="/inscription" variant="primary">
-            Inscrire l&apos;équipe
+          <Button
+            href="https://discord.gg/prissme"
+            variant="primary"
+            target="_blank"
+            rel="noreferrer"
+          >
+            Prissme TV — Le hub français sur Null&apos;s Brawl
           </Button>
         </div>
       </div>
