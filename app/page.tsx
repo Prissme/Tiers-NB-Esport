@@ -3,16 +3,12 @@ import Button from "./components/Button";
 import SectionHeader from "./components/SectionHeader";
 import { getBaseUrl } from "./lib/get-base-url";
 
-const quickSignals = ["Saison active", "Roster prêt", "Scores live", "Staff en ligne"];
-
 const motionCards = [
-  { title: "Matches", detail: "Calendrier léger" },
+  { title: "Matches", detail: "Plus de 30 matchs joués" },
   { title: "Scores", detail: "Validation rapide" },
   { title: "Teams", detail: "Rosters visibles" },
   { title: "Règles", detail: "Formats clairs" },
 ];
-
-const flowSteps = ["Draft", "Match", "Score", "Playoffs"];
 
 type SiteStats = {
   playersCount: number | null;
@@ -44,23 +40,13 @@ export default async function HomePage() {
         <div className="motion-orb motion-orb--pink bottom-[-80px] left-1/3 h-72 w-72 motion-drift" />
         <div className="absolute inset-0 grid-lines opacity-30" />
         <div className="relative z-10 space-y-6">
-          <div className="flex flex-wrap items-center gap-3">
-            {quickSignals.map((signal) => (
-              <span key={signal} className="motion-pill">
-                {signal}
-              </span>
-            ))}
-          </div>
           <div className="space-y-3">
             <p className="text-xs uppercase tracking-[0.4em] text-emerald-300/80">
               LFN / Null&apos;s Brawl
             </p>
             <h1 className="text-4xl font-semibold leading-tight text-white md:text-6xl">
-              La ligue fluide, compacte, rapide.
+              LFN, le futur de l&apos;e-sport Null&apos;s Brawl
             </h1>
-            <p className="max-w-xl text-sm text-slate-200 md:text-base">
-              Moins de texte, plus d&apos;action.
-            </p>
           </div>
           <div className="flex flex-wrap gap-3">
             <Button href="/participer" variant="primary">
@@ -106,48 +92,6 @@ export default async function HomePage() {
               {stats.prizepoolTotal ?? "-"}
             </p>
             <p className="text-xs text-slate-400">Total actuel</p>
-          </div>
-        </div>
-      </section>
-
-      <section className="section-card space-y-6">
-        <SectionHeader
-          kicker="Flux"
-          title="Tout se passe en trois actions"
-          description="Lecture rapide, décisions rapides."
-        />
-        <div className="motion-line" />
-        <div className="grid gap-4 md:grid-cols-3">
-          {"Lancer Suivre Finir".split(" ").map((item) => (
-            <div key={item} className="motion-card">
-              <p className="text-xs uppercase tracking-[0.35em] text-slate-400">{item}</p>
-              <p className="mt-3 text-sm text-white">Signal visuel + action.</p>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <section className="section-card space-y-6">
-        <SectionHeader
-          kicker="Parcours express"
-          title="Un flow clair"
-          description="Chaque étape est un bloc court."
-        />
-        <div className="flex flex-wrap gap-3">
-          {flowSteps.map((step) => (
-            <span key={step} className="motion-pill">
-              {step}
-            </span>
-          ))}
-        </div>
-        <div className="grid gap-4 md:grid-cols-2">
-          <div className="motion-card">
-            <p className="text-xs uppercase tracking-[0.35em] text-slate-400">Focus</p>
-            <p className="mt-3 text-sm text-white">Aucune surcharge, juste l&apos;essentiel.</p>
-          </div>
-          <div className="motion-card">
-            <p className="text-xs uppercase tracking-[0.35em] text-slate-400">Rhythm</p>
-            <p className="mt-3 text-sm text-white">Des mouvements qui respirent.</p>
           </div>
         </div>
       </section>
