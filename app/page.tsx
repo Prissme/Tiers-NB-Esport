@@ -1,7 +1,4 @@
 import Button from "./components/Button";
-import SectionHeader from "./components/SectionHeader";
-import { getBaseUrl } from "./lib/get-base-url";
-
 const motionCards = [
   { title: "Matches", detail: "Plus de 30 matchs joués" },
   { title: "Scores", detail: "Validation rapide" },
@@ -9,28 +6,7 @@ const motionCards = [
   { title: "Règles", detail: "Formats clairs" },
 ];
 
-type SiteStats = {
-  playersCount: number | null;
-  matchesToday: number | null;
-  prizepoolTotal: number | null;
-};
-
-const loadStats = async (): Promise<SiteStats> => {
-  const baseUrl = getBaseUrl();
-  const response = await fetch(`${baseUrl}/api/site/stats`, {
-    next: { revalidate: 60 },
-  });
-
-  if (!response.ok) {
-    return { playersCount: null, matchesToday: null, prizepoolTotal: null };
-  }
-
-  return response.json();
-};
-
 export default async function HomePage() {
-  const stats = await loadStats();
-
   return (
     <div className="space-y-12">
       <section className="motion-field p-8 md:p-10">
@@ -62,33 +38,6 @@ export default async function HomePage() {
               <p className="mt-3 text-sm text-white">{card.detail}</p>
             </div>
           ))}
-        </div>
-      </section>
-
-      <section className="section-card space-y-6">
-        <SectionHeader
-          kicker="Live"
-          title="Instantané"
-          description="Les chiffres clés de la ligue."
-        />
-        <div className="grid gap-4 md:grid-cols-3">
-          <div className="motion-card">
-            <p className="text-xs uppercase tracking-[0.35em] text-slate-400">Joueurs</p>
-            <p className="mt-3 text-2xl font-semibold text-white">{stats.playersCount ?? "-"}</p>
-            <p className="text-xs text-slate-400">Inscrits actifs</p>
-          </div>
-          <div className="motion-card">
-            <p className="text-xs uppercase tracking-[0.35em] text-slate-400">Matchs</p>
-            <p className="mt-3 text-2xl font-semibold text-white">{stats.matchesToday ?? "-"}</p>
-            <p className="text-xs text-slate-400">Aujourd&apos;hui</p>
-          </div>
-          <div className="motion-card">
-            <p className="text-xs uppercase tracking-[0.35em] text-slate-400">Prizepool</p>
-            <p className="mt-3 text-2xl font-semibold text-white">
-              {stats.prizepoolTotal ?? "-"}
-            </p>
-            <p className="text-xs text-slate-400">Total actuel</p>
-          </div>
         </div>
       </section>
     </div>
