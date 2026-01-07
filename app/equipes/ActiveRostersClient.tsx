@@ -144,7 +144,7 @@ export default function ActiveRostersClient({ rosters }: { rosters: ActiveRoster
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
                 placeholder="Tag ou nom d'équipe"
-                className="mt-2 w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-2 text-sm text-white outline-none transition focus:border-emerald-400/70 focus:ring-2 focus:ring-emerald-400/20"
+                className="mt-2 w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-2 text-sm text-white outline-none transition focus:border-fuchsia-400/70 focus:ring-2 focus:ring-fuchsia-400/20"
               />
             </label>
           </div>
@@ -156,7 +156,7 @@ export default function ActiveRostersClient({ rosters }: { rosters: ActiveRoster
                 onChange={(event) =>
                   setDivisionFilter(event.target.value as "all" | "d1" | "d2")
                 }
-                className="mt-2 w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-2 text-sm text-white outline-none transition focus:border-emerald-400/70 focus:ring-2 focus:ring-emerald-400/20"
+                className="mt-2 w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-2 text-sm text-white outline-none transition focus:border-fuchsia-400/70 focus:ring-2 focus:ring-fuchsia-400/20"
               >
                 <option value="all">Toutes</option>
                 <option value="d1">D1</option>
@@ -165,7 +165,7 @@ export default function ActiveRostersClient({ rosters }: { rosters: ActiveRoster
             </label>
           </div>
         </div>
-        <div className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs uppercase tracking-[0.25em] text-emerald-200">
+        <div className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs uppercase tracking-[0.25em] text-fuchsia-200">
           {filteredRosters.length} roster{filteredRosters.length > 1 ? "s" : ""}
         </div>
       </div>
@@ -202,7 +202,7 @@ export default function ActiveRostersClient({ rosters }: { rosters: ActiveRoster
                 className="group relative overflow-hidden rounded-3xl border border-white/10 bg-slate-950/80 p-6 shadow-[0_25px_80px_-60px_rgba(56,189,248,0.45)]"
               >
                 <div className="pointer-events-none absolute inset-0 opacity-0 transition group-hover:opacity-100">
-                  <div className="absolute -left-10 top-8 h-24 w-24 rounded-full bg-emerald-500/10 blur-2xl" />
+                  <div className="absolute -left-10 top-8 h-24 w-24 rounded-full bg-fuchsia-500/10 blur-2xl" />
                   <div className="absolute right-0 top-0 h-24 w-24 rounded-full bg-sky-500/10 blur-2xl" />
                 </div>
 
@@ -219,11 +219,11 @@ export default function ActiveRostersClient({ rosters }: { rosters: ActiveRoster
                       </div>
                     </div>
                     <div className="flex flex-wrap gap-2">
-                      <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[0.65rem] uppercase tracking-[0.25em] text-emerald-200">
+                      <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[0.65rem] uppercase tracking-[0.25em] text-fuchsia-200">
                         {team.members_count ?? members.length} membres
                       </span>
                       {rosterComplete ? (
-                        <span className="rounded-full border border-emerald-400/40 bg-emerald-400/10 px-3 py-1 text-[0.65rem] uppercase tracking-[0.25em] text-emerald-200">
+                        <span className="rounded-full border border-fuchsia-400/40 bg-fuchsia-400/10 px-3 py-1 text-[0.65rem] uppercase tracking-[0.25em] text-fuchsia-200">
                           Roster complet
                         </span>
                       ) : null}
@@ -298,7 +298,7 @@ function LogoBadge({
           unoptimized
         />
       ) : (
-        <span className="text-sm font-semibold uppercase tracking-[0.2em] text-emerald-200">
+        <span className="text-sm font-semibold uppercase tracking-[0.2em] text-fuchsia-200">
           {label}
         </span>
       )}

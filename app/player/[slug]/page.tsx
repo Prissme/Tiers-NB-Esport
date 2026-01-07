@@ -144,7 +144,7 @@ export default async function PlayerProfilePage({ params }: { params: { slug: st
                     <span
                       className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] ${
                         match.result === 'win'
-                          ? 'bg-emerald-400/20 text-emerald-200'
+                          ? 'bg-fuchsia-400/20 text-fuchsia-200'
                           : match.result === 'loss'
                             ? 'bg-rose-400/20 text-rose-200'
                             : 'bg-slate-700/50 text-slate-300'

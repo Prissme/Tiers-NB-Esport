@@ -30,7 +30,7 @@ body {
   content: "";
   position: absolute;
   inset: 0;
-  background: linear-gradient(90deg, rgba(16, 185, 129, 0.4), rgba(56, 189, 248, 0.4));
+  background: linear-gradient(90deg, rgba(192, 38, 211, 0.5), rgba(99, 102, 241, 0.45));
   opacity: 0.6;
 }
 
@@ -41,11 +41,11 @@ body {
 }
 
 .text-glow {
-  text-shadow: 0 0 25px rgba(16, 185, 129, 0.35);
+  text-shadow: 0 0 28px rgba(192, 38, 211, 0.4);
 }
 
 .neo-border {
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08), 0 0 40px -20px rgba(16, 185, 129, 0.45);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08), 0 0 40px -20px rgba(192, 38, 211, 0.45);
 }
 
 .confetti-piece {
@@ -88,16 +88,16 @@ body {
 
 .motion-orb {
   @apply absolute rounded-full blur-3xl opacity-60;
-  background: radial-gradient(circle at 30% 30%, rgba(16, 185, 129, 0.5), transparent 70%);
+  background: radial-gradient(circle at 30% 30%, rgba(192, 38, 211, 0.55), transparent 70%);
   animation: float-y 10s ease-in-out infinite;
 }
 
 .motion-orb--blue {
-  background: radial-gradient(circle at 70% 30%, rgba(56, 189, 248, 0.45), transparent 70%);
+  background: radial-gradient(circle at 70% 30%, rgba(99, 102, 241, 0.5), transparent 70%);
 }
 
 .motion-orb--pink {
-  background: radial-gradient(circle at 50% 50%, rgba(244, 114, 182, 0.4), transparent 70%);
+  background: radial-gradient(circle at 50% 50%, rgba(236, 72, 153, 0.45), transparent 70%);
 }
 
 .motion-drift {
@@ -109,7 +109,12 @@ body {
 }
 
 .motion-shimmer {
-  background: linear-gradient(120deg, rgba(16, 185, 129, 0.08), rgba(56, 189, 248, 0.12), rgba(16, 185, 129, 0.08));
+  background: linear-gradient(
+    120deg,
+    rgba(192, 38, 211, 0.12),
+    rgba(99, 102, 241, 0.14),
+    rgba(192, 38, 211, 0.12)
+  );
   background-size: 200% 200%;
   animation: shimmer 8s ease infinite;
 }
@@ -122,7 +127,7 @@ body {
   content: "";
   position: absolute;
   inset: 0;
-  background: radial-gradient(circle at top right, rgba(16, 185, 129, 0.15), transparent 55%);
+  background: radial-gradient(circle at top right, rgba(192, 38, 211, 0.2), transparent 55%);
   opacity: 0.7;
   pointer-events: none;
 }
@@ -135,7 +140,7 @@ body {
   content: "";
   position: absolute;
   inset: 0;
-  background: linear-gradient(90deg, transparent, rgba(16, 185, 129, 0.7), transparent);
+  background: linear-gradient(90deg, transparent, rgba(192, 38, 211, 0.7), transparent);
   transform: translateX(-100%);
   animation: line-scan 5s ease-in-out infinite;
 }

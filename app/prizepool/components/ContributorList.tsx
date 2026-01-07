@@ -16,7 +16,7 @@ interface ContributorListProps {
 export default function ContributorList({ items }: ContributorListProps) {
   if (items.length === 0) {
     return (
-      <div className="rounded-2xl border border-emerald-500/20 bg-slate-950/60 p-6 text-center text-sm text-emerald-200/60">
+      <div className="rounded-2xl border border-fuchsia-500/20 bg-slate-950/60 p-6 text-center text-sm text-fuchsia-200/60">
         Soyez le premier à contribuer à la cagnotte.
       </div>
     );
@@ -30,15 +30,15 @@ export default function ContributorList({ items }: ContributorListProps) {
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4, delay: index * 0.05 }}
-          className="flex items-center justify-between rounded-2xl border border-emerald-500/20 bg-slate-950/60 px-4 py-3"
+          className="flex items-center justify-between rounded-2xl border border-fuchsia-500/20 bg-slate-950/60 px-4 py-3"
         >
           <div className="flex flex-col">
-            <span className="text-sm font-semibold text-emerald-200">
+            <span className="text-sm font-semibold text-fuchsia-200">
               {item.anonymous ? 'Contributeur anonyme' : item.name}
             </span>
-            <span className="text-xs text-emerald-200/50">Contribution récente</span>
+            <span className="text-xs text-fuchsia-200/50">Contribution récente</span>
           </div>
-          <span className="text-sm font-semibold text-emerald-300">
+          <span className="text-sm font-semibold text-fuchsia-300">
             +{item.amount.toLocaleString('fr-FR')}€
           </span>
         </motion.div>

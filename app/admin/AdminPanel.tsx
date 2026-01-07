@@ -278,7 +278,7 @@ const formatSchedule = (value: string | null) => {
 const statusBadgeClass = (status?: string | null) => {
   switch (status) {
     case "live":
-      return "bg-emerald-400/20 text-emerald-200";
+      return "bg-fuchsia-400/20 text-fuchsia-200";
     case "completed":
       return "bg-slate-500/20 text-slate-200";
     case "scheduled":
@@ -1261,7 +1261,7 @@ export default function AdminPanel() {
               type="button"
               className={`rounded-full px-4 py-2 text-sm ${
                 activeTab === "teams"
-                  ? "bg-emerald-400/90 text-slate-900"
+                  ? "bg-fuchsia-400/90 text-slate-900"
                   : "bg-white/5 text-slate-200"
               }`}
               onClick={() => setActiveTab("teams")}
@@ -1272,7 +1272,7 @@ export default function AdminPanel() {
               type="button"
               className={`rounded-full px-4 py-2 text-sm ${
                 activeTab === "matches"
-                  ? "bg-emerald-400/90 text-slate-900"
+                  ? "bg-fuchsia-400/90 text-slate-900"
                   : "bg-white/5 text-slate-200"
               }`}
               onClick={() => setActiveTab("matches")}
@@ -1287,14 +1287,14 @@ export default function AdminPanel() {
         <div
           className={`fixed right-6 top-6 z-50 w-[280px] rounded-2xl border px-4 py-3 text-sm shadow-lg ${
             toastMessage.type === "success"
-              ? "border-emerald-400/40 bg-emerald-400/90 text-slate-900"
+              ? "border-fuchsia-400/40 bg-fuchsia-400/90 text-slate-900"
               : "border-rose-400/40 bg-rose-500/90 text-white"
           }`}
         >
           {toastMessage.message}
         </div>
       ) : null}
-      {statusMessage ? <p className="text-sm text-emerald-300">{statusMessage}</p> : null}
+      {statusMessage ? <p className="text-sm text-fuchsia-300">{statusMessage}</p> : null}
       {errorMessage ? <p className="text-sm text-rose-300">{errorMessage}</p> : null}
       {loading ? <p className="text-sm text-slate-400">Chargement...</p> : null}
 
@@ -1465,7 +1465,7 @@ export default function AdminPanel() {
             <button
               type="button"
               onClick={handleCreateTeam}
-              className="inline-flex items-center justify-center rounded-full bg-emerald-400/90 px-5 py-2 text-sm font-semibold text-slate-900"
+              className="inline-flex items-center justify-center rounded-full bg-fuchsia-400/90 px-5 py-2 text-sm font-semibold text-slate-900"
             >
               Ajouter l'équipe
             </button>
@@ -1514,7 +1514,7 @@ export default function AdminPanel() {
                     type="checkbox"
                     checked={multiOpenTeams}
                     onChange={(event) => handleMultiOpenToggle(event.target.checked)}
-                    className="h-3 w-3 rounded border-white/20 bg-transparent text-emerald-300"
+                    className="h-3 w-3 rounded border-white/20 bg-transparent text-fuchsia-300"
                   />
                   Multi-ouverture
                 </label>
@@ -1801,7 +1801,7 @@ export default function AdminPanel() {
                                             <button
                                               type="button"
                                               onClick={() => handleSaveTeam(team)}
-                                              className="rounded-full bg-emerald-400/90 px-3 py-1 text-[11px] font-semibold text-slate-900"
+                                              className="rounded-full bg-fuchsia-400/90 px-3 py-1 text-[11px] font-semibold text-slate-900"
                                             >
                                               Sauver
                                             </button>
@@ -1839,7 +1839,7 @@ export default function AdminPanel() {
                             <button
                               type="button"
                               onClick={() => handleSaveTeam(team)}
-                              className="rounded-full bg-emerald-400/90 px-4 py-2 text-xs font-semibold text-slate-900"
+                              className="rounded-full bg-fuchsia-400/90 px-4 py-2 text-xs font-semibold text-slate-900"
                             >
                               Sauvegarder
                             </button>
@@ -1963,7 +1963,7 @@ export default function AdminPanel() {
             <button
               type="button"
               onClick={handleCreateMatch}
-              className="inline-flex items-center justify-center rounded-full bg-emerald-400/90 px-5 py-2 text-sm font-semibold text-slate-900"
+              className="inline-flex items-center justify-center rounded-full bg-fuchsia-400/90 px-5 py-2 text-sm font-semibold text-slate-900"
             >
               Ajouter le match
             </button>
@@ -2115,7 +2115,7 @@ export default function AdminPanel() {
                           <button
                             type="button"
                             onClick={() => handleSubmitResult(match.id)}
-                            className="rounded-full bg-emerald-400/90 px-4 py-2 text-xs font-semibold text-slate-900"
+                            className="rounded-full bg-fuchsia-400/90 px-4 py-2 text-xs font-semibold text-slate-900"
                           >
                             Valider
                           </button>

@@ -18,7 +18,7 @@ const tierStyles: Record<string, string> = {
   S: 'from-amber-300/40 via-pink-400/40 to-violet-500/40 text-amber-200',
   A: 'from-violet-400/40 via-fuchsia-400/40 to-indigo-400/40 text-violet-200',
   B: 'from-cyan-400/30 via-sky-400/30 to-blue-400/30 text-cyan-100',
-  C: 'from-emerald-400/30 via-teal-400/30 to-green-400/30 text-emerald-100',
+  C: 'from-fuchsia-400/30 via-teal-400/30 to-green-400/30 text-fuchsia-100',
   D: 'from-slate-500/30 via-slate-600/30 to-slate-700/30 text-slate-200',
   E: 'from-slate-700/40 via-slate-800/40 to-slate-900/40 text-slate-300'
 };
