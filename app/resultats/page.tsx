@@ -62,7 +62,7 @@ export default async function ResultatsPage() {
                 <p className="mt-3 text-sm text-white">
                   {dayMatches.length} match{dayMatches.length > 1 ? "s" : ""}
                 </p>
-                <p className="mt-2 text-xs text-emerald-200/80">
+                <p className="mt-2 text-xs text-fuchsia-200/80">
                   {dayMatches[0]?.scheduledAt ? formatDate(dayMatches[0].scheduledAt) : "-"}
                 </p>
               </div>
@@ -97,7 +97,7 @@ export default async function ResultatsPage() {
                           {formatDate(match.scheduledAt)} · {match.division ?? ""}
                         </p>
                       </div>
-                      <span className="text-xs text-emerald-300">Validé</span>
+                      <span className="text-xs text-fuchsia-300">Validé</span>
                     </li>
                   ))}
                 </ul>

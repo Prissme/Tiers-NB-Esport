@@ -31,7 +31,7 @@ export default function MatchesPage() {
               <div key={block.label} className="motion-card motion-shimmer">
                 <p className="text-xs uppercase tracking-[0.35em] text-slate-400">{block.label}</p>
                 <p className="mt-3 text-sm text-white">{block.detail}</p>
-                <p className="mt-2 text-xs text-emerald-200/80">{block.tone}</p>
+                <p className="mt-2 text-xs text-fuchsia-200/80">{block.tone}</p>
               </div>
             ))}
           </div>

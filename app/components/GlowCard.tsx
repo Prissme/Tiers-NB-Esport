@@ -13,7 +13,7 @@ export default function GlowCard({ children, className }: GlowCardProps) {
       }`}
     >
       <div className="pointer-events-none absolute inset-0">
-        <div className="absolute -left-12 top-4 h-40 w-40 rounded-full bg-emerald-400/10 blur-3xl" />
+        <div className="absolute -left-12 top-4 h-40 w-40 rounded-full bg-fuchsia-400/10 blur-3xl" />
         <div className="absolute -bottom-16 right-2 h-48 w-48 rounded-full bg-sky-400/10 blur-3xl" />
       </div>
       <div className="relative">{children}</div>

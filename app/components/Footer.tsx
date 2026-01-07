@@ -35,7 +35,7 @@ export default function Footer({
                 LFN
               </span>
               <div>
-                <p className="text-sm font-semibold uppercase tracking-[0.35em] text-emerald-300/80">
+                <p className="text-sm font-semibold uppercase tracking-[0.35em] text-fuchsia-300/80">
                   {seasonName}
                 </p>
                 <p className="text-xs text-slate-400">{administrationLabel}</p>
@@ -72,7 +72,7 @@ export default function Footer({
                     href={discordInviteUrl}
                     target="_blank"
                     rel="noreferrer"
-                    className="rounded-full border border-emerald-300/40 bg-emerald-400/10 px-4 py-2 text-xs uppercase tracking-[0.3em] text-emerald-200"
+                    className="rounded-full border border-fuchsia-300/40 bg-fuchsia-400/10 px-4 py-2 text-xs uppercase tracking-[0.3em] text-fuchsia-200"
                   >
                     Discord officiel
                   </a>
