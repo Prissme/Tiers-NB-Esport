@@ -73,7 +73,7 @@ export default async function ResultatsPage() {
 
       <section className="section-card space-y-6">
         <SectionHeader
-          kicker="Tags"
+          kicker="Résultats"
           title="Résultats officiels"
           description="Day 1 & Day 2."
         />

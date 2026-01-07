@@ -3,11 +3,8 @@ import Button from "./Button";
 
 const navItems = [
   { label: "Matchs", href: "/matchs" },
-  { label: "Classements", href: "/classement" },
-  { label: "Comment participer", href: "/participer" },
   { label: "Équipes", href: "/equipes" },
   { label: "Règlement", href: "/reglement" },
-  { label: "Partenariats", href: "/partenariats" },
 ];
 
 export default function Header() {
@@ -44,6 +41,9 @@ export default function Header() {
             rel="noreferrer"
           >
             Prissme TV — Le hub français sur Null&apos;s Brawl
+          </Button>
+          <Button href="https://ko-fi.com/prissme" variant="ghost" external>
+            Soutenir la LFN
           </Button>
         </div>
       </div>

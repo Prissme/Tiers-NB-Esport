@@ -2,10 +2,7 @@ import Link from "next/link";
 
 const footerLinks = [
   { label: "Matchs", href: "/matchs" },
-  { label: "Classements", href: "/classement" },
-  { label: "Participer", href: "/participer" },
   { label: "Règlement", href: "/reglement" },
-  { label: "Partenariats", href: "/partenariats" },
 ];
 
 type FooterProps = {

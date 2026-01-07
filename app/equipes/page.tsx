@@ -13,8 +13,6 @@ const teamTiles = [
   { label: "Rosters", detail: "Visibles" },
 ];
 
-const teamTags = ["Roster", "Logo", "Stats", "Clip"];
-
 type ActiveRosterRow = {
   tag: string | null;
   division: string | null;
@@ -71,9 +69,6 @@ export default async function EquipesPage() {
             <Button href="/inscription" variant="primary">
               Inscrire
             </Button>
-            <Button href="/classement" variant="secondary">
-              Classement
-            </Button>
           </div>
         </div>
       </section>
@@ -90,26 +85,6 @@ export default async function EquipesPage() {
         )}
       </section>
 
-      <section className="section-card space-y-6">
-        <SectionHeader kicker="Repères" title="Tags essentiels" description="Rien de lourd." />
-        <div className="flex flex-wrap gap-3">
-          {teamTags.map((tag) => (
-            <span key={tag} className="motion-pill">
-              {tag}
-            </span>
-          ))}
-        </div>
-        <div className="grid gap-4 md:grid-cols-2">
-          <div className="motion-card">
-            <p className="text-xs uppercase tracking-[0.35em] text-slate-400">Identité</p>
-            <p className="mt-3 text-sm text-white">Visuel clair.</p>
-          </div>
-          <div className="motion-card">
-            <p className="text-xs uppercase tracking-[0.35em] text-slate-400">Rôle</p>
-            <p className="mt-3 text-sm text-white">Place rapide.</p>
-          </div>
-        </div>
-      </section>
     </div>
   );
 }

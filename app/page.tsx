@@ -1,4 +1,3 @@
-import Link from "next/link";
 import Button from "./components/Button";
 import SectionHeader from "./components/SectionHeader";
 import { getBaseUrl } from "./lib/get-base-url";
@@ -49,9 +48,6 @@ export default async function HomePage() {
             </h1>
           </div>
           <div className="flex flex-wrap gap-3">
-            <Button href="/participer" variant="primary">
-              Rejoindre
-            </Button>
             <Button href="/matchs" variant="secondary">
               Matchs
             </Button>
@@ -92,30 +88,6 @@ export default async function HomePage() {
               {stats.prizepoolTotal ?? "-"}
             </p>
             <p className="text-xs text-slate-400">Total actuel</p>
-          </div>
-        </div>
-      </section>
-
-      <section className="section-card space-y-6">
-        <SectionHeader
-          kicker="Accès"
-          title="Entrer en deux clics"
-          description="Simple, rapide, visible."
-        />
-        <div className="grid gap-4 md:grid-cols-2">
-          <div className="motion-card">
-            <p className="text-xs uppercase tracking-[0.35em] text-slate-400">Inscription</p>
-            <p className="mt-3 text-sm text-white">Formulaire court.</p>
-            <Link href="/inscription" className="mt-4 inline-flex text-emerald-300 hover:text-emerald-200">
-              Ouvrir →
-            </Link>
-          </div>
-          <div className="motion-card">
-            <p className="text-xs uppercase tracking-[0.35em] text-slate-400">Guide</p>
-            <p className="mt-3 text-sm text-white">Quelques règles, rien de plus.</p>
-            <Link href="/participer" className="mt-4 inline-flex text-emerald-300 hover:text-emerald-200">
-              Lire →
-            </Link>
           </div>
         </div>
       </section>
