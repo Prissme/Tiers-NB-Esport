@@ -151,10 +151,12 @@ export default function ActiveRostersClient({ rosters }: { rosters: ActiveRoster
     });
   }, [divisionFilter, normalizedSearch, rosters]);
 
+  const visibleRosters = useMemo(() => filteredRosters.slice(0, 8), [filteredRosters]);
+
   const selectedTeam = useMemo(() => {
     if (!selectedKey) return null;
-    return filteredRosters.find((team) => getTeamKey(team) === selectedKey) ?? null;
-  }, [filteredRosters, selectedKey]);
+    return visibleRosters.find((team) => getTeamKey(team) === selectedKey) ?? null;
+  }, [selectedKey, visibleRosters]);
 
   useEffect(() => {
     if (!selectedKey || selectedTeam) return;
@@ -204,8 +206,8 @@ export default function ActiveRostersClient({ rosters }: { rosters: ActiveRoster
         </div>
       ) : (
         <div className="space-y-8">
-          <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-            {filteredRosters.map((team) => {
+          <div className="grid gap-6 sm:grid-cols-2">
+            {visibleRosters.map((team) => {
               const teamName = team.name ?? team.tag ?? "Équipe";
               const teamKey = getTeamKey(team);
               const logoUrl = team.logoUrl ?? team.logo_url ?? null;
@@ -217,14 +219,14 @@ export default function ActiveRostersClient({ rosters }: { rosters: ActiveRoster
                   type="button"
                   key={teamKey}
                   onClick={() => setSelectedKey(teamKey)}
-                  className={`group flex flex-col items-center gap-3 rounded-3xl border px-4 py-6 text-left transition ${
+                  className={`group flex flex-col items-center gap-4 rounded-[2rem] border px-6 py-10 text-left transition ${
                     isSelected
                       ? "border-fuchsia-400/70 bg-fuchsia-500/10"
                       : "border-white/10 bg-slate-950/70 hover:border-fuchsia-400/50"
                   }`}
                 >
                   <LogoBadge label={initials} logoUrl={logoUrl} teamName={teamName} />
-                  <span className="text-xs uppercase tracking-[0.3em] text-slate-400">
+                  <span className="text-sm uppercase tracking-[0.35em] text-slate-300">
                     {team.tag ?? team.name ?? "Roster"}
                   </span>
                 </button>
@@ -328,7 +330,7 @@ function LogoBadge({
   const showImage = logoUrl && !failed;
 
   return (
-    <div className="relative flex h-16 w-16 items-center justify-center overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br from-slate-900 via-slate-950 to-slate-900 shadow-[0_0_30px_-16px_rgba(56,189,248,0.6)] sm:h-20 sm:w-20">
+    <div className="relative flex h-32 w-32 items-center justify-center overflow-hidden rounded-[2rem] border border-white/10 bg-gradient-to-br from-slate-900 via-slate-950 to-slate-900 shadow-[0_0_40px_-12px_rgba(56,189,248,0.6)] sm:h-40 sm:w-40">
       {showImage ? (
         <img
           src={logoUrl}
@@ -338,7 +340,7 @@ function LogoBadge({
           loading="lazy"
         />
       ) : (
-        <span className="text-sm font-semibold uppercase tracking-[0.2em] text-fuchsia-200">
+        <span className="text-lg font-semibold uppercase tracking-[0.25em] text-fuchsia-200">
           {label}
         </span>
       )}
