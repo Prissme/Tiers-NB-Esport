@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
 
 const slotLabel = (slot: number | null) => {
@@ -331,14 +330,12 @@ function LogoBadge({
   return (
     <div className="relative flex h-16 w-16 items-center justify-center overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br from-slate-900 via-slate-950 to-slate-900 shadow-[0_0_30px_-16px_rgba(56,189,248,0.6)] sm:h-20 sm:w-20">
       {showImage ? (
-        <Image
+        <img
           src={logoUrl}
           alt={`Logo ${teamName}`}
-          width={80}
-          height={80}
           className="h-full w-full object-cover"
           onError={() => setFailed(true)}
-          unoptimized
+          loading="lazy"
         />
       ) : (
         <span className="text-sm font-semibold uppercase tracking-[0.2em] text-fuchsia-200">
