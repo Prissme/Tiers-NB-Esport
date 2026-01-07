@@ -44,6 +44,17 @@ export default function Header() {
             Soutenir la LFN
           </Button>
         </div>
+        <nav className="flex w-full flex-wrap items-center justify-center gap-2 text-xs text-slate-200 md:hidden">
+          {navItems.map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              className="rounded-full border border-white/10 px-3 py-1 transition hover:border-white/20 hover:text-white"
+            >
+              {item.label}
+            </Link>
+          ))}
+        </nav>
       </div>
     </header>
   );
