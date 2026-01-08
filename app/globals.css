@@ -119,6 +119,10 @@ body {
   animation: shimmer 8s ease infinite;
 }
 
+.motion-float {
+  animation: float-y 9s ease-in-out infinite;
+}
+
 .motion-card {
   @apply relative overflow-hidden rounded-3xl border border-white/10 bg-white/5 p-5 shadow-[0_20px_70px_-50px_rgba(15,23,42,0.9)];
 }

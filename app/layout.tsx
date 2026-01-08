@@ -9,7 +9,7 @@ export const metadata: Metadata = {
   description:
     "La ligue compétitive francophone Null’s Brawl. Matchs, classements, stats et saisons en cours.",
   icons: {
-    icon: "https://cdn.discordapp.com/attachments/1434252768633290952/1458818118653575208/image0.jpg?ex=696105bf&is=695fb43f&hm=b660a50c0618f7a7b061e97d96851ad1bb52deb333131334a14833b12f4c6bcd&",
+    icon: "https://cdn.discordapp.com/attachments/1434252768633290952/1458825268193136870/1000319082-Photoroom.png?ex=69610c67&is=695fbae7&hm=0244369700a834c01aaa029ef2c98fc6c0a715522ea103cffe9a343b0b441c10&",
   },
   openGraph: {
     title: "LFN — Ligue Francophone Null’s Brawl",
