@@ -20,6 +20,7 @@ const {
 } = require('discord.js');
 const { createClient } = require('@supabase/supabase-js');
 const predictions = require('./predictions');
+const draft = require('./draft');
 
 const LOG_PREFIX = '[UnifiedBot]';
 const TEAM_SIZE = 3;
@@ -144,6 +145,7 @@ const queueStatusMessages = new Map();
 const prisscupData = {
   messageIdByGuild: {}
 };
+const draftSessions = new Map();
 
 function computeTierBoundaries(totalPlayers) {
   if (!totalPlayers || totalPlayers <= 0) {
@@ -3029,6 +3031,162 @@ async function handleEnglishCommand(message, args) {
   });
 }
 
+function formatDraftList(items) {
+  if (!items.length) {
+    return '—';
+  }
+  return items.join(', ');
+}
+
+function formatDraftStatus(session) {
+  const aiBans = draft.getAIBans(session);
+  const available = draft.getAvailable(session);
+  const lines = [];
+
+  if (session.phase === 'BAN') {
+    lines.push(`Phase bans (toi ${session.userBans.length}/3)`);
+  } else {
+    lines.push('Phase draft');
+  }
+
+  lines.push(`IA bans: ${formatDraftList(aiBans)}`);
+  lines.push(`Tes bans: ${formatDraftList(session.userBans)}`);
+  lines.push(`Tes picks: ${formatDraftList(session.userPicks)}`);
+  lines.push(`IA picks: ${formatDraftList(session.aiPicks)}`);
+
+  if (draft.isDraftDone(session)) {
+    const summary = draft.summarizeResult(session);
+    if (summary) {
+      const verdict =
+        summary.winner === 'user' ? '✅ Tu gagnes la draft' : summary.winner === 'ai' ? '❌ IA gagne la draft' : '🤝 Draft équilibrée';
+      lines.push(`Résultat: Toi ${summary.userScore.toFixed(2)} / IA ${summary.aiScore.toFixed(2)} — ${verdict}`);
+    }
+  } else {
+    const turn = draft.getTurn(session);
+    lines.push(`Tour: ${turn === 'USER' ? 'Toi' : 'IA'}`);
+  }
+
+  lines.push(`Pool dispo (${available.length}): ${available.join(', ')}`);
+  return lines.join('\n');
+}
+
+async function persistDraftResult(session, message) {
+  if (session.resultSaved) {
+    return;
+  }
+  const summary = draft.summarizeResult(session);
+  if (!summary) {
+    return;
+  }
+
+  const aiBans = draft.getAIBans(session);
+  const { error } = await supabase.from('draft_matches').insert({
+    guild_id: message.guild.id,
+    channel_id: message.channel.id,
+    user_id: session.ownerId,
+    meta_profile: session.metaProfile,
+    user_bans: session.userBans,
+    ai_bans: aiBans,
+    user_picks: session.userPicks,
+    ai_picks: session.aiPicks,
+    user_score: summary.userScore,
+    ai_score: summary.aiScore,
+    winner: summary.winner
+  });
+
+  if (error) {
+    errorLog('Failed to store draft result:', error);
+    return;
+  }
+  session.resultSaved = true;
+}
+
+async function handleDraftCommand(message, args) {
+  const channelId = message.channel.id;
+  const command = (args[0] || '').toLowerCase();
+  let session = draftSessions.get(channelId);
+
+  if (!session) {
+    session = draft.createSession(message.author.id);
+    draftSessions.set(channelId, session);
+  }
+
+  const isAdmin = message.member?.permissions?.has(PermissionsBitField.Flags.Administrator);
+  if (session.ownerId !== message.author.id && !isAdmin) {
+    await message.reply({
+      content: 'Une draft est déjà en cours dans ce salon. Seul son créateur (ou un admin) peut la piloter.',
+      allowedMentions: { repliedUser: false }
+    });
+    return;
+  }
+
+  if (command === 'reset') {
+    draftSessions.delete(channelId);
+    await message.reply({ content: 'Draft réinitialisée. Utilise `!draft` pour recommencer.' });
+    return;
+  }
+
+  if (command === 'help') {
+    await message.reply({
+      content:
+        'Commandes draft:\n' +
+        '- `!draft` → démarre ou affiche la draft\n' +
+        '- `!draft ban <brawler>` → bannir un brawler\n' +
+        '- `!draft pick <brawler>` → pick un brawler\n' +
+        '- `!draft status` → afficher le statut\n' +
+        '- `!draft reset` → reset la draft',
+      allowedMentions: { repliedUser: false }
+    });
+    return;
+  }
+
+  if (command === 'status' || !command) {
+    await message.reply({
+      content: formatDraftStatus(session),
+      allowedMentions: { repliedUser: false }
+    });
+    return;
+  }
+
+  if (command === 'ban') {
+    const rawName = args.slice(1).join(' ');
+    const brawler = draft.resolveBrawler(rawName);
+    if (!brawler) {
+      await message.reply({ content: 'Brawler inconnu. Vérifie le nom exact.', allowedMentions: { repliedUser: false } });
+      return;
+    }
+    const result = draft.applyUserBan(session, brawler);
+    if (!result.ok) {
+      await message.reply({ content: 'Impossible de bannir ce brawler maintenant.', allowedMentions: { repliedUser: false } });
+      return;
+    }
+    await message.reply({ content: formatDraftStatus(session), allowedMentions: { repliedUser: false } });
+    return;
+  }
+
+  if (command === 'pick') {
+    const rawName = args.slice(1).join(' ');
+    const brawler = draft.resolveBrawler(rawName);
+    if (!brawler) {
+      await message.reply({ content: 'Brawler inconnu. Vérifie le nom exact.', allowedMentions: { repliedUser: false } });
+      return;
+    }
+    const result = draft.applyUserPick(session, brawler);
+    if (!result.ok) {
+      await message.reply({ content: 'Impossible de pick ce brawler maintenant.', allowedMentions: { repliedUser: false } });
+      return;
+    }
+    draft.runAiPicks(session);
+    if (draft.isDraftDone(session)) {
+      await persistDraftResult(session, message);
+    }
+    await message.reply({ content: formatDraftStatus(session), allowedMentions: { repliedUser: false } });
+    return;
+  }
+
+  await message.reply({ content: 'Commande draft inconnue. Utilise `!draft help`.', allowedMentions: { repliedUser: false } });
+}
+
 async function handleHelpCommand(message) {
   const commands =
     currentLanguage === LANGUAGE_EN
@@ -3045,6 +3203,7 @@ async function handleHelpCommand(message) {
           '`!maps` — Show the current map rotation',
           '`!ping` — Mention the match notification role',
           '`!tiers` — Manually sync tier roles',
+          '`!draft` — Start a draft vs AI (ban/pick flow)',
           '`!prisscupdel <team>` — [Admin] Delete a registered PrissCup team',
           '`!english [off]` — Switch the bot language to English or back to French',
           '`!help` — Display this help'
@@ -3062,6 +3221,7 @@ async function handleHelpCommand(message) {
           '`!maps` — Afficher la rotation des maps',
           '`!ping` — Mentionner le rôle de notification des matchs',
           '`!tiers` — Synchroniser manuellement les rôles de tier',
+          '`!draft` — Lancer une draft vs IA (ban/pick)',
           '`!prisscupdel <equipe>` — [Admin] Supprimer une équipe inscrite à la PrissCup',
           '`!english [off]` — Traduire le bot en anglais ou revenir en français',
           '`!help` — Afficher cette aide'
@@ -4679,6 +4839,9 @@ async function handleMessage(message) {
         break;
       case 'english':
         await handleEnglishCommand(message, args);
+        break;
+      case 'draft':
+        await handleDraftCommand(message, args);
         break;
       case 'help':
         await handleHelpCommand(message, args);
