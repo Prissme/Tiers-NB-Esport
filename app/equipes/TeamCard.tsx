@@ -50,7 +50,7 @@ export default function TeamCard({ team }: { team: TeamCardData }) {
         />
       ) : null}
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-slate-950/20 via-slate-950/60 to-slate-950/80" />
-      <div className="pointer-events-none absolute -top-12 right-0 h-40 w-40 rounded-full bg-fuchsia-400/20 blur-3xl transition-opacity duration-500 group-hover:opacity-90" />
+      <div className="pointer-events-none absolute -top-12 right-0 h-40 w-40 rounded-full bg-amber-400/20 blur-3xl transition-opacity duration-500 group-hover:opacity-90" />
       <div className="relative flex items-center gap-5">
         {team.logoUrl && !logoFailed ? (
           <div className="h-24 w-24 overflow-hidden rounded-3xl">
@@ -64,7 +64,7 @@ export default function TeamCard({ team }: { team: TeamCardData }) {
           </div>
         ) : (
           <div className="flex h-24 w-24 items-center justify-center rounded-3xl border border-white/20 bg-slate-900/60 backdrop-blur">
-            <span className="text-xs font-semibold uppercase tracking-[0.2em] text-fuchsia-300">
+            <span className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-300">
               {initials}
             </span>
           </div>

@@ -18,13 +18,13 @@ export default function SectionHeader({
   return (
     <div className={`flex flex-col gap-3 ${alignClasses}`}>
       {kicker ? (
-        <p className="text-xs uppercase tracking-[0.4em] text-fuchsia-300/80">
+        <p className="text-xs uppercase tracking-[0.4em] text-amber-300/80">
           {kicker}
         </p>
       ) : null}
       <h2 className="text-3xl font-semibold text-white md:text-4xl">
         {title}
-        {highlight ? <span className="text-fuchsia-300"> {highlight}</span> : null}
+        {highlight ? <span className="text-amber-300"> {highlight}</span> : null}
       </h2>
       {description ? (
         <p className="max-w-2xl text-sm text-slate-300 md:text-base">{description}</p>

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import Button from "./components/Button";
 const motionCards = [
   { title: "Matches", detail: "Plus de 30 matchs joués" },
@@ -9,87 +10,69 @@ const motionCards = [
 export default async function HomePage() {
   return (
     <div className="space-y-12">
-      <section className="motion-field p-8 md:p-10">
-        <div className="motion-orb -left-20 top-10 h-56 w-56 motion-drift" />
-        <div className="motion-orb motion-orb--blue right-0 top-0 h-64 w-64 motion-spin" />
-        <div className="motion-orb motion-orb--pink bottom-[-80px] left-1/3 h-72 w-72 motion-drift" />
-        <div className="absolute inset-0 grid-lines opacity-30" />
-        <div className="relative z-10 space-y-6">
-          <div className="space-y-3">
-            <p className="text-xs uppercase tracking-[0.4em] text-fuchsia-300/80">
-              LFN / Null&apos;s Brawl
-            </p>
-            <h1 className="text-4xl font-semibold leading-tight text-white md:text-6xl">
-              LFN, le futur de l&apos;e-sport Null&apos;s Brawl
-            </h1>
-          </div>
-          <div className="flex flex-wrap gap-3">
-            <Button href="/matchs" variant="secondary">
-              Matchs
-            </Button>
-          </div>
-          <div className="flex flex-wrap items-center gap-6">
-            <div className="flex items-center gap-4 rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
-              <img
-                src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSF2RWpJDZbMl6fVN6nD0cJXwNbq3v7LH1PLA&s"
-                alt="Null's Brawl"
-                className="h-14 w-14 rounded-2xl object-cover"
-              />
-              <div>
-                <p className="text-xs uppercase tracking-[0.35em] text-slate-400">
-                  Jeu officiel
-                </p>
-                <p className="text-sm text-white">Null&apos;s Brawl</p>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div className="relative z-10 mt-10 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          {motionCards.map((card) => (
-            <div key={card.title} className="motion-card motion-shimmer">
-              <p className="text-xs uppercase tracking-[0.35em] text-slate-400">
-                {card.title}
-              </p>
-              <p className="mt-3 text-sm text-white">{card.detail}</p>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <section className="mx-auto grid max-w-5xl gap-8 rounded-3xl border border-white/10 bg-gradient-to-br from-indigo-500/20 via-slate-950/80 to-slate-950/80 p-8 shadow-[0_20px_60px_rgba(0,0,0,0.45)] backdrop-blur md:grid-cols-[1.1fr_0.9fr] md:items-center">
-        <div className="space-y-4 text-slate-200">
-          <p className="text-xs uppercase tracking-[0.4em] text-fuchsia-300/80">
-            Rejoins NB League
-          </p>
-          <h2 className="text-3xl font-semibold text-white md:text-4xl">
-            Le hub officiel de la communauté
-          </h2>
-          <p className="text-sm leading-relaxed text-slate-300">
-            Tournois, annonces, ranks et discussions en temps réel.
-          </p>
-          <div className="flex flex-wrap gap-3">
-            <Button
-              href="https://discord.gg/TONCODE"
-              variant="secondary"
-              external
-            >
-              Rejoindre le Discord
-            </Button>
-          </div>
-        </div>
-        <div className="overflow-hidden rounded-2xl border border-white/10 bg-black/40">
-          <iframe
-            title="Discord NB League"
-            src="https://discord.com/widget?id=1236724293027496047&theme=dark"
-            width="100%"
-            height="520"
-            allowTransparency={true}
-            frameBorder="0"
-            sandbox="allow-popups allow-popups-to-escape-sandbox allow-same-origin allow-scripts"
-            className="block h-[520px] w-full"
+      <div className="relative">
+        <div className="pointer-events-none absolute -right-4 -top-16 flex flex-col items-center sm:-right-6">
+          <img
+            src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSF2RWpJDZbMl6fVN6nD0cJXwNbq3v7LH1PLA&s"
+            alt="Null's Brawl"
+            className="h-28 w-28 rounded-3xl border border-white/20 bg-slate-950/60 object-cover shadow-[0_20px_60px_rgba(0,0,0,0.6)] sm:h-44 sm:w-44 lg:h-52 lg:w-52"
           />
+          <p className="mt-3 text-xs uppercase tracking-[0.35em] text-amber-200/80">
+            Null&apos;s Brawl
+          </p>
         </div>
-      </section>
+        <section className="motion-field p-8 md:p-10">
+          <div className="motion-orb -left-20 top-10 h-56 w-56 motion-drift" />
+          <div className="motion-orb motion-orb--blue right-0 top-0 h-64 w-64 motion-spin" />
+          <div className="motion-orb motion-orb--pink bottom-[-80px] left-1/3 h-72 w-72 motion-drift" />
+          <div className="absolute inset-0 grid-lines opacity-30" />
+          <div className="relative z-10 space-y-6">
+            <div className="space-y-3">
+              <p className="text-xs uppercase tracking-[0.4em] text-amber-300/80">
+                LFN / Null&apos;s Brawl
+              </p>
+              <h1 className="text-4xl font-semibold leading-tight text-white md:text-6xl">
+                LFN, le futur de l&apos;e-sport Null&apos;s Brawl
+              </h1>
+            </div>
+            <div className="flex flex-wrap justify-center gap-4">
+              <Link
+                href="/equipes"
+                className="rounded-full border border-amber-300/50 bg-gradient-to-r from-amber-400 via-amber-300 to-yellow-200 px-6 py-3 text-sm font-semibold uppercase tracking-[0.25em] text-slate-950 shadow-[0_18px_50px_rgba(234,179,8,0.35)] transition hover:scale-[1.02]"
+              >
+                Équipes
+              </Link>
+              <Link
+                href="/matchs"
+                className="rounded-full border border-amber-300/50 bg-gradient-to-r from-amber-400 via-amber-300 to-yellow-200 px-6 py-3 text-sm font-semibold uppercase tracking-[0.25em] text-slate-950 shadow-[0_18px_50px_rgba(234,179,8,0.35)] transition hover:scale-[1.02]"
+              >
+                Matchs
+              </Link>
+              <Link
+                href="/reglement"
+                className="rounded-full border border-amber-300/50 bg-gradient-to-r from-amber-400 via-amber-300 to-yellow-200 px-6 py-3 text-sm font-semibold uppercase tracking-[0.25em] text-slate-950 shadow-[0_18px_50px_rgba(234,179,8,0.35)] transition hover:scale-[1.02]"
+              >
+                Règlement
+              </Link>
+            </div>
+            <div className="flex flex-wrap gap-3">
+              <Button href="/matchs" variant="secondary">
+                Voir les matchs récents
+              </Button>
+            </div>
+          </div>
+          <div className="relative z-10 mt-10 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            {motionCards.map((card) => (
+              <div key={card.title} className="motion-card motion-shimmer">
+                <p className="text-xs uppercase tracking-[0.35em] text-slate-400">
+                  {card.title}
+                </p>
+                <p className="mt-3 text-sm text-white">{card.detail}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+      </div>
     </div>
   );
 }

@@ -9,7 +9,7 @@ export const metadata: Metadata = {
   description:
     "La ligue compétitive francophone Null’s Brawl. Matchs, classements, stats et saisons en cours.",
   icons: {
-    icon: "https://media.discordapp.net/attachments/1434252768633290952/1458528708120940686/image-Photoroom_1.png?ex=695ff836&is=695ea6b6&hm=a746f26711c62f9e67af9450f64fd1727801e0de5d5e325154afec473340a464&=&format=webp&quality=lossless&width=771&height=514",
+    icon: "https://cdn.discordapp.com/attachments/1434252768633290952/1458818118653575208/image0.jpg?ex=696105bf&is=695fb43f&hm=b660a50c0618f7a7b061e97d96851ad1bb52deb333131334a14833b12f4c6bcd&",
   },
   openGraph: {
     title: "LFN — Ligue Francophone Null’s Brawl",
@@ -44,10 +44,10 @@ export default function RootLayout({
   return (
     <html lang="fr">
       <body className="min-h-screen bg-slate-950 text-slate-100">
-        <div className="relative min-h-screen overflow-hidden bg-[radial-gradient(circle_at_top,_rgba(192,38,211,0.2),_transparent_48%)]">
-          <div className="pointer-events-none absolute -left-20 top-24 h-64 w-64 rounded-full bg-fuchsia-400/10 blur-3xl motion-spin" />
-          <div className="pointer-events-none absolute right-0 top-0 h-72 w-72 rounded-full bg-indigo-400/10 blur-3xl motion-drift" />
-          <div className="pointer-events-none absolute bottom-[-120px] left-1/3 h-96 w-96 rounded-full bg-sky-400/10 blur-3xl motion-spin" />
+        <div className="relative min-h-screen overflow-hidden bg-[radial-gradient(circle_at_top,_rgba(234,179,8,0.25),_transparent_50%)]">
+          <div className="pointer-events-none absolute -left-20 top-24 h-64 w-64 rounded-full bg-amber-400/15 blur-3xl motion-spin" />
+          <div className="pointer-events-none absolute right-0 top-0 h-72 w-72 rounded-full bg-yellow-400/10 blur-3xl motion-drift" />
+          <div className="pointer-events-none absolute bottom-[-120px] left-1/3 h-96 w-96 rounded-full bg-amber-300/10 blur-3xl motion-spin" />
           <Header />
           <main className="relative mx-auto w-full max-w-6xl px-4 py-12 sm:px-6">
             {children}

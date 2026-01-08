@@ -17,7 +17,7 @@ export default function Timeline({ items }: TimelineProps) {
       {items.map((item, index) => (
         <li key={item.title} className="flex gap-4">
           <div className="flex flex-col items-center">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full border border-fuchsia-300/40 bg-fuchsia-400/10 text-fuchsia-200">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full border border-amber-300/40 bg-amber-400/10 text-amber-200">
               {item.icon ?? <span className="text-sm font-semibold">{index + 1}</span>}
             </div>
             {index < items.length - 1 ? (
@@ -26,7 +26,7 @@ export default function Timeline({ items }: TimelineProps) {
           </div>
           <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
             {item.badge ? (
-              <p className="text-xs uppercase tracking-[0.35em] text-fuchsia-300/80">
+              <p className="text-xs uppercase tracking-[0.35em] text-amber-300/80">
                 {item.badge}
               </p>
             ) : null}
