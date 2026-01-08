@@ -1,5 +1,6 @@
 import SectionHeader from "../components/SectionHeader";
 import MatchesContent from "./MatchesContent";
+import MatchesSchedule from "./MatchesSchedule";
 
 const matchPanels = [
   { label: "Prévu", detail: "Slots rapides" },
@@ -29,6 +30,8 @@ export default function MatchsPage() {
           </div>
         </div>
       </section>
+
+      <MatchesSchedule />
 
       <MatchesContent />
     </div>

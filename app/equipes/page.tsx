@@ -13,6 +13,17 @@ const teamTiles = [
   { label: "Rosters", detail: "Visibles" },
 ];
 
+const defaultStandings = [
+  "B&D",
+  "LTG",
+  "BT",
+  "JL",
+  "LZ",
+  "VLH",
+  "NR",
+  "T2",
+];
+
 type ActiveRosterRow = {
   tag: string | null;
   division: string | null;
@@ -45,6 +56,10 @@ const loadActiveRosters = async (): Promise<{
 
 export default async function EquipesPage() {
   const { rosters, errorMessage } = await loadActiveRosters();
+  const standingsTeams =
+    rosters.length > 0
+      ? rosters.map((team) => team.name ?? team.tag ?? "Équipe")
+      : defaultStandings;
 
   return (
     <div className="space-y-12">
@@ -83,6 +98,34 @@ export default async function EquipesPage() {
         ) : (
           <ActiveRostersClient rosters={rosters} />
         )}
+      </section>
+
+      <section className="section-card space-y-6">
+        <SectionHeader kicker="Classement" title="Classement des équipes" description="Stats à venir." />
+        <div className="overflow-hidden rounded-2xl border border-white/10">
+          <div className="grid grid-cols-[2fr_repeat(4,minmax(0,1fr))] gap-3 bg-white/5 px-4 py-3 text-xs uppercase tracking-[0.3em] text-slate-400">
+            <span>Équipe</span>
+            <span className="text-center">MJ</span>
+            <span className="text-center">V</span>
+            <span className="text-center">D</span>
+            <span className="text-center">Pts</span>
+          </div>
+          <div className="divide-y divide-white/10">
+            {standingsTeams.map((team) => (
+              <div
+                key={team}
+                className="grid grid-cols-[2fr_repeat(4,minmax(0,1fr))] items-center gap-3 px-4 py-3 text-sm text-slate-200"
+              >
+                <span className="text-white">{team}</span>
+                <span className="text-center">0</span>
+                <span className="text-center">0</span>
+                <span className="text-center">0</span>
+                <span className="text-center">0</span>
+              </div>
+            ))}
+          </div>
+        </div>
+        <p className="text-xs text-slate-500">Les points seront mis à jour après les matchs officiels.</p>
       </section>
 
     </div>
