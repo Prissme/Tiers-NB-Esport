@@ -35,7 +35,7 @@ export default function Footer({
                 LFN
               </span>
               <div>
-                <p className="text-sm font-semibold uppercase tracking-[0.35em] text-fuchsia-300/80">
+                <p className="text-sm font-semibold uppercase tracking-[0.35em] text-amber-300/80">
                   {seasonName}
                 </p>
                 <p className="text-xs text-slate-400">{administrationLabel}</p>
@@ -72,7 +72,7 @@ export default function Footer({
                     href={discordInviteUrl}
                     target="_blank"
                     rel="noreferrer"
-                    className="rounded-full border border-fuchsia-300/40 bg-fuchsia-400/10 px-4 py-2 text-xs uppercase tracking-[0.3em] text-fuchsia-200"
+                    className="rounded-full border border-amber-300/40 bg-amber-400/10 px-4 py-2 text-xs uppercase tracking-[0.3em] text-amber-200"
                   >
                     Discord officiel
                   </a>
@@ -93,6 +93,23 @@ export default function Footer({
                 équipes et les partenaires.
               </p>
             </div>
+          </div>
+        </div>
+        <div className="mt-12">
+          <p className="text-xs uppercase tracking-[0.35em] text-slate-400">
+            Serveur Discord
+          </p>
+          <div className="mt-4 overflow-hidden rounded-3xl border border-white/10 bg-black/40">
+            <iframe
+              title="Discord NB League"
+              src="https://discord.com/widget?id=1236724293027496047&theme=dark"
+              width="100%"
+              height="420"
+              allowTransparency={true}
+              frameBorder="0"
+              sandbox="allow-popups allow-popups-to-escape-sandbox allow-same-origin allow-scripts"
+              className="block h-[420px] w-full"
+            />
           </div>
         </div>
         <p className="mt-10 text-xs text-slate-500">

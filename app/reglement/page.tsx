@@ -82,7 +82,7 @@ export default function ReglementPage() {
                 <ul className="space-y-2 text-sm text-white">
                   {section.items.map((item) => (
                     <li key={item} className="flex gap-2">
-                      <span className="mt-1 h-1.5 w-1.5 flex-none rounded-full bg-fuchsia-400" />
+                      <span className="mt-1 h-1.5 w-1.5 flex-none rounded-full bg-amber-400" />
                       <span>{item}</span>
                     </li>
                   ))}

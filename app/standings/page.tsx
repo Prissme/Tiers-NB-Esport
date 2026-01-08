@@ -26,7 +26,7 @@ export default function StandingsPage() {
                   #{item.rank}
                 </p>
                 <p className="mt-3 text-sm text-white">{item.team}</p>
-                <p className="mt-2 text-xs text-fuchsia-200/80">{item.note}</p>
+                <p className="mt-2 text-xs text-amber-200/80">{item.note}</p>
               </div>
             ))}
           </div>

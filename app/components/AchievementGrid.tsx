@@ -60,7 +60,7 @@ export default function AchievementGrid({ achievements }: AchievementGridProps) 
       </div>
       <div className="h-2 overflow-hidden rounded-full bg-slate-800">
         <div
-          className="h-full rounded-full bg-gradient-to-r from-cyan-400 via-fuchsia-400 to-violet-500 transition-all"
+          className="h-full rounded-full bg-gradient-to-r from-cyan-400 via-amber-400 to-violet-500 transition-all"
           style={{ width: `${progress}%` }}
         />
       </div>
@@ -76,7 +76,7 @@ export default function AchievementGrid({ achievements }: AchievementGridProps) 
               whileHover={{ y: -4 }}
               className={`relative overflow-hidden rounded-2xl border p-4 text-sm transition-colors ${
                 unlocked
-                  ? 'border-fuchsia-400/40 bg-fuchsia-400/10'
+                  ? 'border-amber-400/40 bg-amber-400/10'
                   : 'border-white/5 bg-slate-900/70 text-slate-400'
               }`}
             >
@@ -84,7 +84,7 @@ export default function AchievementGrid({ achievements }: AchievementGridProps) 
               <div className="relative z-10 flex items-start gap-3">
                 <div
                   className={`flex h-12 w-12 items-center justify-center rounded-xl border ${
-                    unlocked ? 'border-fuchsia-400/60 bg-fuchsia-400/20' : 'border-slate-700 bg-slate-800'
+                    unlocked ? 'border-amber-400/60 bg-amber-400/20' : 'border-slate-700 bg-slate-800'
                   }`}
                 >
                   {achievement.icon_url ? (
@@ -94,7 +94,7 @@ export default function AchievementGrid({ achievements }: AchievementGridProps) 
                   )}
                 </div>
                 <div>
-                  <p className={`font-semibold ${unlocked ? 'text-fuchsia-100' : 'text-slate-300'}`}>
+                  <p className={`font-semibold ${unlocked ? 'text-amber-100' : 'text-slate-300'}`}>
                     {achievement.name}
                   </p>
                   <p className="mt-1 text-xs text-slate-400">{achievement.description}</p>

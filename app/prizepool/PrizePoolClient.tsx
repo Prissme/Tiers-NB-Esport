@@ -143,9 +143,9 @@ export default function PrizePoolClient() {
         </div>
         <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
           <div className="space-y-6">
-            <div className="rounded-3xl border border-fuchsia-500/20 bg-slate-950/70 p-6 shadow-[0_0_30px_rgba(16,185,129,0.15)]">
+            <div className="rounded-3xl border border-amber-500/20 bg-slate-950/70 p-6 shadow-[0_0_30px_rgba(16,185,129,0.15)]">
               {loading ? (
-                <div className="text-sm text-fuchsia-200/60">Chargement...</div>
+                <div className="text-sm text-amber-200/60">Chargement...</div>
               ) : (
                 <PrizePoolBar current={currentAmount} goal={goalAmount} />
               )}
@@ -153,12 +153,12 @@ export default function PrizePoolClient() {
                 {stats.map((stat) => (
                   <div
                     key={stat.label}
-                    className="rounded-2xl border border-fuchsia-500/10 bg-slate-900/70 px-4 py-3"
+                    className="rounded-2xl border border-amber-500/10 bg-slate-900/70 px-4 py-3"
                   >
-                    <div className="text-xs uppercase tracking-wider text-fuchsia-200/50">
+                    <div className="text-xs uppercase tracking-wider text-amber-200/50">
                       {stat.label}
                     </div>
-                    <div className="mt-2 text-lg font-semibold text-fuchsia-100">
+                    <div className="mt-2 text-lg font-semibold text-amber-100">
                       {stat.value}
                     </div>
                   </div>
@@ -183,51 +183,51 @@ export default function PrizePoolClient() {
               />
             </div>
             <section className="space-y-4">
-              <h2 className="text-xl font-semibold text-fuchsia-100">Paliers débloquables</h2>
+              <h2 className="text-xl font-semibold text-amber-100">Paliers débloquables</h2>
               <UnlockableTiers tiers={tiers} currentAmount={currentAmount} />
             </section>
           </div>
 
           <div className="space-y-6">
-            <div className="rounded-3xl border border-fuchsia-500/20 bg-slate-950/70 p-6">
-              <h2 className="text-xl font-semibold text-fuchsia-100">Participer</h2>
-              <p className="mt-2 text-sm text-fuchsia-200/70">
+            <div className="rounded-3xl border border-amber-500/20 bg-slate-950/70 p-6">
+              <h2 className="text-xl font-semibold text-amber-100">Participer</h2>
+              <p className="mt-2 text-sm text-amber-200/70">
                 Paiement Stripe simulé pour le MVP. Votre contribution sera visible immédiatement.
               </p>
 
               <form onSubmit={handleSubmit} className="mt-6 space-y-4">
                 <div>
-                  <label className="text-xs uppercase tracking-wider text-fuchsia-200/60">Pseudo</label>
+                  <label className="text-xs uppercase tracking-wider text-amber-200/60">Pseudo</label>
                   <input
                     type="text"
                     value={name}
                     onChange={(event) => setName(event.target.value)}
                     disabled={anonymous}
                     placeholder="CyberRunner"
-                    className="mt-2 w-full rounded-2xl border border-fuchsia-500/20 bg-slate-950/60 px-4 py-3 text-sm text-fuchsia-100 outline-none transition focus:border-fuchsia-400/40"
+                    className="mt-2 w-full rounded-2xl border border-amber-500/20 bg-slate-950/60 px-4 py-3 text-sm text-amber-100 outline-none transition focus:border-amber-400/40"
                   />
                 </div>
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div>
-                    <label className="text-xs uppercase tracking-wider text-fuchsia-200/60">Montant</label>
+                    <label className="text-xs uppercase tracking-wider text-amber-200/60">Montant</label>
                     <input
                       type="number"
                       min={5}
                       step={5}
                       value={amount}
                       onChange={(event) => setAmount(event.target.value)}
-                      className="mt-2 w-full rounded-2xl border border-fuchsia-500/20 bg-slate-950/60 px-4 py-3 text-sm text-fuchsia-100 outline-none transition focus:border-fuchsia-400/40"
+                      className="mt-2 w-full rounded-2xl border border-amber-500/20 bg-slate-950/60 px-4 py-3 text-sm text-amber-100 outline-none transition focus:border-amber-400/40"
                     />
                   </div>
-                  <div className="flex items-end gap-3 rounded-2xl border border-fuchsia-500/20 bg-slate-950/60 px-4 py-3">
+                  <div className="flex items-end gap-3 rounded-2xl border border-amber-500/20 bg-slate-950/60 px-4 py-3">
                     <input
                       id="anonymous"
                       type="checkbox"
                       checked={anonymous}
                       onChange={(event) => setAnonymous(event.target.checked)}
-                      className="h-4 w-4 rounded border-fuchsia-300/40 bg-transparent"
+                      className="h-4 w-4 rounded border-amber-300/40 bg-transparent"
                     />
-                    <label htmlFor="anonymous" className="text-sm text-fuchsia-100">
+                    <label htmlFor="anonymous" className="text-sm text-amber-100">
                       Contribution anonyme
                     </label>
                   </div>
@@ -239,7 +239,7 @@ export default function PrizePoolClient() {
                   </p>
                 ) : null}
                 {success ? (
-                  <p className="rounded-2xl border border-fuchsia-500/30 bg-fuchsia-500/10 px-4 py-3 text-sm text-fuchsia-200">
+                  <p className="rounded-2xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
                     {success}
                   </p>
                 ) : null}
@@ -247,20 +247,20 @@ export default function PrizePoolClient() {
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="w-full rounded-2xl bg-fuchsia-400 px-4 py-3 text-sm font-semibold text-slate-950 transition hover:bg-fuchsia-300 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="w-full rounded-2xl bg-amber-400 px-4 py-3 text-sm font-semibold text-slate-950 transition hover:bg-amber-300 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {submitting ? 'Traitement...' : 'Contribuer'}
                 </button>
               </form>
             </div>
 
-            <section className="rounded-3xl border border-fuchsia-500/20 bg-slate-950/70 p-6">
+            <section className="rounded-3xl border border-amber-500/20 bg-slate-950/70 p-6">
               <div className="flex items-center justify-between">
-                <h2 className="text-xl font-semibold text-fuchsia-100">Contributeurs</h2>
-                <span className="text-xs text-fuchsia-200/60">Dernières contributions</span>
+                <h2 className="text-xl font-semibold text-amber-100">Contributeurs</h2>
+                <span className="text-xs text-amber-200/60">Dernières contributions</span>
               </div>
               {loading ? (
-                <div className="mt-4 text-sm text-fuchsia-200/60">Chargement des contributions...</div>
+                <div className="mt-4 text-sm text-amber-200/60">Chargement des contributions...</div>
               ) : (
                 <ContributorList items={data?.contributors ?? []} />
               )}

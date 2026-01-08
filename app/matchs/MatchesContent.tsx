@@ -43,7 +43,7 @@ const getStatusLabel = (status?: string | null) => {
 const getStatusBadgeClass = (status?: string | null) => {
   switch (status) {
     case "live":
-      return "bg-fuchsia-400/20 text-fuchsia-200";
+      return "bg-amber-400/20 text-amber-200";
     case "completed":
       return "bg-slate-500/20 text-slate-200";
     case "scheduled":
