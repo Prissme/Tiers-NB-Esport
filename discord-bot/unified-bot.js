@@ -21,8 +21,11 @@ const {
 const { createClient } = require('@supabase/supabase-js');
 const predictions = require('./predictions');
 const draft = require('./draft');
+const fs = require('fs/promises');
+const path = require('path');
 
 const LOG_PREFIX = '[UnifiedBot]';
+const DRAFT_RESULTS_PATH = path.join(__dirname, 'data', 'draft-results.json');
 const TEAM_SIZE = 3;
 const MATCH_SIZE = TEAM_SIZE * 2;
 const DEFAULT_ELO = 1000;
@@ -3042,6 +3045,7 @@ function buildDraftEmbed(session) {
   const aiBans = draft.getAIBans(session);
   const available = draft.getAvailable(session);
   const summary = draft.summarizeResult(session);
+  const victoryArgs = draft.buildVictoryArguments(session);
   const isDone = draft.isDraftDone(session);
   const turn = draft.getTurn(session);
 
@@ -3063,6 +3067,7 @@ function buildDraftEmbed(session) {
   embed.addFields(
     { name: 'Phase', value: session.phase === 'BAN' ? `Bans (${session.userBans.length}/3)` : 'Draft', inline: true },
     { name: 'Tour', value: isDone ? 'Terminé' : turn === 'USER' ? 'Toi' : 'IA', inline: true },
+    { name: 'First pick', value: session.firstPick === 'AI' ? 'IA' : 'Toi', inline: true },
     { name: 'Meta', value: session.metaProfile, inline: true },
     { name: 'IA bans', value: formatDraftList(aiBans) },
     { name: 'Tes bans', value: formatDraftList(session.userBans) },
@@ -3079,6 +3084,12 @@ function buildDraftEmbed(session) {
       name: 'Résultat',
       value: `Toi ${summary.userScore.toFixed(2)} / IA ${summary.aiScore.toFixed(2)}\nChance de victoire (toi): ${chance}%\n${verdict}`
     });
+    if (victoryArgs?.length) {
+      embed.addFields({
+        name: 'Arguments',
+        value: victoryArgs.map((arg, index) => `${index + 1}. ${arg}`).join('\n')
+      });
+    }
   }
 
   return embed;
@@ -3111,6 +3122,7 @@ async function announceDraftResult(session, message) {
     return;
   }
   const summary = draft.summarizeResult(session);
+  const victoryArgs = draft.buildVictoryArguments(session);
   if (!summary) {
     return;
   }
@@ -3119,6 +3131,9 @@ async function announceDraftResult(session, message) {
   const verdict =
     summary.winner === 'user' ? '✅ Tu gagnes la draft' : summary.winner === 'ai' ? '❌ IA gagne la draft' : '🤝 Draft équilibrée';
   await message.channel.send({ content: `🏆 Résultat final: **${verdict}**` });
+  if (victoryArgs?.length) {
+    await message.channel.send({ content: `🧠 Arguments:\n- ${victoryArgs.join('\n- ')}` });
+  }
   session.resultAnnounced = true;
 }
 
@@ -3144,6 +3159,10 @@ function formatDraftStatus(session) {
       const verdict =
         summary.winner === 'user' ? '✅ Tu gagnes la draft' : summary.winner === 'ai' ? '❌ IA gagne la draft' : '🤝 Draft équilibrée';
       lines.push(`Résultat: Toi ${summary.userScore.toFixed(2)} / IA ${summary.aiScore.toFixed(2)} — ${verdict}`);
+      const victoryArgs = draft.buildVictoryArguments(session);
+      if (victoryArgs?.length) {
+        lines.push(`Arguments: ${victoryArgs.join(' | ')}`);
+      }
     }
   } else {
     const turn = draft.getTurn(session);
@@ -3152,6 +3171,24 @@ function formatDraftStatus(session) {
 
   lines.push(`Pool dispo (${available.length}): ${available.join(', ')}`);
   return lines.join('\n');
+}
+
+async function appendDraftResult(payload) {
+  await fs.mkdir(path.dirname(DRAFT_RESULTS_PATH), { recursive: true });
+  let entries = [];
+  try {
+    const raw = await fs.readFile(DRAFT_RESULTS_PATH, 'utf8');
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) {
+      entries = parsed;
+    }
+  } catch (err) {
+    if (err.code !== 'ENOENT') {
+      throw err;
+    }
+  }
+  entries.push(payload);
+  await fs.writeFile(DRAFT_RESULTS_PATH, `${JSON.stringify(entries, null, 2)}\n`);
 }
 
 async function persistDraftResult(session, message) {
@@ -3163,26 +3200,36 @@ async function persistDraftResult(session, message) {
     return;
   }
 
+  if (session.isAIDraft) {
+    session.resultSaved = true;
+    return;
+  }
+
   const aiBans = draft.getAIBans(session);
-  const { error } = await supabase.from('draft_matches').insert({
-    guild_id: message.guild.id,
-    channel_id: message.channel.id,
+  const victoryArgs = draft.buildVictoryArguments(session);
+  const payload = {
+    created_at: new Date().toISOString(),
+    guild_id: message.guild?.id || null,
+    channel_id: message.channel?.id || null,
     user_id: session.ownerId,
     meta_profile: session.metaProfile,
+    first_pick: session.firstPick,
     user_bans: session.userBans,
     ai_bans: aiBans,
     user_picks: session.userPicks,
     ai_picks: session.aiPicks,
     user_score: summary.userScore,
     ai_score: summary.aiScore,
-    winner: summary.winner
-  });
+    winner: summary.winner,
+    arguments: victoryArgs || []
+  };
 
-  if (error) {
+  try {
+    await appendDraftResult(payload);
+    session.resultSaved = true;
+  } catch (error) {
     errorLog('Failed to store draft result:', error);
-    return;
   }
-  session.resultSaved = true;
 }
 
 async function handleDraftCommand(message, args) {
@@ -3191,7 +3238,7 @@ async function handleDraftCommand(message, args) {
   let session = draftSessions.get(channelId);
 
   if (!session) {
-    session = draft.createSession(message.author.id);
+    session = draft.createSession(message.author.id, draft.META_DEFAULT, { isAIDraft: true });
     draftSessions.set(channelId, session);
   }
 
@@ -3239,6 +3286,9 @@ async function handleDraftCommand(message, args) {
     if (!result.ok) {
       await message.reply({ content: 'Impossible de bannir ce brawler maintenant.', allowedMentions: { repliedUser: false } });
       return;
+    }
+    if (session.phase === 'DRAFT') {
+      draft.runAiPicks(session);
     }
     await sendOrUpdateDraftMessage(session, message.channel);
     return;
@@ -3292,6 +3342,9 @@ async function handleDraftFreeInput(message) {
     if (!result.ok) {
       await message.reply({ content: 'Impossible de bannir ce brawler maintenant.', allowedMentions: { repliedUser: false } });
       return true;
+    }
+    if (session.phase === 'DRAFT') {
+      draft.runAiPicks(session);
     }
     await sendOrUpdateDraftMessage(session, message.channel);
     return true;
