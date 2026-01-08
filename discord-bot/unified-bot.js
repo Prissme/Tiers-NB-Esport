@@ -3038,6 +3038,90 @@ function formatDraftList(items) {
   return items.join(', ');
 }
 
+function buildDraftEmbed(session) {
+  const aiBans = draft.getAIBans(session);
+  const available = draft.getAvailable(session);
+  const summary = draft.summarizeResult(session);
+  const isDone = draft.isDraftDone(session);
+  const turn = draft.getTurn(session);
+
+  let description = '';
+  if (session.phase === 'BAN') {
+    description = 'Écris le nom d’un brawler pour le bannir (3 bans).';
+  } else if (!isDone) {
+    description = turn === 'USER' ? 'Écris le nom d’un brawler pour le pick.' : 'Tour de l’IA…';
+  } else {
+    description = 'Draft terminée.';
+  }
+
+  const embed = new EmbedBuilder()
+    .setTitle('Draft IA')
+    .setDescription(description)
+    .setColor(0x9b59b6)
+    .setTimestamp(new Date());
+
+  embed.addFields(
+    { name: 'Phase', value: session.phase === 'BAN' ? `Bans (${session.userBans.length}/3)` : 'Draft', inline: true },
+    { name: 'Tour', value: isDone ? 'Terminé' : turn === 'USER' ? 'Toi' : 'IA', inline: true },
+    { name: 'Meta', value: session.metaProfile, inline: true },
+    { name: 'IA bans', value: formatDraftList(aiBans) },
+    { name: 'Tes bans', value: formatDraftList(session.userBans) },
+    { name: 'Tes picks', value: formatDraftList(session.userPicks) },
+    { name: 'IA picks', value: formatDraftList(session.aiPicks) },
+    { name: `Pool dispo (${available.length})`, value: formatDraftList(available) }
+  );
+
+  if (summary) {
+    const chance = draft.estimateWinChance(summary.userScore, summary.aiScore);
+    const verdict =
+      summary.winner === 'user' ? '✅ Tu gagnes la draft' : summary.winner === 'ai' ? '❌ IA gagne la draft' : '🤝 Draft équilibrée';
+    embed.addFields({
+      name: 'Résultat',
+      value: `Toi ${summary.userScore.toFixed(2)} / IA ${summary.aiScore.toFixed(2)}\nChance de victoire (toi): ${chance}%\n${verdict}`
+    });
+  }
+
+  return embed;
+}
+
+async function sendOrUpdateDraftMessage(session, channel) {
+  if (!channel?.isTextBased()) {
+    return null;
+  }
+  const embed = buildDraftEmbed(session);
+  let message = null;
+
+  if (session.interfaceMessageId) {
+    try {
+      message = await channel.messages.fetch(session.interfaceMessageId);
+      await message.edit({ embeds: [embed] });
+      return message;
+    } catch (err) {
+      warn('Unable to edit draft interface message, sending a new one:', err?.message || err);
+    }
+  }
+
+  message = await channel.send({ embeds: [embed] });
+  session.interfaceMessageId = message.id;
+  return message;
+}
+
+async function announceDraftResult(session, message) {
+  if (session.resultAnnounced) {
+    return;
+  }
+  const summary = draft.summarizeResult(session);
+  if (!summary) {
+    return;
+  }
+  const chance = draft.estimateWinChance(summary.userScore, summary.aiScore);
+  await message.channel.send({ content: `🎯 Chance de victoire estimée pour toi: **${chance}%**` });
+  const verdict =
+    summary.winner === 'user' ? '✅ Tu gagnes la draft' : summary.winner === 'ai' ? '❌ IA gagne la draft' : '🤝 Draft équilibrée';
+  await message.channel.send({ content: `🏆 Résultat final: **${verdict}**` });
+  session.resultAnnounced = true;
+}
+
 function formatDraftStatus(session) {
   const aiBans = draft.getAIBans(session);
   const available = draft.getAvailable(session);
@@ -3130,9 +3214,8 @@ async function handleDraftCommand(message, args) {
     await message.reply({
       content:
         'Commandes draft:\n' +
-        '- `!draft` → démarre ou affiche la draft\n' +
-        '- `!draft ban <brawler>` → bannir un brawler\n' +
-        '- `!draft pick <brawler>` → pick un brawler\n' +
+        '- `!draft` → démarre ou affiche la draft (interface)\n' +
+        '- Tape simplement un nom de brawler pour ban/pick\n' +
         '- `!draft status` → afficher le statut\n' +
         '- `!draft reset` → reset la draft',
       allowedMentions: { repliedUser: false }
@@ -3141,10 +3224,7 @@ async function handleDraftCommand(message, args) {
   }
 
   if (command === 'status' || !command) {
-    await message.reply({
-      content: formatDraftStatus(session),
-      allowedMentions: { repliedUser: false }
-    });
+    await sendOrUpdateDraftMessage(session, message.channel);
     return;
   }
 
@@ -3160,7 +3240,7 @@ async function handleDraftCommand(message, args) {
       await message.reply({ content: 'Impossible de bannir ce brawler maintenant.', allowedMentions: { repliedUser: false } });
       return;
     }
-    await message.reply({ content: formatDraftStatus(session), allowedMentions: { repliedUser: false } });
+    await sendOrUpdateDraftMessage(session, message.channel);
     return;
   }
 
@@ -3179,12 +3259,68 @@ async function handleDraftCommand(message, args) {
     draft.runAiPicks(session);
     if (draft.isDraftDone(session)) {
       await persistDraftResult(session, message);
+      await sendOrUpdateDraftMessage(session, message.channel);
+      await announceDraftResult(session, message);
+      return;
     }
-    await message.reply({ content: formatDraftStatus(session), allowedMentions: { repliedUser: false } });
+    await sendOrUpdateDraftMessage(session, message.channel);
     return;
   }
 
   await message.reply({ content: 'Commande draft inconnue. Utilise `!draft help`.', allowedMentions: { repliedUser: false } });
+}
+
+async function handleDraftFreeInput(message) {
+  const channelId = message.channel.id;
+  const session = draftSessions.get(channelId);
+  if (!session) {
+    return false;
+  }
+
+  const isAdmin = message.member?.permissions?.has(PermissionsBitField.Flags.Administrator);
+  if (session.ownerId !== message.author.id && !isAdmin) {
+    return false;
+  }
+
+  const brawler = draft.findBrawlerInText(message.content);
+  if (!brawler) {
+    return false;
+  }
+
+  if (session.phase === 'BAN') {
+    const result = draft.applyUserBan(session, brawler);
+    if (!result.ok) {
+      await message.reply({ content: 'Impossible de bannir ce brawler maintenant.', allowedMentions: { repliedUser: false } });
+      return true;
+    }
+    await sendOrUpdateDraftMessage(session, message.channel);
+    return true;
+  }
+
+  if (session.phase === 'DRAFT') {
+    if (draft.isDraftDone(session)) {
+      await message.reply({ content: 'La draft est déjà terminée.', allowedMentions: { repliedUser: false } });
+      return true;
+    }
+    if (draft.getTurn(session) !== 'USER') {
+      await message.reply({ content: "Ce n'est pas encore ton tour.", allowedMentions: { repliedUser: false } });
+      return true;
+    }
+    const result = draft.applyUserPick(session, brawler);
+    if (!result.ok) {
+      await message.reply({ content: 'Impossible de pick ce brawler maintenant.', allowedMentions: { repliedUser: false } });
+      return true;
+    }
+    draft.runAiPicks(session);
+    await sendOrUpdateDraftMessage(session, message.channel);
+    if (draft.isDraftDone(session)) {
+      await persistDraftResult(session, message);
+      await announceDraftResult(session, message);
+    }
+    return true;
+  }
+
+  return false;
 }
 
 async function handleHelpCommand(message) {
@@ -3203,7 +3339,7 @@ async function handleHelpCommand(message) {
           '`!maps` — Show the current map rotation',
           '`!ping` — Mention the match notification role',
           '`!tiers` — Manually sync tier roles',
-          '`!draft` — Start a draft vs AI (ban/pick flow)',
+          '`!draft` — Start a draft vs AI (interactive interface)',
           '`!prisscupdel <team>` — [Admin] Delete a registered PrissCup team',
           '`!english [off]` — Switch the bot language to English or back to French',
           '`!help` — Display this help'
@@ -3221,7 +3357,7 @@ async function handleHelpCommand(message) {
           '`!maps` — Afficher la rotation des maps',
           '`!ping` — Mentionner le rôle de notification des matchs',
           '`!tiers` — Synchroniser manuellement les rôles de tier',
-          '`!draft` — Lancer une draft vs IA (ban/pick)',
+          '`!draft` — Lancer une draft vs IA (interface interactive)',
           '`!prisscupdel <equipe>` — [Admin] Supprimer une équipe inscrite à la PrissCup',
           '`!english [off]` — Traduire le bot en anglais ou revenir en français',
           '`!help` — Afficher cette aide'
@@ -4762,6 +4898,10 @@ async function handleMessage(message) {
 
   const content = message.content.trim();
   if (!content.startsWith('!')) {
+    const handledDraft = await handleDraftFreeInput(message);
+    if (handledDraft) {
+      return;
+    }
     return;
   }
 
