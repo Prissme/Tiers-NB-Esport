@@ -198,6 +198,10 @@ const NAME_LOOKUP = ALL.reduce((acc, name) => {
   return acc;
 }, new Map());
 
+const NORMALIZED_BRAWLERS = ALL.map((name) => ({ name, normalized: normalizeName(name) })).sort(
+  (a, b) => b.normalized.length - a.normalized.length
+);
+
 function normalizeName(value) {
   return String(value || '')
     .toLowerCase()
@@ -207,6 +211,17 @@ function normalizeName(value) {
 function resolveBrawler(input) {
   const normalized = normalizeName(input);
   return NAME_LOOKUP.get(normalized) || null;
+}
+
+function findBrawlerInText(text) {
+  const normalized = normalizeName(text);
+  if (!normalized) return null;
+  for (const entry of NORMALIZED_BRAWLERS) {
+    if (normalized.includes(entry.normalized)) {
+      return entry.name;
+    }
+  }
+  return null;
 }
 
 function getMetaConfig() {
@@ -387,7 +402,8 @@ function createSession(ownerId, metaProfile = META_DEFAULT) {
     userPicks: [],
     aiPicks: [],
     step: 0,
-    resultSaved: false
+    resultSaved: false,
+    resultAnnounced: false
   };
 }
 
@@ -471,11 +487,18 @@ function summarizeResult(session) {
   return { userScore, aiScore, winner };
 }
 
+function estimateWinChance(userScore, aiScore) {
+  const diff = userScore - aiScore;
+  const probability = 1 / (1 + Math.exp(-diff));
+  return Math.round(probability * 100);
+}
+
 module.exports = {
   ALL,
   META_DEFAULT,
   TURN,
   resolveBrawler,
+  findBrawlerInText,
   createSession,
   getAIBans,
   getAvailable,
@@ -484,5 +507,6 @@ module.exports = {
   applyUserBan,
   applyUserPick,
   runAiPicks,
-  summarizeResult
+  summarizeResult,
+  estimateWinChance
 };
