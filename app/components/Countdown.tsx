@@ -18,9 +18,10 @@ const getRemaining = (target: Date) => {
 
 type CountdownProps = {
   targetDate: string;
+  className?: string;
 };
 
-export default function Countdown({ targetDate }: CountdownProps) {
+export default function Countdown({ targetDate, className }: CountdownProps) {
   const target = useMemo(() => new Date(targetDate), [targetDate]);
   const [remaining, setRemaining] = useState(() => getRemaining(target));
 
@@ -34,7 +35,9 @@ export default function Countdown({ targetDate }: CountdownProps) {
 
   if (remaining.isLive) {
     return (
-      <div className="flex items-center gap-2 rounded-2xl border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-xs text-amber-200">
+      <div
+        className={`flex items-center gap-2 rounded-3xl border border-amber-400/40 bg-amber-400/10 px-5 py-3 text-sm font-semibold text-amber-200 shadow-[0_0_40px_rgba(234,179,8,0.35)] ${className ?? ""}`}
+      >
         <span className="h-2 w-2 animate-pulse rounded-full bg-amber-300" />
         La LFN a commencé
       </div>
@@ -42,11 +45,13 @@ export default function Countdown({ targetDate }: CountdownProps) {
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-xs text-slate-200">
-      <span className="text-[10px] uppercase tracking-[0.35em] text-amber-300/80">
+    <div
+      className={`flex flex-wrap items-center gap-3 rounded-3xl border border-white/15 bg-white/5 px-5 py-4 text-sm text-slate-200 shadow-[0_0_45px_rgba(234,179,8,0.25)] ${className ?? ""}`}
+    >
+      <span className="text-[11px] uppercase tracking-[0.45em] text-amber-300/80">
         Début LFN
       </span>
-      <div className="flex items-center gap-2 text-sm font-semibold text-white">
+      <div className="flex items-center gap-2 text-base font-semibold text-white sm:text-lg text-glow">
         <span>{remaining.days}j</span>
         <span>{pad(remaining.hours)}h</span>
         <span>{pad(remaining.minutes)}m</span>

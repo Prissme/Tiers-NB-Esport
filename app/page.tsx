@@ -11,16 +11,6 @@ export default async function HomePage() {
   return (
     <div className="space-y-12">
       <div className="relative">
-        <div className="pointer-events-none absolute -right-4 -top-16 z-20 flex flex-col items-center motion-float sm:-right-6">
-          <img
-            src="https://cdn.discordapp.com/attachments/1434252768633290952/1458823981111971894/image0.jpg?ex=69610b34&is=695fb9b4&hm=73d147facb303c675a7ced14b55d81d4dc98d93a0ec1dc3672f021c9ebffda2c&"
-            alt="Null's Brawl"
-            className="h-28 w-28 rounded-3xl border border-white/20 object-cover shadow-[0_20px_60px_rgba(0,0,0,0.6)] sm:h-44 sm:w-44 lg:h-52 lg:w-52"
-          />
-          <p className="mt-3 text-xs uppercase tracking-[0.35em] text-amber-200/80">
-            Null&apos;s Brawl
-          </p>
-        </div>
         <section className="motion-field p-8 md:p-10">
           <div className="motion-orb -left-20 top-10 h-56 w-56 motion-drift" />
           <div className="motion-orb motion-orb--blue right-0 top-0 h-64 w-64 motion-spin" />
