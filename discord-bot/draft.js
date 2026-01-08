@@ -173,7 +173,9 @@ const COUNTER_BY_USER_PICK = {
   Lumi: ['Gene', 'Belle']
 };
 
-const TURN = ['USER', 'AI', 'AI', 'USER', 'USER', 'AI'];
+const USER_FIRST_TURN = ['USER', 'AI', 'AI', 'USER', 'USER', 'AI'];
+const AI_FIRST_TURN = ['AI', 'USER', 'USER', 'AI', 'AI', 'USER'];
+const TURN = USER_FIRST_TURN;
 
 const SUPPORTS = new Set(['Gus', 'Pam', 'Ruffs', 'Poco', 'Byron', 'Lumi']);
 const MELEES = new Set([
@@ -192,6 +194,8 @@ const MELEES = new Set([
   'Trunk'
 ]);
 const SNIPERS_POKE = new Set(['Piper', 'Belle', 'Brock', 'Colt', 'Rico', 'Maisie', 'Janet']);
+const DIVE_UNITS = new Set(['Mortis', 'Alli', 'Crow', 'Lily', 'Kenji', 'Melodie']);
+const DISABLES = new Set(['Spike', 'Otis', 'Rico', 'Cordelius']);
 
 const NAME_LOOKUP = ALL.reduce((acc, name) => {
   acc.set(normalizeName(name), name);
@@ -314,8 +318,7 @@ function evaluateDraft(picks, metaProfile = META_DEFAULT) {
 
   if (has('Buster') || has('Rosa') || has('Sam') || has('Ash') || has('Draco')) score += 1;
 
-  const DIVE_UNITS = ['Mortis', 'Alli', 'Crow', 'Lily', 'Kenji', 'Melodie'];
-  const diveCount = DIVE_UNITS.filter((d) => has(d)).length;
+  const diveCount = [...DIVE_UNITS].filter((d) => has(d)).length;
   const hasDive = diveCount > 0;
   if (hasDive) score += 1;
 
@@ -394,11 +397,16 @@ function computeAIBans(metaProfile, bannedByUser) {
   return ranked.slice(0, 3).map((x) => x.b);
 }
 
-function createSession(ownerId, metaProfile = META_DEFAULT) {
+function createSession(ownerId, metaProfile = META_DEFAULT, options = {}) {
+  const firstPick = options.firstPick || (Math.random() < 0.5 ? 'USER' : 'AI');
+  const turnOrder = firstPick === 'AI' ? AI_FIRST_TURN : USER_FIRST_TURN;
   return {
     id: `${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
     ownerId,
     metaProfile,
+    firstPick,
+    turnOrder,
+    isAIDraft: options.isAIDraft ?? true,
     phase: 'BAN',
     userBans: [],
     userPicks: [],
@@ -425,12 +433,14 @@ function getAvailable(session) {
 }
 
 function getTurn(session) {
-  if (session.step >= TURN.length) return null;
-  return TURN[session.step];
+  const order = session.turnOrder || TURN;
+  if (session.step >= order.length) return null;
+  return order[session.step];
 }
 
 function isDraftDone(session) {
-  return session.step >= TURN.length;
+  const order = session.turnOrder || TURN;
+  return session.step >= order.length;
 }
 
 function applyUserBan(session, brawler) {
@@ -495,6 +505,62 @@ function estimateWinChance(userScore, aiScore) {
   return Math.round(probability * 100);
 }
 
+function analyzePicks(picks, metaProfile) {
+  const mapPriority = picks.reduce((sum, brawler) => sum + (MAP_PRIORITY[brawler] || 0), 0);
+  const metaPower = picks.reduce((sum, brawler) => sum + metaPowerOf(brawler, metaProfile), 0);
+  const hpBonus = picks.reduce((sum, brawler) => sum + metaHpBonusOf(brawler), 0);
+  const supports = picks.filter((brawler) => SUPPORTS.has(brawler)).length;
+  const melees = picks.filter((brawler) => MELEES.has(brawler)).length;
+  const snipers = picks.filter((brawler) => SNIPERS_POKE.has(brawler)).length;
+  const disables = picks.filter((brawler) => DISABLES.has(brawler)).length;
+  const dives = picks.filter((brawler) => DIVE_UNITS.has(brawler)).length;
+  return { mapPriority, metaPower, hpBonus, supports, melees, snipers, disables, dives };
+}
+
+function buildVictoryArguments(session) {
+  const summary = summarizeResult(session);
+  if (!summary) return null;
+
+  if (summary.winner === 'draw') {
+    return [
+      'Scores très proches, aucun avantage net.',
+      'Compositions globalement équilibrées.',
+      'Pas de domination claire en portée ou contrôle.'
+    ];
+  }
+
+  const winnerKey = summary.winner === 'user' ? 'user' : 'ai';
+  const winnerPicks = winnerKey === 'user' ? session.userPicks : session.aiPicks;
+  const loserPicks = winnerKey === 'user' ? session.aiPicks : session.userPicks;
+  const winnerMetrics = analyzePicks(winnerPicks, session.metaProfile);
+  const loserMetrics = analyzePicks(loserPicks, session.metaProfile);
+  const diffScore =
+    summary.winner === 'user' ? summary.userScore - summary.aiScore : summary.aiScore - summary.userScore;
+
+  const reasons = [];
+  const addReason = (score, text) => {
+    if (score > 0) {
+      reasons.push({ score, text });
+    }
+  };
+
+  addReason(Math.abs(diffScore), `Score global supérieur (+${Math.abs(diffScore).toFixed(2)})`);
+  addReason(winnerMetrics.mapPriority - loserMetrics.mapPriority, 'Priorité de map plus forte.');
+  addReason(winnerMetrics.metaPower - loserMetrics.metaPower, 'Valeur meta supérieure.');
+  addReason(winnerMetrics.hpBonus - loserMetrics.hpBonus, 'Meilleure robustesse globale.');
+  addReason(winnerMetrics.disables - loserMetrics.disables, 'Plus d’outils de contrôle/anti-dive.');
+  addReason(winnerMetrics.snipers - loserMetrics.snipers, 'Meilleure portée/poke.');
+  addReason(winnerMetrics.supports - loserMetrics.supports, 'Plus de sustain via supports.');
+  addReason(winnerMetrics.dives - loserMetrics.dives, 'Pression dive plus élevée.');
+  addReason(loserMetrics.melees - winnerMetrics.melees, 'Moins d’exposition aux compos mêlée.');
+
+  const sorted = reasons.sort((a, b) => b.score - a.score).map((item) => item.text);
+  while (sorted.length < 3) {
+    sorted.push('Meilleure cohérence d’équipe sur la draft.');
+  }
+  return sorted.slice(0, 3);
+}
+
 module.exports = {
   ALL,
   META_DEFAULT,
@@ -510,5 +576,6 @@ module.exports = {
   applyUserPick,
   runAiPicks,
   summarizeResult,
-  estimateWinChance
+  estimateWinChance,
+  buildVictoryArguments
 };
