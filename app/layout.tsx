@@ -5,11 +5,16 @@ import Header from "./components/Header";
 import { lfnData } from "./lib/lfnData";
 
 export const metadata: Metadata = {
-  title: "LFN — Ligue Francophone Null’s Brawl",
+  metadataBase: new URL("https://tiers-nb.koyeb.app"),
+  title: {
+    default: "LFN — Ligue Francophone Null’s Brawl",
+    template: "%s · LFN",
+  },
   description:
     "La ligue compétitive francophone Null’s Brawl. Matchs, classements, stats et saisons en cours.",
   icons: {
-    icon: "https://cdn.discordapp.com/attachments/1434252768633290952/1458825268193136870/1000319082-Photoroom.png?ex=69610c67&is=695fbae7&hm=0244369700a834c01aaa029ef2c98fc6c0a715522ea103cffe9a343b0b441c10&",
+    icon: "/favicon.svg",
+    apple: "/apple-touch-icon.svg",
   },
   openGraph: {
     title: "LFN — Ligue Francophone Null’s Brawl",
@@ -19,7 +24,7 @@ export const metadata: Metadata = {
     url: "https://tiers-nb.koyeb.app/",
     images: [
       {
-        url: "https://media.discordapp.net/attachments/1434252768633290952/1455665343132336128/content.png?format=webp&quality=lossless&width=1200&height=630",
+        url: "/og-image.svg",
         width: 1200,
         height: 630,
         alt: "LFN — Ligue Francophone Null’s Brawl",
@@ -31,6 +36,7 @@ export const metadata: Metadata = {
     title: "LFN — Ligue Francophone Null’s Brawl",
     description:
       "La ligue compétitive francophone Null’s Brawl. Matchs, classements et saisons en cours.",
+    images: ["/og-image.svg"],
   },
 };
 
