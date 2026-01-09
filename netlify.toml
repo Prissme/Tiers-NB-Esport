@@ -1,7 +1,10 @@
 [build]
-command = "npm cache clean --force && npm ci && npm run build"
+command = "rm -rf /tmp/npm-cache && npm ci --prefer-online && npm run build"
 
 [build.environment]
 NETLIFY_SKIP_AUTOMATIC_INSTALL = "true"
-NPM_CONFIG_CACHE = ".npm-cache"
+NPM_CONFIG_CACHE = "/tmp/npm-cache"
 NPM_CONFIG_PREFER_OFFLINE = "false"
+NPM_CONFIG_FETCH_RETRIES = "5"
+NPM_CONFIG_FETCH_RETRY_MINTIMEOUT = "20000"
+NPM_CONFIG_FETCH_RETRY_MAXTIMEOUT = "120000"
