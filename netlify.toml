@@ -1,0 +1,7 @@
+[build]
+command = "npm cache clean --force && npm ci && npm run build"
+
+[build.environment]
+NETLIFY_SKIP_AUTOMATIC_INSTALL = "true"
+NPM_CONFIG_CACHE = ".npm-cache"
+NPM_CONFIG_PREFER_OFFLINE = "false"
