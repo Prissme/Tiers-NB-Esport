@@ -1,5 +1,11 @@
+import type { Metadata } from "next";
 import Button from "../components/Button";
 import SectionHeader from "../components/SectionHeader";
+
+export const metadata: Metadata = {
+  title: "Partenariats",
+  description: "Soutenez la LFN et découvrez nos opportunités partenaires.",
+};
 
 const partnerBlocks = [
   { label: "Visibilité", detail: "Sobre" },

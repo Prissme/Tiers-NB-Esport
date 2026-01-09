@@ -1,4 +1,10 @@
+import type { Metadata } from "next";
 import SectionHeader from "../components/SectionHeader";
+
+export const metadata: Metadata = {
+  title: "Règlement",
+  description: "Règlement officiel de la Ligue Francophone Null’s Brawl.",
+};
 
 const rulesSections = [
   {

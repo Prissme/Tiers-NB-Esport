@@ -1,12 +1,11 @@
+import type { Metadata } from "next";
 import SectionHeader from "../components/SectionHeader";
-import MatchesContent from "./MatchesContent";
-import MatchesSchedule from "./MatchesSchedule";
+import MatchesClient from "./MatchesClient";
 
-const matchPanels = [
-  { label: "Prévu", detail: "Slots rapides" },
-  { label: "Live", detail: "Focus instantané" },
-  { label: "Terminé", detail: "Score court" },
-];
+export const metadata: Metadata = {
+  title: "Matchs",
+  description: "Calendrier officiel, matchs en direct et scores LFN.",
+};
 
 export default function MatchsPage() {
   return (
@@ -17,11 +16,15 @@ export default function MatchsPage() {
         <div className="relative z-10 space-y-6">
           <SectionHeader
             kicker="Matchs"
-            title="Planning condensé"
-            description="DEBUT MATCH 1 LE 12 JANVIER 2026 à 18H"
+            title="Planning officiel"
+            description="Pré-saison — lancement imminent."
           />
           <div className="grid gap-4 md:grid-cols-3">
-            {matchPanels.map((panel) => (
+            {[
+              { label: "Programmés", detail: "Calendrier en préparation." },
+              { label: "Live", detail: "Status prêt pour la saison." },
+              { label: "Résultats", detail: "Scores officiels à venir." },
+            ].map((panel) => (
               <div key={panel.label} className="motion-card motion-shimmer">
                 <p className="text-xs uppercase tracking-[0.35em] text-slate-400">{panel.label}</p>
                 <p className="mt-3 text-sm text-white">{panel.detail}</p>
@@ -31,9 +34,7 @@ export default function MatchsPage() {
         </div>
       </section>
 
-      <MatchesSchedule />
-
-      <MatchesContent />
+      <MatchesClient />
     </div>
   );
 }
