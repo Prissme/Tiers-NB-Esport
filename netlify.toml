@@ -1,5 +1,5 @@
 [build]
-command = "rm -rf /tmp/npm-cache && npm ci --prefer-online && npm run build"
+command = "rm -rf /tmp/npm-cache node_modules && npm cache clean --force && npm install --prefer-online && npm run build"
 
 [build.environment]
 NETLIFY_SKIP_AUTOMATIC_INSTALL = "true"
