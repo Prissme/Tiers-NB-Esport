@@ -3237,6 +3237,11 @@ async function handleDraftCommand(message, args) {
   const command = (args[0] || '').toLowerCase();
   let session = draftSessions.get(channelId);
 
+  if (session && draft.isDraftDone(session) && (!command || command === 'status')) {
+    session = null;
+    draftSessions.delete(channelId);
+  }
+
   if (!session) {
     session = draft.createSession(message.author.id, draft.META_DEFAULT, { isAIDraft: true });
     draftSessions.set(channelId, session);

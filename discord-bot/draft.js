@@ -298,6 +298,10 @@ function evaluateDraft(picks, metaProfile = META_DEFAULT) {
   if (has('Emz') && has('Maisie') && has('Rico')) score -= 1;
   if (has('Frank') && has('Alli') && has('Carl')) score += 1.2;
   if (has('Rico') && has('Byron') && has('Lily')) score -= 1.2;
+  if (has('Carl') && has('Frank') && has('Spike')) score += 1.3;
+  if (has('Surge') && has('Rico') && has('Alli')) score -= 1.1;
+  if (has('Emz') && has('Mortis') && has('Max')) score += 1.2;
+  if (has('Crow') && has('Frank') && has('Cordelius')) score -= 1.1;
 
   if (has('Penny') && has('Mortis')) score += 0.5;
   if (has('Penny') && has('Tara')) score += 0.5;
