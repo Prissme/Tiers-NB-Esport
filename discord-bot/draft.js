@@ -9,7 +9,8 @@ const META_POWER = {
     Spike: 1,
     Colt: 1,
     Frank: 1,
-    Emz: 1
+    Emz: 1,
+    Bull: 0.6
   }
 };
 
@@ -49,6 +50,7 @@ const ALL = [
   'Squeak',
   'Surge',
   'Trunk',
+  'Shade',
   'Sam',
   'Cordelius',
   'Emz',
@@ -83,12 +85,12 @@ const MAP_PRIORITY = {
   Finx: 2,
   Lumi: 2,
   Brock: 1,
-  Colt: 1,
+  Colt: 2,
   Gene: 1,
-  Spike: 1,
+  Spike: 2,
   Sandy: 1,
   Rosa: 1,
-  Bull: 1,
+  Bull: 2,
   Mortis: 1,
   Buster: 1,
   Pam: 1,
@@ -102,7 +104,7 @@ const MAP_PRIORITY = {
   Squeak: 1,
   Surge: 1,
   Sam: 1,
-  Emz: 1,
+  Emz: 2,
   Maisie: 1,
   Penny: 1,
   Gale: 1,
@@ -134,7 +136,7 @@ const COUNTER_BY_USER_PICK = {
   Piper: ['Gene'],
   Brock: ['Gene'],
   Mortis: ['Shelly', 'Spike', 'Nita'],
-  Frank: ['Shelly', 'Spike', 'Colt'],
+  Frank: ['Shelly', 'Spike', 'Colt', 'Bull'],
   Buster: ['Spike', 'Colt', 'Belle'],
   Tara: ['Gene', 'Belle'],
   Pam: ['Spike', 'Belle'],
@@ -143,10 +145,10 @@ const COUNTER_BY_USER_PICK = {
   Ruffs: ['Spike', 'Belle'],
   Carl: ['Shelly', 'Spike'],
   Mina: ['Gene', 'Belle'],
-  Otis: ['Gene', 'Belle'],
+  Otis: ['Gene', 'Belle', 'Spike', 'Colt'],
   Alli: ['Shelly', 'Spike', 'Nita'],
   Griff: ['Belle', 'Gene'],
-  Meeple: ['Belle', 'Gene'],
+  Meeple: ['Belle', 'Gene', 'Mortis', 'Emz'],
   Squeak: ['Gene', 'Belle'],
   Surge: ['Otis', 'Belle', 'Gene'],
   Trunk: ['Colt', 'Spike', 'Emz'],
@@ -156,7 +158,7 @@ const COUNTER_BY_USER_PICK = {
   Maisie: ['Belle', 'Gene'],
   Penny: ['Mortis', 'Gale', 'Gene'],
   Gale: ['Gene', 'Belle', 'Mortis'],
-  Janet: ['Belle', 'Gene', 'Piper'],
+  Janet: ['Belle', 'Gene', 'Piper', 'Spike', 'Colt'],
   Amber: ['Spike', 'Otis', 'Gene'],
   Charlie: ['Gene', 'Belle', 'Spike'],
   Lily: ['Shelly', 'Spike', 'Emz'],
@@ -170,7 +172,8 @@ const COUNTER_BY_USER_PICK = {
   Melodie: ['Gene', 'Belle', 'Otis'],
   Byron: ['Mortis', 'Crow'],
   Draco: ['Spike', 'Otis'],
-  Lumi: ['Gene', 'Belle']
+  Lumi: ['Gene', 'Belle'],
+  Shade: ['Mortis', 'Frank', 'Emz']
 };
 
 const USER_FIRST_TURN = ['USER', 'AI', 'AI', 'USER', 'USER', 'AI'];
@@ -302,6 +305,8 @@ function evaluateDraft(picks, metaProfile = META_DEFAULT) {
   if (has('Surge') && has('Rico') && has('Alli')) score -= 1.1;
   if (has('Emz') && has('Mortis') && has('Max')) score += 1.2;
   if (has('Crow') && has('Frank') && has('Cordelius')) score -= 1.1;
+  if (has('Bull') && has('Colt') && has('Spike')) score += 1.4;
+  if (has('Mortis') && has('Frank') && has('Emz')) score += 1.4;
 
   if (has('Penny') && has('Mortis')) score += 0.5;
   if (has('Penny') && has('Tara')) score += 0.5;
@@ -557,6 +562,35 @@ function buildVictoryArguments(session) {
   addReason(winnerMetrics.supports - loserMetrics.supports, 'Plus de sustain via supports.');
   addReason(winnerMetrics.dives - loserMetrics.dives, 'Pression dive plus élevée.');
   addReason(loserMetrics.melees - winnerMetrics.melees, 'Moins d’exposition aux compos mêlée.');
+  if (
+    winnerPicks.includes('Bull') &&
+    winnerPicks.includes('Colt') &&
+    winnerPicks.includes('Spike')
+  ) {
+    addReason(1.6, 'Synergie Bull/Colt/Spike solide sur cette map.');
+  }
+  if (
+    winnerPicks.includes('Mortis') &&
+    winnerPicks.includes('Frank') &&
+    winnerPicks.includes('Emz')
+  ) {
+    addReason(1.6, 'Synergie Mortis/Frank/Emz solide sur cette map.');
+  }
+
+  const counterReasonMap = new Map();
+  for (const loserPick of loserPicks) {
+    const counters = COUNTER_BY_USER_PICK[loserPick] || [];
+    for (const counter of counters) {
+      if (winnerPicks.includes(counter)) {
+        const text = `${counter} counter ${loserPick}.`;
+        counterReasonMap.set(text, (counterReasonMap.get(text) || 0) + 1);
+      }
+    }
+  }
+
+  for (const [text, count] of counterReasonMap.entries()) {
+    addReason(count + 1, text);
+  }
 
   const sorted = reasons.sort((a, b) => b.score - a.score).map((item) => item.text);
   while (sorted.length < 3) {
