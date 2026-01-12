@@ -19,6 +19,7 @@ const DISCORD_BLUE = 0x5865f2;
 const VALIDATE_BUTTON_ID = 'lfn_pred_validate';
 const PERFECT_PREDICTIONS_ROLE_ID = '1460249694159507476';
 const PREDICTION_MIGRATION_PATH = 'supabase/migrations/202509230001_create_lfn_prediction_tables.sql';
+const VALIDATION_ON_CONFLICT = 'guild_id,match_id,user_id';
 const REQUIRED_PREDICTION_TABLES = [
   'lfn_predictions',
   'lfn_prediction_votes',
@@ -232,6 +233,15 @@ function buildVoteComponents(prediction, disabled = false) {
   }
 
   return rows;
+}
+
+function warnOnConflictMismatch(expected, actual, contextLabel) {
+  if (actual !== expected) {
+    context.warn(
+      `${contextLabel} onConflict mismatch. Expected "${expected}", received "${actual}". ` +
+        'Vérifiez l’ordre, les noms snake_case et l’absence d’espaces.'
+    );
+  }
 }
 
 function formatPercent(count, total) {
@@ -577,24 +587,40 @@ async function handleVoteInteraction(interaction) {
 }
 
 async function isUserValidated(userId) {
-  const { data, error } = await context.supabase
+  const { count, error } = await context.supabase
     .from('lfn_prediction_validations')
-    .select('user_id')
+    .select('user_id', { count: 'exact', head: true })
     .eq('guild_id', context.guildId)
     .eq('user_id', userId)
-    .maybeSingle();
+    .eq('validated', true)
+    .limit(1);
 
   if (error) {
     throw error;
   }
 
-  return Boolean(data);
+  return Boolean(count);
 }
 
-async function recordUserValidation(userId) {
+async function recordUserValidation(userId, matchIds) {
+  if (!matchIds?.length) {
+    return;
+  }
+
+  const validatedAt = new Date().toISOString();
+  const payload = matchIds.map((matchId) => ({
+    guild_id: context.guildId,
+    match_id: matchId,
+    user_id: userId,
+    validated: true,
+    validated_at: validatedAt
+  }));
+  const onConflict = VALIDATION_ON_CONFLICT;
+  warnOnConflictMismatch(VALIDATION_ON_CONFLICT, onConflict, 'lfn_prediction_validations');
+
   const { error } = await context.supabase
     .from('lfn_prediction_validations')
-    .upsert({ guild_id: context.guildId, user_id: userId, validated_at: new Date().toISOString() }, { onConflict: 'guild_id,user_id' });
+    .upsert(payload, { onConflict });
 
   if (error) {
     throw error;
@@ -696,7 +722,7 @@ async function handleValidationInteraction(interaction) {
       return true;
     }
 
-    await recordUserValidation(interaction.user.id);
+    await recordUserValidation(interaction.user.id, predictionIds);
 
     await interaction.reply({
       content: context.localizeText({
@@ -881,13 +907,14 @@ async function fetchValidatedUsers() {
   const { data, error } = await context.supabase
     .from('lfn_prediction_validations')
     .select('user_id')
-    .eq('guild_id', context.guildId);
+    .eq('guild_id', context.guildId)
+    .eq('validated', true);
 
   if (error) {
     throw error;
   }
 
-  return (data || []).map((entry) => entry.user_id);
+  return Array.from(new Set((data || []).map((entry) => entry.user_id)));
 }
 
 async function assignPerfectPredictionRole(userIds, predictions, winnersByMatch) {
