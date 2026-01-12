@@ -1,11 +1,11 @@
 'use strict';
 
+const { spawn } = require('child_process');
 const fs = require('fs');
 const http = require('http');
 const path = require('path');
-const next = require('next');
 
-const { startUnifiedBot } = require('./discord-bot/unified-bot');
+const { loadEnvFile } = require('./load-env');
 
 const LOG_PREFIX = '[Server]';
 
@@ -21,45 +21,19 @@ function errorLog(...args) {
   console.error(LOG_PREFIX, ...args);
 }
 
-function loadEnvFile() {
-  const envPath = path.join(__dirname, '.env');
-  if (!fs.existsSync(envPath)) {
-    warn('Fichier .env introuvable, poursuite avec les variables déjà définies.');
-    return;
-  }
-
-  const raw = fs.readFileSync(envPath, 'utf8');
-  raw.split(/\r?\n/).forEach((line) => {
-    const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith('#')) {
-      return;
-    }
-
-    const separatorIndex = trimmed.indexOf('=');
-    if (separatorIndex === -1) {
-      return;
-    }
-
-    const key = trimmed.slice(0, separatorIndex).trim();
-    let value = trimmed.slice(separatorIndex + 1).trim();
-
-    if (value.startsWith('"') && value.endsWith('"')) {
-      value = value.slice(1, -1);
-    }
-
-    if (!Object.prototype.hasOwnProperty.call(process.env, key)) {
-      process.env[key] = value;
-    }
-  });
-}
-
-function validateEnv(requiredKeys, label) {
+function validateEnv(requiredKeys, label, { optionalKeys = [] } = {}) {
   const missing = requiredKeys.filter((key) => !process.env[key]);
   if (missing.length > 0) {
     warn(`Variables manquantes (${label}) : ${missing.join(', ')}`);
     return false;
   }
   log(`Variables critiques OK (${label}).`);
+
+  const optionalMissing = optionalKeys.filter((key) => !process.env[key]);
+  if (optionalMissing.length > 0) {
+    warn(`Variables optionnelles absentes (${label}) : ${optionalMissing.join(', ')}`);
+  }
+
   return true;
 }
 
@@ -68,6 +42,11 @@ function hasSupabaseServiceKey() {
 }
 
 async function startBotSafely() {
+  if (process.env.SKIP_BOT_START === '1') {
+    warn('Démarrage du bot ignoré (SKIP_BOT_START=1).');
+    return;
+  }
+
   const botHasEnv =
     validateEnv(['DISCORD_BOT_TOKEN', 'DISCORD_GUILD_ID', 'SUPABASE_URL'], 'bot') && hasSupabaseServiceKey();
 
@@ -79,45 +58,89 @@ async function startBotSafely() {
   }
 
   try {
+    const { startUnifiedBot } = require('./discord-bot/unified-bot');
     await startUnifiedBot();
   } catch (err) {
     errorLog('Le bot a échoué, le serveur web reste actif :', err);
   }
 }
 
-loadEnvFile();
+loadEnvFile({ warn });
 
 const dev = process.env.NODE_ENV !== 'production';
 const quiet = process.env.NODE_ENV === 'production';
 const hostname = process.env.HOSTNAME || '0.0.0.0';
 const port = Number.parseInt(process.env.PORT || '3000', 10);
 
-validateEnv(['SUPABASE_URL', 'SUPABASE_ANON_KEY'], 'web');
+const publicSupabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
+const publicSupabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY;
+const optionalWebMissing = [];
+if (!publicSupabaseUrl) {
+  optionalWebMissing.push('NEXT_PUBLIC_SUPABASE_URL (ou SUPABASE_URL)');
+}
+if (!publicSupabaseAnonKey) {
+  optionalWebMissing.push('NEXT_PUBLIC_SUPABASE_ANON_KEY (ou SUPABASE_ANON_KEY)');
+}
+if (optionalWebMissing.length) {
+  warn(
+    `Supabase client-side non configuré (${optionalWebMissing.join(
+      ', '
+    )}). Certaines pages (admin) afficheront un message d'erreur sans casser le site.`
+  );
+} else {
+  log('Supabase client-side configuré (web).');
+}
 
-const app = next({ dev, hostname, port, quiet });
-const handle = app.getRequestHandler();
+const standaloneServerPath = path.join(__dirname, '.next', 'standalone', 'server.js');
+const useStandalone = !dev && fs.existsSync(standaloneServerPath);
 
-app
-  .prepare()
-  .then(() => {
-    const server = http.createServer((req, res) => {
-      handle(req, res);
-    });
+if (useStandalone) {
+  log('Démarrage du serveur Next.js standalone.');
+  const serverProcess = spawn('node', [standaloneServerPath], { stdio: 'inherit' });
 
-    server.listen(port, hostname, () => {
-      log(`Serveur Next.js prêt sur http://${hostname}:${port}`);
-
-      // Démarrage différé du bot pour éviter le pic de mémoire au boot.
-      setTimeout(() => {
-        startBotSafely();
-      }, 2000);
-    });
-
-    server.on('error', (err) => {
-      errorLog('Erreur serveur:', err);
-    });
-  })
-  .catch((err) => {
-    errorLog('Erreur critique lors du démarrage Next.js:', err);
-    process.exit(1);
+  serverProcess.on('exit', (code, signal) => {
+    if (signal) {
+      errorLog(`Le serveur standalone s'est arrêté (signal: ${signal}).`);
+      process.exit(1);
+    }
+    if (code !== null) {
+      if (code !== 0) {
+        errorLog(`Le serveur standalone s'est arrêté avec le code ${code}.`);
+      }
+      process.exit(code);
+    }
   });
+
+  setTimeout(() => {
+    startBotSafely();
+  }, 2000);
+} else {
+  const next = require('next');
+  const app = next({ dev, hostname, port, quiet });
+  const handle = app.getRequestHandler();
+
+  app
+    .prepare()
+    .then(() => {
+      const server = http.createServer((req, res) => {
+        handle(req, res);
+      });
+
+      server.listen(port, hostname, () => {
+        log(`Serveur Next.js prêt sur http://${hostname}:${port}`);
+
+        // Démarrage différé du bot pour éviter le pic de mémoire au boot.
+        setTimeout(() => {
+          startBotSafely();
+        }, 2000);
+      });
+
+      server.on('error', (err) => {
+        errorLog('Erreur serveur:', err);
+      });
+    })
+    .catch((err) => {
+      errorLog('Erreur critique lors du démarrage Next.js:', err);
+      process.exit(1);
+    });
+}

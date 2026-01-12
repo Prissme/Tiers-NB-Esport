@@ -311,7 +311,10 @@ const normalizeMatchStatus = (status?: string | null) => {
 const sanitizeInput = (value: string) => value.replace(/\s+/g, " ").trimStart();
 
 export default function AdminPanel() {
-  const supabase = useMemo(() => withSchema(createBrowserClient()), []);
+  const supabase = useMemo(() => {
+    const client = createBrowserClient();
+    return client ? withSchema(client) : null;
+  }, []);
   const [activeTab, setActiveTab] = useState<"teams" | "matches">("teams");
   const [teams, setTeams] = useState<Team[]>([]);
   const [teamsSnapshot, setTeamsSnapshot] = useState<Team[]>([]);
@@ -346,6 +349,20 @@ export default function AdminPanel() {
     type: "success" | "error";
     message: string;
   } | null>(null);
+
+  if (!supabase) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-950 px-6 py-16 text-slate-100">
+        <div className="max-w-xl rounded-2xl border border-slate-800 bg-slate-900/60 p-8 text-center shadow-xl">
+          <h1 className="text-2xl font-semibold">Supabase non configuré</h1>
+          <p className="mt-4 text-sm text-slate-300">
+            Les clés publiques Supabase sont absentes. Ajoutez NEXT_PUBLIC_SUPABASE_URL et
+            NEXT_PUBLIC_SUPABASE_ANON_KEY (ou SUPABASE_URL/SUPABASE_ANON_KEY) pour activer l’admin.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   const toTextValue = (value: unknown) => {
     if (value === null || value === undefined) {

@@ -10,6 +10,7 @@ const {
   EmbedBuilder,
   Events,
   GatewayIntentBits,
+  MessageFlags,
   ModalBuilder,
   Partials,
   PermissionsBitField,
@@ -3956,7 +3957,7 @@ async function handleInteraction(interaction) {
     const replyPayload = {
       content:
         'Les rooms custom sont temporairement désactivées pour simplifier le système compétitif. / Custom rooms are temporarily disabled to simplify the competitive system.',
-      ephemeral: true
+      flags: MessageFlags.Ephemeral
     };
 
     if (interaction.replied || interaction.deferred) {
@@ -3974,7 +3975,7 @@ async function handleInteraction(interaction) {
   if (interaction.isButton()) {
     if (interaction.customId === 'prisscup_info') {
       await interaction.reply({
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
         embeds: [
           new EmbedBuilder()
             .setTitle('PrissCup 3v3 — Info')
@@ -4007,7 +4008,7 @@ async function handleInteraction(interaction) {
       await interaction.reply({
         content: 'Pick your 2 teammates for PrissCup 3v3.',
         components: [row],
-        ephemeral: true
+        flags: MessageFlags.Ephemeral
       });
       return;
     }
@@ -4024,7 +4025,7 @@ async function handleInteraction(interaction) {
         await interaction.reply({
           content:
             'Tu es déjà dans la file PL. (You are already in the PL queue.)',
-          ephemeral: true
+          flags: MessageFlags.Ephemeral
         });
         return;
       }
@@ -4032,7 +4033,7 @@ async function handleInteraction(interaction) {
       await processPLQueue();
       await interaction.reply({
         content: 'Tu as rejoint la file PL. (You joined the PL queue.)',
-        ephemeral: true
+        flags: MessageFlags.Ephemeral
       });
       return;
     }
@@ -4046,14 +4047,14 @@ async function handleInteraction(interaction) {
       if (!leaveResult.removed) {
         await interaction.reply({
           content: 'Tu n\'es pas dans la file PL. (You are not in the PL queue.)',
-          ephemeral: true
+          flags: MessageFlags.Ephemeral
         });
         return;
       }
 
       await interaction.reply({
         content: 'Tu as quitté la file PL. (You left the PL queue.)',
-        ephemeral: true
+        flags: MessageFlags.Ephemeral
       });
       return;
     }
@@ -4074,7 +4075,7 @@ async function handleInteraction(interaction) {
             fr: 'Ce formulaire a expiré ou est introuvable. Demandez à rouvrir une nouvelle demande.',
             en: 'This form expired or no longer exists. Please ask for a new request to be opened.'
           }),
-          ephemeral: true
+          flags: MessageFlags.Ephemeral
         });
         return;
       }
@@ -4085,7 +4086,7 @@ async function handleInteraction(interaction) {
             fr: 'Seul le créateur de la room peut remplir ce formulaire.',
             en: 'Only the room creator can complete this form.'
           }),
-          ephemeral: true
+          flags: MessageFlags.Ephemeral
         });
         return;
       }
@@ -4147,7 +4148,7 @@ async function handleInteraction(interaction) {
           fr: 'Match introuvable ou déjà traité.',
           en: 'Match not found or already handled.'
         }),
-        ephemeral: true
+        flags: MessageFlags.Ephemeral
       });
       return;
     }
@@ -4158,7 +4159,7 @@ async function handleInteraction(interaction) {
           fr: 'Ce match a déjà été terminé.',
           en: 'This match has already been completed.'
         }),
-        ephemeral: true
+        flags: MessageFlags.Ephemeral
       });
       return;
     }
@@ -4173,7 +4174,7 @@ async function handleInteraction(interaction) {
           fr: 'Seuls les joueurs du match peuvent voter.',
           en: 'Only match participants can vote.'
         }),
-        ephemeral: true
+        flags: MessageFlags.Ephemeral
       });
       return;
     }
@@ -4188,7 +4189,7 @@ async function handleInteraction(interaction) {
             en: 'Select the player who dodged the match.'
           }),
           components: [buildDodgeSelectMenu(matchState)],
-          ephemeral: true
+          flags: MessageFlags.Ephemeral
         });
         return;
       }
@@ -4199,7 +4200,7 @@ async function handleInteraction(interaction) {
             fr: 'Option de vote invalide.',
             en: 'Invalid vote option.'
           }),
-          ephemeral: true
+          flags: MessageFlags.Ephemeral
         });
         return;
       }
@@ -4254,7 +4255,7 @@ async function handleInteraction(interaction) {
               needed: votesRequired
             }
           ),
-          ephemeral: true
+          flags: MessageFlags.Ephemeral
         });
         return;
       }
@@ -4268,7 +4269,7 @@ async function handleInteraction(interaction) {
             fr: 'Le résultat a déjà été enregistré.',
             en: 'The result has already been recorded.'
           }),
-          ephemeral: true
+          flags: MessageFlags.Ephemeral
         });
         return;
       }
@@ -4297,7 +4298,7 @@ async function handleInteraction(interaction) {
           fr: "Erreur lors de l'enregistrement du résultat.",
           en: 'Error while saving the result.'
         }),
-        ephemeral: true
+        flags: MessageFlags.Ephemeral
       };
 
       if (interaction.deferred || interaction.replied) {
@@ -4322,7 +4323,7 @@ async function handleInteraction(interaction) {
     if (!matchState) {
       await interaction.reply({
         content: localizeText({ fr: 'Match introuvable ou expiré.', en: 'Match not found or expired.' }),
-        ephemeral: true
+        flags: MessageFlags.Ephemeral
       });
       return;
     }
@@ -4330,7 +4331,7 @@ async function handleInteraction(interaction) {
     if (matchState.resolved) {
       await interaction.reply({
         content: localizeText({ fr: 'Le match est déjà validé.', en: 'The match is already resolved.' }),
-        ephemeral: true
+        flags: MessageFlags.Ephemeral
       });
       return;
     }
@@ -4345,7 +4346,7 @@ async function handleInteraction(interaction) {
           fr: 'Seuls les joueurs du match peuvent voter.',
           en: 'Only match participants can vote.'
         }),
-        ephemeral: true
+        flags: MessageFlags.Ephemeral
       });
       return;
     }
@@ -4354,7 +4355,7 @@ async function handleInteraction(interaction) {
     if (!targetId) {
       await interaction.reply({
         content: localizeText({ fr: 'Sélection invalide.', en: 'Invalid selection.' }),
-        ephemeral: true
+        flags: MessageFlags.Ephemeral
       });
       return;
     }
@@ -4362,7 +4363,7 @@ async function handleInteraction(interaction) {
     if (!matchState.participants.has(targetId)) {
       await interaction.reply({
         content: localizeText({ fr: 'Ce joueur ne fait pas partie du match.', en: 'This player is not in the match.' }),
-        ephemeral: true
+        flags: MessageFlags.Ephemeral
       });
       return;
     }
@@ -4386,7 +4387,7 @@ async function handleInteraction(interaction) {
           fr: 'Vous avez déjà voté pour ce joueur.',
           en: 'You have already voted for this player.'
         }),
-        ephemeral: true
+        flags: MessageFlags.Ephemeral
       });
       return;
     }
@@ -4456,7 +4457,7 @@ async function handleInteraction(interaction) {
       );
     }
 
-    await interaction.reply({ content: followupLines.join('\n'), ephemeral: true });
+    await interaction.reply({ content: followupLines.join('\n'), flags: MessageFlags.Ephemeral });
     return;
   }
 
@@ -4468,7 +4469,7 @@ async function handleInteraction(interaction) {
     if (!Array.isArray(interaction.values) || interaction.values.length !== 2) {
       await interaction.reply({
         content: 'Merci de sélectionner exactement 2 joueurs. / Please select exactly 2 players.',
-        ephemeral: true
+        flags: MessageFlags.Ephemeral
       });
       return;
     }
@@ -4481,7 +4482,7 @@ async function handleInteraction(interaction) {
       await interaction.reply({
         content:
           'Chaque joueur doit être unique. Merci de choisir 2 mates différents. / Each player must be unique, please pick two different teammates.',
-        ephemeral: true
+        flags: MessageFlags.Ephemeral
       });
       return;
     }
@@ -4491,7 +4492,7 @@ async function handleInteraction(interaction) {
         await interaction.reply({
           content:
             'Un des joueurs est déjà inscrit dans une autre équipe. (One of the players is already registered in another team.)',
-          ephemeral: true
+          flags: MessageFlags.Ephemeral
         });
         return;
       }
@@ -4531,7 +4532,7 @@ async function handleInteraction(interaction) {
         await interaction.reply({
           content:
             'Sélection expirée ou introuvable. Merci de recommencer. / Selection expired or not found, please start again.',
-          ephemeral: true
+          flags: MessageFlags.Ephemeral
         });
         return;
       }
@@ -4539,7 +4540,7 @@ async function handleInteraction(interaction) {
       if (interaction.guild?.id !== pending.guildId) {
         await interaction.reply({
           content: 'Cette demande ne correspond pas à ce serveur. / This request does not match this server.',
-          ephemeral: true
+          flags: MessageFlags.Ephemeral
         });
         return;
       }
@@ -4552,7 +4553,7 @@ async function handleInteraction(interaction) {
           await interaction.reply({
             content:
               'Un des joueurs est déjà inscrit dans une autre équipe. (One of the players is already registered in another team.)',
-            ephemeral: true
+            flags: MessageFlags.Ephemeral
           });
           pendingPrisscupTeams.delete(interaction.user.id);
           return;
@@ -4566,7 +4567,7 @@ async function handleInteraction(interaction) {
         await interaction.reply({
           content:
             "Erreur lors de l'inscription de l'équipe. Merci de réessayer. / Error while registering the team. Please try again.",
-          ephemeral: true
+          flags: MessageFlags.Ephemeral
         });
         return;
       }
@@ -4577,7 +4578,7 @@ async function handleInteraction(interaction) {
 
       await interaction.reply({
         content: `Ton équipe **${sanitizePrisscupTeamName(teamName)}** est inscrite à la PrissCup 3v3 ! (Your team **${sanitizePrisscupTeamName(teamName)}** is registered for PrissCup 3v3!)\n${matesMention}`,
-        ephemeral: true
+        flags: MessageFlags.Ephemeral
       });
       return;
     }
@@ -4596,7 +4597,7 @@ async function handleInteraction(interaction) {
           fr: 'Formulaire introuvable. Demandez au staff de créer une nouvelle room.',
           en: 'Form not found. Please ask the staff to open a new room form.'
         }),
-        ephemeral: true
+        flags: MessageFlags.Ephemeral
       });
       return;
     }
@@ -4607,7 +4608,7 @@ async function handleInteraction(interaction) {
           fr: 'Seul le créateur de la room peut valider ce formulaire.',
           en: 'Only the room creator can submit this form.'
         }),
-        ephemeral: true
+        flags: MessageFlags.Ephemeral
       });
       return;
     }
@@ -4629,7 +4630,7 @@ async function handleInteraction(interaction) {
           fr: 'Le code de room ne peut pas être vide.',
           en: 'The room code cannot be empty.'
         }),
-        ephemeral: true
+        flags: MessageFlags.Ephemeral
       });
       return;
     }
@@ -4641,7 +4642,7 @@ async function handleInteraction(interaction) {
           fr: 'Les tiers doivent être parmi S, A, B, C, D ou E.',
           en: 'Tiers must be one of S, A, B, C, D, or E.'
         }),
-        ephemeral: true
+        flags: MessageFlags.Ephemeral
       });
       return;
     }
@@ -4653,7 +4654,7 @@ async function handleInteraction(interaction) {
           fr: 'Le tier minimum doit être inférieur ou égal au tier maximum.',
           en: 'The minimum tier must be lower than or equal to the maximum tier.'
         }),
-        ephemeral: true
+        flags: MessageFlags.Ephemeral
       });
       return;
     }
@@ -4665,7 +4666,7 @@ async function handleInteraction(interaction) {
           fr: 'Le format doit être bo1, bo3 ou bo5.',
           en: 'The format must be bo1, bo3, or bo5.'
         }),
-        ephemeral: true
+        flags: MessageFlags.Ephemeral
       });
       return;
     }

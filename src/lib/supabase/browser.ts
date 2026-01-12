@@ -11,7 +11,10 @@ export const createBrowserClient = () => {
   const { supabaseUrl, supabaseAnonKey } = getPublicSupabaseEnv();
 
   if (!supabaseUrl || !supabaseAnonKey) {
-    throw new Error("Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY.");
+    console.warn(
+      "Supabase client-side indisponible: NEXT_PUBLIC_SUPABASE_URL/NEXT_PUBLIC_SUPABASE_ANON_KEY manquants."
+    );
+    return null;
   }
 
   browserClient = createClient(supabaseUrl, supabaseAnonKey);

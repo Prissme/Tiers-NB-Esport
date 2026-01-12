@@ -6,7 +6,8 @@
     "dev": "concurrently \"NODE_ENV=development next dev\" \"NODE_ENV=development node start-bot.js\"",
     "build": "next build",
     "start": "node server.js",
-    "bot": "NODE_ENV=production node start-bot.js"
+    "bot": "NODE_ENV=production node start-bot.js",
+    "smoke": "node scripts/smoke-check.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.39.0",
