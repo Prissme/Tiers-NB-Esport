@@ -10,6 +10,7 @@ const {
   ButtonBuilder,
   ButtonStyle,
   EmbedBuilder,
+  MessageFlags,
   PermissionsBitField
 } = require('discord.js');
 
@@ -17,6 +18,12 @@ const LOG_PREFIX = '[LFN Predictions]';
 const DISCORD_BLUE = 0x5865f2;
 const VALIDATE_BUTTON_ID = 'lfn_pred_validate';
 const PERFECT_PREDICTIONS_ROLE_ID = '1460249694159507476';
+const PREDICTION_MIGRATION_PATH = 'supabase/migrations/202509230001_create_lfn_prediction_tables.sql';
+const REQUIRED_PREDICTION_TABLES = [
+  'lfn_predictions',
+  'lfn_prediction_votes',
+  'lfn_prediction_validations'
+];
 
 let context = null;
 
@@ -30,6 +37,30 @@ function initPredictionContext(options) {
     warn: (...args) => options.warn(LOG_PREFIX, ...args),
     error: (...args) => options.error(LOG_PREFIX, ...args)
   };
+}
+
+async function verifyPredictionTables() {
+  if (!context?.supabase) {
+    return;
+  }
+
+  for (const table of REQUIRED_PREDICTION_TABLES) {
+    try {
+      const { error } = await context.supabase.from(table).select('id', { head: true, count: 'exact' }).limit(1);
+      if (error) {
+        throw error;
+      }
+    } catch (err) {
+      const errorCode = err?.code || err?.error_code;
+      if (errorCode === 'PGRST205') {
+        context.warn(
+          `Table Supabase manquante: ${table}. Appliquez la migration ${PREDICTION_MIGRATION_PATH} pour corriger.`
+        );
+      } else {
+        context.warn(`Impossible de vérifier la table ${table}:`, err?.message || err);
+      }
+    }
+  }
 }
 
 function buildCommands(localizeText) {
@@ -161,6 +192,7 @@ async function registerCommands() {
   }
 
   try {
+    await verifyPredictionTables();
     const commands = buildCommands(context.localizeText);
     await context.client.application.commands.set(commands, context.guildId);
     context.log('Slash commands registered.');
@@ -375,12 +407,12 @@ async function handlePredictionsCommand(interaction) {
         fr: "❌ Vous n'avez pas la permission d'utiliser cette commande.",
         en: "❌ You don't have permission to use this command."
       }),
-      ephemeral: true
+      flags: MessageFlags.Ephemeral
     });
     return true;
   }
 
-  await interaction.deferReply({ ephemeral: true });
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
   const date = interaction.options.getString('date');
   const channelOption = interaction.options.getChannel('channel');
@@ -481,7 +513,7 @@ async function handleVoteInteraction(interaction) {
           fr: '🔒 Tes prédictions ont déjà été validées. Tu ne peux plus modifier ton vote.',
           en: '🔒 Your predictions have already been validated. You can no longer change your vote.'
         }),
-        ephemeral: true
+        flags: MessageFlags.Ephemeral
       });
       return true;
     }
@@ -493,7 +525,7 @@ async function handleVoteInteraction(interaction) {
           fr: '❌ Impossible de retrouver ce vote. Le sondage est peut-être expiré.',
           en: '❌ Unable to find this prediction. It may have expired.'
         }),
-        ephemeral: true
+        flags: MessageFlags.Ephemeral
       });
       return true;
     }
@@ -508,7 +540,7 @@ async function handleVoteInteraction(interaction) {
           fr: '⚠️ Tu as déjà voté pour cette équipe.',
           en: '⚠️ You already voted for this team.'
         }),
-        ephemeral: true
+        flags: MessageFlags.Ephemeral
       });
     } else if (!voteResult.previousVote) {
       await interaction.reply({
@@ -516,7 +548,7 @@ async function handleVoteInteraction(interaction) {
           { fr: '✅ Vote enregistré pour {team}.', en: '✅ Vote recorded for {team}.' },
           { team: selectedTeam === 'team1' ? prediction.team1_name : prediction.team2_name }
         ),
-        ephemeral: true
+        flags: MessageFlags.Ephemeral
       });
     } else {
       await interaction.reply({
@@ -527,7 +559,7 @@ async function handleVoteInteraction(interaction) {
             newTeam: voteResult.newVote === 'team1' ? prediction.team1_name : prediction.team2_name
           }
         ),
-        ephemeral: true
+        flags: MessageFlags.Ephemeral
       });
     }
   } catch (err) {
@@ -537,7 +569,7 @@ async function handleVoteInteraction(interaction) {
         fr: '❌ Erreur lors de la prise en compte du vote (Supabase indisponible).',
         en: '❌ Error while processing the vote (Supabase unavailable).'
       }),
-      ephemeral: true
+      flags: MessageFlags.Ephemeral
     });
   }
 
@@ -617,7 +649,7 @@ async function handleValidationInteraction(interaction) {
           fr: '✅ Tes prédictions sont déjà validées.',
           en: '✅ Your predictions are already validated.'
         }),
-        ephemeral: true
+        flags: MessageFlags.Ephemeral
       });
       return true;
     }
@@ -629,7 +661,7 @@ async function handleValidationInteraction(interaction) {
           fr: '❌ Impossible de valider : les 4 matchs ne sont pas disponibles.',
           en: '❌ Unable to validate: the 4 matches are not available.'
         }),
-        ephemeral: true
+        flags: MessageFlags.Ephemeral
       });
       return true;
     }
@@ -659,7 +691,7 @@ async function handleValidationInteraction(interaction) {
           },
           { matches: missingMatches.join(', ') }
         ),
-        ephemeral: true
+        flags: MessageFlags.Ephemeral
       });
       return true;
     }
@@ -671,7 +703,7 @@ async function handleValidationInteraction(interaction) {
         fr: '✅ Tes prédictions sont validées. Tu ne peux plus les modifier.',
         en: '✅ Your predictions are validated. You can no longer change them.'
       }),
-      ephemeral: true
+      flags: MessageFlags.Ephemeral
     });
   } catch (err) {
     context.error('Validation handling failed:', err);
@@ -680,7 +712,7 @@ async function handleValidationInteraction(interaction) {
         fr: '❌ Impossible de valider tes prédictions pour le moment.',
         en: '❌ Unable to validate your predictions right now.'
       }),
-      ephemeral: true
+      flags: MessageFlags.Ephemeral
     });
   }
 
@@ -699,12 +731,12 @@ async function handleCloseCommand(interaction) {
         fr: "❌ Vous n'avez pas la permission d'utiliser cette commande.",
         en: "❌ You don't have permission to use this command."
       }),
-      ephemeral: true
+      flags: MessageFlags.Ephemeral
     });
     return true;
   }
 
-  await interaction.deferReply({ ephemeral: true });
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
   const targetMatch = interaction.options.getInteger('match_number');
   const query = context.supabase.from('lfn_predictions').select('*').eq('guild_id', context.guildId);
@@ -776,12 +808,12 @@ async function handleAnnounceCommand(interaction) {
         fr: "❌ Vous n'avez pas la permission d'utiliser cette commande.",
         en: "❌ You don't have permission to use this command."
       }),
-      ephemeral: true
+      flags: MessageFlags.Ephemeral
     });
     return true;
   }
 
-  await interaction.deferReply({ ephemeral: true });
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
   try {
     const predictions = await fetchPredictionsForGuild();

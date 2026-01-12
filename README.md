@@ -72,10 +72,15 @@ Structure attendue :
 ## Déploiement Koyeb
 
 1. **Build command** : `npm run build`
-2. **Run command** : `npm run start`
+2. **Run command** : `npm run start` (démarre le serveur Next.js standalone via `node .next/standalone/server.js`)
 3. **Environment variables** :
    - `NODE_ENV=production`
    - `ADMIN_PASSWORD=...`
+   - `SUPABASE_URL=...`
+   - `SUPABASE_ANON_KEY=...` (front/admin)
+   - `SUPABASE_SERVICE_ROLE_KEY=...` (bot & API)
+   - `NEXT_PUBLIC_SUPABASE_URL=...` (facultatif si vous utilisez `SUPABASE_URL`)
+   - `NEXT_PUBLIC_SUPABASE_ANON_KEY=...` (facultatif si vous utilisez `SUPABASE_ANON_KEY`)
    - Variables du bot Discord si vous le conservez
 
-Koyeb supporte le déploiement Next.js via `next build` + `next start` (ou votre `server.js`). Si vous utilisez un volume pour la persistance, montez-le sur `data/`.
+Koyeb supporte le déploiement Next.js via `next build` + un serveur standalone. Ce repo utilise `server.js` pour lancer le serveur standalone et le bot Discord en parallèle. Si vous utilisez un volume pour la persistance, montez-le sur `data/`.

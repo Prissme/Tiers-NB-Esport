@@ -11,9 +11,10 @@ export function createSupabaseBrowserClient() {
   const { supabaseUrl, supabaseAnonKey } = getPublicSupabaseEnv();
 
   if (!supabaseUrl || !supabaseAnonKey) {
-    throw new Error(
+    console.warn(
       "Supabase env vars missing: NEXT_PUBLIC_SUPABASE_URL/NEXT_PUBLIC_SUPABASE_ANON_KEY"
     );
+    return null;
   }
 
   browserClient = createClient(supabaseUrl, supabaseAnonKey, {
