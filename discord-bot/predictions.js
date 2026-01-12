@@ -15,6 +15,8 @@ const {
 
 const LOG_PREFIX = '[LFN Predictions]';
 const DISCORD_BLUE = 0x5865f2;
+const VALIDATE_BUTTON_ID = 'lfn_pred_validate';
+const PERFECT_PREDICTIONS_ROLE_ID = '1460249694159507476';
 
 let context = null;
 
@@ -125,6 +127,30 @@ function buildCommands(localizeText) {
           ]
         }
       ]
+    },
+    {
+      name: 'announce_predictions',
+      description: localizeText({
+        fr: 'Annoncer les gagnants des quatre matchs',
+        en: 'Announce winners for the four matches'
+      }),
+      default_member_permissions: PermissionsBitField.Flags.ManageGuild.toString(),
+      dm_permission: false,
+      options: [1, 2, 3, 4].flatMap((match) => [
+        {
+          name: `match${match}_winner`,
+          description: localizeText({
+            fr: `Gagnant du match ${match} (équipe 1 ou 2)`,
+            en: `Match ${match} winner (team 1 or 2)`
+          }),
+          type: ApplicationCommandOptionType.Integer,
+          required: true,
+          choices: [
+            { name: localizeText({ fr: 'Équipe 1', en: 'Team 1' }), value: 1 },
+            { name: localizeText({ fr: 'Équipe 2', en: 'Team 2' }), value: 2 }
+          ]
+        }
+      ])
     }
   ];
 }
@@ -159,7 +185,21 @@ function buildVoteComponents(prediction, disabled = false) {
       .setDisabled(disabled)
   );
 
-  return [row];
+  const rows = [row];
+
+  if (prediction.match_number === 4) {
+    rows.push(
+      new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId(VALIDATE_BUTTON_ID)
+          .setLabel(context.localizeText({ fr: '✅ Valider mes prédictions', en: '✅ Validate my predictions' }))
+          .setStyle(ButtonStyle.Primary)
+          .setDisabled(disabled)
+      )
+    );
+  }
+
+  return rows;
 }
 
 function formatPercent(count, total) {
@@ -177,7 +217,7 @@ function buildProgressBar(count, total) {
   return `${'▰'.repeat(filled)}${'▱'.repeat(totalBlocks - filled)}`;
 }
 
-function buildEmbed(prediction, stats, isClosed) {
+function buildEmbed(prediction, stats, isClosed, winnerKey = null) {
   const dateText = prediction.match_date || context.localizeText({ fr: 'Date à confirmer', en: 'Date to be confirmed' });
   const footerText = isClosed
     ? context.localizeText({ fr: `Votes fermés • ${dateText}`, en: `Voting closed • ${dateText}` })
@@ -211,6 +251,15 @@ function buildEmbed(prediction, stats, isClosed) {
     )
     .setColor(DISCORD_BLUE)
     .setFooter({ text: footerText });
+
+  if (winnerKey) {
+    const winnerName = winnerKey === 'team1' ? prediction.team1_name : prediction.team2_name;
+    embed.addFields({
+      name: context.localizeText({ fr: '🏆 Gagnant', en: '🏆 Winner' }),
+      value: winnerName,
+      inline: false
+    });
+  }
 
   return embed;
 }
@@ -425,6 +474,18 @@ async function handleVoteInteraction(interaction) {
   }
 
   try {
+    const isValidated = await isUserValidated(interaction.user.id);
+    if (isValidated) {
+      await interaction.reply({
+        content: context.localizeText({
+          fr: '🔒 Tes prédictions ont déjà été validées. Tu ne peux plus modifier ton vote.',
+          en: '🔒 Your predictions have already been validated. You can no longer change your vote.'
+        }),
+        ephemeral: true
+      });
+      return true;
+    }
+
     const prediction = await fetchPredictionByMessage(interaction.message.id);
     if (!prediction) {
       await interaction.reply({
@@ -475,6 +536,149 @@ async function handleVoteInteraction(interaction) {
       content: context.localizeText({
         fr: '❌ Erreur lors de la prise en compte du vote (Supabase indisponible).',
         en: '❌ Error while processing the vote (Supabase unavailable).'
+      }),
+      ephemeral: true
+    });
+  }
+
+  return true;
+}
+
+async function isUserValidated(userId) {
+  const { data, error } = await context.supabase
+    .from('lfn_prediction_validations')
+    .select('user_id')
+    .eq('guild_id', context.guildId)
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+
+  return Boolean(data);
+}
+
+async function recordUserValidation(userId) {
+  const { error } = await context.supabase
+    .from('lfn_prediction_validations')
+    .upsert({ guild_id: context.guildId, user_id: userId, validated_at: new Date().toISOString() }, { onConflict: 'guild_id,user_id' });
+
+  if (error) {
+    throw error;
+  }
+}
+
+async function fetchPredictionsForGuild() {
+  const { data, error } = await context.supabase
+    .from('lfn_predictions')
+    .select('*')
+    .eq('guild_id', context.guildId)
+    .order('match_number', { ascending: true });
+
+  if (error) {
+    throw error;
+  }
+
+  return selectLatestPredictions(data || []);
+}
+
+function selectLatestPredictions(predictions) {
+  const byMatch = new Map();
+  for (const prediction of predictions) {
+    if (![1, 2, 3, 4].includes(prediction.match_number)) {
+      continue;
+    }
+    const existing = byMatch.get(prediction.match_number);
+    const createdAt = prediction.created_at ? new Date(prediction.created_at).getTime() : 0;
+    const existingTime = existing?.created_at ? new Date(existing.created_at).getTime() : 0;
+    if (!existing || createdAt >= existingTime) {
+      byMatch.set(prediction.match_number, prediction);
+    }
+  }
+
+  return Array.from(byMatch.values()).sort((a, b) => a.match_number - b.match_number);
+}
+
+async function handleValidationInteraction(interaction) {
+  if (!interaction.isButton() || interaction.customId !== VALIDATE_BUTTON_ID) {
+    return false;
+  }
+
+  if (!interaction.guild || interaction.guild.id !== context.guildId) {
+    return false;
+  }
+
+  try {
+    const alreadyValidated = await isUserValidated(interaction.user.id);
+    if (alreadyValidated) {
+      await interaction.reply({
+        content: context.localizeText({
+          fr: '✅ Tes prédictions sont déjà validées.',
+          en: '✅ Your predictions are already validated.'
+        }),
+        ephemeral: true
+      });
+      return true;
+    }
+
+    const predictions = await fetchPredictionsForGuild();
+    if (predictions.length < 4) {
+      await interaction.reply({
+        content: context.localizeText({
+          fr: '❌ Impossible de valider : les 4 matchs ne sont pas disponibles.',
+          en: '❌ Unable to validate: the 4 matches are not available.'
+        }),
+        ephemeral: true
+      });
+      return true;
+    }
+
+    const predictionIds = predictions.map((prediction) => prediction.id);
+    const { data: votes, error } = await context.supabase
+      .from('lfn_prediction_votes')
+      .select('prediction_id')
+      .in('prediction_id', predictionIds)
+      .eq('user_id', interaction.user.id);
+
+    if (error) {
+      throw error;
+    }
+
+    const votedIds = new Set((votes || []).map((vote) => vote.prediction_id));
+    const missingMatches = predictions
+      .filter((prediction) => !votedIds.has(prediction.id))
+      .map((prediction) => prediction.match_number);
+
+    if (missingMatches.length) {
+      await interaction.reply({
+        content: context.localizeText(
+          {
+            fr: '⚠️ Tu dois voter sur tous les matchs avant de valider (manquants : {matches}).',
+            en: '⚠️ You must vote on every match before validating (missing: {matches}).'
+          },
+          { matches: missingMatches.join(', ') }
+        ),
+        ephemeral: true
+      });
+      return true;
+    }
+
+    await recordUserValidation(interaction.user.id);
+
+    await interaction.reply({
+      content: context.localizeText({
+        fr: '✅ Tes prédictions sont validées. Tu ne peux plus les modifier.',
+        en: '✅ Your predictions are validated. You can no longer change them.'
+      }),
+      ephemeral: true
+    });
+  } catch (err) {
+    context.error('Validation handling failed:', err);
+    await interaction.reply({
+      content: context.localizeText({
+        fr: '❌ Impossible de valider tes prédictions pour le moment.',
+        en: '❌ Unable to validate your predictions right now.'
       }),
       ephemeral: true
     });
@@ -560,6 +764,172 @@ async function handleCloseCommand(interaction) {
   return true;
 }
 
+async function handleAnnounceCommand(interaction) {
+  if (!interaction.isChatInputCommand() || interaction.commandName !== 'announce_predictions') {
+    return false;
+  }
+
+  const hasPermission = interaction.memberPermissions?.has(PermissionsBitField.Flags.ManageGuild);
+  if (!hasPermission) {
+    await interaction.reply({
+      content: context.localizeText({
+        fr: "❌ Vous n'avez pas la permission d'utiliser cette commande.",
+        en: "❌ You don't have permission to use this command."
+      }),
+      ephemeral: true
+    });
+    return true;
+  }
+
+  await interaction.deferReply({ ephemeral: true });
+
+  try {
+    const predictions = await fetchPredictionsForGuild();
+    if (predictions.length < 4) {
+      await interaction.editReply({
+        content: context.localizeText({
+          fr: '❌ Impossible d’annoncer les gagnants : les 4 matchs ne sont pas disponibles.',
+          en: '❌ Unable to announce winners: the 4 matches are not available.'
+        })
+      });
+      return true;
+    }
+
+    const winnersByMatch = new Map();
+    for (const prediction of predictions) {
+      const winnerChoice = interaction.options.getInteger(`match${prediction.match_number}_winner`);
+      const winnerKey = winnerChoice === 1 ? 'team1' : 'team2';
+      winnersByMatch.set(prediction.match_number, winnerKey);
+    }
+
+    for (const prediction of predictions) {
+      try {
+        const channel = await context.client.channels.fetch(prediction.channel_id);
+        if (!channel?.isTextBased()) {
+          context.warn(`Channel ${prediction.channel_id} is not accessible.`);
+          continue;
+        }
+
+        const message = await channel.messages.fetch(prediction.message_id);
+        const stats = await fetchVoteCounts(prediction.id);
+        const winnerKey = winnersByMatch.get(prediction.match_number);
+        const embed = buildEmbed(prediction, stats, true, winnerKey);
+        await message.edit({ embeds: [embed], components: buildVoteComponents(prediction, true) });
+      } catch (err) {
+        context.warn('Unable to announce prediction winner:', err);
+      }
+    }
+
+    const validatedUsers = await fetchValidatedUsers();
+    const winners = await assignPerfectPredictionRole(validatedUsers, predictions, winnersByMatch);
+
+    await interaction.editReply({
+      content: context.localizeText(
+        {
+          fr: '🏆 Gagnants annoncés. {count} participant(s) ont 4 prédictions correctes.',
+          en: '🏆 Winners announced. {count} participant(s) have 4 correct predictions.'
+        },
+        { count: winners.length }
+      )
+    });
+  } catch (err) {
+    context.error('Failed to announce prediction winners:', err);
+    await interaction.editReply({
+      content: context.localizeText({
+        fr: '❌ Impossible d’annoncer les gagnants pour le moment.',
+        en: '❌ Unable to announce winners right now.'
+      })
+    });
+  }
+
+  return true;
+}
+
+async function fetchValidatedUsers() {
+  const { data, error } = await context.supabase
+    .from('lfn_prediction_validations')
+    .select('user_id')
+    .eq('guild_id', context.guildId);
+
+  if (error) {
+    throw error;
+  }
+
+  return (data || []).map((entry) => entry.user_id);
+}
+
+async function assignPerfectPredictionRole(userIds, predictions, winnersByMatch) {
+  if (!userIds.length) {
+    return [];
+  }
+
+  const predictionIds = predictions.map((prediction) => prediction.id);
+  const { data: votes, error } = await context.supabase
+    .from('lfn_prediction_votes')
+    .select('user_id, prediction_id, voted_team')
+    .in('user_id', userIds)
+    .in('prediction_id', predictionIds);
+
+  if (error) {
+    throw error;
+  }
+
+  const votesByUser = new Map();
+  for (const vote of votes || []) {
+    if (!votesByUser.has(vote.user_id)) {
+      votesByUser.set(vote.user_id, new Map());
+    }
+    votesByUser.get(vote.user_id).set(vote.prediction_id, vote.voted_team);
+  }
+
+  const winnerByPredictionId = new Map(
+    predictions.map((prediction) => [prediction.id, winnersByMatch.get(prediction.match_number)])
+  );
+
+  const winners = [];
+  for (const userId of userIds) {
+    const userVotes = votesByUser.get(userId);
+    if (!userVotes) {
+      continue;
+    }
+
+    const hasPerfect = predictions.every((prediction) => {
+      const votedTeam = userVotes.get(prediction.id);
+      return votedTeam && votedTeam === winnerByPredictionId.get(prediction.id);
+    });
+
+    if (hasPerfect) {
+      winners.push(userId);
+    }
+  }
+
+  if (!winners.length) {
+    return [];
+  }
+
+  const guild = await interactionGuildOrFetch();
+  for (const userId of winners) {
+    try {
+      const member = await guild.members.fetch(userId);
+      if (!member.roles.cache.has(PERFECT_PREDICTIONS_ROLE_ID)) {
+        await member.roles.add(PERFECT_PREDICTIONS_ROLE_ID);
+      }
+    } catch (err) {
+      context.warn(`Unable to grant perfect prediction role to ${userId}:`, err);
+    }
+  }
+
+  return winners;
+}
+
+async function interactionGuildOrFetch() {
+  if (context?.client?.guilds?.cache?.has(context.guildId)) {
+    return context.client.guilds.cache.get(context.guildId);
+  }
+
+  return context.client.guilds.fetch(context.guildId);
+}
+
 async function handleInteraction(interaction) {
   if (!context) {
     return false;
@@ -569,11 +939,19 @@ async function handleInteraction(interaction) {
     return handlePredictionsCommand(interaction);
   }
 
+  if (await handleValidationInteraction(interaction)) {
+    return true;
+  }
+
   if (await handleVoteInteraction(interaction)) {
     return true;
   }
 
-  return handleCloseCommand(interaction);
+  if (await handleCloseCommand(interaction)) {
+    return true;
+  }
+
+  return handleAnnounceCommand(interaction);
 }
 
 module.exports = {
