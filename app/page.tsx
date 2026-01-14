@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import Button from "./components/Button";
+import DayTwoSchedule from "./components/DayTwoSchedule";
 import StatusBadge from "./components/StatusBadge";
 import { matches, teams } from "../src/data";
 
@@ -109,6 +110,8 @@ export default async function HomePage() {
           </div>
         </section>
       </div>
+
+      <DayTwoSchedule />
     </div>
   );
 }

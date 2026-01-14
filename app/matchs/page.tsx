@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import DayTwoSchedule from "../components/DayTwoSchedule";
 import SectionHeader from "../components/SectionHeader";
 import MatchesClient from "./MatchesClient";
 
@@ -33,6 +34,8 @@ export default function MatchsPage() {
           </div>
         </div>
       </section>
+
+      <DayTwoSchedule />
 
       <MatchesClient />
     </div>
