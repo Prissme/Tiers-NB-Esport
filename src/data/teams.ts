@@ -37,6 +37,20 @@ export const teams: Team[] = [
     roster: [],
   },
   {
+    id: "kyr",
+    name: "KYR",
+    division: "D2",
+    logoUrl: "",
+    roster: [],
+  },
+  {
+    id: "lxr",
+    name: "LXR",
+    division: "D2",
+    logoUrl: "",
+    roster: [],
+  },
+  {
     id: "nr",
     name: "NR",
     division: "D2",

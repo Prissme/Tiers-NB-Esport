@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "concurrently \"NODE_ENV=development next dev\" \"NODE_ENV=development node start-bot.js\"",
     "build": "next build",
+    "postbuild": "node scripts/prepare-standalone.js",
     "start": "node server.js",
     "bot": "NODE_ENV=production node start-bot.js",
     "smoke": "node scripts/smoke-check.js"

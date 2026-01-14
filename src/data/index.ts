@@ -1,6 +1,7 @@
 export * from "./types";
 export * from "./teams";
 export * from "./matches";
+export * from "./schedule";
 
 import { matches } from "./matches";
 import { teams } from "./teams";
