@@ -19,6 +19,8 @@ export type Match = {
   id: string;
   division: Division;
   dateISO: string;
+  dayLabel?: string;
+  timeLabel?: string;
   teamAId: string;
   teamBId: string;
   status: MatchStatus;

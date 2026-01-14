@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import DayTwoSchedule from "../components/DayTwoSchedule";
+import DayOneResults from "../components/DayOneResults";
 import SectionHeader from "../components/SectionHeader";
 import MatchesClient from "./MatchesClient";
 
@@ -18,7 +19,7 @@ export default function MatchsPage() {
           <SectionHeader
             kicker="Matchs"
             title="Planning officiel"
-            description="Pré-saison — lancement imminent."
+            description="Programme à venir et scores officiels."
           />
           <div className="grid gap-4 md:grid-cols-3">
             {[
@@ -36,6 +37,8 @@ export default function MatchsPage() {
       </section>
 
       <DayTwoSchedule />
+
+      <DayOneResults />
 
       <MatchesClient />
     </div>

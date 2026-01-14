@@ -51,8 +51,8 @@ export default async function HomePage() {
                 LFN, la ligue premium Null&apos;s Brawl
               </h1>
               <p className="text-sm text-slate-300 md:text-base">
-                Pré-saison en cours. Découvrez le calendrier, les équipes engagées et le format
-                officiel avant le coup d&apos;envoi.
+                Saison en cours. Découvrez le calendrier, les équipes engagées et le format officiel
+                de la ligue.
               </p>
             </div>
             <div className="flex flex-wrap gap-4">
@@ -101,10 +101,10 @@ export default async function HomePage() {
               )}
             </div>
             <div className="motion-card motion-shimmer space-y-3">
-              <p className="text-xs uppercase tracking-[0.35em] text-slate-400">Pré-saison</p>
+              <p className="text-xs uppercase tracking-[0.35em] text-slate-400">Saison 1</p>
               <p className="text-sm text-white">
-                Les classements seront actifs dès le premier match officiel. Préparez vos rosters et
-                suivez les annonces.
+                Les classements sont actifs et les premiers résultats sont disponibles. Suivez les
+                affiches à venir.
               </p>
             </div>
           </div>

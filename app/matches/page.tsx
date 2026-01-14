@@ -1,9 +1,8 @@
 import SectionHeader from "../components/SectionHeader";
 
 const matchBlocks = [
-  { label: "Jour 1", detail: "Bloc rapide", tone: "À venir" },
-  { label: "Jour 2", detail: "Bloc court", tone: "Prévu" },
-  { label: "Jour 3", detail: "Bloc final", tone: "Focus" },
+  { label: "Day 2", detail: "Programme officiel", tone: "19H / 20H" },
+  { label: "Day 3", detail: "Programme à venir", tone: "À annoncer" },
 ];
 
 const matchMoments = [
