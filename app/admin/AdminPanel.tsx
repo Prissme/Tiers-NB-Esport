@@ -336,6 +336,23 @@ export default function AdminPanel() {
     type: "success" | "error";
     message: string;
   } | null>(null);
+  const playoffsDeadline = useMemo(() => new Date(Date.UTC(2026, 0, 17, 18, 0, 0)), []);
+  const playoffsDeadlineLabel = useMemo(
+    () =>
+      playoffsDeadline.toLocaleString("fr-BE", {
+        timeZone: "Europe/Brussels",
+        day: "2-digit",
+        month: "long",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      }),
+    [playoffsDeadline]
+  );
+  const [playoffsCountdown, setPlayoffsCountdown] = useState({
+    label: "Calcul en cours...",
+    ended: false,
+  });
 
   if (!supabase) {
     return (
@@ -528,6 +545,30 @@ export default function AdminPanel() {
     }, 4000);
     return () => clearTimeout(timeout);
   }, [toastMessage]);
+
+  const computePlayoffsCountdown = useCallback(() => {
+    const now = new Date();
+    const diffMs = playoffsDeadline.getTime() - now.getTime();
+    if (diffMs <= 0) {
+      return { label: "Play-offs terminés", ended: true };
+    }
+    const totalSeconds = Math.floor(diffMs / 1000);
+    const days = Math.floor(totalSeconds / 86400);
+    const hours = Math.floor((totalSeconds % 86400) / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+    const label = `${days}j ${hours}h ${minutes}m ${seconds}s`;
+    return { label, ended: false };
+  }, [playoffsDeadline]);
+
+  useEffect(() => {
+    const updateCountdown = () => {
+      setPlayoffsCountdown(computePlayoffsCountdown());
+    };
+    updateCountdown();
+    const interval = setInterval(updateCountdown, 1000);
+    return () => clearInterval(interval);
+  }, [computePlayoffsCountdown]);
 
   const showToast = useCallback((type: "success" | "error", message: string) => {
     setToastMessage({ type, message });
@@ -1158,6 +1199,17 @@ export default function AdminPanel() {
           <p className="text-sm text-slate-400">
             Pilotez les équipes, matchs et résultats depuis un seul écran.
           </p>
+          <div className="mt-3 inline-flex flex-col rounded-2xl border border-amber-400/30 bg-amber-400/10 px-4 py-3 text-xs text-amber-100">
+            <span className="uppercase tracking-[0.2em] text-[10px] text-amber-100/80">
+              Compte à rebours play-offs
+            </span>
+            <span className="mt-1 text-base font-semibold text-amber-50">
+              {playoffsCountdown.label}
+            </span>
+            <span className="text-[11px] text-amber-100/80">
+              Fin le {playoffsDeadlineLabel} (heure belge)
+            </span>
+          </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <button
