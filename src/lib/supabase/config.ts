@@ -33,17 +33,19 @@ export const TEAM_MEMBER_COLUMNS = {
 
 export const MATCH_COLUMNS = {
   id: process.env.LFN_MATCH_ID_COLUMN || "id",
-  scheduledAt: process.env.LFN_MATCH_SCHEDULED_AT_COLUMN || "scheduled_at",
+  day: process.env.LFN_MATCH_DAY_COLUMN || "day",
+  division: process.env.LFN_MATCH_DIVISION_COLUMN || "division",
+  startTime: process.env.LFN_MATCH_START_TIME_COLUMN || "start_time",
   status: process.env.LFN_MATCH_STATUS_COLUMN || "status",
-  bestOf: process.env.LFN_MATCH_BEST_OF_COLUMN || "best_of",
   scoreA: process.env.LFN_MATCH_SCORE_A_COLUMN || "score_a",
   scoreB: process.env.LFN_MATCH_SCORE_B_COLUMN || "score_b",
   teamAId: process.env.LFN_MATCH_TEAM_A_COLUMN || "team_a_id",
   teamBId: process.env.LFN_MATCH_TEAM_B_COLUMN || "team_b_id",
-  teamAName: process.env.LFN_MATCH_TEAM_A_NAME_COLUMN || "",
-  teamBName: process.env.LFN_MATCH_TEAM_B_NAME_COLUMN || "",
-  division: process.env.LFN_MATCH_DIVISION_COLUMN || "division",
-  dayLabel: process.env.LFN_MATCH_DAY_LABEL_COLUMN || "day_label",
+  notes: process.env.LFN_MATCH_NOTES_COLUMN || "notes",
+  vodUrl: process.env.LFN_MATCH_VOD_URL_COLUMN || "vod_url",
+  proofUrl: process.env.LFN_MATCH_PROOF_URL_COLUMN || "proof_url",
+  createdAt: process.env.LFN_MATCH_CREATED_AT_COLUMN || "created_at",
+  updatedAt: process.env.LFN_MATCH_UPDATED_AT_COLUMN || "updated_at",
 };
 
 const parseStatusValues = (value: string | undefined, fallback: string[]) => {
@@ -56,13 +58,13 @@ const parseStatusValues = (value: string | undefined, fallback: string[]) => {
 
 export const MATCH_STATUS_LIVE_VALUES = parseStatusValues(
   process.env.LFN_MATCH_STATUS_LIVE_VALUES,
-  ["pending", "active", "live"]
+  ["live"]
 );
 
 export const MATCH_STATUS_RECENT_VALUES = parseStatusValues(
   process.env.LFN_MATCH_STATUS_RECENT_VALUES,
-  ["completed", "finished", "done"]
+  ["finished"]
 );
 
 export const MATCH_STATUS_COMPLETED =
-  process.env.LFN_MATCH_STATUS_COMPLETED || "completed";
+  process.env.LFN_MATCH_STATUS_COMPLETED || "finished";

@@ -3,12 +3,19 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { createBrowserClient } from "../../src/lib/supabase/browser";
 import {
-  STANDINGS_VIEW,
   TEAM_COLUMNS,
   TEAM_MEMBER_COLUMNS,
   TEAM_MEMBERS_TABLE,
 } from "../../src/lib/supabase/config";
 import { withSchema } from "../../src/lib/supabase/schema";
+import {
+  createMatch as createResultMatch,
+  deleteMatch as deleteResultMatch,
+  getMatches as getResultMatches,
+  updateMatch as updateResultMatch,
+  type MatchFilters,
+  type ResultMatch,
+} from "../../src/lib/lfn-matches";
 
 type Team = {
   id: string;
@@ -37,24 +44,20 @@ type TeamRosterMember = {
   points?: number | null;
 };
 
-type MatchTeam = {
-  id: string | null;
-  name: string;
-  tag: string | null;
-  logoUrl: string | null;
-  division: string | null;
-};
+type Match = ResultMatch;
 
-type Match = {
-  id: string;
-  status: string | null;
-  scheduledAt: string | null;
-  bestOf: number | null;
-  scoreA: number | null;
-  scoreB: number | null;
-  division: string | null;
-  teamA: MatchTeam;
-  teamB: MatchTeam;
+type MatchFormState = {
+  day: string;
+  division: string;
+  startTime: string;
+  teamAId: string;
+  teamBId: string;
+  status: string;
+  scoreA: string;
+  scoreB: string;
+  notes: string;
+  vodUrl: string;
+  proofUrl: string;
 };
 
 type SummaryCard = {
@@ -73,25 +76,32 @@ const emptyTeamForm = {
   roster: [] as TeamRosterMember[],
 };
 
-const emptyMatchForm = {
-  scheduledAt: "",
+const emptyMatchForm: MatchFormState = {
+  day: "Day 2",
   division: "",
+  startTime: "",
   teamAId: "",
   teamBId: "",
-  bestOf: "3",
   status: "scheduled",
+  scoreA: "",
+  scoreB: "",
+  notes: "",
+  vodUrl: "",
+  proofUrl: "",
 };
 
 const STATUS_OPTIONS = [
   { value: "scheduled", label: "Programmé" },
   { value: "live", label: "En cours" },
-  { value: "completed", label: "Terminé" },
+  { value: "finished", label: "Terminé" },
 ];
 
 const DIVISION_OPTIONS = [
   { value: "D1", label: "Division 1" },
   { value: "D2", label: "Division 2" },
 ];
+
+const DAY_OPTIONS = ["Day 1", "Day 2", "Day 3"];
 
 const ROSTER_SLOTS: Array<{ role: TeamRosterMember["role"]; slot: number | null; label: string }> =
   [
@@ -154,19 +164,6 @@ const findRosterEntry = (
     mains: "",
     description: "",
   };
-
-const toLocalInputValue = (value: string | null) => {
-  if (!value) {
-    return "";
-  }
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return "";
-  }
-  const offset = date.getTimezoneOffset();
-  const local = new Date(date.getTime() - offset * 60_000);
-  return local.toISOString().slice(0, 16);
-};
 
 const normalizeNullable = (value: string | null) => {
   const trimmed = value?.trim();
@@ -259,9 +256,9 @@ const normalizeStatsSummaryPayload = (value: unknown) => {
   return null;
 };
 
-const formatSchedule = (value: string | null) => {
+const formatUpdatedAt = (value: string | null) => {
   if (!value) {
-    return "À planifier";
+    return "—";
   }
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) {
@@ -279,7 +276,7 @@ const statusBadgeClass = (status?: string | null) => {
   switch (status) {
     case "live":
       return "bg-amber-400/20 text-amber-200";
-    case "completed":
+    case "finished":
       return "bg-slate-500/20 text-slate-200";
     case "scheduled":
       return "bg-sky-400/20 text-sky-200";
@@ -292,20 +289,13 @@ const statusLabel = (status?: string | null) => {
   switch (status) {
     case "live":
       return "En cours";
-    case "completed":
+    case "finished":
       return "Terminé";
     case "scheduled":
       return "Programmé";
     default:
       return "Programmé";
   }
-};
-
-const normalizeMatchStatus = (status?: string | null) => {
-  if (status === "live" || status === "completed" || status === "scheduled") {
-    return status;
-  }
-  return "scheduled";
 };
 
 const sanitizeInput = (value: string) => value.replace(/\s+/g, " ").trimStart();
@@ -315,11 +305,10 @@ export default function AdminPanel() {
     const client = createBrowserClient();
     return client ? withSchema(client) : null;
   }, []);
-  const [activeTab, setActiveTab] = useState<"teams" | "matches">("teams");
+  const [activeTab, setActiveTab] = useState<"teams" | "results">("teams");
   const [teams, setTeams] = useState<Team[]>([]);
   const [teamsSnapshot, setTeamsSnapshot] = useState<Team[]>([]);
-  const [matchesLive, setMatchesLive] = useState<Match[]>([]);
-  const [matchesRecent, setMatchesRecent] = useState<Match[]>([]);
+  const [matches, setMatches] = useState<Match[]>([]);
   const [teamForm, setTeamForm] = useState({
     ...emptyTeamForm,
     roster: buildRosterTemplate(),
@@ -327,10 +316,8 @@ export default function AdminPanel() {
   const [matchForm, setMatchForm] = useState(emptyMatchForm);
   const [teamFormErrors, setTeamFormErrors] = useState<string[]>([]);
   const [matchFormErrors, setMatchFormErrors] = useState<string[]>([]);
-  const [matchEdits, setMatchEdits] = useState<
-    Record<string, { scheduledAt: string; status: string; bestOf: string; division: string }>
-  >({});
-  const [resultScores, setResultScores] = useState<Record<string, { scoreA: string; scoreB: string }>>({});
+  const [editingMatchId, setEditingMatchId] = useState<string | null>(null);
+  const [matchLoading, setMatchLoading] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -341,7 +328,7 @@ export default function AdminPanel() {
   const [teamSortDir, setTeamSortDir] = useState<"asc" | "desc">("asc");
   const [openTeamIds, setOpenTeamIds] = useState<string[]>([]);
   const [multiOpenTeams, setMultiOpenTeams] = useState(false);
-  const [matchSearch, setMatchSearch] = useState("");
+  const [matchDay, setMatchDay] = useState("all");
   const [matchDivision, setMatchDivision] = useState("all");
   const [matchStatus, setMatchStatus] = useState("all");
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -433,16 +420,13 @@ export default function AdminPanel() {
   );
 
   const loadTeams = useCallback(async () => {
-    const [{ data, error }, standingsResponse, membersResponse] = await Promise.all([
+    const [{ data, error }, membersResponse] = await Promise.all([
       supabase.from("lfn_teams").select("*").order("created_at", { ascending: false }),
-      supabase.from(STANDINGS_VIEW).select("*"),
       supabase.from(TEAM_MEMBERS_TABLE).select("*"),
     ]);
 
-    if (error || standingsResponse.error || membersResponse.error) {
-      throw new Error(
-        error?.message || standingsResponse.error?.message || membersResponse.error?.message
-      );
+    if (error || membersResponse.error) {
+      throw new Error(error?.message || membersResponse.error?.message);
     }
 
     const membersByTeam = new Map<string, ReturnType<typeof mapMemberRow>[]>();
@@ -454,22 +438,10 @@ export default function AdminPanel() {
       membersByTeam.get(mapped.teamId)?.push(mapped);
     });
 
-    const standingsByTeam = new Map(
-      (standingsResponse.data ?? []).map((row) => [String(row.team_id ?? row.teamId ?? ""), row])
-    );
-
     const teamsList = Array.isArray(data) ? data : [];
     const normalizedTeams = teamsList.map((row) => {
       const mapped = mapTeamRow(row as Record<string, unknown>);
-      const standing = standingsByTeam.get(mapped.id);
-      const resolved = standing
-        ? {
-            ...mapped,
-            wins: toNumber(standing.wins ?? standing.wins_count),
-            losses: toNumber(standing.losses ?? standing.losses_count),
-            points: toNumber(standing.points_total ?? standing.points ?? standing.points_total_count),
-          }
-        : mapped;
+      const resolved = mapped;
       const roster = (membersByTeam.get(mapped.id) ?? []).map((member) => ({
         ...member,
         wins: resolved.wins,
@@ -491,24 +463,24 @@ export default function AdminPanel() {
     return normalizedTeams;
   }, [supabase]);
 
-  const loadMatches = useCallback(async () => {
-    const [liveResponse, recentResponse] = await Promise.all([
-      fetch("/api/site/matches?status=live&limit=20", { cache: "no-store" }),
-      fetch("/api/site/matches?status=recent&limit=20", { cache: "no-store" }),
-    ]);
-
-    const livePayload = await liveResponse.json();
-    const recentPayload = await recentResponse.json();
-
-    if (!liveResponse.ok || !recentResponse.ok) {
-      throw new Error(
-        livePayload.error || recentPayload.error || "Erreur lors du chargement des matchs."
-      );
-    }
-
-    setMatchesLive(Array.isArray(livePayload?.matches) ? livePayload.matches : []);
-    setMatchesRecent(Array.isArray(recentPayload?.matches) ? recentPayload.matches : []);
-  }, []);
+  const loadMatches = useCallback(
+    async (filters?: MatchFilters) => {
+      setMatchLoading(true);
+      try {
+        const data = await getResultMatches(filters);
+        setMatches(data);
+      } catch (error) {
+        console.error("loadMatches error", error);
+        showToast(
+          "error",
+          error instanceof Error ? error.message : "Erreur lors du chargement des matchs."
+        );
+      } finally {
+        setMatchLoading(false);
+      }
+    },
+    [showToast]
+  );
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -518,8 +490,7 @@ export default function AdminPanel() {
       const teamsList = await loadTeams();
 
       if (teamsList.length === 0) {
-        setMatchesLive([]);
-        setMatchesRecent([]);
+        setMatches([]);
         return;
       }
 
@@ -528,8 +499,7 @@ export default function AdminPanel() {
       console.error("Admin load data error:", error);
       setErrorMessage(error instanceof Error ? error.message : "Erreur inconnue.");
       setTeams([]);
-      setMatchesLive([]);
-      setMatchesRecent([]);
+      setMatches([]);
     } finally {
       setLoading(false);
     }
@@ -548,24 +518,6 @@ export default function AdminPanel() {
   useEffect(() => {
     setOpenTeamIds((prev) => prev.filter((id) => teams.some((team) => team.id === id)));
   }, [teams]);
-
-  useEffect(() => {
-    setMatchEdits((prev) => {
-      const next = { ...prev };
-      const allMatches = [...matchesLive, ...matchesRecent];
-      allMatches.forEach((match) => {
-        if (!next[match.id]) {
-          next[match.id] = {
-            scheduledAt: toLocalInputValue(match.scheduledAt),
-            status: normalizeMatchStatus(match.status),
-            bestOf: match.bestOf ? String(match.bestOf) : "",
-            division: match.division ?? "",
-          };
-        }
-      });
-      return next;
-    });
-  }, [matchesLive, matchesRecent]);
 
   useEffect(() => {
     if (!toastMessage) {
@@ -608,16 +560,16 @@ export default function AdminPanel() {
   }, [teams]);
 
   const matchSummary = useMemo(() => {
-    const liveCount = matchesLive.length;
-    const recentCount = matchesRecent.length;
-    const totalCount = liveCount + recentCount;
+    const liveCount = matches.filter((match) => match.status === "live").length;
+    const finishedCount = matches.filter((match) => match.status === "finished").length;
+    const totalCount = matches.length;
     const cards: SummaryCard[] = [
-      { label: "Matchs actifs", value: String(liveCount), helper: "En cours ou à venir" },
-      { label: "Matchs récents", value: String(recentCount), helper: "Déjà joués" },
-      { label: "Total chargés", value: String(totalCount), helper: "Dernières entrées" },
+      { label: "Live", value: String(liveCount), helper: "Matchs en cours" },
+      { label: "Terminés", value: String(finishedCount), helper: "Scores validés" },
+      { label: "Total", value: String(totalCount), helper: "Matchs enregistrés" },
     ];
     return cards;
-  }, [matchesLive, matchesRecent]);
+  }, [matches]);
 
   const filteredTeams = useMemo(() => {
     const searchLower = teamSearch.trim().toLowerCase();
@@ -685,19 +637,13 @@ export default function AdminPanel() {
   };
 
   const filteredMatches = useMemo(() => {
-    const searchLower = matchSearch.trim().toLowerCase();
-    const allMatches = [...matchesLive, ...matchesRecent];
-    return allMatches.filter((match) => {
-      const matchesSearch =
-        !searchLower ||
-        match.teamA.name.toLowerCase().includes(searchLower) ||
-        match.teamB.name.toLowerCase().includes(searchLower);
-      const matchesDivision = matchDivision === "all" || (match.division ?? "") === matchDivision;
-    const matchesStatus =
-      matchStatus === "all" || normalizeMatchStatus(match.status) === matchStatus;
-      return matchesSearch && matchesDivision && matchesStatus;
+    return matches.filter((match) => {
+      const matchesDay = matchDay === "all" || match.day === matchDay;
+      const matchesDivision = matchDivision === "all" || match.division === matchDivision;
+      const matchesStatus = matchStatus === "all" || match.status === matchStatus;
+      return matchesDay && matchesDivision && matchesStatus;
     });
-  }, [matchDivision, matchSearch, matchStatus, matchesLive, matchesRecent]);
+  }, [matchDay, matchDivision, matchStatus, matches]);
 
   type TeamEditableField =
     | "name"
@@ -1065,109 +1011,108 @@ export default function AdminPanel() {
     setTeams((prev) => prev.filter((team) => team.id !== teamId));
   };
 
-  const handleCreateMatch = async () => {
+  const resetMatchForm = () => {
+    setMatchForm(emptyMatchForm);
+    setEditingMatchId(null);
+    setMatchFormErrors([]);
+  };
+
+  const buildMatchPayload = (form: MatchFormState) => {
+    const trimmedStart = form.startTime.trim();
+    const scoreA = form.scoreA === "" ? null : Number(form.scoreA);
+    const scoreB = form.scoreB === "" ? null : Number(form.scoreB);
+    return {
+      day: form.day,
+      division: form.division,
+      startTime: trimmedStart,
+      teamAId: form.teamAId,
+      teamBId: form.teamBId,
+      status: form.status,
+      scoreA,
+      scoreB,
+      notes: form.notes.trim() || null,
+      vodUrl: form.vodUrl.trim() || null,
+      proofUrl: form.proofUrl.trim() || null,
+    };
+  };
+
+  const validateMatchForm = (form: MatchFormState) => {
+    const errors: string[] = [];
+
+    if (!form.day || !form.division || !form.startTime || !form.teamAId || !form.teamBId) {
+      errors.push("Tous les champs principaux doivent être renseignés.");
+    }
+    if (form.teamAId && form.teamBId && form.teamAId === form.teamBId) {
+      errors.push("Les deux équipes doivent être différentes.");
+    }
+    if (form.division && !DIVISION_OPTIONS.some((option) => option.value === form.division)) {
+      errors.push("La division doit être D1 ou D2.");
+    }
+    if (form.status === "finished") {
+      if (form.scoreA === "" || form.scoreB === "") {
+        errors.push("Les scores sont obligatoires pour un match terminé.");
+      } else if (Number(form.scoreA) < 0 || Number(form.scoreB) < 0) {
+        errors.push("Les scores doivent être supérieurs ou égaux à 0.");
+      }
+    } else if (form.scoreA !== "" || form.scoreB !== "") {
+      errors.push("Les scores doivent rester vides tant que le match n'est pas terminé.");
+    }
+
+    return errors;
+  };
+
+  const handleSubmitMatch = async () => {
     setStatusMessage(null);
     setErrorMessage(null);
     setMatchFormErrors([]);
 
-    const errors: string[] = [];
-    if (!matchForm.scheduledAt || !matchForm.teamAId || !matchForm.teamBId) {
-      errors.push("Veuillez renseigner la date et les deux équipes.");
-    }
-    if (matchForm.teamAId && matchForm.teamBId && matchForm.teamAId === matchForm.teamBId) {
-      errors.push("Les deux équipes doivent être différentes.");
-    }
-    if (matchForm.bestOf && Number(matchForm.bestOf) <= 0) {
-      errors.push("Le format Best Of doit être supérieur à 0.");
-    }
-    if (matchForm.division && !DIVISION_OPTIONS.some((option) => option.value === matchForm.division)) {
-      errors.push("La division doit être D1 ou D2.");
-    }
-
+    const errors = validateMatchForm(matchForm);
     if (errors.length) {
       setMatchFormErrors(errors);
       return;
     }
 
-    const scheduledAt = matchForm.scheduledAt ? new Date(matchForm.scheduledAt).toISOString() : "";
+    const payload = buildMatchPayload(matchForm);
+    const sanitizedPayload = {
+      ...payload,
+      scoreA: payload.status === "finished" ? payload.scoreA : null,
+      scoreB: payload.status === "finished" ? payload.scoreB : null,
+    };
 
-    const response = await fetch("/api/admin/matches", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        scheduledAt,
-        division: matchForm.division || null,
-        teamAId: matchForm.teamAId,
-        teamBId: matchForm.teamBId,
-        bestOf: matchForm.bestOf ? Number(matchForm.bestOf) : undefined,
-        status: matchForm.status || undefined,
-      }),
+    try {
+      if (editingMatchId) {
+        await updateResultMatch(editingMatchId, sanitizedPayload);
+        showToast("success", "Match mis à jour.");
+      } else {
+        await createResultMatch(sanitizedPayload);
+        showToast("success", "Match ajouté.");
+      }
+      resetMatchForm();
+      await loadMatches();
+    } catch (error) {
+      console.error("handleSubmitMatch error", error);
+      showToast(
+        "error",
+        error instanceof Error ? error.message : "Impossible d'enregistrer le match."
+      );
+    }
+  };
+
+  const handleEditMatch = (match: Match) => {
+    setEditingMatchId(match.id);
+    setMatchForm({
+      day: match.day,
+      division: match.division,
+      startTime: match.startTime,
+      teamAId: match.teamAId,
+      teamBId: match.teamBId,
+      status: match.status,
+      scoreA: match.scoreA !== null ? String(match.scoreA) : "",
+      scoreB: match.scoreB !== null ? String(match.scoreB) : "",
+      notes: match.notes ?? "",
+      vodUrl: match.vodUrl ?? "",
+      proofUrl: match.proofUrl ?? "",
     });
-
-    const payload = await response.json();
-    if (!response.ok) {
-      setErrorMessage(payload.error || "Création du match impossible.");
-      return;
-    }
-
-    setStatusMessage("Match créé.");
-    setMatchForm(emptyMatchForm);
-    await loadData();
-  };
-
-  const handleResultChange = (matchId: string, field: "scoreA" | "scoreB", value: string) => {
-    setResultScores((prev) => ({
-      ...prev,
-      [matchId]: { ...prev[matchId], [field]: value },
-    }));
-  };
-
-  const handleSubmitResult = async (matchId: string) => {
-    setStatusMessage(null);
-    setErrorMessage(null);
-
-    const scores = resultScores[matchId];
-    if (!scores) {
-      setErrorMessage("Scores manquants.");
-      return;
-    }
-
-    const response = await fetch(`/api/admin/matches/${matchId}/result`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        scoreA: scores.scoreA,
-        scoreB: scores.scoreB,
-      }),
-    });
-
-    const payload = await response.json();
-    if (!response.ok) {
-      setErrorMessage(payload.error || "Validation impossible.");
-      return;
-    }
-
-    setStatusMessage("Résultat enregistré.");
-    await loadData();
-  };
-
-  const handleMatchEditChange = (
-    matchId: string,
-    field: "scheduledAt" | "status" | "bestOf" | "division",
-    value: string
-  ) => {
-    setMatchEdits((prev) => ({
-      ...prev,
-      [matchId]: { ...prev[matchId], [field]: value },
-    }));
-  };
-
-  const handleQuickStatus = (matchId: string, status: string) => {
-    handleMatchEditChange(matchId, "status", status);
-  };
-
-  const handleQuickDivision = (matchId: string, division: string) => {
-    handleMatchEditChange(matchId, "division", division);
   };
 
   const handleCopyTeamId = async (teamId: string) => {
@@ -1177,52 +1122,6 @@ export default function AdminPanel() {
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "Copie impossible.");
     }
-  };
-
-  const handleSaveMatch = async (matchId: string) => {
-    setStatusMessage(null);
-    setErrorMessage(null);
-
-    const edits = matchEdits[matchId];
-    if (!edits) {
-      setErrorMessage("Aucune modification à enregistrer.");
-      return;
-    }
-
-    const payload: Record<string, string | number> = {};
-
-    if (edits.scheduledAt) {
-      payload.scheduledAt = new Date(edits.scheduledAt).toISOString();
-    }
-    if (edits.status) {
-      payload.status = edits.status;
-    }
-    if (edits.bestOf) {
-      payload.bestOf = Number(edits.bestOf);
-    }
-    if (edits.division) {
-      payload.division = edits.division;
-    }
-
-    if (Object.keys(payload).length === 0) {
-      setErrorMessage("Aucune modification à enregistrer.");
-      return;
-    }
-
-    const response = await fetch(`/api/admin/matches/${matchId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-
-    const result = await response.json();
-    if (!response.ok) {
-      setErrorMessage(result.error || "Mise à jour impossible.");
-      return;
-    }
-
-    setStatusMessage("Match mis à jour.");
-    await loadData();
   };
 
   const deleteMatch = async (matchId: string) => {
@@ -1236,12 +1135,7 @@ export default function AdminPanel() {
     setDeletingId(matchId);
 
     try {
-      const { error } = await supabase.from("lfn_matches").delete().eq("id", matchId);
-
-      if (error) {
-        throw error;
-      }
-
+      await deleteResultMatch(matchId);
       showToast("success", "Match supprimé.");
       await loadMatches();
     } catch (error) {
@@ -1288,13 +1182,13 @@ export default function AdminPanel() {
             <button
               type="button"
               className={`rounded-full px-4 py-2 text-sm ${
-                activeTab === "matches"
+                activeTab === "results"
                   ? "bg-amber-400/90 text-slate-900"
                   : "bg-white/5 text-slate-200"
               }`}
-              onClick={() => setActiveTab("matches")}
+              onClick={() => setActiveTab("results")}
             >
-              Matchs
+              Résultats
             </button>
           </div>
         </div>
@@ -1904,7 +1798,28 @@ export default function AdminPanel() {
           </div>
 
           <div className="section-card space-y-4">
-            <h2 className="text-lg font-semibold text-white">Créer un match</h2>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 className="text-lg font-semibold text-white">
+                  {editingMatchId ? "Modifier un match" : "Ajouter un match"}
+                </h2>
+                <p className="text-xs text-slate-400">
+                  Renseignez le programme et les scores officiels.
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {editingMatchId ? (
+                  <button
+                    type="button"
+                    onClick={resetMatchForm}
+                    className="rounded-full border border-white/10 px-4 py-2 text-xs text-slate-200"
+                  >
+                    Annuler
+                  </button>
+                ) : null}
+              </div>
+            </div>
+
             {matchFormErrors.length ? (
               <ul className="list-disc space-y-1 pl-4 text-xs text-rose-300">
                 {matchFormErrors.map((error) => (
@@ -1912,15 +1827,19 @@ export default function AdminPanel() {
                 ))}
               </ul>
             ) : null}
+
             <div className="grid gap-3 md:grid-cols-3">
-              <input
-                type="datetime-local"
-                value={matchForm.scheduledAt}
-                onChange={(event) =>
-                  setMatchForm((prev) => ({ ...prev, scheduledAt: event.target.value }))
-                }
+              <select
+                value={matchForm.day}
+                onChange={(event) => setMatchForm((prev) => ({ ...prev, day: event.target.value }))}
                 className="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white"
-              />
+              >
+                {DAY_OPTIONS.map((day) => (
+                  <option key={day} value={day}>
+                    {day}
+                  </option>
+                ))}
+              </select>
               <select
                 value={matchForm.division}
                 onChange={(event) => setMatchForm((prev) => ({ ...prev, division: event.target.value }))}
@@ -1934,12 +1853,16 @@ export default function AdminPanel() {
                 ))}
               </select>
               <input
-                value={matchForm.bestOf}
-                onChange={(event) => setMatchForm((prev) => ({ ...prev, bestOf: event.target.value }))}
-                placeholder="Best of"
+                type="time"
+                value={matchForm.startTime}
+                onChange={(event) =>
+                  setMatchForm((prev) => ({ ...prev, startTime: event.target.value }))
+                }
+                placeholder="Heure"
                 className="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white"
               />
             </div>
+
             <div className="grid gap-3 md:grid-cols-3">
               <select
                 value={matchForm.teamAId}
@@ -1967,7 +1890,17 @@ export default function AdminPanel() {
               </select>
               <select
                 value={matchForm.status}
-                onChange={(event) => setMatchForm((prev) => ({ ...prev, status: event.target.value }))}
+                onChange={(event) =>
+                  setMatchForm((prev) => {
+                    const nextStatus = event.target.value;
+                    return {
+                      ...prev,
+                      status: nextStatus,
+                      scoreA: nextStatus === "finished" ? prev.scoreA : "",
+                      scoreB: nextStatus === "finished" ? prev.scoreB : "",
+                    };
+                  })
+                }
                 className="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white"
               >
                 {STATUS_OPTIONS.map((option) => (
@@ -1977,28 +1910,96 @@ export default function AdminPanel() {
                 ))}
               </select>
             </div>
-            <button
-              type="button"
-              onClick={handleCreateMatch}
-              className="inline-flex items-center justify-center rounded-full bg-amber-400/90 px-5 py-2 text-sm font-semibold text-slate-900"
-            >
-              Ajouter le match
-            </button>
+
+            <div className="grid gap-3 md:grid-cols-2">
+              <input
+                type="number"
+                min={0}
+                value={matchForm.scoreA}
+                onChange={(event) =>
+                  setMatchForm((prev) => ({ ...prev, scoreA: event.target.value }))
+                }
+                placeholder="Score A"
+                disabled={matchForm.status !== "finished"}
+                className="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white disabled:opacity-50"
+              />
+              <input
+                type="number"
+                min={0}
+                value={matchForm.scoreB}
+                onChange={(event) =>
+                  setMatchForm((prev) => ({ ...prev, scoreB: event.target.value }))
+                }
+                placeholder="Score B"
+                disabled={matchForm.status !== "finished"}
+                className="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white disabled:opacity-50"
+              />
+            </div>
+
+            <div className="grid gap-3 md:grid-cols-3">
+              <textarea
+                value={matchForm.notes}
+                onChange={(event) => setMatchForm((prev) => ({ ...prev, notes: event.target.value }))}
+                placeholder="Notes"
+                className="min-h-[80px] rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white"
+              />
+              <input
+                value={matchForm.vodUrl}
+                onChange={(event) => setMatchForm((prev) => ({ ...prev, vodUrl: event.target.value }))}
+                placeholder="VOD URL"
+                className="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white"
+              />
+              <input
+                value={matchForm.proofUrl}
+                onChange={(event) =>
+                  setMatchForm((prev) => ({ ...prev, proofUrl: event.target.value }))
+                }
+                placeholder="Proof URL"
+                className="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white"
+              />
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={handleSubmitMatch}
+                className="inline-flex items-center justify-center rounded-full bg-amber-400/90 px-5 py-2 text-sm font-semibold text-slate-900"
+              >
+                {editingMatchId ? "Enregistrer" : "Ajouter le match"}
+              </button>
+              {editingMatchId ? (
+                <button
+                  type="button"
+                  onClick={resetMatchForm}
+                  className="rounded-full border border-white/10 px-5 py-2 text-sm text-slate-200"
+                >
+                  Annuler
+                </button>
+              ) : null}
+            </div>
           </div>
 
           <div className="section-card space-y-6">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <h2 className="text-lg font-semibold text-white">Pilotage des matchs</h2>
-                <p className="text-xs text-slate-400">Filtrez, modifiez ou validez rapidement.</p>
+                <h2 className="text-lg font-semibold text-white">Résultats enregistrés</h2>
+                <p className="text-xs text-slate-400">
+                  Filtrez par journée, division ou statut.
+                </p>
               </div>
               <div className="flex flex-wrap items-center gap-2">
-                <input
-                  value={matchSearch}
-                  onChange={(event) => setMatchSearch(event.target.value)}
-                  placeholder="Recherche équipe"
+                <select
+                  value={matchDay}
+                  onChange={(event) => setMatchDay(event.target.value)}
                   className="rounded-full border border-white/10 bg-slate-950/70 px-4 py-2 text-xs text-white"
-                />
+                >
+                  <option value="all">Toutes journées</option>
+                  {DAY_OPTIONS.map((day) => (
+                    <option key={day} value={day}>
+                      {day}
+                    </option>
+                  ))}
+                </select>
                 <select
                   value={matchDivision}
                   onChange={(event) => setMatchDivision(event.target.value)}
@@ -2023,343 +2024,86 @@ export default function AdminPanel() {
                     </option>
                   ))}
                 </select>
+                <button
+                  type="button"
+                  onClick={resetMatchForm}
+                  className="rounded-full border border-white/10 px-4 py-2 text-xs text-slate-200"
+                >
+                  Ajouter un match
+                </button>
               </div>
             </div>
 
-            <div>
-              <h2 className="text-lg font-semibold text-white">En cours / à venir</h2>
-              <div className="mt-4 space-y-3">
-                {matchesLive.length === 0 ? (
-                  <p className="text-sm text-slate-400">Aucun match en cours.</p>
-                ) : (
-                  matchesLive.map((match) => {
-                    const isCompleted = match.status === "completed";
-                    const isDeleting = deletingId === match.id;
-
-                    return (
-                      <div
-                        key={match.id}
-                        className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/5 p-4"
-                      >
-                        <div>
-                          <p className="text-sm text-white">
-                            {match.teamA.name} vs {match.teamB.name}
-                          </p>
-                          <p className="text-xs text-slate-400">
-                            {formatSchedule(match.scheduledAt)} ·{" "}
-                            {statusLabel(normalizeMatchStatus(match.status))}
-                          </p>
-                        </div>
-                        <div className="flex flex-1 flex-wrap items-center justify-end gap-2">
-                          <span
-                            className={`rounded-full px-3 py-1 text-[11px] font-medium ${statusBadgeClass(
-                              match.status
-                            )}`}
-                          >
-                            {statusLabel(normalizeMatchStatus(match.status))}
-                          </span>
-                          <input
-                            type="datetime-local"
-                            value={matchEdits[match.id]?.scheduledAt ?? ""}
-                            onChange={(event) =>
-                              handleMatchEditChange(match.id, "scheduledAt", event.target.value)
-                            }
-                            className="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-xs text-white"
-                          />
-                          <select
-                            value={matchEdits[match.id]?.division ?? ""}
-                            onChange={(event) =>
-                              handleMatchEditChange(match.id, "division", event.target.value)
-                            }
-                            className="w-28 rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-xs text-white"
-                          >
-                            <option value="">Division</option>
-                            {DIVISION_OPTIONS.map((option) => (
-                              <option key={option.value} value={option.value}>
-                                {option.label}
-                              </option>
-                            ))}
-                          </select>
-                          <input
-                            value={matchEdits[match.id]?.bestOf ?? ""}
-                            onChange={(event) =>
-                              handleMatchEditChange(match.id, "bestOf", event.target.value)
-                            }
-                            placeholder="Best of"
-                            className="w-20 rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-xs text-white"
-                          />
-                          <select
-                            value={matchEdits[match.id]?.status ?? ""}
-                            onChange={(event) =>
-                              handleMatchEditChange(match.id, "status", event.target.value)
-                            }
-                            className="w-28 rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-xs text-white"
-                          >
-                            {STATUS_OPTIONS.map((option) => (
-                              <option key={option.value} value={option.value}>
-                                {option.label}
-                              </option>
-                            ))}
-                          </select>
-                          <div className="flex items-center gap-1">
-                            {STATUS_OPTIONS.map((option) => (
-                              <button
-                                key={option.value}
-                                type="button"
-                                onClick={() => handleQuickStatus(match.id, option.value)}
-                                className="rounded-full border border-white/10 px-2 py-1 text-[10px] text-slate-200"
-                              >
-                                {option.label}
-                              </button>
-                            ))}
-                          </div>
-                          <input
-                            value={resultScores[match.id]?.scoreA ?? ""}
-                            onChange={(event) =>
-                              handleResultChange(match.id, "scoreA", event.target.value)
-                            }
-                            placeholder="Score A"
-                            className="w-20 rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-xs text-white"
-                          />
-                          <input
-                            value={resultScores[match.id]?.scoreB ?? ""}
-                            onChange={(event) =>
-                              handleResultChange(match.id, "scoreB", event.target.value)
-                            }
-                            placeholder="Score B"
-                            className="w-20 rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-xs text-white"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => handleSubmitResult(match.id)}
-                            className="rounded-full bg-amber-400/90 px-4 py-2 text-xs font-semibold text-slate-900"
-                          >
-                            Valider
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleSaveMatch(match.id)}
-                            className="rounded-full border border-white/10 px-4 py-2 text-xs text-slate-200"
-                          >
-                            Mettre à jour
-                          </button>
-                          <div className="flex flex-col items-end gap-1">
-                            <button
-                              type="button"
-                              onClick={() => deleteMatch(match.id)}
-                              disabled={isCompleted || isDeleting}
-                              title={
-                                isCompleted
-                                  ? "Impossible de supprimer un match terminé."
-                                  : "Supprimer ce match"
-                              }
-                              className={`inline-flex items-center gap-2 rounded-full border border-rose-400/40 px-4 py-2 text-xs ${
-                                isCompleted || isDeleting
-                                  ? "cursor-not-allowed bg-rose-500/30 text-rose-100/70"
-                                  : "bg-rose-500/90 text-white"
-                              }`}
-                            >
-                              {isDeleting ? (
-                                "Suppression..."
-                              ) : (
-                                <>
-                                  <span aria-hidden="true">🗑️</span>
-                                  <span>Supprimer</span>
-                                </>
-                              )}
-                            </button>
-                            {isCompleted ? (
-                              <span className="text-[10px] text-rose-300">
-                                Impossible de supprimer un match terminé.
-                              </span>
-                            ) : null}
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })
-                )}
-              </div>
-            </div>
-
-            <div>
-              <h2 className="text-lg font-semibold text-white">Récents</h2>
-              <div className="mt-4 space-y-3">
-                {matchesRecent.length === 0 ? (
-                  <p className="text-sm text-slate-400">Aucun match récent.</p>
-                ) : (
-                  matchesRecent.map((match) => {
-                    const isCompleted = match.status === "completed";
-                    const isDeleting = deletingId === match.id;
-
-                    return (
-                      <div
-                        key={match.id}
-                        className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/5 p-4"
-                      >
-                        <div>
-                          <p className="text-sm text-white">
-                            {match.teamA.name} {match.scoreA ?? "-"} - {match.scoreB ?? "-"} {match.teamB.name}
-                          </p>
-                          <p className="text-xs text-slate-400">
-                            {formatSchedule(match.scheduledAt)} ·{" "}
-                            {statusLabel(normalizeMatchStatus(match.status))}
-                          </p>
-                        </div>
-                        <div className="flex flex-1 flex-wrap items-center justify-end gap-2">
-                          <span
-                            className={`rounded-full px-3 py-1 text-[11px] font-medium ${statusBadgeClass(
-                              match.status
-                            )}`}
-                          >
-                            {statusLabel(normalizeMatchStatus(match.status))}
-                          </span>
-                          <input
-                            type="datetime-local"
-                            value={matchEdits[match.id]?.scheduledAt ?? ""}
-                            onChange={(event) =>
-                              handleMatchEditChange(match.id, "scheduledAt", event.target.value)
-                            }
-                            className="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-xs text-white"
-                          />
-                          <select
-                            value={matchEdits[match.id]?.division ?? ""}
-                            onChange={(event) =>
-                              handleMatchEditChange(match.id, "division", event.target.value)
-                            }
-                            className="w-28 rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-xs text-white"
-                          >
-                            <option value="">Division</option>
-                            {DIVISION_OPTIONS.map((option) => (
-                              <option key={option.value} value={option.value}>
-                                {option.label}
-                              </option>
-                            ))}
-                          </select>
-                          <input
-                            value={matchEdits[match.id]?.bestOf ?? ""}
-                            onChange={(event) =>
-                              handleMatchEditChange(match.id, "bestOf", event.target.value)
-                            }
-                            placeholder="Best of"
-                            className="w-20 rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-xs text-white"
-                          />
-                          <select
-                            value={matchEdits[match.id]?.status ?? ""}
-                            onChange={(event) =>
-                              handleMatchEditChange(match.id, "status", event.target.value)
-                            }
-                            className="w-28 rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-xs text-white"
-                          >
-                            {STATUS_OPTIONS.map((option) => (
-                              <option key={option.value} value={option.value}>
-                                {option.label}
-                              </option>
-                            ))}
-                          </select>
-                          <div className="flex items-center gap-1">
-                            {DIVISION_OPTIONS.map((option) => (
-                              <button
-                                key={option.value}
-                                type="button"
-                                onClick={() => handleQuickDivision(match.id, option.value)}
-                                className="rounded-full border border-white/10 px-2 py-1 text-[10px] text-slate-200"
-                              >
-                                {option.label}
-                              </button>
-                            ))}
-                          </div>
-                          <input
-                            value={resultScores[match.id]?.scoreA ?? String(match.scoreA ?? "")}
-                            onChange={(event) =>
-                              handleResultChange(match.id, "scoreA", event.target.value)
-                            }
-                            placeholder="Score A"
-                            className="w-20 rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-xs text-white"
-                          />
-                          <input
-                            value={resultScores[match.id]?.scoreB ?? String(match.scoreB ?? "")}
-                            onChange={(event) =>
-                              handleResultChange(match.id, "scoreB", event.target.value)
-                            }
-                            placeholder="Score B"
-                            className="w-20 rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-xs text-white"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => handleSubmitResult(match.id)}
-                            className="rounded-full border border-white/10 px-4 py-2 text-xs text-slate-200"
-                          >
-                            Mettre à jour score
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleSaveMatch(match.id)}
-                            className="rounded-full border border-white/10 px-4 py-2 text-xs text-slate-200"
-                          >
-                            Mettre à jour match
-                          </button>
-                          <div className="flex flex-col items-end gap-1">
-                            <button
-                              type="button"
-                              onClick={() => deleteMatch(match.id)}
-                              disabled={isCompleted || isDeleting}
-                              title={
-                                isCompleted
-                                  ? "Impossible de supprimer un match terminé."
-                                  : "Supprimer ce match"
-                              }
-                              className={`inline-flex items-center gap-2 rounded-full border border-rose-400/40 px-4 py-2 text-xs ${
-                                isCompleted || isDeleting
-                                  ? "cursor-not-allowed bg-rose-500/30 text-rose-100/70"
-                                  : "bg-rose-500/90 text-white"
-                              }`}
-                            >
-                              {isDeleting ? (
-                                "Suppression..."
-                              ) : (
-                                <>
-                                  <span aria-hidden="true">🗑️</span>
-                                  <span>Supprimer</span>
-                                </>
-                              )}
-                            </button>
-                            {isCompleted ? (
-                              <span className="text-[10px] text-rose-300">
-                                Impossible de supprimer un match terminé.
-                              </span>
-                            ) : null}
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })
-                )}
-              </div>
-            </div>
-
-            {filteredMatches.length === 0 ? (
-              <p className="text-xs text-slate-400">Aucun match ne correspond aux filtres.</p>
+            {matchLoading ? (
+              <p className="text-sm text-slate-400">Chargement des matchs...</p>
+            ) : filteredMatches.length === 0 ? (
+              <p className="text-sm text-slate-400">Aucun match ne correspond aux filtres.</p>
             ) : (
-              <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-xs text-slate-300">
-                <p className="font-semibold text-white">Matches filtrés</p>
-                <ul className="mt-2 space-y-1">
-                  {filteredMatches.slice(0, 8).map((match) => (
-                    <li key={`filtered-${match.id}`} className="flex items-center justify-between">
-                      <span>
-                        {match.teamA.name} vs {match.teamB.name}
-                      </span>
-                      <span className="text-slate-400">
-                        {match.division ?? "?"} · {statusLabel(normalizeMatchStatus(match.status))}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-                {filteredMatches.length > 8 ? (
-                  <p className="mt-2 text-slate-400">
-                    +{filteredMatches.length - 8} match(s) supplémentaires.
-                  </p>
-                ) : null}
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[860px] text-left text-xs text-slate-300">
+                  <thead className="border-b border-white/10 text-[11px] uppercase tracking-[0.2em] text-slate-500">
+                    <tr>
+                      <th className="px-3 py-2">Day</th>
+                      <th className="px-3 py-2">Division</th>
+                      <th className="px-3 py-2">Heure</th>
+                      <th className="px-3 py-2">Team A</th>
+                      <th className="px-3 py-2">Team B</th>
+                      <th className="px-3 py-2">Statut</th>
+                      <th className="px-3 py-2">Score</th>
+                      <th className="px-3 py-2">Updated</th>
+                      <th className="px-3 py-2">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/5">
+                    {filteredMatches.map((match) => {
+                      const teamA = teams.find((team) => team.id === match.teamAId);
+                      const teamB = teams.find((team) => team.id === match.teamBId);
+                      const scoreLabel =
+                        match.status === "finished"
+                          ? `${match.scoreA ?? "-"} - ${match.scoreB ?? "-"}`
+                          : "—";
+                      return (
+                        <tr key={match.id}>
+                          <td className="px-3 py-2 text-slate-200">{match.day}</td>
+                          <td className="px-3 py-2">{match.division}</td>
+                          <td className="px-3 py-2">{match.startTime || "—"}</td>
+                          <td className="px-3 py-2">{teamA?.name ?? match.teamAId}</td>
+                          <td className="px-3 py-2">{teamB?.name ?? match.teamBId}</td>
+                          <td className="px-3 py-2">
+                            <span
+                              className={`rounded-full px-2 py-1 text-[10px] font-medium ${statusBadgeClass(
+                                match.status
+                              )}`}
+                            >
+                              {statusLabel(match.status)}
+                            </span>
+                          </td>
+                          <td className="px-3 py-2">{scoreLabel}</td>
+                          <td className="px-3 py-2">{formatUpdatedAt(match.updatedAt)}</td>
+                          <td className="px-3 py-2">
+                            <div className="flex flex-wrap gap-2">
+                              <button
+                                type="button"
+                                onClick={() => handleEditMatch(match)}
+                                className="rounded-full border border-white/10 px-3 py-1 text-[11px] text-slate-200"
+                              >
+                                Modifier
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => deleteMatch(match.id)}
+                                disabled={deletingId === match.id}
+                                className="rounded-full border border-rose-400/40 px-3 py-1 text-[11px] text-rose-200"
+                              >
+                                {deletingId === match.id ? "Suppression..." : "Supprimer"}
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
             )}
           </div>

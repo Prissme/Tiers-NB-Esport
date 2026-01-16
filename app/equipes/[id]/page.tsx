@@ -3,18 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import PreSeasonBanner from "../../components/PreSeasonBanner";
 import SectionHeader from "../../components/SectionHeader";
-import StatusBadge from "../../components/StatusBadge";
-import { matches, teams } from "../../../src/data";
-
-const formatDate = (dateISO: string) => {
-  const date = new Date(dateISO);
-  if (Number.isNaN(date.getTime())) return dateISO;
-  return date.toLocaleDateString("fr-FR", {
-    weekday: "short",
-    day: "2-digit",
-    month: "short",
-  });
-};
+import { teams } from "../../../src/data";
 
 export async function generateMetadata({
   params,
@@ -24,7 +13,7 @@ export async function generateMetadata({
   const team = teams.find((entry) => entry.id === params.id);
   return {
     title: team ? team.name : "Équipe",
-    description: "Détails d'équipe, roster et match-ups de la LFN.",
+    description: "Détails d'équipe et roster de la LFN.",
   };
 }
 
@@ -33,34 +22,6 @@ export default function TeamDetailPage({ params }: { params: { id: string } }) {
   if (!team) {
     notFound();
   }
-
-  const teamMatches = matches.filter(
-    (match) => match.teamAId === team.id || match.teamBId === team.id
-  );
-  const upcomingMatches = teamMatches
-    .filter((match) => match.status === "scheduled")
-    .sort((a, b) => new Date(a.dateISO).getTime() - new Date(b.dateISO).getTime())
-    .slice(0, 2);
-
-  const finishedMatches = teamMatches
-    .filter((match) => match.status === "finished")
-    .sort((a, b) => new Date(b.dateISO).getTime() - new Date(a.dateISO).getTime());
-
-  const lastResults = finishedMatches.slice(0, 3);
-
-  const wins = finishedMatches.filter((match) => {
-    if (match.scoreA === undefined || match.scoreB === undefined) return false;
-    if (match.teamAId === team.id) return match.scoreA > match.scoreB;
-    return match.scoreB > match.scoreA;
-  }).length;
-
-  const losses = finishedMatches.filter((match) => {
-    if (match.scoreA === undefined || match.scoreB === undefined) return false;
-    if (match.teamAId === team.id) return match.scoreA < match.scoreB;
-    return match.scoreB < match.scoreA;
-  }).length;
-
-  const winRate = wins + losses > 0 ? Math.round((wins / (wins + losses)) * 100) : null;
 
   return (
     <div className="space-y-10">
@@ -97,100 +58,19 @@ export default function TeamDetailPage({ params }: { params: { id: string } }) {
 
       <section className="section-card space-y-6">
         <SectionHeader
-          kicker="Matchs"
-          title="À venir"
-          description="Deux prochains rendez-vous." 
+          kicker="Programme"
+          title="Calendrier fixe"
+          description="Les résultats ne sont pas affichés publiquement."
         />
-        {upcomingMatches.length === 0 ? (
-          <p className="text-sm text-slate-400">Aucun match planifié.</p>
-        ) : (
-          <div className="space-y-3">
-            {upcomingMatches.map((match) => {
-              const opponentId = match.teamAId === team.id ? match.teamBId : match.teamAId;
-              const opponent = teams.find((entry) => entry.id === opponentId);
-              return (
-                <Link
-                  key={match.id}
-                  href={`/matchs/${match.id}`}
-                  className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3"
-                >
-                  <div>
-                    <p className="text-sm text-white">
-                      {team.name} vs {opponent?.name ?? opponentId}
-                    </p>
-                    <p className="text-xs text-slate-400">
-                      {formatDate(match.dateISO)} · {match.division}
-                    </p>
-                  </div>
-                  <StatusBadge status={match.status} />
-                </Link>
-              );
-            })}
-          </div>
-        )}
-      </section>
-
-      <section className="section-card space-y-6">
-        <SectionHeader
-          kicker="Résultats"
-          title="Derniers matchs"
-          description="Historique officiel." 
-        />
-        {lastResults.length === 0 ? (
-          <p className="text-sm text-slate-400">Aucun résultat publié.</p>
-        ) : (
-          <div className="space-y-3">
-            {lastResults.map((match) => {
-              const opponentId = match.teamAId === team.id ? match.teamBId : match.teamAId;
-              const opponent = teams.find((entry) => entry.id === opponentId);
-              return (
-                <Link
-                  key={match.id}
-                  href={`/matchs/${match.id}`}
-                  className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3"
-                >
-                  <div>
-                    <p className="text-sm text-white">
-                      {team.name} vs {opponent?.name ?? opponentId}
-                    </p>
-                    <p className="text-xs text-slate-400">
-                      {formatDate(match.dateISO)} · {match.division}
-                    </p>
-                  </div>
-                  <span className="rounded-full bg-white/10 px-3 py-1 text-xs text-slate-200">
-                    {match.scoreA ?? "-"} - {match.scoreB ?? "-"}
-                  </span>
-                </Link>
-              );
-            })}
-          </div>
-        )}
-      </section>
-
-      <section className="section-card space-y-6">
-        <SectionHeader
-          kicker="Stats"
-          title="Bilan rapide"
-          description="Mises à jour dès le premier match officiel." 
-        />
-        {wins + losses === 0 ? (
-          <PreSeasonBanner message="Pré-saison — stats officielles dès le premier match." />
-        ) : (
-          <div className="grid gap-4 md:grid-cols-3">
-            <div className="motion-card">
-              <p className="text-xs uppercase tracking-[0.35em] text-slate-400">Victoires</p>
-              <p className="mt-3 text-sm text-white">{wins}</p>
-            </div>
-            <div className="motion-card">
-              <p className="text-xs uppercase tracking-[0.35em] text-slate-400">Défaites</p>
-              <p className="mt-3 text-sm text-white">{losses}</p>
-            </div>
-            <div className="motion-card">
-              <p className="text-xs uppercase tracking-[0.35em] text-slate-400">Winrate</p>
-              <p className="mt-3 text-sm text-white">{winRate}%</p>
-            </div>
-          </div>
-        )}
+        <p className="text-sm text-slate-400">
+          Consultez le programme officiel pour les horaires fixes des matchs.
+        </p>
+        <Link
+          href="/matchs"
+          className="inline-flex items-center justify-center rounded-full border border-amber-300/40 bg-amber-400/10 px-5 py-3 text-xs uppercase tracking-[0.3em] text-amber-200"
+        >
+          Voir le programme
+        </Link>
       </section>
     </div>
   );
