@@ -1,12 +1,10 @@
 import type { Metadata } from "next";
 import DayTwoSchedule from "../components/DayTwoSchedule";
-import DayOneResults from "../components/DayOneResults";
 import SectionHeader from "../components/SectionHeader";
-import MatchesClient from "./MatchesClient";
 
 export const metadata: Metadata = {
   title: "Matchs",
-  description: "Calendrier officiel, matchs en direct et scores LFN.",
+  description: "Calendrier officiel fixe de la LFN.",
 };
 
 export default function MatchsPage() {
@@ -19,13 +17,13 @@ export default function MatchsPage() {
           <SectionHeader
             kicker="Matchs"
             title="Planning officiel"
-            description="Programme à venir et scores officiels."
+            description="Programme fixe pour la saison."
           />
           <div className="grid gap-4 md:grid-cols-3">
             {[
-              { label: "Programmés", detail: "Calendrier en préparation." },
-              { label: "Live", detail: "Status prêt pour la saison." },
-              { label: "Résultats", detail: "Scores officiels à venir." },
+              { label: "Programme", detail: "Calendrier fixe de la saison." },
+              { label: "Divisions", detail: "Affiches D1/D2 planifiées." },
+              { label: "Infos", detail: "Aucun résultat affiché publiquement." },
             ].map((panel) => (
               <div key={panel.label} className="motion-card motion-shimmer">
                 <p className="text-xs uppercase tracking-[0.35em] text-slate-400">{panel.label}</p>
@@ -37,10 +35,6 @@ export default function MatchsPage() {
       </section>
 
       <DayTwoSchedule />
-
-      <DayOneResults />
-
-      <MatchesClient />
     </div>
   );
 }

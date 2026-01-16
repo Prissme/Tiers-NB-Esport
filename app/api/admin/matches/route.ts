@@ -6,12 +6,17 @@ import { MATCH_COLUMNS, MATCHES_TABLE } from "../../../../src/lib/supabase/confi
 import { isAdminAuthenticated } from "../../../../src/lib/admin/auth";
 
 const matchSchema = z.object({
-  scheduledAt: z.string().min(1),
+  day: z.string().min(1),
+  division: z.enum(["D1", "D2"]),
+  startTime: z.string().min(1),
   teamAId: z.string().min(1),
   teamBId: z.string().min(1),
-  bestOf: z.coerce.number().int().positive().optional(),
-  status: z.string().min(1).optional(),
-  division: z.string().min(1).optional(),
+  status: z.enum(["scheduled", "live", "finished"]).optional(),
+  scoreA: z.coerce.number().int().min(0).nullable().optional(),
+  scoreB: z.coerce.number().int().min(0).nullable().optional(),
+  notes: z.string().nullable().optional(),
+  vodUrl: z.string().nullable().optional(),
+  proofUrl: z.string().nullable().optional(),
 });
 
 export async function POST(request: Request) {
@@ -29,21 +34,27 @@ export async function POST(request: Request) {
   try {
     const supabase = withSchema(createAdminClient());
     const data = parsed.data;
+    if (data.teamAId === data.teamBId) {
+      return NextResponse.json({ error: "Teams must be different." }, { status: 400 });
+    }
+
+    if (data.status === "finished" && (data.scoreA === null || data.scoreB === null)) {
+      return NextResponse.json({ error: "Scores required for finished matches." }, { status: 400 });
+    }
+
     const insertPayload: Record<string, unknown> = {
-      [MATCH_COLUMNS.scheduledAt]: data.scheduledAt,
+      [MATCH_COLUMNS.day]: data.day,
+      [MATCH_COLUMNS.division]: data.division,
+      [MATCH_COLUMNS.startTime]: data.startTime,
       [MATCH_COLUMNS.teamAId]: data.teamAId,
       [MATCH_COLUMNS.teamBId]: data.teamBId,
+      [MATCH_COLUMNS.status]: data.status ?? "scheduled",
+      [MATCH_COLUMNS.scoreA]: data.status === "finished" ? data.scoreA : null,
+      [MATCH_COLUMNS.scoreB]: data.status === "finished" ? data.scoreB : null,
+      [MATCH_COLUMNS.notes]: data.notes ?? null,
+      [MATCH_COLUMNS.vodUrl]: data.vodUrl ?? null,
+      [MATCH_COLUMNS.proofUrl]: data.proofUrl ?? null,
     };
-
-    if (data.bestOf !== undefined) {
-      insertPayload[MATCH_COLUMNS.bestOf] = data.bestOf;
-    }
-    if (data.status) {
-      insertPayload[MATCH_COLUMNS.status] = data.status;
-    }
-    if (data.division) {
-      insertPayload[MATCH_COLUMNS.division] = data.division;
-    }
 
     const { data: inserted, error } = await supabase
       .from(MATCHES_TABLE)

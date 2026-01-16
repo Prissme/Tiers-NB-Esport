@@ -11,7 +11,7 @@ export const metadata: Metadata = {
     template: "%s · LFN",
   },
   description:
-    "La ligue compétitive francophone Null’s Brawl. Matchs, classements, stats et saisons en cours.",
+    "La ligue compétitive francophone Null’s Brawl. Matchs, calendrier et saisons en cours.",
   icons: {
     icon: "/favicon.svg",
     apple: "/apple-touch-icon.svg",
@@ -19,7 +19,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "LFN — Ligue Francophone Null’s Brawl",
     description:
-      "La ligue compétitive francophone Null’s Brawl. Matchs, classements, stats et saisons en cours.",
+      "La ligue compétitive francophone Null’s Brawl. Matchs, calendrier et saisons en cours.",
     type: "website",
     url: "https://tiers-nb.koyeb.app/",
     images: [
@@ -35,7 +35,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "LFN — Ligue Francophone Null’s Brawl",
     description:
-      "La ligue compétitive francophone Null’s Brawl. Matchs, classements et saisons en cours.",
+      "La ligue compétitive francophone Null’s Brawl. Matchs, calendrier et saisons en cours.",
     images: ["/og-image.svg"],
   },
 };
