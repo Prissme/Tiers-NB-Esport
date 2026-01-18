@@ -1,12 +1,19 @@
 import { NextResponse } from "next/server";
-import { createAdminClient } from "../../../../src/lib/supabase/admin";
+import { z } from "zod";
+import { createServerClient } from "../../../../src/lib/supabase/server";
 import { withSchema } from "../../../../src/lib/supabase/schema";
 import {
   STANDINGS_VIEW,
   TEAM_COLUMNS,
   TEAM_MEMBER_COLUMNS,
   TEAM_MEMBERS_TABLE,
+  TEAMS_TABLE,
 } from "../../../../src/lib/supabase/config";
+
+const querySchema = z.object({
+  season: z.string().uuid().optional(),
+  division: z.string().optional(),
+});
 
 const toTextValue = (value: unknown) => {
   if (value === null || value === undefined) {
@@ -29,12 +36,34 @@ const toNumber = (value: unknown) => {
   return Number.isNaN(parsed) ? null : parsed;
 };
 
+const normalizeDivision = (value: unknown) => {
+  const raw = String(value ?? "").trim();
+  const upper = raw.toUpperCase();
+  if (["D1", "DIV1", "DIVISION 1", "DIVISION_1"].includes(upper)) return "D1";
+  if (["D2", "DIV2", "DIVISION 2", "DIVISION_2"].includes(upper)) return "D2";
+  return raw || null;
+};
+
+const buildDivisionFilters = (value: string) => {
+  const normalized = normalizeDivision(value);
+  const options = new Set([value, normalized]);
+  if (normalized === "D1") {
+    options.add("Division 1");
+  }
+  if (normalized === "D2") {
+    options.add("Division 2");
+  }
+  return [...options].filter(Boolean) as string[];
+};
+
 const mapTeamRow = (row: Record<string, unknown>) => ({
   id: String(row[TEAM_COLUMNS.id] ?? ""),
   name: String(row[TEAM_COLUMNS.name] ?? ""),
   tag: row[TEAM_COLUMNS.tag] ? String(row[TEAM_COLUMNS.tag]) : null,
-  division: row[TEAM_COLUMNS.division] ? String(row[TEAM_COLUMNS.division]) : null,
+  division: normalizeDivision(row[TEAM_COLUMNS.division]),
   logoUrl: row[TEAM_COLUMNS.logoUrl] ? String(row[TEAM_COLUMNS.logoUrl]) : null,
+  seasonId: row[TEAM_COLUMNS.seasonId] ? String(row[TEAM_COLUMNS.seasonId]) : null,
+  isActive: row[TEAM_COLUMNS.isActive] ? Boolean(row[TEAM_COLUMNS.isActive]) : true,
   statsSummary: toTextValue(row[TEAM_COLUMNS.statsSummary]),
   mainBrawlers: toTextValue(row[TEAM_COLUMNS.mainBrawlers]),
   wins: toNumber(row[TEAM_COLUMNS.wins]),
@@ -52,6 +81,12 @@ const mapMemberRow = (row: Record<string, unknown>) => ({
   description: row[TEAM_MEMBER_COLUMNS.description]
     ? String(row[TEAM_MEMBER_COLUMNS.description])
     : null,
+  seasonId: row[TEAM_MEMBER_COLUMNS.seasonId]
+    ? String(row[TEAM_MEMBER_COLUMNS.seasonId])
+    : null,
+  isActive: row[TEAM_MEMBER_COLUMNS.isActive]
+    ? Boolean(row[TEAM_MEMBER_COLUMNS.isActive])
+    : true,
 });
 
 const resolveErrorMessage = (...errors: Array<{ message?: string } | null | undefined>) => {
@@ -59,17 +94,48 @@ const resolveErrorMessage = (...errors: Array<{ message?: string } | null | unde
   return resolved || "Unable to load teams.";
 };
 
-export async function GET() {
+export async function GET(request: Request) {
+  const params = Object.fromEntries(new URL(request.url).searchParams.entries());
+  const parsed = querySchema.safeParse(params);
+
+  if (!parsed.success) {
+    return NextResponse.json({ error: "Invalid query." }, { status: 400 });
+  }
+
   try {
-    const supabase = withSchema(createAdminClient());
-    const teamsPromise = supabase
-      .from("lfn_teams")
-      .select("*")
-      .order("created_at", { ascending: false });
-    const standingsQuery = supabase.from(STANDINGS_VIEW).select("*");
+    const supabase = withSchema(createServerClient());
+    let teamsQuery = supabase.from(TEAMS_TABLE).select("*").order("created_at", {
+      ascending: false,
+    });
+
+    if (parsed.data.season) {
+      teamsQuery = teamsQuery.eq(TEAM_COLUMNS.seasonId, parsed.data.season);
+    }
+    if (parsed.data.division) {
+      teamsQuery = teamsQuery.in(TEAM_COLUMNS.division, buildDivisionFilters(parsed.data.division));
+    }
+    if (TEAM_COLUMNS.isActive) {
+      teamsQuery = teamsQuery.eq(TEAM_COLUMNS.isActive, true);
+    }
+
+    let membersQuery = supabase.from(TEAM_MEMBERS_TABLE).select("*");
+    if (parsed.data.season) {
+      membersQuery = membersQuery.eq(TEAM_MEMBER_COLUMNS.seasonId, parsed.data.season);
+    }
+    if (TEAM_MEMBER_COLUMNS.isActive) {
+      membersQuery = membersQuery.eq(TEAM_MEMBER_COLUMNS.isActive, true);
+    }
+
+    let standingsQuery = supabase.from(STANDINGS_VIEW).select("*");
+    if (parsed.data.season) {
+      standingsQuery = standingsQuery.eq("season_id", parsed.data.season);
+    }
+    if (parsed.data.division) {
+      standingsQuery = standingsQuery.eq("division", normalizeDivision(parsed.data.division));
+    }
 
     const [{ data, error }, { data: standings, error: standingsError }, membersResponse] =
-      await Promise.all([teamsPromise, standingsQuery, supabase.from(TEAM_MEMBERS_TABLE).select("*")]);
+      await Promise.all([teamsQuery, standingsQuery, membersQuery]);
 
     if (error || standingsError || membersResponse.error) {
       console.warn("/api/site/teams error", {

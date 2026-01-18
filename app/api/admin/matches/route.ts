@@ -17,7 +17,32 @@ const matchSchema = z.object({
   notes: z.string().nullable().optional(),
   vodUrl: z.string().nullable().optional(),
   proofUrl: z.string().nullable().optional(),
+  seasonId: z.string().uuid().nullable().optional(),
+  phase: z.string().nullable().optional(),
+  round: z.string().nullable().optional(),
+  matchGroup: z.string().nullable().optional(),
+  bestOf: z.coerce.number().int().positive().nullable().optional(),
+  scheduledAt: z.string().datetime().nullable().optional(),
 });
+
+const resolveScheduledAt = (
+  scheduledAt?: string | null,
+  day?: string,
+  startTime?: string
+) => {
+  if (scheduledAt) {
+    const date = new Date(scheduledAt);
+    return Number.isNaN(date.getTime()) ? null : date.toISOString();
+  }
+  if (!day || !startTime) return null;
+  const dayDate = new Date(day);
+  if (!Number.isNaN(dayDate.getTime()) && day.includes("T")) {
+    return dayDate.toISOString();
+  }
+  const composed = new Date(`${day}T${startTime}`);
+  if (Number.isNaN(composed.getTime())) return null;
+  return composed.toISOString();
+};
 
 export async function POST(request: Request) {
   if (!isAdminAuthenticated()) {
@@ -42,10 +67,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Scores required for finished matches." }, { status: 400 });
     }
 
+    const scheduledAt = resolveScheduledAt(data.scheduledAt, data.day, data.startTime);
+
     const insertPayload: Record<string, unknown> = {
-      [MATCH_COLUMNS.day]: data.day,
-      [MATCH_COLUMNS.division]: data.division,
-      [MATCH_COLUMNS.startTime]: data.startTime,
+      [MATCH_COLUMNS.day]: data.day ?? null,
+      [MATCH_COLUMNS.division]: data.division ?? null,
+      [MATCH_COLUMNS.startTime]: data.startTime ?? null,
       [MATCH_COLUMNS.teamAId]: data.teamAId,
       [MATCH_COLUMNS.teamBId]: data.teamBId,
       [MATCH_COLUMNS.status]: data.status ?? "scheduled",
@@ -54,6 +81,12 @@ export async function POST(request: Request) {
       [MATCH_COLUMNS.notes]: data.notes ?? null,
       [MATCH_COLUMNS.vodUrl]: data.vodUrl ?? null,
       [MATCH_COLUMNS.proofUrl]: data.proofUrl ?? null,
+      [MATCH_COLUMNS.seasonId]: data.seasonId ?? null,
+      [MATCH_COLUMNS.phase]: data.phase ?? "regular",
+      [MATCH_COLUMNS.round]: data.round ?? null,
+      [MATCH_COLUMNS.matchGroup]: data.matchGroup ?? null,
+      [MATCH_COLUMNS.bestOf]: data.bestOf ?? null,
+      [MATCH_COLUMNS.scheduledAt]: scheduledAt,
     };
 
     const { data: inserted, error } = await supabase

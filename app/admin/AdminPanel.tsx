@@ -336,6 +336,9 @@ export default function AdminPanel() {
     type: "success" | "error";
     message: string;
   } | null>(null);
+  const showToast = useCallback((type: "success" | "error", message: string) => {
+    setToastMessage({ type, message });
+  }, []);
   const playoffsDeadline = useMemo(() => new Date(Date.UTC(2026, 0, 17, 18, 0, 0)), []);
   const playoffsDeadlineLabel = useMemo(
     () =>
@@ -570,10 +573,6 @@ export default function AdminPanel() {
     return () => clearInterval(interval);
   }, [computePlayoffsCountdown]);
 
-  const showToast = useCallback((type: "success" | "error", message: string) => {
-    setToastMessage({ type, message });
-  }, []);
-
   const teamSummary = useMemo(() => {
     const totalTeams = teams.length;
     const divisions = new Map<string, number>();
@@ -679,8 +678,8 @@ export default function AdminPanel() {
 
   const filteredMatches = useMemo(() => {
     return matches.filter((match) => {
-      const matchesDay = matchDay === "all" || match.day === matchDay;
-      const matchesDivision = matchDivision === "all" || match.division === matchDivision;
+      const matchesDay = matchDay === "all" || (match.day ?? "") === matchDay;
+      const matchesDivision = matchDivision === "all" || (match.division ?? "") === matchDivision;
       const matchesStatus = matchStatus === "all" || match.status === matchStatus;
       return matchesDay && matchesDivision && matchesStatus;
     });
@@ -1142,9 +1141,9 @@ export default function AdminPanel() {
   const handleEditMatch = (match: Match) => {
     setEditingMatchId(match.id);
     setMatchForm({
-      day: match.day,
-      division: match.division,
-      startTime: match.startTime,
+      day: match.day ?? "Day 1",
+      division: match.division ?? "",
+      startTime: match.startTime ?? "",
       teamAId: match.teamAId,
       teamBId: match.teamBId,
       status: match.status,
@@ -2116,8 +2115,8 @@ export default function AdminPanel() {
                           : "—";
                       return (
                         <tr key={match.id}>
-                          <td className="px-3 py-2 text-slate-200">{match.day}</td>
-                          <td className="px-3 py-2">{match.division}</td>
+                          <td className="px-3 py-2 text-slate-200">{match.day ?? "—"}</td>
+                          <td className="px-3 py-2">{match.division ?? "—"}</td>
                           <td className="px-3 py-2">{match.startTime || "—"}</td>
                           <td className="px-3 py-2">{teamA?.name ?? match.teamAId}</td>
                           <td className="px-3 py-2">{teamB?.name ?? match.teamBId}</td>

@@ -19,6 +19,8 @@ export const TEAM_COLUMNS = {
   losses: process.env.LFN_TEAM_LOSSES_COLUMN || "losses",
   points: process.env.LFN_TEAM_POINTS_COLUMN || "points",
   deletedAt: process.env.LFN_TEAM_DELETED_AT_COLUMN || "",
+  seasonId: process.env.LFN_TEAM_SEASON_COLUMN || "season_id",
+  isActive: process.env.LFN_TEAM_ACTIVE_COLUMN || "is_active",
 };
 
 export const TEAM_MEMBER_COLUMNS = {
@@ -29,6 +31,8 @@ export const TEAM_MEMBER_COLUMNS = {
   name: process.env.LFN_TEAM_MEMBER_NAME_COLUMN || "player_name",
   mains: process.env.LFN_TEAM_MEMBER_MAINS_COLUMN || "mains",
   description: process.env.LFN_TEAM_MEMBER_DESCRIPTION_COLUMN || "description",
+  seasonId: process.env.LFN_TEAM_MEMBER_SEASON_COLUMN || "season_id",
+  isActive: process.env.LFN_TEAM_MEMBER_ACTIVE_COLUMN || "is_active",
 };
 
 export const MATCH_COLUMNS = {
@@ -46,6 +50,12 @@ export const MATCH_COLUMNS = {
   proofUrl: process.env.LFN_MATCH_PROOF_URL_COLUMN || "proof_url",
   createdAt: process.env.LFN_MATCH_CREATED_AT_COLUMN || "created_at",
   updatedAt: process.env.LFN_MATCH_UPDATED_AT_COLUMN || "updated_at",
+  seasonId: process.env.LFN_MATCH_SEASON_COLUMN || "season_id",
+  phase: process.env.LFN_MATCH_PHASE_COLUMN || "phase",
+  round: process.env.LFN_MATCH_ROUND_COLUMN || "round",
+  matchGroup: process.env.LFN_MATCH_GROUP_COLUMN || "match_group",
+  bestOf: process.env.LFN_MATCH_BEST_OF_COLUMN || "best_of",
+  scheduledAt: process.env.LFN_MATCH_SCHEDULED_AT_COLUMN || "scheduled_at",
 };
 
 const parseStatusValues = (value: string | undefined, fallback: string[]) => {

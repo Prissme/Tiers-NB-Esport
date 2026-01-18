@@ -1,4 +1,4 @@
-import type { Match, Team } from "../../src/data";
+import type { SiteMatch, SiteTeam } from "./site-types";
 import type { StandingsRow } from "../components/StandingsTable";
 
 export type StandingsResult = {
@@ -13,27 +13,23 @@ type TeamStats = {
   scoreDiff: number;
 };
 
-const getScoreDiff = (match: Match, teamId: string) => {
+const getScoreDiff = (match: SiteMatch, teamId: string) => {
   if (typeof match.scoreA !== "number" || typeof match.scoreB !== "number") return 0;
-  if (match.teamAId === teamId) return match.scoreA - match.scoreB;
+  if (match.teamA.id === teamId) return match.scoreA - match.scoreB;
   return match.scoreB - match.scoreA;
 };
 
-const getHeadToHeadPoints = (
-  teamAId: string,
-  teamBId: string,
-  matches: Match[]
-) => {
+const getHeadToHeadPoints = (teamAId: string, teamBId: string, matches: SiteMatch[]) => {
   let pointsA = 0;
   let pointsB = 0;
   matches.forEach((match) => {
     if (
-      (match.teamAId === teamAId && match.teamBId === teamBId) ||
-      (match.teamAId === teamBId && match.teamBId === teamAId)
+      (match.teamA.id === teamAId && match.teamB.id === teamBId) ||
+      (match.teamA.id === teamBId && match.teamB.id === teamAId)
     ) {
-      if (match.scoreA === undefined || match.scoreB === undefined) return;
+      if (match.scoreA === null || match.scoreB === null) return;
       if (match.scoreA === match.scoreB) return;
-      const winnerId = match.scoreA > match.scoreB ? match.teamAId : match.teamBId;
+      const winnerId = match.scoreA > match.scoreB ? match.teamA.id : match.teamB.id;
       if (winnerId === teamAId) {
         pointsA += 1;
       } else {
@@ -45,9 +41,9 @@ const getHeadToHeadPoints = (
 };
 
 export const buildStandings = (
-  division: Team["division"],
-  teams: Team[],
-  matches: Match[]
+  division: SiteTeam["division"],
+  teams: SiteTeam[],
+  matches: SiteMatch[]
 ): StandingsResult => {
   const divisionTeams = teams.filter((team) => team.division === division);
   const finishedMatches = matches.filter(
@@ -60,11 +56,11 @@ export const buildStandings = (
   });
 
   finishedMatches.forEach((match) => {
-    const teamAStats = stats.get(match.teamAId);
-    const teamBStats = stats.get(match.teamBId);
+    const teamAStats = stats.get(match.teamA.id);
+    const teamBStats = stats.get(match.teamB.id);
     if (!teamAStats || !teamBStats) return;
 
-    if (match.scoreA === undefined || match.scoreB === undefined) return;
+    if (match.scoreA === null || match.scoreB === null) return;
 
     if (match.scoreA > match.scoreB) {
       teamAStats.wins += 1;
@@ -76,8 +72,8 @@ export const buildStandings = (
       teamAStats.losses += 1;
     }
 
-    teamAStats.scoreDiff += getScoreDiff(match, match.teamAId);
-    teamBStats.scoreDiff += getScoreDiff(match, match.teamBId);
+    teamAStats.scoreDiff += getScoreDiff(match, match.teamA.id);
+    teamBStats.scoreDiff += getScoreDiff(match, match.teamB.id);
   });
 
   const hasResults = finishedMatches.length > 0;

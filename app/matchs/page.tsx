@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import DayTwoSchedule from "../components/DayTwoSchedule";
+import MatchesClient from "./MatchesClient";
 import SectionHeader from "../components/SectionHeader";
 
 export const metadata: Metadata = {
@@ -21,9 +21,9 @@ export default function MatchsPage() {
           />
           <div className="grid gap-4 md:grid-cols-3">
             {[
-              { label: "Programme", detail: "Calendrier fixe de la saison." },
-              { label: "Divisions", detail: "Affiches D1/D2 planifiées." },
-              { label: "Infos", detail: "Aucun résultat affiché publiquement." },
+              { label: "Programme", detail: "Calendrier officiel depuis Supabase." },
+              { label: "Playoffs", detail: "Phase finale visible ci-dessous." },
+              { label: "Infos", detail: "Résultats et statuts en direct." },
             ].map((panel) => (
               <div key={panel.label} className="motion-card motion-shimmer">
                 <p className="text-xs uppercase tracking-[0.35em] text-slate-400">{panel.label}</p>
@@ -34,7 +34,7 @@ export default function MatchsPage() {
         </div>
       </section>
 
-      <DayTwoSchedule />
+      <MatchesClient />
     </div>
   );
 }

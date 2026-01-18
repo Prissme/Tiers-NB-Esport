@@ -6,7 +6,17 @@ import { STANDINGS_VIEW } from "../../../../src/lib/supabase/config";
 
 const querySchema = z.object({
   limit: z.coerce.number().int().positive().max(100).optional(),
+  season: z.string().uuid().optional(),
+  division: z.string().optional(),
 });
+
+const normalizeDivision = (value: unknown) => {
+  const raw = String(value ?? "").trim();
+  const upper = raw.toUpperCase();
+  if (["D1", "DIV1", "DIVISION 1", "DIVISION_1"].includes(upper)) return "D1";
+  if (["D2", "DIV2", "DIVISION 2", "DIVISION_2"].includes(upper)) return "D2";
+  return raw || null;
+};
 
 const toNumber = (value: unknown) => {
   if (value === null || value === undefined || value === "") {
@@ -28,7 +38,16 @@ export async function GET(request: Request) {
 
   try {
     const supabase = withSchema(createServerClient());
-    const { data, error } = await supabase.from(STANDINGS_VIEW).select("*").limit(limit);
+    let query = supabase.from(STANDINGS_VIEW).select("*");
+
+    if (parsed.data.season) {
+      query = query.eq("season_id", parsed.data.season);
+    }
+    if (parsed.data.division) {
+      query = query.eq("division", normalizeDivision(parsed.data.division));
+    }
+
+    const { data, error } = await query.limit(limit);
 
     if (error) {
       console.warn("/api/site/standings error", error);
@@ -40,6 +59,7 @@ export async function GET(request: Request) {
       teamName: row.team_name ? String(row.team_name) : "",
       teamTag: row.team_tag ? String(row.team_tag) : null,
       division: row.division ? String(row.division) : null,
+      seasonId: row.season_id ? String(row.season_id) : null,
       wins: toNumber(row.wins),
       losses: toNumber(row.losses),
       setsWon: toNumber(row.sets_won),

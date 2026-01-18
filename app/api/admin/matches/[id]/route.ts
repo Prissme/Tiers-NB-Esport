@@ -17,7 +17,32 @@ const updateSchema = z.object({
   notes: z.string().nullable().optional(),
   vodUrl: z.string().nullable().optional(),
   proofUrl: z.string().nullable().optional(),
+  seasonId: z.string().uuid().nullable().optional(),
+  phase: z.string().nullable().optional(),
+  round: z.string().nullable().optional(),
+  matchGroup: z.string().nullable().optional(),
+  bestOf: z.coerce.number().int().positive().nullable().optional(),
+  scheduledAt: z.string().datetime().nullable().optional(),
 });
+
+const resolveScheduledAt = (
+  scheduledAt?: string | null,
+  day?: string,
+  startTime?: string
+) => {
+  if (scheduledAt) {
+    const date = new Date(scheduledAt);
+    return Number.isNaN(date.getTime()) ? null : date.toISOString();
+  }
+  if (!day || !startTime) return null;
+  const dayDate = new Date(day);
+  if (!Number.isNaN(dayDate.getTime()) && day.includes("T")) {
+    return dayDate.toISOString();
+  }
+  const composed = new Date(`${day}T${startTime}`);
+  if (Number.isNaN(composed.getTime())) return null;
+  return composed.toISOString();
+};
 
 export async function PATCH(
   request: Request,
@@ -73,6 +98,30 @@ export async function PATCH(
     }
     if (parsed.data.proofUrl !== undefined) {
       updatePayload[MATCH_COLUMNS.proofUrl] = parsed.data.proofUrl;
+    }
+    if (parsed.data.seasonId !== undefined) {
+      updatePayload[MATCH_COLUMNS.seasonId] = parsed.data.seasonId;
+    }
+    if (parsed.data.phase !== undefined) {
+      updatePayload[MATCH_COLUMNS.phase] = parsed.data.phase;
+    }
+    if (parsed.data.round !== undefined) {
+      updatePayload[MATCH_COLUMNS.round] = parsed.data.round;
+    }
+    if (parsed.data.matchGroup !== undefined) {
+      updatePayload[MATCH_COLUMNS.matchGroup] = parsed.data.matchGroup;
+    }
+    if (parsed.data.bestOf !== undefined) {
+      updatePayload[MATCH_COLUMNS.bestOf] = parsed.data.bestOf;
+    }
+
+    const scheduledAt = resolveScheduledAt(
+      parsed.data.scheduledAt,
+      parsed.data.day,
+      parsed.data.startTime
+    );
+    if (scheduledAt) {
+      updatePayload[MATCH_COLUMNS.scheduledAt] = scheduledAt;
     }
 
     const { data: updated, error } = await supabase

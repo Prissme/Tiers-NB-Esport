@@ -1,4 +1,4 @@
-import type { Team } from "../../src/data";
+import type { SiteTeam } from "../lib/site-types";
 
 export type StandingsRow = {
   teamId: string;
@@ -10,7 +10,7 @@ export type StandingsRow = {
 
 type StandingsTableProps = {
   rows: StandingsRow[];
-  teamsById: Record<string, Team>;
+  teamsById: Record<string, SiteTeam>;
 };
 
 export default function StandingsTable({ rows, teamsById }: StandingsTableProps) {

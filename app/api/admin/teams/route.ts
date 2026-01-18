@@ -6,6 +6,7 @@ import {
   TEAM_COLUMNS,
   TEAM_MEMBER_COLUMNS,
   TEAM_MEMBERS_TABLE,
+  TEAMS_TABLE,
 } from "../../../../src/lib/supabase/config";
 import { isAdminAuthenticated } from "../../../../src/lib/admin/auth";
 
@@ -28,6 +29,8 @@ const teamSchema = z.object({
   tag: z.string().min(1).optional().nullable(),
   division: z.string().min(1).optional().nullable(),
   logoUrl: z.string().url().optional().nullable(),
+  seasonId: z.string().uuid().optional().nullable(),
+  isActive: z.boolean().optional().nullable(),
   statsSummary: z.union([z.string(), z.record(z.unknown())]).optional().nullable(),
   mainBrawlers: z.union([z.string(), z.array(z.string())]).optional().nullable(),
   roster: z.array(memberSchema).optional(),
@@ -101,7 +104,7 @@ export async function POST(request: Request) {
     const data = parsed.data;
     const tag = normalizeTag(data.tag);
     const normalizedDivision = normalizeDivision(data.division ?? null);
-    const rpcPayload = {
+    const insertPayload: Record<string, unknown> = {
       ...(data.id ? { [TEAM_COLUMNS.id]: data.id } : {}),
       [TEAM_COLUMNS.name]: data.name ?? null,
       [TEAM_COLUMNS.tag]: tag,
@@ -109,16 +112,20 @@ export async function POST(request: Request) {
       [TEAM_COLUMNS.logoUrl]: data.logoUrl ?? null,
       [TEAM_COLUMNS.mainBrawlers]: normalizeMainBrawlers(data.mainBrawlers),
       [TEAM_COLUMNS.statsSummary]: normalizeStatsSummary(data.statsSummary),
+      [TEAM_COLUMNS.seasonId]: data.seasonId ?? null,
+      [TEAM_COLUMNS.isActive]: data.isActive ?? true,
     };
 
-    const { data: rpcData, error } = await supabase.rpc("save_lfn_team", { p: rpcPayload });
+    const { data: team, error } = await supabase
+      .from(TEAMS_TABLE)
+      .upsert(insertPayload)
+      .select("*")
+      .single();
 
     if (error) {
       console.error("/api/admin/teams save error", error);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
-
-    const team = Array.isArray(rpcData) ? rpcData[0] : rpcData;
 
     if (!team) {
       return NextResponse.json({ error: "Unable to create team." }, { status: 500 });
@@ -142,6 +149,8 @@ export async function POST(request: Request) {
         [TEAM_MEMBER_COLUMNS.name]: member.name,
         [TEAM_MEMBER_COLUMNS.mains]: member.mains ?? null,
         [TEAM_MEMBER_COLUMNS.description]: member.description ?? null,
+        [TEAM_MEMBER_COLUMNS.seasonId]: data.seasonId ?? null,
+        [TEAM_MEMBER_COLUMNS.isActive]: true,
       }));
       const { error: rosterError } = await supabase
         .from(TEAM_MEMBERS_TABLE)

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import SectionHeader from "../components/SectionHeader";
+import StandingsClient from "./StandingsClient";
 
 export const metadata: Metadata = {
   title: "Classements",
@@ -21,17 +22,7 @@ export default function ClassementPage() {
         </div>
       </section>
 
-      <section className="section-card space-y-4">
-        <SectionHeader
-          kicker="Information"
-          title="Publication à venir"
-          description="Merci de consulter le programme fixe en attendant."
-        />
-        <p className="text-sm text-slate-400">
-          Les résultats ne sont pas affichés publiquement. Le classement sera rendu public une fois
-          validé par l'organisation.
-        </p>
-      </section>
+      <StandingsClient />
     </div>
   );
 }

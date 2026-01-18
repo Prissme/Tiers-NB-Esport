@@ -1,5 +1,5 @@
 import Link from "next/link";
-import type { Team } from "../../src/data";
+import type { SiteTeam } from "../lib/site-types";
 
 const getInitials = (name: string) =>
   name
@@ -10,11 +10,11 @@ const getInitials = (name: string) =>
     .slice(0, 2)
     .toUpperCase();
 
-export default function TeamCard({ team }: { team: Team }) {
+export default function TeamCard({ team }: { team: SiteTeam }) {
   return (
     <Link
       href={`/equipes/${team.id}`}
-      className="group flex items-center gap-4 rounded-2xl border border-white/10 bg-white/5 px-5 py-4 transition hover:border-amber-300/40 hover:bg-white/10"
+      className="group flex items-center gap-4 rounded-2xl border border-white/10 bg-white/5 px-5 py-4 transition hover:-translate-y-0.5 hover:border-amber-300/40 hover:bg-white/10 animate-in"
     >
       {team.logoUrl ? (
         <img
@@ -29,7 +29,9 @@ export default function TeamCard({ team }: { team: Team }) {
         </div>
       )}
       <div>
-        <p className="text-xs uppercase tracking-[0.35em] text-slate-400">{team.division}</p>
+        <p className="text-xs uppercase tracking-[0.35em] text-slate-400">
+          {team.division ?? "—"}
+        </p>
         <p className="text-sm font-semibold text-white">{team.name}</p>
       </div>
     </Link>

@@ -10,9 +10,9 @@ export type MatchFilters = {
 
 export type ResultMatch = {
   id: string;
-  day: string;
-  division: string;
-  startTime: string;
+  day: string | null;
+  division: string | null;
+  startTime: string | null;
   teamAId: string;
   teamBId: string;
   status: string;
@@ -23,12 +23,18 @@ export type ResultMatch = {
   proofUrl: string | null;
   createdAt: string | null;
   updatedAt: string | null;
+  seasonId: string | null;
+  phase: string | null;
+  round: string | null;
+  matchGroup: string | null;
+  bestOf: number | null;
+  scheduledAt: string | null;
 };
 
 export type MatchPayload = {
-  day: string;
-  division: string;
-  startTime: string;
+  day?: string | null;
+  division?: string | null;
+  startTime?: string | null;
   teamAId: string;
   teamBId: string;
   status: string;
@@ -37,6 +43,12 @@ export type MatchPayload = {
   notes?: string | null;
   vodUrl?: string | null;
   proofUrl?: string | null;
+  seasonId?: string | null;
+  phase?: string | null;
+  round?: string | null;
+  matchGroup?: string | null;
+  bestOf?: number | null;
+  scheduledAt?: string | null;
 };
 
 const getClient = () => {
@@ -47,21 +59,35 @@ const getClient = () => {
   return withSchema(client);
 };
 
+const toNumber = (value: unknown) => {
+  if (value === null || value === undefined || value === "") {
+    return null;
+  }
+  const parsed = Number(value);
+  return Number.isNaN(parsed) ? null : parsed;
+};
+
 const mapMatchRow = (row: Record<string, unknown>): ResultMatch => ({
   id: String(row.id ?? ""),
-  day: row.day ? String(row.day) : "",
-  division: row.division ? String(row.division) : "",
-  startTime: row.start_time ? String(row.start_time) : "",
+  day: row.day ? String(row.day) : null,
+  division: row.division ? String(row.division) : null,
+  startTime: row.start_time ? String(row.start_time) : null,
   teamAId: row.team_a_id ? String(row.team_a_id) : "",
   teamBId: row.team_b_id ? String(row.team_b_id) : "",
   status: row.status ? String(row.status) : "scheduled",
-  scoreA: row.score_a === null || row.score_a === undefined ? null : Number(row.score_a),
-  scoreB: row.score_b === null || row.score_b === undefined ? null : Number(row.score_b),
+  scoreA: toNumber(row.score_a),
+  scoreB: toNumber(row.score_b),
   notes: row.notes ? String(row.notes) : null,
   vodUrl: row.vod_url ? String(row.vod_url) : null,
   proofUrl: row.proof_url ? String(row.proof_url) : null,
   createdAt: row.created_at ? String(row.created_at) : null,
   updatedAt: row.updated_at ? String(row.updated_at) : null,
+  seasonId: row.season_id ? String(row.season_id) : null,
+  phase: row.phase ? String(row.phase) : null,
+  round: row.round ? String(row.round) : null,
+  matchGroup: row.match_group ? String(row.match_group) : null,
+  bestOf: toNumber(row.best_of),
+  scheduledAt: row.scheduled_at ? String(row.scheduled_at) : null,
 });
 
 export const getMatches = async (filters?: MatchFilters): Promise<ResultMatch[]> => {
@@ -90,9 +116,9 @@ export const createMatch = async (payload: MatchPayload): Promise<ResultMatch> =
   const { data, error } = await supabase
     .from(MATCHES_TABLE)
     .insert({
-      day: payload.day,
-      division: payload.division,
-      start_time: payload.startTime,
+      day: payload.day ?? null,
+      division: payload.division ?? null,
+      start_time: payload.startTime ?? null,
       team_a_id: payload.teamAId,
       team_b_id: payload.teamBId,
       status: payload.status,
@@ -101,6 +127,12 @@ export const createMatch = async (payload: MatchPayload): Promise<ResultMatch> =
       notes: payload.notes ?? null,
       vod_url: payload.vodUrl ?? null,
       proof_url: payload.proofUrl ?? null,
+      season_id: payload.seasonId ?? null,
+      phase: payload.phase ?? "regular",
+      round: payload.round ?? null,
+      match_group: payload.matchGroup ?? null,
+      best_of: payload.bestOf ?? null,
+      scheduled_at: payload.scheduledAt ?? null,
     })
     .select("*")
     .single();
@@ -117,9 +149,9 @@ export const updateMatch = async (id: string, payload: MatchPayload): Promise<Re
   const { data, error } = await supabase
     .from(MATCHES_TABLE)
     .update({
-      day: payload.day,
-      division: payload.division,
-      start_time: payload.startTime,
+      day: payload.day ?? null,
+      division: payload.division ?? null,
+      start_time: payload.startTime ?? null,
       team_a_id: payload.teamAId,
       team_b_id: payload.teamBId,
       status: payload.status,
@@ -128,6 +160,12 @@ export const updateMatch = async (id: string, payload: MatchPayload): Promise<Re
       notes: payload.notes ?? null,
       vod_url: payload.vodUrl ?? null,
       proof_url: payload.proofUrl ?? null,
+      season_id: payload.seasonId ?? null,
+      phase: payload.phase ?? "regular",
+      round: payload.round ?? null,
+      match_group: payload.matchGroup ?? null,
+      best_of: payload.bestOf ?? null,
+      scheduled_at: payload.scheduledAt ?? null,
     })
     .eq("id", id)
     .select("*")
