@@ -28,6 +28,8 @@ const updateSchema = z.object({
   tag: z.string().min(1).nullable().optional(),
   division: z.string().min(1).nullable().optional(),
   logoUrl: z.string().url().nullable().optional(),
+  seasonId: z.string().uuid().nullable().optional(),
+  isActive: z.boolean().nullable().optional(),
   statsSummary: z.union([z.string(), z.record(z.unknown())]).nullable().optional(),
   mainBrawlers: z.union([z.string(), z.array(z.string())]).nullable().optional(),
   roster: z.array(memberSchema).optional(),
@@ -124,6 +126,12 @@ export async function PATCH(
     if (parsed.data.mainBrawlers !== undefined) {
       updatePayload[TEAM_COLUMNS.mainBrawlers] = normalizeMainBrawlers(parsed.data.mainBrawlers);
     }
+    if (parsed.data.seasonId !== undefined) {
+      updatePayload[TEAM_COLUMNS.seasonId] = parsed.data.seasonId;
+    }
+    if (parsed.data.isActive !== undefined) {
+      updatePayload[TEAM_COLUMNS.isActive] = parsed.data.isActive;
+    }
 
     if (parsed.data.roster !== undefined) {
       const { error: deleteError } = await supabase
@@ -144,6 +152,8 @@ export async function PATCH(
           [TEAM_MEMBER_COLUMNS.name]: member.name,
           [TEAM_MEMBER_COLUMNS.mains]: member.mains ?? null,
           [TEAM_MEMBER_COLUMNS.description]: member.description ?? null,
+          [TEAM_MEMBER_COLUMNS.seasonId]: parsed.data.seasonId ?? null,
+          [TEAM_MEMBER_COLUMNS.isActive]: true,
         }));
         const { error: rosterError } = await supabase
           .from(TEAM_MEMBERS_TABLE)
@@ -156,7 +166,11 @@ export async function PATCH(
       }
     }
 
-    const { data: updated, error } = await supabase.rpc("save_lfn_team", { p: updatePayload });
+    const { data: updated, error } = await supabase
+      .from(TEAMS_TABLE)
+      .upsert(updatePayload)
+      .select("*")
+      .single();
 
     if (error) {
       console.error("/api/admin/teams save error", error);
@@ -186,6 +200,20 @@ export async function DELETE(
 
   try {
     const supabase = withSchema(createAdminClient());
+
+    if (TEAM_COLUMNS.isActive) {
+      const { error } = await supabase
+        .from(TEAMS_TABLE)
+        .update({ [TEAM_COLUMNS.isActive]: false })
+        .eq(TEAM_COLUMNS.id, params.id);
+
+      if (error) {
+        console.error("/api/admin/teams soft delete error", error);
+        return NextResponse.json({ error: error.message }, { status: 500 });
+      }
+
+      return NextResponse.json({ ok: true, deleted: true });
+    }
 
     if (TEAM_COLUMNS.deletedAt) {
       const { error } = await supabase

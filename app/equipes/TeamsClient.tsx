@@ -1,8 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import TeamCard from "../components/TeamCard";
-import { teams } from "../../src/data";
+import type { SiteTeam } from "../lib/site-types";
+import { teams as fallbackTeams } from "../../src/data";
 
 const divisionOptions = [
   { label: "Toutes", value: "all" },
@@ -10,9 +11,62 @@ const divisionOptions = [
   { label: "D2", value: "D2" },
 ];
 
+const mapFallbackTeams = (): SiteTeam[] =>
+  fallbackTeams.map((team) => ({
+    id: team.id,
+    name: team.name,
+    tag: null,
+    division: team.division,
+    logoUrl: team.logoUrl,
+    roster: team.roster.map((member) => ({
+      role: member.role,
+      slot: member.slot ?? null,
+      name: member.name,
+      mains: member.mains ?? null,
+      description: member.role ?? null,
+    })),
+  }));
+
 export default function TeamsClient() {
   const [divisionFilter, setDivisionFilter] = useState("all");
   const [search, setSearch] = useState("");
+  const [teams, setTeams] = useState<SiteTeam[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [source, setSource] = useState<"supabase" | "fallback">("supabase");
+
+  useEffect(() => {
+    let mounted = true;
+    const load = async () => {
+      try {
+        const response = await fetch("/api/site/teams", { cache: "no-store" });
+        const payload = (await response.json()) as { teams?: SiteTeam[] };
+        const nextTeams = payload.teams ?? [];
+        if (mounted) {
+          if (nextTeams.length === 0) {
+            setTeams(mapFallbackTeams());
+            setSource("fallback");
+          } else {
+            setTeams(nextTeams);
+          }
+        }
+      } catch (error) {
+        console.error("teams load error", error);
+        if (mounted) {
+          setTeams(mapFallbackTeams());
+          setSource("fallback");
+        }
+      } finally {
+        if (mounted) {
+          setLoading(false);
+        }
+      }
+    };
+
+    load();
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   const filteredTeams = useMemo(() => {
     return teams.filter((team) => {
@@ -20,10 +74,35 @@ export default function TeamsClient() {
       const searchMatch = team.name.toLowerCase().includes(search.toLowerCase());
       return divisionMatch && searchMatch;
     });
-  }, [divisionFilter, search]);
+  }, [divisionFilter, search, teams]);
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="skeleton h-12 w-full rounded-full md:w-64" />
+          <div className="flex flex-wrap gap-2">
+            {[1, 2, 3].map((item) => (
+              <div key={item} className="skeleton h-9 w-16 rounded-full" />
+            ))}
+          </div>
+        </div>
+        <div className="grid gap-3 md:grid-cols-2">
+          {[1, 2, 3, 4].map((item) => (
+            <div key={item} className="motion-card h-20" />
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
+      {source === "fallback" ? (
+        <p className="text-xs uppercase tracking-[0.3em] text-slate-500">
+          Données de secours (Supabase vide)
+        </p>
+      ) : null}
       <div className="flex flex-wrap items-center gap-3">
         <input
           value={search}

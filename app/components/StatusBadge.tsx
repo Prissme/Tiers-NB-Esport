@@ -1,4 +1,4 @@
-import type { MatchStatus } from "../../src/data";
+import type { MatchStatus } from "../lib/site-types";
 
 const statusStyles: Record<MatchStatus, string> = {
   scheduled: "bg-sky-400/15 text-sky-200 border-sky-400/30",

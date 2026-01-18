@@ -1,0 +1,136 @@
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import SectionHeader from "../components/SectionHeader";
+import StandingsTable, { type StandingsRow } from "../components/StandingsTable";
+import type { SiteStandingsRow, SiteTeam } from "../lib/site-types";
+import { teams as fallbackTeams } from "../../src/data";
+
+const mapFallbackTeams = (): SiteTeam[] =>
+  fallbackTeams.map((team) => ({
+    id: team.id,
+    name: team.name,
+    tag: null,
+    division: team.division,
+    logoUrl: team.logoUrl,
+  }));
+
+const toStandingsRows = (standings: SiteStandingsRow[]): StandingsRow[] =>
+  standings.map((row) => ({
+    teamId: row.teamId,
+    wins: row.wins ?? 0,
+    losses: row.losses ?? 0,
+    points: row.pointsTotal ?? row.pointsSets ?? 0,
+    matchesPlayed: (row.wins ?? 0) + (row.losses ?? 0),
+  }));
+
+export default function StandingsClient() {
+  const [standings, setStandings] = useState<SiteStandingsRow[]>([]);
+  const [teams, setTeams] = useState<SiteTeam[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [source, setSource] = useState<"supabase" | "fallback">("supabase");
+
+  useEffect(() => {
+    let mounted = true;
+
+    const load = async () => {
+      try {
+        const [standingsResponse, teamsResponse] = await Promise.all([
+          fetch("/api/site/standings", { cache: "no-store" }),
+          fetch("/api/site/teams", { cache: "no-store" }),
+        ]);
+        const standingsPayload = (await standingsResponse.json()) as {
+          standings?: SiteStandingsRow[];
+        };
+        const teamsPayload = (await teamsResponse.json()) as { teams?: SiteTeam[] };
+        if (mounted) {
+          const nextStandings = standingsPayload.standings ?? [];
+          const nextTeams = teamsPayload.teams ?? [];
+          if (nextStandings.length === 0 && nextTeams.length === 0) {
+            setTeams(mapFallbackTeams());
+            setSource("fallback");
+          } else {
+            setStandings(nextStandings);
+            setTeams(nextTeams.length ? nextTeams : mapFallbackTeams());
+          }
+        }
+      } catch (error) {
+        console.error("standings load error", error);
+        if (mounted) {
+          setTeams(mapFallbackTeams());
+          setSource("fallback");
+        }
+      } finally {
+        if (mounted) {
+          setLoading(false);
+        }
+      }
+    };
+
+    load();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const { standingsByDivision, teamsById } = useMemo(() => {
+    const teamsMap = Object.fromEntries(teams.map((team) => [team.id, team]));
+    const grouped = standings.reduce<Record<string, SiteStandingsRow[]>>((acc, row) => {
+      const division = row.division ?? "D1";
+      if (!acc[division]) acc[division] = [];
+      acc[division].push(row);
+      return acc;
+    }, {});
+
+    return { standingsByDivision: grouped, teamsById: teamsMap };
+  }, [standings, teams]);
+
+  if (loading) {
+    return (
+      <section className="section-card space-y-6">
+        <div className="space-y-2">
+          <div className="skeleton h-4 w-32" />
+          <div className="skeleton h-6 w-48" />
+        </div>
+        <div className="motion-card h-48" />
+      </section>
+    );
+  }
+
+  if (standings.length === 0) {
+    return (
+      <section className="section-card space-y-4">
+        <SectionHeader
+          kicker="Information"
+          title="Publication à venir"
+          description="Merci de consulter le programme fixe en attendant."
+        />
+        <p className="text-sm text-slate-400">
+          Les résultats ne sont pas affichés publiquement. Le classement sera rendu public une fois
+          validé par l'organisation.
+        </p>
+      </section>
+    );
+  }
+
+  return (
+    <section className="section-card space-y-8">
+      <SectionHeader
+        kicker="Classement"
+        title="Classement officiel"
+        description="Synchronisé depuis Supabase."
+      />
+      {source === "fallback" ? (
+        <p className="text-xs uppercase tracking-[0.3em] text-slate-500">
+          Données de secours (Supabase vide)
+        </p>
+      ) : null}
+      {Object.entries(standingsByDivision).map(([division, rows]) => (
+        <div key={division} className="space-y-3">
+          <p className="text-xs uppercase tracking-[0.3em] text-slate-400">{division}</p>
+          <StandingsTable rows={toStandingsRows(rows)} teamsById={teamsById} />
+        </div>
+      ))}
+    </section>
+  );
+}

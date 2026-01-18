@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import DayTwoSchedule from "./components/DayTwoSchedule";
 import Button from "./components/Button";
+import SeasonKicker from "./components/SeasonKicker";
 
 export const metadata: Metadata = {
   title: "Accueil",
@@ -20,9 +21,7 @@ export default async function HomePage() {
           <div className="absolute inset-0 grid-lines opacity-30" />
           <div className="relative z-10 space-y-6">
             <div className="space-y-3">
-              <p className="text-xs uppercase tracking-[0.4em] text-amber-300/80">
-                Saison 1 — Divisions D1/D2
-              </p>
+              <SeasonKicker />
               <h1 className="text-4xl font-semibold leading-tight text-white md:text-6xl">
                 LFN, la ligue premium Null&apos;s Brawl
               </h1>
