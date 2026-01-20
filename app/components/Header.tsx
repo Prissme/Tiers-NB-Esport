@@ -1,5 +1,4 @@
 import Link from "next/link";
-import Button from "./Button";
 import Countdown from "./Countdown";
 
 export default function Header() {
@@ -15,7 +14,7 @@ export default function Header() {
             />
           </span>
           <div className="hidden sm:block">
-            <p className="text-sm font-semibold uppercase tracking-[0.35em] text-amber-300/80">
+            <p className="text-sm font-semibold uppercase tracking-[0.35em] text-slate-400">
               Ligue officielle
             </p>
             <p className="text-xs text-slate-400">Null&apos;s Brawl Francophone</p>
@@ -26,11 +25,6 @@ export default function Header() {
             targetDate="2026-01-12T18:00:00+01:00"
             className="neo-border glow-pulse"
           />
-        </div>
-        <div className="flex flex-wrap items-center justify-center gap-3 sm:justify-end">
-          <Button href="https://ko-fi.com/prissme" variant="ghost" external>
-            Soutenir la LFN
-          </Button>
         </div>
       </div>
     </header>

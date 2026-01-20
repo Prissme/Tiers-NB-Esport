@@ -9,10 +9,8 @@ export const metadata: Metadata = {
 
 export default function ClassementPage() {
   return (
-    <div className="space-y-12">
-      <section className="motion-field p-8">
-        <div className="motion-orb -left-14 top-10 h-52 w-52 motion-drift" />
-        <div className="motion-orb motion-orb--blue right-0 top-6 h-44 w-44 motion-spin" />
+    <div className="space-y-14">
+      <section className="motion-field p-10">
         <div className="relative z-10 space-y-6">
           <SectionHeader
             kicker="Classement"

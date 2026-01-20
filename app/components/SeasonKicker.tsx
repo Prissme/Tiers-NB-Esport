@@ -53,7 +53,7 @@ export default function SeasonKicker() {
   }
 
   return (
-    <p className="text-xs uppercase tracking-[0.4em] text-amber-300/80">
+    <p className="text-xs font-semibold uppercase tracking-[0.4em] text-slate-400">
       {formatSeasonLabel(season)}
     </p>
   );

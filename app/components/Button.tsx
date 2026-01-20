@@ -11,7 +11,7 @@ type ButtonProps = {
 
 const styles: Record<NonNullable<ButtonProps["variant"]>, string> = {
   primary:
-    "bg-amber-400 text-slate-950 hover:bg-amber-300 focus-visible:ring-amber-300",
+    "border border-white/15 bg-white/10 text-white hover:bg-white/15 focus-visible:ring-white/30",
   secondary:
     "border border-white/15 bg-white/5 text-white hover:border-white/30 hover:bg-white/10 focus-visible:ring-white/30",
   ghost:
