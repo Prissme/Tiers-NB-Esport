@@ -103,7 +103,7 @@ export default function StandingsClient() {
         <SectionHeader
           kicker="Information"
           title="Publication à venir"
-          description="Merci de consulter le programme fixe en attendant."
+          description="Le programme reste disponible pendant la phase de validation."
         />
         <p className="text-sm text-slate-400">
           Les résultats ne sont pas affichés publiquement. Le classement sera rendu public une fois
@@ -114,11 +114,11 @@ export default function StandingsClient() {
   }
 
   return (
-    <section className="section-card space-y-8">
+    <section className="section-card space-y-10">
       <SectionHeader
         kicker="Classement"
         title="Classement officiel"
-        description="Synchronisé depuis Supabase."
+        description="Publication officielle de la ligue."
       />
       {source === "fallback" ? (
         <p className="text-xs uppercase tracking-[0.3em] text-slate-500">
@@ -126,8 +126,10 @@ export default function StandingsClient() {
         </p>
       ) : null}
       {Object.entries(standingsByDivision).map(([division, rows]) => (
-        <div key={division} className="space-y-3">
-          <p className="text-xs uppercase tracking-[0.3em] text-slate-400">{division}</p>
+        <div key={division} className="space-y-4">
+          <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">
+            {division}
+          </p>
           <StandingsTable rows={toStandingsRows(rows)} teamsById={teamsById} />
         </div>
       ))}
