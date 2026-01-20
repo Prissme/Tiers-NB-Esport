@@ -19,24 +19,7 @@ export type ScheduleDay = {
 
 export const dayTwoSchedule: ScheduleDay = {
   label: "Day 2",
-  slots: [
-    {
-      time: "19:00",
-      division: "D1",
-      matches: [
-        { teamAId: "ltg", teamBId: "jl" },
-        { teamAId: "bd", teamBId: "bt" },
-      ],
-    },
-    {
-      time: "20:00",
-      division: "D2",
-      matches: [
-        { teamAId: "kyr", teamBId: "nr" },
-        { teamAId: "lxr", teamBId: "t2" },
-      ],
-    },
-  ],
+  slots: [],
 };
 
 export const dayThreeSchedule: ScheduleDay = {
@@ -44,4 +27,4 @@ export const dayThreeSchedule: ScheduleDay = {
   slots: [],
 };
 
-export const scheduleDays = [dayTwoSchedule, dayThreeSchedule];
+export const scheduleDays: ScheduleDay[] = [];
