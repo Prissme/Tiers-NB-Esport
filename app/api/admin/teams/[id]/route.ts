@@ -202,41 +202,62 @@ export async function DELETE(
     const supabase = withSchema(createAdminClient());
 
     if (TEAM_COLUMNS.isActive) {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from(TEAMS_TABLE)
         .update({ [TEAM_COLUMNS.isActive]: false })
-        .eq(TEAM_COLUMNS.id, params.id);
+        .eq(TEAM_COLUMNS.id, params.id)
+        .select(TEAM_COLUMNS.id);
 
       if (error) {
         console.error("/api/admin/teams soft delete error", error);
         return NextResponse.json({ error: error.message }, { status: 500 });
       }
 
-      return NextResponse.json({ ok: true, deleted: true });
+      if (!data || data.length === 0) {
+        return NextResponse.json({ error: "Team not found." }, { status: 404 });
+      }
+
+      console.info("/api/admin/teams deleted", { id: params.id });
+      return new NextResponse(null, { status: 204 });
     }
 
     if (TEAM_COLUMNS.deletedAt) {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from(TEAMS_TABLE)
         .update({ [TEAM_COLUMNS.deletedAt]: new Date().toISOString() })
-        .eq(TEAM_COLUMNS.id, params.id);
+        .eq(TEAM_COLUMNS.id, params.id)
+        .select(TEAM_COLUMNS.id);
 
       if (error) {
         console.error("/api/admin/teams soft delete error", error);
         return NextResponse.json({ error: error.message }, { status: 500 });
       }
 
-      return NextResponse.json({ ok: true, deleted: true });
+      if (!data || data.length === 0) {
+        return NextResponse.json({ error: "Team not found." }, { status: 404 });
+      }
+
+      console.info("/api/admin/teams deleted", { id: params.id });
+      return new NextResponse(null, { status: 204 });
     }
 
-    const { error } = await supabase.from(TEAMS_TABLE).delete().eq(TEAM_COLUMNS.id, params.id);
+    const { data, error } = await supabase
+      .from(TEAMS_TABLE)
+      .delete()
+      .eq(TEAM_COLUMNS.id, params.id)
+      .select(TEAM_COLUMNS.id);
 
     if (error) {
       console.error("/api/admin/teams delete error", error);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json({ ok: true, deleted: true });
+    if (!data || data.length === 0) {
+      return NextResponse.json({ error: "Team not found." }, { status: 404 });
+    }
+
+    console.info("/api/admin/teams deleted", { id: params.id });
+    return new NextResponse(null, { status: 204 });
   } catch (error) {
     console.error("/api/admin/teams error", error);
     return NextResponse.json({ error: "Unable to delete team." }, { status: 500 });
