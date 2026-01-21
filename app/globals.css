@@ -119,4 +119,48 @@ body {
   .hero-field {
     background: linear-gradient(135deg, rgba(7, 10, 18, 0.98), rgba(12, 18, 30, 0.94));
   }
+
+  .hero {
+    background: rgba(7, 10, 18, 0.88);
+    animation: hero-fade-in 900ms ease-out both;
+  }
+
+  .hero__background {
+    @apply absolute inset-0 -z-10 rounded-[32px] bg-cover bg-center;
+    background-image: url("https://media.discordapp.net/attachments/1434252768633290952/1463530397483929817/content.png?format=webp&quality=lossless");
+    transform: scale(1.02);
+  }
+
+  .hero__overlay {
+    @apply absolute inset-0 -z-10 rounded-[32px];
+    background: linear-gradient(120deg, rgba(7, 10, 18, 0.88), rgba(5, 7, 12, 0.6)),
+      radial-gradient(circle at 20% 20%, rgba(34, 211, 238, 0.18), transparent 55%),
+      radial-gradient(circle at 80% 10%, rgba(15, 23, 42, 0.6), transparent 60%);
+  }
+
+  .hero__grain {
+    @apply absolute inset-0 -z-10 rounded-[32px] opacity-40;
+    background-image: url("data:image/svg+xml,%3Csvg width='160' height='160' viewBox='0 0 160 160' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='grain'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23grain)' opacity='0.22'/%3E%3C/svg%3E");
+    mix-blend-mode: soft-light;
+  }
+
+  .hero__background::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: rgba(5, 7, 12, 0.2);
+    backdrop-filter: blur(1px);
+  }
+}
+
+@keyframes hero-fade-in {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 12px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
 }
