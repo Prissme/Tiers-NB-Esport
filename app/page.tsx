@@ -1,5 +1,6 @@
 import FeatureCard from "./components/FeatureCard";
 import HeroCard from "./components/HeroCard";
+import EliteOffer from "./components/EliteOffer";
 import TopTeams from "./components/TopTeams";
 
 const features = [
@@ -49,6 +50,7 @@ export default function HomePage() {
     <div className="relative">
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-14 px-4 pb-20 pt-4 sm:px-6">
         <HeroCard />
+        <EliteOffer />
         <section className="grid gap-6 lg:grid-cols-[1.6fr_1fr]">
           <div className="grid gap-6 md:grid-cols-3">
             {features.map((feature) => (

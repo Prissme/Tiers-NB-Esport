@@ -21,10 +21,18 @@ const particles = [
   { left: "94%", top: "32%", size: 1, delay: "6s", duration: "17s", opacity: 0.33 },
 ];
 
+const ambienceImage =
+  "https://media.discordapp.net/attachments/1434252768633290952/1463530397483929817/content.png?ex=69722a65&is=6970d8e5&hm=1603821cd11e19641f256399c4fc62a8f77ab412d02f7641da3d3051d3d9fb3b&=&format=webp&quality=lossless&width=874&height=583";
+
 export default function BackgroundFX() {
   return (
     <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
       <div className="absolute inset-0 bg-hero-gradient" />
+      <div
+        className="absolute inset-0 scale-105 bg-cover bg-center opacity-[0.1] blur-[10px]"
+        style={{ backgroundImage: `url(${ambienceImage})` }}
+      />
+      <div className="absolute inset-0 bg-[#05070d]/70" />
       <div className="absolute inset-0 bg-vignette" />
       <div className="absolute inset-0 bg-noise opacity-70" />
       <div className="absolute left-1/2 top-[260px] h-[520px] w-[520px] -translate-x-1/2 rounded-full bg-halo blur-[120px]" />
