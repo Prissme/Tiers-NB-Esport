@@ -9,12 +9,21 @@
   --color-border: rgba(148, 163, 184, 0.16);
   --color-cyan: #22d3ee;
   --shadow-soft: 0 40px 120px -80px rgba(15, 23, 42, 0.9);
+  --hero-background-image: url("https://media.discordapp.net/attachments/1434252768633290952/1463562452829601967/image.png?ex=69724840&is=6970f6c0&hm=faaf1f614ebae870bbf2597f1e2f189ac3f1ce1ebb5c9dafe7d04d006b199ae2&=&format=webp&quality=lossless&width=875&height=583");
+  --ambience-image: url("https://media.discordapp.net/attachments/1434252768633290952/1463562452829601967/image.png?ex=69724840&is=6970f6c0&hm=faaf1f614ebae870bbf2597f1e2f189ac3f1ce1ebb5c9dafe7d04d006b199ae2&=&format=webp&quality=lossless&width=875&height=583");
 }
 
 body {
   @apply antialiased;
   font-family: var(--font-manrope), system-ui, sans-serif;
   background-color: var(--color-bg);
+}
+
+@media (max-width: 640px) {
+  :root {
+    --hero-background-image: url("https://media.discordapp.net/attachments/1434252768633290952/1463562452427079882/image.png?ex=69724840&is=6970f6c0&hm=f632dcddb10bc91569e7c111cdb73c92493f70eb653276cb91fa859b25e5fae4&=&format=webp&quality=lossless&width=389&height=583");
+    --ambience-image: url("https://media.discordapp.net/attachments/1434252768633290952/1463562452427079882/image.png?ex=69724840&is=6970f6c0&hm=f632dcddb10bc91569e7c111cdb73c92493f70eb653276cb91fa859b25e5fae4&=&format=webp&quality=lossless&width=389&height=583");
+  }
 }
 
 @layer base {
@@ -127,7 +136,7 @@ body {
 
   .hero__background {
     @apply absolute inset-0 -z-10 rounded-[32px] bg-cover bg-center;
-    background-image: url("https://media.discordapp.net/attachments/1434252768633290952/1463530397483929817/content.png?format=webp&quality=lossless");
+    background-image: var(--hero-background-image);
     transform: scale(1.02);
   }
 

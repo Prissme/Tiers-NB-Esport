@@ -45,8 +45,8 @@ export default function EliteOffer() {
             ))}
           </ul>
           <div>
-            <Button href="/participer" variant="primary">
-              Postuler
+            <Button href="https://ko-fi.com/prissme" variant="primary" external>
+              Rejoindre l&apos;ELITE
             </Button>
           </div>
         </div>
