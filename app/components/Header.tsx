@@ -1,30 +1,45 @@
 import Link from "next/link";
-import Countdown from "./Countdown";
+import Button from "./Button";
+
+const navLinks = [
+  { label: "Calendrier", href: "/matchs" },
+  { label: "Classement", href: "/classement" },
+  { label: "Équipes", href: "/equipes" },
+];
 
 export default function Header() {
   return (
-    <header className="sticky top-0 z-40 border-b border-white/10 bg-slate-950/80 backdrop-blur">
-      <div className="mx-auto flex w-full max-w-6xl flex-col items-center gap-4 px-4 py-4 sm:flex-row sm:justify-between sm:px-6">
-        <Link href="/" className="flex items-center gap-4 text-white">
-          <span className="flex h-20 w-20 items-center justify-center rounded-3xl border border-white/10 bg-white/10 p-2 shadow-[0_0_35px_rgba(234,179,8,0.2)] sm:h-24 sm:w-24">
-            <img
-              src="https://cdn.discordapp.com/attachments/1434252768633290952/1458818973847261380/image-Photoroom.png?ex=6961068a&is=695fb50a&hm=4a419d5d0a39c377943e81a9997f7b9361e4a697a0e8ee2ecbe0845c0b8e8c87&"
-              alt="Logo LFN"
-              className="h-full w-full object-contain"
-            />
+    <header className="relative z-20">
+      <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-4 py-6 sm:px-6">
+        <Link href="/" className="flex items-center gap-3 text-white">
+          <span className="flex h-11 w-11 items-center justify-center rounded-2xl border border-white/15 bg-white/10 text-base font-semibold tracking-[0.2em]">
+            LFN
           </span>
           <div className="hidden sm:block">
-            <p className="text-sm font-semibold uppercase tracking-[0.35em] text-slate-400">
-              Ligue officielle
+            <p className="text-xs font-semibold uppercase tracking-[0.4em] text-slate-400">
+              League Force Network
             </p>
-            <p className="text-xs text-slate-400">Null&apos;s Brawl Francophone</p>
+            <p className="text-sm text-slate-300">The Elite League</p>
           </div>
         </Link>
-        <div className="flex w-full justify-center sm:w-auto">
-          <Countdown
-            targetDate="2026-01-12T18:00:00+01:00"
-            className="neo-border glow-pulse"
-          />
+        <nav className="hidden items-center gap-6 text-xs uppercase tracking-[0.3em] text-slate-300 md:flex">
+          {navLinks.map((link) => (
+            <Link
+              key={link.href}
+              href={link.href}
+              className="transition hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan/60 focus-visible:ring-offset-2 focus-visible:ring-offset-[#070a12]"
+            >
+              {link.label}
+            </Link>
+          ))}
+          <Button href="/participer" variant="secondary">
+            S&apos;inscrire
+          </Button>
+        </nav>
+        <div className="md:hidden">
+          <Button href="/participer" variant="secondary">
+            S&apos;inscrire
+          </Button>
         </div>
       </div>
     </header>

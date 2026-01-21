@@ -1,70 +1,68 @@
-import type { Metadata } from "next";
-import Link from "next/link";
-import DayTwoSchedule from "./components/DayTwoSchedule";
-import Button from "./components/Button";
-import SeasonKicker from "./components/SeasonKicker";
+import FeatureCard from "./components/FeatureCard";
+import HeroCard from "./components/HeroCard";
+import TopTeams from "./components/TopTeams";
 
-export const metadata: Metadata = {
-  title: "Accueil",
-  description:
-    "LFN — Ligue Francophone Null’s Brawl. Calendrier et équipes pour la saison 1.",
-};
+const features = [
+  {
+    title: "Élitisme",
+    description:
+      "Accès réservé aux équipes qui prouvent leur valeur. Chaque slot est une opportunité rare.",
+    icon: (
+      <svg viewBox="0 0 24 24" className="h-5 w-5" aria-hidden="true">
+        <path
+          d="M12 3l3.5 7h7l-5.5 4 2 7-7-4-7 4 2-7L1.5 10h7L12 3z"
+          fill="currentColor"
+        />
+      </svg>
+    ),
+  },
+  {
+    title: "Règles",
+    description:
+      "Un règlement clair, un arbitrage ferme et des formats pensés pour l&apos;excellence compétitive.",
+    icon: (
+      <svg viewBox="0 0 24 24" className="h-5 w-5" aria-hidden="true">
+        <path
+          d="M6 3h12v2H6V3zm0 4h12v2H6V7zm0 4h12v2H6v-2zm0 4h7v2H6v-2z"
+          fill="currentColor"
+        />
+      </svg>
+    ),
+  },
+  {
+    title: "Récompenses",
+    description:
+      "Trophées, visibilité et invitations exclusives. Le podium ouvre toutes les portes.",
+    icon: (
+      <svg viewBox="0 0 24 24" className="h-5 w-5" aria-hidden="true">
+        <path
+          d="M6 4h12l-1 7H7L6 4zm2 10h8v6H8v-6z"
+          fill="currentColor"
+        />
+      </svg>
+    ),
+  },
+];
 
-export default async function HomePage() {
+export default function HomePage() {
   return (
-    <div className="space-y-12">
-      <div className="relative">
-        <section className="motion-field hero-field p-8 md:p-10">
-          <div className="relative z-10 space-y-8">
-            <div className="space-y-4">
-              <SeasonKicker />
-              <h1 className="text-4xl font-bold leading-tight text-white md:text-6xl">
-                LA HIÉRARCHIE COMPÉTITIVE FRANCOPHONE
-              </h1>
-              <p className="text-base text-slate-300 md:text-lg">
-                Monte de division. Gagne du statut.
-              </p>
-            </div>
-            <div className="flex flex-wrap gap-4">
-              <Link
-                href="https://ko-fi.com/prissme"
-                className="elite-button"
-                target="_blank"
-                rel="noreferrer"
-              >
-                Accéder à ELITE
-              </Link>
-              <Button href="/classement" variant="secondary">
-                Voir le classement
-              </Button>
-            </div>
-            <div className="flex flex-wrap gap-3 text-sm text-slate-400">
-              <Button href="/matchs" variant="ghost">
-                Voir le calendrier
-              </Button>
-              <Button href="/equipes" variant="ghost">
-                Découvrir les équipes
-              </Button>
-            </div>
+    <div className="relative">
+      <div className="mx-auto flex w-full max-w-6xl flex-col gap-14 px-4 pb-20 pt-4 sm:px-6">
+        <HeroCard />
+        <section className="grid gap-6 lg:grid-cols-[1.6fr_1fr]">
+          <div className="grid gap-6 md:grid-cols-3">
+            {features.map((feature) => (
+              <FeatureCard
+                key={feature.title}
+                title={feature.title}
+                description={feature.description}
+                icon={feature.icon}
+              />
+            ))}
           </div>
+          <TopTeams />
         </section>
       </div>
-
-      <section className="section-card space-y-6">
-        <div className="space-y-3">
-          <p className="text-xs font-semibold uppercase tracking-[0.4em] text-slate-400">
-            Accès compétitifs LFN
-          </p>
-          <p className="text-base text-slate-300">
-            Certains accès sont réservés aux équipes reconnues dans la hiérarchie LFN.
-          </p>
-        </div>
-        <Button href="https://ko-fi.com/prissme" variant="ghost" external>
-          Accéder à ELITE
-        </Button>
-      </section>
-
-      <DayTwoSchedule />
     </div>
   );
 }
