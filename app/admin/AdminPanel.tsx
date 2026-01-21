@@ -440,8 +440,15 @@ export default function AdminPanel() {
   );
 
   const loadTeams = useCallback(async () => {
+    let teamsQuery = supabase.from("lfn_teams").select("*").order("created_at", {
+      ascending: false,
+    });
+    if (TEAM_COLUMNS.isActive) {
+      teamsQuery = teamsQuery.eq(TEAM_COLUMNS.isActive, true);
+    }
+
     const [{ data, error }, membersResponse] = await Promise.all([
-      supabase.from("lfn_teams").select("*").order("created_at", { ascending: false }),
+      teamsQuery,
       supabase.from(TEAM_MEMBERS_TABLE).select("*"),
     ]);
 
@@ -1040,15 +1047,21 @@ export default function AdminPanel() {
     setErrorMessage(null);
 
     const response = await fetch(`/api/admin/teams/${teamId}`, { method: "DELETE" });
-    const payload = await response.json();
+    if (response.status === 204) {
+      setStatusMessage("Équipe supprimée.");
+      await loadTeams();
+      return;
+    }
+
+    const payload = await response.json().catch(() => null);
 
     if (!response.ok) {
-      setErrorMessage(payload.error || "Suppression impossible.");
+      setErrorMessage(payload?.error || "Suppression impossible.");
       return;
     }
 
     setStatusMessage("Équipe supprimée.");
-    setTeams((prev) => prev.filter((team) => team.id !== teamId));
+    await loadTeams();
   };
 
   const resetMatchForm = () => {
