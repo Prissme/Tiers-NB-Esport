@@ -15,8 +15,8 @@ RUN apk add --no-cache libc6-compat python3 make g++
 # Copie dépendances
 COPY package.json package-lock.json ./
 
-# Installation déterministe
-RUN npm ci --legacy-peer-deps
+# Installation (lockfile désynchronisé: npm ci échoue en build Koyeb)
+RUN npm install --legacy-peer-deps --no-audit --no-fund
 
 # Copie du reste du projet
 COPY . .
