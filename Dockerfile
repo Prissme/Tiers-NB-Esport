@@ -2,6 +2,9 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
+# Pin npm for reproducible installs
+ARG NPM_VERSION=10.8.2
+
 # Supabase build-time configuration
 ARG NEXT_PUBLIC_SUPABASE_URL
 ARG NEXT_PUBLIC_SUPABASE_ANON_KEY
@@ -11,6 +14,9 @@ ENV NEXT_TELEMETRY_DISABLED=1
 
 # Installation outils build
 RUN apk add --no-cache libc6-compat python3 make g++
+
+# Ensure consistent npm version across builds
+RUN npm install -g npm@${NPM_VERSION}
 
 # Copie dépendances
 COPY package.json package-lock.json ./
