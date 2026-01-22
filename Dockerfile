@@ -11,7 +11,6 @@ ARG NEXT_PUBLIC_SUPABASE_ANON_KEY
 ENV NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL
 ENV NEXT_PUBLIC_SUPABASE_ANON_KEY=$NEXT_PUBLIC_SUPABASE_ANON_KEY
 ENV NEXT_TELEMETRY_DISABLED=1
-ENV npm_config_cache=/tmp/npm-cache
 
 # Installation outils build
 RUN apk add --no-cache libc6-compat python3 make g++
@@ -22,22 +21,28 @@ RUN npm install -g npm@${NPM_VERSION}
 # Copie dépendances
 COPY package.json package-lock.json ./
 
-# Debug versions for reproducibility (node/npm/lockfileVersion)
-RUN node -v && npm -v && node -p "require('./package-lock.json').lockfileVersion"
+# Debug versions
+RUN node -v && npm -v
 
-# Durcir npm contre les téléchargements corrompus/transitoires + install reproductible
-RUN npm config set registry https://registry.npmjs.org/ \
- && npm config set fetch-retries 5 \
- && npm config set fetch-retry-mintimeout 20000 \
- && npm config set fetch-retry-maxtimeout 120000 \
- && npm config set fetch-timeout 120000 \
- && npm config set maxsockets 1 \
- && npm config set progress false \
- && npm config set audit false \
- && npm config set fund false \
- && npm cache clean --force \
- && npm ci --foreground-scripts --legacy-peer-deps --no-audit --no-fund --progress=false \
- && rm -rf /tmp/npm-cache
+# NPM hardening anti-tarball-corruption
+ENV npm_config_registry=https://registry.npmjs.org/
+ENV npm_config_cache=/tmp/npm-cache
+ENV npm_config_prefer_online=true
+ENV npm_config_progress=false
+ENV npm_config_audit=false
+ENV npm_config_fund=false
+ENV npm_config_fetch_retries=10
+ENV npm_config_fetch_retry_mintimeout=20000
+ENV npm_config_fetch_retry_maxtimeout=180000
+ENV npm_config_fetch_timeout=300000
+ENV npm_config_maxsockets=1
+
+# (optionnel mais souvent magique) couper le keep-alive Node (évite des flux cassés en Docker/proxy)
+ENV NODE_OPTIONS=--http-parser=legacy
+
+RUN rm -rf /tmp/npm-cache \
+ && npm cache clean --force || true \
+ && npm ci --legacy-peer-deps --no-audit --no-fund --foreground-scripts
 
 # Copie du reste du projet
 COPY . .
