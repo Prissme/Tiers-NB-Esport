@@ -15,8 +15,14 @@ RUN apk add --no-cache libc6-compat python3 make g++
 # Copie dépendances
 COPY package.json package-lock.json ./
 
-# Installation (lockfile désynchronisé: npm ci échoue en build Koyeb)
-RUN npm install --legacy-peer-deps --no-audit --no-fund
+# Durcir npm contre les téléchargements corrompus/transitoires + install reproductible
+RUN npm config set registry https://registry.npmjs.org/ \
+ && npm config set fetch-retries 5 \
+ && npm config set fetch-retry-mintimeout 20000 \
+ && npm config set fetch-retry-maxtimeout 120000 \
+ && npm config set maxsockets 10 \
+ && npm cache clean --force \
+ && npm ci --legacy-peer-deps --no-audit --no-fund
 
 # Copie du reste du projet
 COPY . .
