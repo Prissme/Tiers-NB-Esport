@@ -7,18 +7,23 @@ ARG NEXT_PUBLIC_SUPABASE_URL
 ARG NEXT_PUBLIC_SUPABASE_ANON_KEY
 ENV NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL
 ENV NEXT_PUBLIC_SUPABASE_ANON_KEY=$NEXT_PUBLIC_SUPABASE_ANON_KEY
+ENV NEXT_TELEMETRY_DISABLED=1
 
 # Installation outils build
 RUN apk add --no-cache libc6-compat python3 make g++
 
-# Copie tout
+# Copie dépendances
+COPY package.json package-lock.json ./
+
+# Installation (lockfile désynchronisé: npm ci échoue en build Koyeb)
+RUN npm install --legacy-peer-deps --no-audit --no-fund
+
+# Copie du reste du projet
 COPY . .
 
-# Nettoyage et installation
-RUN rm -rf node_modules package-lock.json && \
-    npm install --legacy-peer-deps --production=false && \
-    npm run build && \
-    npm prune --production
+# Build + prune deps dev
+RUN npm run build && \
+    npm prune --omit=dev
 
 FROM node:20-alpine AS runner
 
