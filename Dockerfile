@@ -21,6 +21,9 @@ RUN npm install -g npm@${NPM_VERSION}
 # Copie dépendances
 COPY package.json package-lock.json ./
 
+# Debug versions for reproducibility (node/npm/lockfileVersion)
+RUN node -v && npm -v && node -p "require('./package-lock.json').lockfileVersion"
+
 # Durcir npm contre les téléchargements corrompus/transitoires + install reproductible
 RUN npm config set registry https://registry.npmjs.org/ \
  && npm config set fetch-retries 5 \
