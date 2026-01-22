@@ -25,28 +25,70 @@ export default function EliteOffer() {
           <div className="space-y-3">
             <span className="badge">Programme exclusif</span>
             <h2 className="text-3xl font-semibold tracking-tight text-white sm:text-4xl">
-              OFFRE ELITE
+              ELITE — Le cercle visible de la LFN
             </h2>
             <p className="text-sm text-slate-300 sm:text-base">
-              Un accès sur sélection pour celles et ceux qui veulent franchir les portes de la
-              ligue.
+              Accès sur sélection, conservé tant que le niveau est imposé.
+              <br />
+              Statut révocable : c&apos;est une candidature, pas un abonnement.
             </p>
           </div>
           <ul className="space-y-3 text-sm text-slate-200 sm:text-base">
             {[
-              "Accès prioritaire",
-              "Coaching & scrims",
-              "Récompenses & statuts",
+              {
+                title: "Tournois ELITE only",
+                description:
+                  "Vous devenez l&apos;image visible des matchs les plus intenses de la ligue.",
+                icon: "🏆",
+              },
+              {
+                title: "After-match vocaux LFN",
+                description:
+                  "Vous accédez au backstage et devenez une voix entendue par les casters.",
+                icon: "🎙️",
+              },
+              {
+                title: "Vote officiel MVP",
+                description:
+                  "Vous influencez la reconnaissance officielle des performances de la LFN.",
+                icon: "🗳️",
+              },
+              {
+                title: "Accès prioritaire compétitions",
+                description:
+                  "Vous devenez prioritaire sur les opportunités qui comptent.",
+                icon: "📊",
+              },
+              {
+                title: "Débriefs stratégiques hebdo",
+                description:
+                  "Vous intégrez la lecture officielle de la ligue, chaque semaine.",
+                icon: "🎥",
+              },
             ].map((item) => (
-              <li key={item} className="flex items-center gap-3">
-                <span className="h-1.5 w-1.5 rounded-full bg-cyan/80" aria-hidden="true" />
-                {item}
+              <li
+                key={item.title}
+                className="flex items-start gap-3 rounded-2xl border border-white/5 bg-white/5 p-3"
+              >
+                <span className="text-base" aria-hidden="true">
+                  {item.icon}
+                </span>
+                <div className="space-y-1">
+                  <p className="font-semibold text-white">{item.title}</p>
+                  <p className="text-sm text-slate-300">{item.description}</p>
+                </div>
               </li>
             ))}
           </ul>
-          <div>
+          <div className="space-y-4">
+            <p className="text-xs uppercase tracking-[0.24em] text-white/60">
+              Badge ELITE visible sur les classements et pages d&apos;équipes.
+            </p>
+            <p className="text-xs text-white/60">
+              ELITE est un statut, pas un droit. L&apos;accès peut être refusé ou retiré.
+            </p>
             <Button href="https://ko-fi.com/prissme" variant="primary" external>
-              Rejoindre l&apos;ELITE
+              Candidater à ELITE
             </Button>
           </div>
         </div>
