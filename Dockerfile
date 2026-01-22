@@ -15,10 +15,8 @@ RUN apk add --no-cache libc6-compat python3 make g++
 # Copie dépendances
 COPY package.json package-lock.json ./
 
-# Installation déterministe (fallback install si lockfile désynchronisé)
-RUN npm ci --legacy-peer-deps || \
-    (echo "npm ci failed; falling back to npm install to regenerate lockfile in image" && \
-     npm install --legacy-peer-deps)
+# Installation déterministe
+RUN npm ci --legacy-peer-deps
 
 # Copie du reste du projet
 COPY . .
