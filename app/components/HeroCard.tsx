@@ -18,15 +18,15 @@ export default function HeroCard() {
             LFN
           </h1>
           <p className="text-lg text-slate-200 sm:text-xl">
-            La ligue. Pas un serveur. Une sélection.
+            Une ligue amateur structurée, avec sélection et saisons officielles.
           </p>
           <p className="max-w-2xl text-sm text-slate-300 sm:text-base">
-            Une porte d&apos;entrée gardée, des places rares, des saisons qui élèvent les meilleurs.
+            Des matchs organisés, un suivi clair des performances, et un cadre sérieux pour jouer en équipe.
           </p>
         </div>
         <div className="flex flex-wrap justify-center gap-4 sm:justify-start">
           <Button href="/participer" variant="primary">
-            Entrer dans la Ligue
+            Rejoindre la Ligue
           </Button>
           <Button href="/classement" variant="secondary">
             Voir le Classement

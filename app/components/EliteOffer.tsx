@@ -30,7 +30,7 @@ export default function EliteOffer() {
               ELITE — Le cercle visible de la LFN
             </h2>
             <p className="text-sm text-slate-300 sm:text-base">
-              Accès sur sélection, conservé tant que le niveau est imposé.
+              Accès sur sélection, maintenu tant que les critères sont respectés.
               <br />
               Statut révocable : c&apos;est une candidature, pas un abonnement.
             </p>
@@ -40,31 +40,31 @@ export default function EliteOffer() {
               {
                 title: "Tournois ELITE only",
                 description:
-                  "Vous devenez l&apos;image visible des matchs les plus intenses de la ligue.",
+                  "Tournois réservés aux équipes ELITE, avec planning dédié.",
                 icon: "🏆",
               },
               {
                 title: "After-match vocaux LFN",
                 description:
-                  "Vous accédez au backstage et devenez une voix entendue par les casters.",
+                  "Débrief vocal après match avec l&apos;équipe LFN quand disponible.",
                 icon: "🎙️",
               },
               {
                 title: "Vote officiel MVP",
                 description:
-                  "Vous influencez la reconnaissance officielle des performances de la LFN.",
+                  "Accès au vote officiel MVP de la ligue.",
                 icon: "🗳️",
               },
               {
                 title: "Accès prioritaire compétitions",
                 description:
-                  "Vous devenez prioritaire sur les opportunités qui comptent.",
+                  "Priorité d&apos;inscription sur certaines compétitions LFN.",
                 icon: "📊",
               },
               {
                 title: "Débriefs stratégiques hebdo",
                 description:
-                  "Vous intégrez la lecture officielle de la ligue, chaque semaine.",
+                  "Débriefs et retours stratégiques partagés chaque semaine.",
                 icon: "🎥",
               },
             ].map((item) => (
@@ -90,7 +90,7 @@ export default function EliteOffer() {
               ELITE est un statut, pas un droit. L&apos;accès peut être refusé ou retiré.
             </p>
             <Button href="https://ko-fi.com/prissme" variant="primary" external>
-              Candidater à ELITE
+              Déposer une candidature ELITE
             </Button>
           </div>
         </div>
