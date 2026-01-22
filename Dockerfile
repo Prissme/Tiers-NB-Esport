@@ -11,6 +11,7 @@ ARG NEXT_PUBLIC_SUPABASE_ANON_KEY
 ENV NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL
 ENV NEXT_PUBLIC_SUPABASE_ANON_KEY=$NEXT_PUBLIC_SUPABASE_ANON_KEY
 ENV NEXT_TELEMETRY_DISABLED=1
+ENV npm_config_cache=/tmp/npm-cache
 
 # Installation outils build
 RUN apk add --no-cache libc6-compat python3 make g++
@@ -29,9 +30,14 @@ RUN npm config set registry https://registry.npmjs.org/ \
  && npm config set fetch-retries 5 \
  && npm config set fetch-retry-mintimeout 20000 \
  && npm config set fetch-retry-maxtimeout 120000 \
- && npm config set maxsockets 10 \
+ && npm config set fetch-timeout 120000 \
+ && npm config set maxsockets 1 \
+ && npm config set progress false \
+ && npm config set audit false \
+ && npm config set fund false \
  && npm cache clean --force \
- && npm ci --legacy-peer-deps --no-audit --no-fund
+ && npm ci --foreground-scripts --legacy-peer-deps --no-audit --no-fund --progress=false \
+ && rm -rf /tmp/npm-cache
 
 # Copie du reste du projet
 COPY . .
