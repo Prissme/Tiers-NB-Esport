@@ -1,4 +1,5 @@
 import Button from "./Button";
+import FrameOrnaments from "./FrameOrnaments";
 
 export default function HeroCard() {
   return (
@@ -6,23 +7,20 @@ export default function HeroCard() {
       <div className="hero-ironhill__layer hero-ironhill__bg" aria-hidden="true" />
       <div className="hero-ironhill__layer hero-ironhill__overlay" aria-hidden="true" />
       <div className="hero-ironhill__layer hero-ironhill__grain" aria-hidden="true" />
-      <div className="hero-ironhill__frame" aria-hidden="true">
-        <span className="hero-frame__marker hero-frame__marker--tl" />
-        <span className="hero-frame__marker hero-frame__marker--tr" />
-        <span className="hero-frame__marker hero-frame__marker--bl" />
-        <span className="hero-frame__marker hero-frame__marker--br" />
-      </div>
+      <div className="hero-ironhill__layer hero-ironhill__dust" aria-hidden="true" />
+      <div className="hero-ironhill__layer hero-ironhill__vignette" aria-hidden="true" />
+      <FrameOrnaments label="STEP INTO THE — LEAGUE FORCE NETWORK" />
       <div className="hero-ironhill__content">
-        <span className="hero-label">LEAGUE FORCE NETWORK</span>
         <div className="space-y-5">
           <p className="hero-kicker">Institutionnel • Ligue Premium</p>
+          <div className="hero-divider" aria-hidden="true" />
           <h1 className="hero-title">ATTEIGNEZ LE SOMMET</h1>
           <p className="hero-subtitle">SI VOUS EN ÊTES CAPABLES</p>
-          <p className="max-w-xl text-sm text-[color:var(--color-text-muted)] sm:text-base">
+          <p className="max-w-[720px] text-sm text-[color:var(--color-text-muted)] sm:text-base">
             Une ligue sobre, structurée et exigeante pour les équipes qui visent l&apos;excellence.
           </p>
         </div>
-        <div className="flex flex-wrap justify-center gap-4 sm:justify-start">
+        <div className="flex flex-wrap gap-4">
           <Button href="/participer" variant="primary">
             S&apos;inscrire
           </Button>

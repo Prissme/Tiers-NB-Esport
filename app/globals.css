@@ -4,13 +4,15 @@
 
 :root {
   color-scheme: dark;
-  --color-bg: #0b0f10;
-  --color-bg-soft: #101616;
+  --color-bg: #070a0b;
+  --color-bg-soft: #0b0f10;
   --color-text: #f2f1ec;
-  --color-text-muted: rgba(242, 241, 236, 0.72);
-  --color-accent: #c9a35b;
-  --color-border: rgba(201, 163, 91, 0.35);
-  --color-border-soft: rgba(201, 163, 91, 0.2);
+  --color-text-muted: rgba(242, 241, 236, 0.68);
+  --color-accent: #b59454;
+  --color-accent-deep: #8b6a33;
+  --color-border: rgba(181, 148, 84, 0.28);
+  --color-border-strong: rgba(181, 148, 84, 0.45);
+  --color-border-soft: rgba(181, 148, 84, 0.18);
   --shadow-soft: 0 24px 60px -40px rgba(0, 0, 0, 0.85);
   --radius-xs: 6px;
   --radius-sm: 10px;
@@ -26,12 +28,13 @@
   --space-8: 4rem;
   --hero-image: url("https://media.discordapp.net/attachments/1434252768633290952/1463562452829601967/image.png?ex=6974eb40&is=697399c0&hm=5773e8ee9f5c7ffaf6c3b52e57e206d49481732fba6467c192200a2f9af1db6d&=&format=webp&quality=lossless&width=875&height=583");
   --grain-image: url("data:image/svg+xml,%3Csvg width='180' height='180' viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)' opacity='0.22'/%3E%3C/svg%3E");
+  --dust-image: url(\"data:image/svg+xml,%3Csvg width='240' height='240' viewBox='0 0 240 240' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='12' cy='18' r='1.2' fill='white'/%3E%3Ccircle cx='78' cy='44' r='0.9' fill='white'/%3E%3Ccircle cx='160' cy='32' r='1.1' fill='white'/%3E%3Ccircle cx='210' cy='72' r='0.8' fill='white'/%3E%3Ccircle cx='32' cy='120' r='0.9' fill='white'/%3E%3Ccircle cx='92' cy='170' r='1.1' fill='white'/%3E%3Ccircle cx='178' cy='148' r='0.9' fill='white'/%3E%3Ccircle cx='220' cy='196' r='1' fill='white'/%3E%3C/svg%3E\");
 }
 
 body {
   @apply antialiased;
   font-family: var(--font-sans), system-ui, sans-serif;
-  background-color: var(--color-bg);
+  background: linear-gradient(180deg, #070a0b 0%, #0b0f10 100%);
   color: var(--color-text);
 }
 
@@ -63,7 +66,7 @@ body {
   }
 
   .hero-ironhill {
-    @apply relative isolate flex min-h-[78vh] items-center overflow-hidden px-4 pb-20 pt-28 sm:px-6 lg:min-h-[86vh] lg:px-8;
+    @apply relative isolate flex min-h-[78vh] items-center overflow-hidden px-4 pb-24 pt-32 sm:px-6 lg:min-h-[86vh] lg:px-8;
     background-color: var(--color-bg);
   }
 
@@ -75,106 +78,88 @@ body {
     background-image: var(--hero-image);
     background-size: cover;
     background-position: center;
-    filter: saturate(0.85) brightness(0.62);
+    filter: saturate(0.7) contrast(0.9) brightness(0.6);
     transform: scale(1.02);
   }
 
   .hero-ironhill__overlay {
-    background: linear-gradient(180deg, rgba(11, 15, 16, 0.55) 0%, rgba(11, 15, 16, 0.9) 55%, rgba(11, 15, 16, 0.98) 100%);
+    background: linear-gradient(180deg, rgba(7, 10, 11, 0.35) 0%, rgba(7, 10, 11, 0.8) 55%, rgba(7, 10, 11, 0.96) 100%);
   }
 
   .hero-ironhill__grain {
     background-image: var(--grain-image);
-    opacity: 0.08;
+    opacity: 0.1;
     mix-blend-mode: soft-light;
   }
 
-  .hero-ironhill__frame {
-    @apply pointer-events-none absolute inset-6 sm:inset-8;
-    border: 1px solid var(--color-border);
+  .hero-ironhill__dust {
+    background-image: var(--dust-image);
+    opacity: 0.06;
+    mix-blend-mode: screen;
   }
 
-  .hero-frame__marker {
-    @apply absolute h-5 w-5;
-    border-color: var(--color-border);
+  .hero-ironhill__vignette {
+    background: radial-gradient(circle at center, rgba(7, 10, 11, 0) 38%, rgba(7, 10, 11, 0.75) 70%, rgba(7, 10, 11, 0.92) 100%);
   }
 
-  .hero-frame__marker--tl {
-    @apply left-0 top-0;
-    border-left-width: 1px;
-    border-top-width: 1px;
-  }
-
-  .hero-frame__marker--tr {
-    @apply right-0 top-0;
-    border-right-width: 1px;
-    border-top-width: 1px;
-  }
-
-  .hero-frame__marker--bl {
-    @apply bottom-0 left-0;
-    border-bottom-width: 1px;
-    border-left-width: 1px;
-  }
-
-  .hero-frame__marker--br {
-    @apply bottom-0 right-0;
-    border-bottom-width: 1px;
-    border-right-width: 1px;
-  }
 
   .hero-ironhill__content {
-    @apply relative z-10 mx-auto flex w-full max-w-5xl flex-col items-center gap-8 text-center sm:items-start sm:text-left;
+    @apply relative z-10 mx-auto flex w-full max-w-5xl flex-col items-start gap-8 text-left;
   }
 
   .hero-kicker {
-    @apply text-[11px] uppercase tracking-[0.5em] text-[color:var(--color-text-muted)];
+    @apply text-[11px] uppercase tracking-[0.28em] text-[color:var(--color-text-muted)];
+  }
+
+  .hero-divider {
+    @apply h-px w-24 bg-[color:var(--color-border)];
   }
 
   .hero-title {
     font-family: var(--font-serif), ui-serif, Georgia, serif;
-    @apply text-4xl uppercase tracking-[0.18em] text-[color:var(--color-text)] sm:text-5xl lg:text-6xl;
+    @apply text-4xl uppercase tracking-[0.12em] text-[color:var(--color-text)] sm:text-5xl lg:text-6xl;
+    font-weight: 500;
   }
 
   .hero-subtitle {
-    @apply text-xs uppercase tracking-[0.4em] text-[color:var(--color-text-muted)];
+    @apply text-xs uppercase tracking-[0.28em] text-[color:var(--color-text-muted)];
   }
 
   .hero-label {
-    @apply inline-flex items-center gap-3 border border-[color:var(--color-border)] px-4 py-2 text-[10px] uppercase tracking-[0.4em] text-[color:var(--color-accent)];
+    @apply inline-flex items-center gap-3 border border-[color:var(--color-border)] px-4 py-2 text-[10px] uppercase tracking-[0.28em] text-[color:var(--color-accent)];
   }
 
   .iron-card {
     @apply rounded-[18px] border border-[color:var(--color-border)] p-6;
-    background-color: rgba(16, 22, 22, 0.7);
+    background-color: rgba(11, 15, 16, 0.78);
     box-shadow: var(--shadow-soft);
   }
 
   .section-card {
     @apply rounded-[20px] border border-[color:var(--color-border)] p-6;
-    background-color: rgba(16, 22, 22, 0.7);
+    background-color: rgba(11, 15, 16, 0.78);
     box-shadow: var(--shadow-soft);
   }
 
   .motion-field {
     @apply relative overflow-hidden rounded-[24px] border border-[color:var(--color-border)] p-6;
-    background: linear-gradient(150deg, rgba(16, 22, 22, 0.92), rgba(11, 15, 16, 0.96));
+    background: linear-gradient(150deg, rgba(11, 15, 16, 0.92), rgba(7, 10, 11, 0.96));
     box-shadow: var(--shadow-soft);
   }
 
   .glass-panel {
     @apply rounded-[20px] border border-[color:var(--color-border)] p-6;
-    background-color: rgba(16, 22, 22, 0.72);
+    background-color: rgba(11, 15, 16, 0.8);
   }
 
   .glass-card {
     @apply rounded-[20px] border border-[color:var(--color-border)] p-6;
-    background-color: rgba(16, 22, 22, 0.65);
+    background-color: rgba(11, 15, 16, 0.72);
   }
 
   .feature-card {
     @apply flex flex-col gap-4 rounded-[20px] border border-[color:var(--color-border)] p-6;
-    background-color: rgba(16, 22, 22, 0.7);
+    background-color: rgba(11, 15, 16, 0.78);
     box-shadow: var(--shadow-soft);
   }
 
@@ -198,7 +183,7 @@ body {
 
   .ranking-panel {
     @apply rounded-[20px] border border-[color:var(--color-border)] p-6;
-    background-color: rgba(16, 22, 22, 0.8);
+    background-color: rgba(11, 15, 16, 0.82);
   }
 
   .ranking-table {
@@ -220,7 +205,88 @@ body {
   .tag-verified {
     @apply inline-flex items-center rounded-full border border-[color:var(--color-border)] px-3 py-1 text-[10px] uppercase tracking-[0.3em] text-[color:var(--color-accent)];
   }
-}
+
+  .frame-ornaments {
+    @apply pointer-events-none absolute inset-6 sm:inset-10;
+  }
+
+  .frame-ornaments__outer {
+    @apply absolute inset-0;
+    border: 1px solid var(--color-border);
+  }
+
+  .frame-ornaments__inner {
+    @apply absolute inset-3;
+    border: 1px solid var(--color-border-soft);
+  }
+
+  .frame-ornaments__corner {
+    @apply absolute h-6 w-6;
+    border-color: var(--color-border);
+  }
+
+  .frame-ornaments__corner--tl {
+    @apply left-0 top-0;
+    border-left-width: 1px;
+    border-top-width: 1px;
+  }
+
+  .frame-ornaments__corner--tr {
+    @apply right-0 top-0;
+    border-right-width: 1px;
+    border-top-width: 1px;
+  }
+
+  .frame-ornaments__corner--bl {
+    @apply bottom-0 left-0;
+    border-left-width: 1px;
+    border-bottom-width: 1px;
+  }
+
+  .frame-ornaments__corner--br {
+    @apply bottom-0 right-0;
+    border-right-width: 1px;
+    border-bottom-width: 1px;
+  }
+
+  .frame-ornaments__tick {
+    @apply absolute h-3 w-6;
+    border-color: var(--color-border);
+  }
+
+  .frame-ornaments__tick--top {
+    @apply left-1/2 top-0 -translate-x-1/2;
+    border-top-width: 1px;
+  }
+
+  .frame-ornaments__tick--bottom {
+    @apply bottom-0 left-1/2 -translate-x-1/2;
+    border-bottom-width: 1px;
+  }
+
+  .frame-ornaments__tick--left {
+    @apply left-0 top-1/2 -translate-y-1/2;
+    border-left-width: 1px;
+  }
+
+  .frame-ornaments__tick--right {
+    @apply right-0 top-1/2 -translate-y-1/2;
+    border-right-width: 1px;
+  }
+
+  .frame-ornaments__label {
+    @apply absolute left-8 top-8 inline-flex items-center gap-3 px-4 py-2 text-[10px] uppercase tracking-[0.28em] text-[color:var(--color-accent)];
+    border: 1px solid var(--color-border);
+    background-color: rgba(7, 10, 11, 0.7);
+  }
+
+  .frame-ornaments__label::before {
+    content: "";
+    display: block;
+    height: 1px;
+    width: 28px;
+    background: var(--color-border);
+  }
 
 @media (max-width: 640px) {
   .hero-ironhill {
@@ -230,6 +296,19 @@ body {
 
   .hero-title {
     @apply text-3xl tracking-[0.16em];
+  }
+
+  .frame-ornaments__inner {
+    display: none;
+  }
+
+  .frame-ornaments__tick {
+    display: none;
+  }
+
+  .frame-ornaments__label {
+    left: 1.5rem;
+    top: 1.5rem;
   }
 }
 

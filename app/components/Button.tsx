@@ -17,9 +17,9 @@ const baseStyles =
 
 const variantStyles: Record<ButtonVariant, string> = {
   primary:
-    "border-[color:var(--color-border)] bg-[rgba(201,163,91,0.12)] text-[color:var(--color-text)] shadow-[inset_0_1px_0_rgba(201,163,91,0.22)] hover:translate-y-[-1px] hover:bg-[rgba(201,163,91,0.18)]",
+    "border-[color:var(--color-border)] bg-[rgba(181,148,84,0.06)] text-[color:var(--color-text)] shadow-[inset_0_1px_0_rgba(181,148,84,0.18)] hover:translate-y-[-2px] hover:border-[color:var(--color-border-strong)]",
   secondary:
-    "border-[color:var(--color-border)] bg-transparent text-[color:var(--color-text)] hover:translate-y-[-1px] hover:border-[color:var(--color-accent)]",
+    "border-[color:var(--color-border-soft)] bg-transparent text-[color:var(--color-text)] hover:translate-y-[-2px] hover:border-[color:var(--color-border-strong)]",
   tertiary:
     "border-transparent bg-transparent text-[color:var(--color-text-muted)] hover:text-[color:var(--color-text)]",
 };
