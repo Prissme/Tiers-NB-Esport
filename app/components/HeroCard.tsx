@@ -1,43 +1,31 @@
-import Image from "next/image";
 import Button from "./Button";
+import FrameOrnaments from "./FrameOrnaments";
 
 export default function HeroCard() {
   return (
-    <section className="hero-cinematic">
-      <div className="hero__layer hero__mountain" aria-hidden="true" />
-      <div className="hero__layer hero__gradient" aria-hidden="true" />
-      <div className="hero__layer hero__grain" aria-hidden="true" />
-      <div className="hero__layer hero__fog" aria-hidden="true" />
-      <div className="hero__layer hero__snow" aria-hidden="true" />
-      <div className="hero__fade" aria-hidden="true" />
-      <div className="hero__content">
-        <div className="flex items-center justify-center gap-3 sm:justify-start">
-          <Image src="/assets/logo.svg" alt="LFN" width={40} height={40} priority />
-          <span className="text-xs uppercase tracking-[0.5em] text-white/70">
-            Ligue Française Next
-          </span>
-        </div>
-        <div className="space-y-6">
-          <h1 className="text-4xl font-semibold uppercase tracking-[0.18em] text-white sm:text-6xl lg:text-7xl">
-            ATTEIGNEZ LE SOMMET.
-            <span className="mt-4 block text-xl font-medium uppercase tracking-[0.24em] text-white/70 sm:text-2xl">
-              SI VOUS EN ÊTES CAPABLES.
-            </span>
-          </h1>
-          <p className="max-w-2xl text-base text-slate-200 sm:text-lg">
-            Une ligue structurée pour celles et ceux qui veulent progresser dans un cadre sérieux, sans
-            promesses faciles ni slogans creux.
-          </p>
-          <p className="max-w-2xl text-sm text-slate-300 sm:text-base">
-            Sélection sur dossier, saisons encadrées, et des formats pensés pour respecter votre engagement.
+    <section className="hero-ironhill">
+      <div className="hero-ironhill__layer hero-ironhill__bg" aria-hidden="true" />
+      <div className="hero-ironhill__layer hero-ironhill__overlay" aria-hidden="true" />
+      <div className="hero-ironhill__layer hero-ironhill__grain" aria-hidden="true" />
+      <div className="hero-ironhill__layer hero-ironhill__dust" aria-hidden="true" />
+      <div className="hero-ironhill__layer hero-ironhill__vignette" aria-hidden="true" />
+      <FrameOrnaments label="STEP INTO THE — LEAGUE FORCE NETWORK" />
+      <div className="hero-ironhill__content">
+        <div className="space-y-5">
+          <p className="hero-kicker">Institutionnel • Ligue Premium</p>
+          <div className="hero-divider" aria-hidden="true" />
+          <h1 className="hero-title">ATTEIGNEZ LE SOMMET</h1>
+          <p className="hero-subtitle">SI VOUS EN ÊTES CAPABLES</p>
+          <p className="max-w-[720px] text-sm text-[color:var(--color-text-muted)] sm:text-base">
+            Une ligue sobre, structurée et exigeante pour les équipes qui visent l&apos;excellence.
           </p>
         </div>
-        <div className="flex flex-wrap justify-center gap-4 sm:justify-start">
+        <div className="flex flex-wrap gap-4">
           <Button href="/participer" variant="primary">
-            Rejoindre la Ligue
+            S&apos;inscrire
           </Button>
           <Button href="/classement" variant="secondary">
-            Voir le Classement
+            Voir le classement
           </Button>
         </div>
       </div>

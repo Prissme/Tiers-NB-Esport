@@ -13,18 +13,16 @@ type ButtonProps = {
 };
 
 const baseStyles =
-  "relative inline-flex items-center justify-center gap-2 overflow-hidden rounded-full px-6 py-3 text-sm font-semibold uppercase tracking-[0.28em] transition duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan/70 focus-visible:ring-offset-2 focus-visible:ring-offset-[#070a12] disabled:pointer-events-none disabled:opacity-60";
+  "relative inline-flex items-center justify-center gap-2 overflow-hidden rounded-full border px-6 py-3 text-xs font-semibold uppercase tracking-[0.32em] transition duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-border)] focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--color-bg)] disabled:pointer-events-none disabled:opacity-60";
 
 const variantStyles: Record<ButtonVariant, string> = {
   primary:
-    "bg-white/10 text-white ring-1 ring-white/20 shadow-[inset_0_1px_0_rgba(255,255,255,0.15)] hover:translate-y-[-1px] hover:bg-white/15 hover:ring-white/40",
+    "border-[color:var(--color-border)] bg-[rgba(181,148,84,0.06)] text-[color:var(--color-text)] shadow-[inset_0_1px_0_rgba(181,148,84,0.18)] hover:translate-y-[-2px] hover:border-[color:var(--color-border-strong)]",
   secondary:
-    "bg-white/5 text-white ring-1 ring-white/15 shadow-[inset_0_1px_0_rgba(255,255,255,0.12)] hover:translate-y-[-1px] hover:bg-white/10 hover:ring-white/30",
+    "border-[color:var(--color-border-soft)] bg-transparent text-[color:var(--color-text)] hover:translate-y-[-2px] hover:border-[color:var(--color-border-strong)]",
   tertiary:
-    "bg-transparent text-white/80 ring-1 ring-transparent hover:text-white hover:ring-white/20",
+    "border-transparent bg-transparent text-[color:var(--color-text-muted)] hover:text-[color:var(--color-text)]",
 };
-
-const shimmerStyles = "";
 
 export default function Button({
   href,
@@ -34,9 +32,7 @@ export default function Button({
   disabled = false,
   className,
 }: ButtonProps) {
-  const classes = [baseStyles, variantStyles[variant], shimmerStyles, className]
-    .filter(Boolean)
-    .join(" ");
+  const classes = [baseStyles, variantStyles[variant], className].filter(Boolean).join(" ");
 
   if (external) {
     return (

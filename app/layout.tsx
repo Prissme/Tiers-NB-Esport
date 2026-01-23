@@ -1,20 +1,20 @@
 import "./globals.css";
 import type { Metadata } from "next";
-import { Manrope, JetBrains_Mono } from "next/font/google";
-import BackgroundFX from "./components/BackgroundFX";
+import { Cormorant_Garamond, Inter } from "next/font/google";
 import Footer from "./components/Footer";
 import Header from "./components/Header";
 
-const manrope = Manrope({
+const inter = Inter({
   subsets: ["latin"],
   display: "swap",
-  variable: "--font-manrope",
+  variable: "--font-sans",
 });
 
-const jetbrains = JetBrains_Mono({
+const cormorant = Cormorant_Garamond({
   subsets: ["latin"],
   display: "swap",
-  variable: "--font-mono",
+  weight: ["400", "500", "600", "700"],
+  variable: "--font-serif",
 });
 
 export const metadata: Metadata = {
@@ -59,10 +59,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="fr" className={`${manrope.variable} ${jetbrains.variable}`}>
-      <body className="min-h-screen bg-[#070a12] text-slate-100">
+    <html lang="fr" className={`${inter.variable} ${cormorant.variable}`}>
+      <body className="min-h-screen bg-[color:var(--color-bg)] text-[color:var(--color-text)]">
         <div className="relative min-h-screen overflow-hidden">
-          <BackgroundFX />
           <Header />
           <main className="relative z-10">{children}</main>
           <Footer />
