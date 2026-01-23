@@ -48,8 +48,36 @@ const features = [
 export default function HomePage() {
   return (
     <div className="relative">
-      <div className="mx-auto flex w-full max-w-6xl flex-col gap-14 px-4 pb-20 pt-4 sm:px-6">
-        <HeroCard />
+      <HeroCard />
+      <div className="mx-auto flex w-full max-w-6xl flex-col gap-14 px-4 pb-20 sm:px-6">
+        <section className="relative z-10 -mt-20 grid gap-6 md:grid-cols-3">
+          {[
+            {
+              title: "Cadre officiel",
+              description:
+                "Une structure claire, des règles publiques et une organisation qui respecte votre temps.",
+            },
+            {
+              title: "Progression mesurée",
+              description:
+                "Des saisons régulières pour monter en niveau à votre rythme, sans pression artificielle.",
+            },
+            {
+              title: "Communauté exigeante",
+              description:
+                "Une ligue où la discipline et le jeu d'équipe passent avant le spectacle.",
+            },
+          ].map((card) => (
+            <article key={card.title} className="glass-card">
+              <h2 className="text-sm uppercase tracking-[0.32em] text-white/70">
+                {card.title}
+              </h2>
+              <p className="mt-3 text-sm text-slate-200 sm:text-base">
+                {card.description}
+              </p>
+            </article>
+          ))}
+        </section>
         <EliteOffer />
         <section className="grid gap-6 lg:grid-cols-[1.6fr_1fr]">
           <div className="grid gap-6 md:grid-cols-3">

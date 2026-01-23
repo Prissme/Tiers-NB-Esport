@@ -7,19 +7,17 @@ const eliteImage =
 export default function EliteOffer() {
   return (
     <section className="relative overflow-hidden rounded-[32px] border border-white/10 bg-white/5 p-6 shadow-card backdrop-blur-[24px] sm:p-8">
-      <div className="absolute inset-0 bg-card-gradient opacity-90" />
-      <div className="absolute inset-0 bg-gradient-to-br from-blue-500/20 via-transparent to-red-500/20" />
-      <div className="absolute inset-0 bg-noise opacity-40" />
+      <div className="absolute inset-0 bg-card-gradient opacity-80" />
+      <div className="absolute inset-0 bg-noise opacity-30" />
       <div className="relative z-10 grid items-center gap-8 lg:grid-cols-[1.05fr_1fr]">
         <div className="relative overflow-hidden rounded-[24px] border border-white/10 bg-[#0b111f]/80 shadow-[0_30px_70px_-40px_rgba(8,12,22,0.9)]">
-          <div className="absolute inset-0 bg-[linear-gradient(120deg,rgba(12,20,44,0.55),rgba(10,15,26,0.05))]" />
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.25),transparent_55%),radial-gradient(circle_at_bottom_right,rgba(239,68,68,0.2),transparent_50%)]" />
+          <div className="absolute inset-0 bg-[linear-gradient(120deg,rgba(12,20,44,0.4),rgba(10,15,26,0.05))]" />
           <Image
             src={eliteImage}
             alt="Offre Elite LFN"
             width={874}
             height={583}
-            className="relative z-10 h-full w-full object-cover saturate-[0.9]"
+            className="relative z-10 h-full w-full object-cover saturate-[0.85]"
             loading="lazy"
           />
         </div>
