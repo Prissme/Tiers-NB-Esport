@@ -287,7 +287,6 @@ body {
     width: 28px;
     background: var(--color-border);
   }
-}
 
 @media (max-width: 640px) {
   .hero-ironhill {
