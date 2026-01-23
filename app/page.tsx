@@ -6,35 +6,25 @@ export default function HomePage() {
     <div className="page-shell">
       <HeroCard />
       <div className="content-shell">
-        <section className="grid gap-6 md:grid-cols-3">
-          {[
-            {
-              title: "Cadre officiel",
-              description:
-                "Une structure claire, des règles publiques et un cadre respectueux du temps des équipes.",
-            },
-            {
-              title: "Progression mesurée",
-              description:
-                "Des saisons régulières, un rythme maîtrisé, une progression lisible.",
-            },
-            {
-              title: "Communauté exigeante",
-              description:
-                "Une ligue où la discipline prime sur le spectacle.",
-            },
-          ].map((card) => (
-            <article key={card.title} className="iron-card">
-              <h2 className="text-xs uppercase tracking-[0.32em] text-[color:var(--color-text-muted)]">
-                {card.title}
-              </h2>
-              <p className="mt-3 text-sm text-[color:var(--color-text)] sm:text-base">
-                {card.description}
-              </p>
-            </article>
-          ))}
+        <section className="grid gap-6 lg:grid-cols-[1fr_1fr_1.1fr]">
+          <article className="section-card">
+            <h2 className="text-xs uppercase tracking-[0.32em] text-[color:var(--color-text-muted)]">
+              Saison
+            </h2>
+            <p className="mt-4 text-sm text-[color:var(--color-text-muted)]">
+              Des saisons structurées et un suivi clair pour les équipes méritantes.
+            </p>
+          </article>
+          <article className="section-card">
+            <h2 className="text-xs uppercase tracking-[0.32em] text-[color:var(--color-text-muted)]">
+              Règles
+            </h2>
+            <p className="mt-4 text-sm text-[color:var(--color-text-muted)]">
+              Un règlement clair et compétitif. Statut elite sur sélection et révocable.
+            </p>
+          </article>
+          <TopTeams />
         </section>
-        <TopTeams />
       </div>
     </div>
   );

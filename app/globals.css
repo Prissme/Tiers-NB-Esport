@@ -28,7 +28,7 @@
   --space-8: 4rem;
   --hero-image: url("https://media.discordapp.net/attachments/1434252768633290952/1463562452829601967/image.png?ex=6974eb40&is=697399c0&hm=5773e8ee9f5c7ffaf6c3b52e57e206d49481732fba6467c192200a2f9af1db6d&=&format=webp&quality=lossless&width=875&height=583");
   --grain-image: url("data:image/svg+xml,%3Csvg width='180' height='180' viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)' opacity='0.22'/%3E%3C/svg%3E");
-  --dust-image: url(\"data:image/svg+xml,%3Csvg width='240' height='240' viewBox='0 0 240 240' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='12' cy='18' r='1.2' fill='white'/%3E%3Ccircle cx='78' cy='44' r='0.9' fill='white'/%3E%3Ccircle cx='160' cy='32' r='1.1' fill='white'/%3E%3Ccircle cx='210' cy='72' r='0.8' fill='white'/%3E%3Ccircle cx='32' cy='120' r='0.9' fill='white'/%3E%3Ccircle cx='92' cy='170' r='1.1' fill='white'/%3E%3Ccircle cx='178' cy='148' r='0.9' fill='white'/%3E%3Ccircle cx='220' cy='196' r='1' fill='white'/%3E%3C/svg%3E\");
+  --dust-image: url("data:image/svg+xml,%3Csvg width='240' height='240' viewBox='0 0 240 240' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='12' cy='18' r='1.2' fill='white'/%3E%3Ccircle cx='78' cy='44' r='0.9' fill='white'/%3E%3Ccircle cx='160' cy='32' r='1.1' fill='white'/%3E%3Ccircle cx='210' cy='72' r='0.8' fill='white'/%3E%3Ccircle cx='32' cy='120' r='0.9' fill='white'/%3E%3Ccircle cx='92' cy='170' r='1.1' fill='white'/%3E%3Ccircle cx='178' cy='148' r='0.9' fill='white'/%3E%3Ccircle cx='220' cy='196' r='1' fill='white'/%3E%3C/svg%3E");
 }
 
 body {
@@ -119,6 +119,12 @@ body {
     font-family: var(--font-serif), ui-serif, Georgia, serif;
     @apply text-4xl uppercase tracking-[0.12em] text-[color:var(--color-text)] sm:text-5xl lg:text-6xl;
     font-weight: 500;
+  }
+
+  .hero-brand {
+    font-family: var(--font-serif), ui-serif, Georgia, serif;
+    @apply text-base uppercase tracking-[0.5em] text-[color:var(--color-text)];
+    letter-spacing: 0.6em;
   }
 
   .hero-subtitle {
@@ -287,6 +293,7 @@ body {
     width: 28px;
     background: var(--color-border);
   }
+}
 
 @media (max-width: 640px) {
   .hero-ironhill {
