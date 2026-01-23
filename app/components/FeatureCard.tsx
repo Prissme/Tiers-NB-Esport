@@ -11,8 +11,8 @@ export default function FeatureCard({ title, description, icon }: FeatureCardPro
     <article className="feature-card">
       <div className="feature-icon">{icon}</div>
       <div className="space-y-3">
-        <h3 className="text-lg font-semibold text-white">{title}</h3>
-        <p className="text-sm text-slate-300">{description}</p>
+        <h3 className="text-lg font-semibold text-[color:var(--color-text)]">{title}</h3>
+        <p className="text-sm text-[color:var(--color-text-muted)]">{description}</p>
       </div>
     </article>
   );
