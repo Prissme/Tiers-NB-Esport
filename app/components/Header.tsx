@@ -2,9 +2,9 @@ import Link from "next/link";
 import Button from "./Button";
 
 const navLinks = [
-  { label: "Calendrier", href: "/matchs" },
+  { label: "Saison 01", href: "/saison-01" },
+  { label: "Règles", href: "/regles" },
   { label: "Classement", href: "/classement" },
-  { label: "Équipes", href: "/equipes" },
 ];
 
 export default function Header() {

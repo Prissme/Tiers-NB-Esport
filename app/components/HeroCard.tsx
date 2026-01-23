@@ -14,8 +14,9 @@ export default function HeroCard() {
         <div className="space-y-5">
           <p className="hero-kicker">Institutionnel • Ligue Premium</p>
           <div className="hero-divider" aria-hidden="true" />
-          <h1 className="hero-title">ATTEIGNEZ LE SOMMET</h1>
-          <p className="hero-subtitle">SI VOUS EN ÊTES CAPABLES</p>
+          <p className="hero-brand">LFN</p>
+          <h1 className="hero-title">ATTEIGNEZ LE SOMMET.</h1>
+          <p className="hero-subtitle">SI VOUS EN ÊTES CAPABLES.</p>
           <p className="max-w-[720px] text-sm text-[color:var(--color-text-muted)] sm:text-base">
             Une ligue sobre, structurée et exigeante pour les équipes qui visent l&apos;excellence.
           </p>
