@@ -1,27 +1,35 @@
+import Image from "next/image";
 import Button from "./Button";
 
 export default function HeroCard() {
   return (
-    <section className="hero group relative mx-auto w-full max-w-4xl overflow-hidden rounded-[32px] border border-white/10 p-6 shadow-card transition duration-300 hover:-translate-y-1 hover:border-white/20 sm:p-10">
-      <div className="hero__background" aria-hidden="true" />
-      <div className="hero__overlay" aria-hidden="true" />
-      <div className="hero__grain" aria-hidden="true" />
-      <div className="absolute -inset-20 -z-10 rounded-[48px] bg-[radial-gradient(circle_at_top,rgba(34,211,238,0.25),transparent_65%)] opacity-80 blur-[120px]" />
-      <div className="absolute inset-0 rounded-[32px] border border-white/10 bg-card-gradient opacity-80" />
-      <div className="absolute right-6 top-6 z-10">
-        <span className="badge-pill">Invite Only</span>
-      </div>
-      <div className="hero__content relative z-10 space-y-6 text-center sm:text-left">
-        <div className="space-y-3">
-          <p className="text-xs uppercase tracking-[0.5em] text-cyan/80">LFN</p>
-          <h1 className="text-4xl font-semibold leading-tight text-white sm:text-6xl">
-            LFN
+    <section className="hero-cinematic">
+      <div className="hero__layer hero__mountain" aria-hidden="true" />
+      <div className="hero__layer hero__gradient" aria-hidden="true" />
+      <div className="hero__layer hero__grain" aria-hidden="true" />
+      <div className="hero__layer hero__fog" aria-hidden="true" />
+      <div className="hero__layer hero__snow" aria-hidden="true" />
+      <div className="hero__fade" aria-hidden="true" />
+      <div className="hero__content">
+        <div className="flex items-center justify-center gap-3 sm:justify-start">
+          <Image src="/assets/logo.svg" alt="LFN" width={40} height={40} priority />
+          <span className="text-xs uppercase tracking-[0.5em] text-white/70">
+            Ligue Française Next
+          </span>
+        </div>
+        <div className="space-y-6">
+          <h1 className="text-4xl font-semibold uppercase tracking-[0.18em] text-white sm:text-6xl lg:text-7xl">
+            ATTEIGNEZ LE SOMMET.
+            <span className="mt-4 block text-xl font-medium uppercase tracking-[0.24em] text-white/70 sm:text-2xl">
+              SI VOUS EN ÊTES CAPABLES.
+            </span>
           </h1>
-          <p className="text-lg text-slate-200 sm:text-xl">
-            Une ligue amateur structurée, avec sélection et saisons officielles.
+          <p className="max-w-2xl text-base text-slate-200 sm:text-lg">
+            Une ligue structurée pour celles et ceux qui veulent progresser dans un cadre sérieux, sans
+            promesses faciles ni slogans creux.
           </p>
           <p className="max-w-2xl text-sm text-slate-300 sm:text-base">
-            Des matchs organisés, un suivi clair des performances, et un cadre sérieux pour jouer en équipe.
+            Sélection sur dossier, saisons encadrées, et des formats pensés pour respecter votre engagement.
           </p>
         </div>
         <div className="flex flex-wrap justify-center gap-4 sm:justify-start">
