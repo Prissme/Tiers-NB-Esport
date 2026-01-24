@@ -26,7 +26,7 @@
   --space-6: 2rem;
   --space-7: 3rem;
   --space-8: 4rem;
-  --hero-image: url("https://cdn.discordapp.com/attachments/1434252768633290952/1464557129993031843/content.png?ex=6975e69d&is=6974951d&hm=60f9cbc48646c1a570a16e3db31e1017654306119c4d6a6568044dec1a225ee3");
+  --hero-image: url("https://media.discordapp.net/attachments/1434252768633290952/1464596930783875175/9871a34b-c08e-47fe-a88f-3df3a66a4d28_1_1_1.png?ex=69760baf&is=6974ba2f&hm=47ec409ccba3dd3c100edbf9fc4ee9fe52afb2273e90b43cc575342c3ef8b49c&=&format=webp&quality=lossless&width=875&height=583");
   --fog-image: radial-gradient(circle at 40% 10%, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0) 55%),
     radial-gradient(circle at 70% 30%, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0) 60%),
     radial-gradient(circle at 20% 55%, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0) 65%);
@@ -283,7 +283,32 @@ body {
   }
 
   .tag-verified {
-    @apply inline-flex items-center rounded-full border border-[color:var(--color-border)] px-3 py-1 text-[10px] uppercase tracking-[0.3em] text-[color:var(--color-accent)];
+    @apply inline-flex items-center rounded-full border border-[color:var(--color-border-strong)] px-4 py-1 text-[11px] uppercase tracking-[0.36em] text-[color:var(--color-text)];
+    background-color: rgba(181, 148, 84, 0.18);
+    box-shadow: 0 0 18px rgba(181, 148, 84, 0.25);
+  }
+
+  .tag-review {
+    @apply inline-flex items-center rounded-full border border-[color:var(--color-border-soft)] px-3 py-1 text-[10px] uppercase tracking-[0.3em] text-[color:var(--color-text-muted)];
+    opacity: 0.65;
+    filter: blur(0.2px);
+    animation: review-flicker 3.2s ease-in-out infinite;
+  }
+
+  @keyframes review-flicker {
+    0%,
+    100% {
+      opacity: 0.55;
+      transform: translateY(0);
+    }
+    45% {
+      opacity: 0.85;
+      transform: translateY(-1px);
+    }
+    65% {
+      opacity: 0.4;
+      transform: translateY(1px);
+    }
   }
 
   .frame-ornaments {

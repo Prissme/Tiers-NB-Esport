@@ -23,46 +23,39 @@ export default function EliteOffer() {
         </div>
         <div className="space-y-6">
           <div className="space-y-3">
-            <span className="badge">Programme exclusif</span>
+            <span className="badge">Statut sélection</span>
             <h2 className="text-3xl font-semibold tracking-tight text-white sm:text-4xl">
-              ELITE — Le cercle visible de la LFN
+              ELITE — Statut officiel, révocable
             </h2>
             <p className="text-sm text-slate-300 sm:text-base">
-              Accès sur sélection, maintenu tant que les critères sont respectés.
-              <br />
-              Statut révocable : c&apos;est une candidature, pas un abonnement.
+              Entrée possible. Maintien non garanti.
             </p>
           </div>
           <ul className="space-y-3 text-sm text-slate-200 sm:text-base">
             {[
               {
-                title: "Tournois ELITE only",
-                description:
-                  "Tournois réservés aux équipes ELITE, avec planning dédié.",
+                title: "Tournois filtrés",
+                description: "Accès uniquement après validation officielle.",
                 icon: "🏆",
               },
               {
-                title: "After-match vocaux LFN",
-                description:
-                  "Débrief vocal après match avec l&apos;équipe LFN quand disponible.",
+                title: "Débriefs sous contrôle",
+                description: "Retours stricts, pas de promesse de progression.",
                 icon: "🎙️",
               },
               {
-                title: "Vote officiel MVP",
-                description:
-                  "Accès au vote officiel MVP de la ligue.",
+                title: "Vote MVP encadré",
+                description: "Réservé aux statuts validés.",
                 icon: "🗳️",
               },
               {
-                title: "Accès prioritaire compétitions",
-                description:
-                  "Priorité d&apos;inscription sur certaines compétitions LFN.",
+                title: "Compétitions sous sélection",
+                description: "Pas d&apos;accès sans validation.",
                 icon: "📊",
               },
               {
-                title: "Débriefs stratégiques hebdo",
-                description:
-                  "Débriefs et retours stratégiques partagés chaque semaine.",
+                title: "Suivi exigeant",
+                description: "Contrôle constant, tolérance minimale.",
                 icon: "🎥",
               },
             ].map((item) => (
@@ -82,13 +75,16 @@ export default function EliteOffer() {
           </ul>
           <div className="space-y-4">
             <p className="text-xs uppercase tracking-[0.24em] text-white/60">
-              Badge ELITE visible sur les classements et pages d&apos;équipes.
+              Seuls les meilleurs montent. Les autres regardent.
             </p>
             <p className="text-xs text-white/60">
-              ELITE est un statut, pas un droit. L&apos;accès peut être refusé ou retiré.
+              ELITE est un statut, pas un droit. Révocable à tout moment.
             </p>
-            <Button href="https://ko-fi.com/prissme" variant="primary" external>
-              Déposer une candidature ELITE
+            <p className="text-xs uppercase tracking-[0.24em] text-white/60">
+              La majorité des demandes sont refusées.
+            </p>
+            <Button href="https://forms.gle/pmo6Z2mRLptYMR1J7" variant="primary" external>
+              Soumettre une demande
             </Button>
           </div>
         </div>
