@@ -7,15 +7,15 @@ export default function HomePage() {
     <div className="page-shell">
       <HeroCard />
       <div className="content-shell">
-        <section className="grid gap-4 sm:grid-cols-2">
-          <article className="section-card text-center">
-            <p className="text-3xl font-semibold text-[color:var(--color-text)]">40+</p>
+        <section className="grid gap-6 text-center sm:grid-cols-2">
+          <article>
+            <p className="font-sekuya text-5xl text-[color:var(--color-text)] sm:text-6xl">40+</p>
             <p className="mt-2 text-[11px] uppercase tracking-[0.3em] text-[color:var(--color-text-muted)]">
               Matchs joués
             </p>
           </article>
-          <article className="section-card text-center">
-            <p className="text-3xl font-semibold text-[color:var(--color-text)]">100+</p>
+          <article>
+            <p className="font-sekuya text-5xl text-[color:var(--color-text)] sm:text-6xl">100+</p>
             <p className="mt-2 text-[11px] uppercase tracking-[0.3em] text-[color:var(--color-text-muted)]">
               Joueurs
             </p>

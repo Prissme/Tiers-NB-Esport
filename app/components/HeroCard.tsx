@@ -1,7 +1,4 @@
-import Button from "./Button";
 import CountdownTimer from "./CountdownTimer";
-
-const DISCORD_INVITE = "https://discord.gg/q6sFPWCKD7";
 
 export default function HeroCard() {
   return (
@@ -14,19 +11,6 @@ export default function HeroCard() {
           <p className="hero-subtitle">ACCÈS SUR SÉLECTION.</p>
         </div>
         <CountdownTimer />
-        <div className="hero-cta">
-          <Button
-            href={DISCORD_INVITE}
-            variant="primary"
-            external
-            ariaLabel="Rejoindre la ligue sur Discord"
-          >
-            S&apos;INSCRIRE
-          </Button>
-          <Button href="/classement" variant="secondary" ariaLabel="Voir le classement">
-            VOIR LE CLASSEMENT
-          </Button>
-        </div>
       </div>
     </section>
   );
