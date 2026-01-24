@@ -45,18 +45,17 @@ export default function CountdownTimer() {
   );
 
   return (
-    <div className="mt-6 space-y-3">
-      <p className="text-[11px] uppercase tracking-[0.35em] text-slate-400">
-        Compte à rebours — 28/01/2026 · 19:00 (Belgique)
+    <div className="mt-6 space-y-4">
+      <p className="font-sekuya text-xs uppercase tracking-[0.4em] text-slate-300">
+        SAISON 4 BIENTÔT
       </p>
-      <div className="flex flex-wrap gap-3">
+      <div className="flex flex-wrap gap-6">
         {items.map((item) => (
-          <div
-            key={item.label}
-            className="rounded-[10px] border border-[color:var(--color-border)] bg-[rgba(0,0,0,0.4)] px-4 py-2 text-center"
-          >
-            <p className="text-sm font-semibold text-[color:var(--color-text)]">
-              {formatValue(item.value)}
+          <div key={item.label} className="text-center">
+            <p className="countdown-value font-sekuya text-3xl text-[color:var(--color-text)] sm:text-4xl">
+              <span key={`${item.label}-${item.value}`} className="countdown-value__tick">
+                {formatValue(item.value)}
+              </span>
             </p>
             <p className="text-[10px] uppercase tracking-[0.32em] text-[color:var(--color-text-muted)]">
               {item.label}
