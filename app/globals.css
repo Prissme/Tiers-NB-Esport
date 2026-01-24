@@ -26,13 +26,18 @@
   --space-6: 2rem;
   --space-7: 3rem;
   --space-8: 4rem;
-  --hero-image: url("/images/9871a34b-c08e-47fe-a88f-3df3a66a4d28_1_1_1.webp");
+  --site-background: url("https://media.discordapp.net/attachments/1434252768633290952/1464596930783875175/9871a34b-c08e-47fe-a88f-3df3a66a4d28_1_1_1.png?ex=69760baf&is=6974ba2f&hm=47ec409ccba3dd3c100edbf9fc4ee9fe52afb2273e90b43cc575342c3ef8b49c&=&format=webp&quality=lossless&width=875&height=583");
+  --hero-image: var(--site-background);
 }
 
 body {
   @apply antialiased;
   font-family: var(--font-sans), system-ui, sans-serif;
   background-color: var(--color-bg);
+  background-image: var(--site-background);
+  background-position: center;
+  background-size: cover;
+  background-attachment: fixed;
   color: var(--color-text);
 }
 
