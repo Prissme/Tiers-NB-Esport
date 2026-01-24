@@ -6,14 +6,9 @@ const logoUrl =
 
 const navLinks = [
   { label: "Saison 01", href: "/saison-01" },
-  { label: "Règles", href: "/regles" },
+  { label: "Règles", href: "/reglement" },
   { label: "Classement", href: "/classement" },
-  { label: "ELITE", href: "/#elite" },
-  {
-    label: "S’inscrire à la LFN",
-    href: "https://discord.gg/prissme",
-    external: true,
-  },
+  { label: "S’inscrire", href: "/inscription" },
 ];
 
 export default function Header() {
@@ -33,7 +28,6 @@ export default function Header() {
             <p className="text-[11px] uppercase tracking-[0.45em] text-[color:var(--color-text-muted)]">
               League Force Network
             </p>
-            <p className="text-xs text-[color:var(--color-text-muted)]">Institutional League</p>
           </div>
         </Link>
         <nav className="hidden items-center gap-6 md:flex">
@@ -61,12 +55,11 @@ export default function Header() {
         </nav>
         <div className="md:hidden">
           <Button
-            href="https://discord.gg/prissme"
+            href="/inscription"
             variant="secondary"
-            external
-            ariaLabel="S'inscrire à la LFN sur Discord (nouvel onglet)"
+            ariaLabel="S'inscrire à la LFN"
           >
-            S&apos;inscrire à la LFN
+            S&apos;inscrire
           </Button>
         </div>
       </div>
