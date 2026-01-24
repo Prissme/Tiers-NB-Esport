@@ -14,6 +14,9 @@ export default function TopTeams() {
             Classement
           </p>
           <h3 className="section-title mt-2 text-lg">Registre officiel</h3>
+          <p className="mt-2 text-xs uppercase tracking-[0.32em] text-[color:var(--color-text-muted)]">
+            Le classement exclut plus qu&apos;il ne récompense.
+          </p>
         </div>
         <span className="tag-verified">Semaine 03</span>
       </div>
@@ -37,11 +40,9 @@ export default function TopTeams() {
                 <td className="text-sm text-[color:var(--color-text-muted)]">{team.status}</td>
                 <td>
                   {team.verified ? (
-                    <span className="tag-verified">Verified</span>
+                    <span className="tag-verified">VERIFIED</span>
                   ) : (
-                    <span className="text-xs uppercase tracking-[0.3em] text-[color:var(--color-text-muted)]">
-                      En revue
-                    </span>
+                    <span className="tag-review">EN REVUE</span>
                   )}
                 </td>
               </tr>

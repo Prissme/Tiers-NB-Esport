@@ -16,36 +16,41 @@ export default function HeroCard() {
           <div className="space-y-4">
             <p className="hero-kicker">Ligue francophone Null&apos;s Brawl</p>
             <p className="hero-brand">LFN</p>
-            <h1 className="hero-title">ATTEIGNEZ LE SOMMET.</h1>
+            <h1 className="hero-title">SEULS LES MEILLEURS MONTENT.</h1>
             <p className="hero-identity">LFN — Ligue Française Null&apos;s Brawl</p>
-            <p className="hero-subtitle">SI VOUS EN ÊTES CAPABLES.</p>
+            <p className="hero-subtitle">LES AUTRES REGARDENT.</p>
             <p className="hero-copy">
-              Rejoignez la ligue où l&apos;air se raréfie, où seules les équipes féroces
-              restent debout.
+              Une ligue qui retient plus qu&apos;elle ne recrute. Une saison = un test.
             </p>
-            <p className="hero-clarifier">ELITE est le cercle premium de la LFN.</p>
+            <p className="hero-clarifier">
+              Si vous hésitez, vous n&apos;êtes pas prêt.
+            </p>
+            <p className="hero-clarifier">
+              ELITE est un statut révocable. Entrée possible. Maintien non garanti.
+            </p>
           </div>
           <div className="hero-cta">
             <div className="flex flex-col items-center gap-2">
               <Button
-                href="https://discord.gg/prissme"
+                href="https://forms.gle/pmo6Z2mRLptYMR1J7"
                 variant="primary"
                 external
-                ariaLabel="S'inscrire à la LFN sur Discord (nouvel onglet)"
+                ariaLabel="Soumettre une demande ELITE (nouvel onglet)"
               >
-                S&apos;inscrire à la LFN
+                Soumettre une demande ELITE
               </Button>
+              <p className="hero-cta-note">La majorité des demandes sont refusées.</p>
             </div>
             <div className="flex flex-col items-center gap-2">
               <Button
-                href="https://forms.gle/pmo6Z2mRLptYMR1J7"
-                variant="secondary"
+                href="https://discord.gg/prissme"
+                variant="tertiary"
                 external
-                ariaLabel="Demander l'accès à ELITE (nouvel onglet)"
+                ariaLabel="Observer la ligue sur Discord (nouvel onglet)"
               >
-                Demander l&apos;accès à ELITE
+                Observer la ligue
               </Button>
-              <p className="hero-cta-note">Cercle premium — accès soumis à validation</p>
+              <p className="hero-cta-note">Accès surveillé • sélection humaine</p>
             </div>
           </div>
         </div>
@@ -53,24 +58,21 @@ export default function HeroCard() {
       <section className="hero-features">
         <div className="hero-features__inner">
           <article className="hero-feature-card">
-            <h3>Ascension brutale</h3>
+            <h3>Ascension filtrée</h3>
             <p>
-              Des rounds tendus, une pression continue et un rythme conçu pour faire
-              monter l&apos;adrénaline.
+              Durée longue, pression constante, endurance obligatoire.
             </p>
           </article>
           <article className="hero-feature-card">
-            <h3>Brume compétitive</h3>
+            <h3>Contrôle permanent</h3>
             <p>
-              Une scène obscure et magnétique, où chaque décision compte quand la visibilité
-              chute.
+              Chaque décision est observée, chaque écart est noté.
             </p>
           </article>
           <article className="hero-feature-card">
-            <h3>Respect du sommet</h3>
+            <h3>Sommet révocable</h3>
             <p>
-              Un terrain d&apos;élite pour celles et ceux prêts à s&apos;arracher le sommet
-              de Null&apos;s Brawl.
+              Le classement exclut plus qu&apos;il ne récompense.
             </p>
           </article>
         </div>

@@ -31,7 +31,7 @@ const tiers: UnlockableTier[] = [
     description: 'Une équipe de casting pro pour sublimer la finale.',
   },
   {
-    label: 'Kit streaming premium',
+    label: 'Kit streaming renforcé',
     amount: 1200,
     icon: '📡',
     description: 'Overlays et intros personnalisées en live.',
@@ -134,7 +134,7 @@ export default function PrizePoolClient() {
         <SectionHeader
           kicker="Prizepool"
           title="Cagnotte communautaire"
-          description="Boostez la compétition : chaque contribution débloque une expérience premium."
+          description="Boostez la compétition : chaque contribution débloque une expérience renforcée."
         />
         <div className="flex flex-wrap items-center gap-3">
           <Tag label="Cagnotte" />
@@ -169,7 +169,7 @@ export default function PrizePoolClient() {
               <MetricCard
                 label="Casting"
                 value="Pro"
-                detail="Interviews, narration et highlights premium."
+                detail="Interviews, narration et highlights renforcés."
               />
               <MetricCard
                 label="Streaming"

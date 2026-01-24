@@ -13,7 +13,7 @@ export default function HomePage() {
               Saison
             </h2>
             <p className="mt-4 text-sm text-[color:var(--color-text-muted)]">
-              Des saisons structurées et un suivi clair pour les équipes méritantes.
+              Une saison = un test. Durée longue, pression, endurance.
             </p>
           </article>
           <article className="section-card">
@@ -21,7 +21,7 @@ export default function HomePage() {
               Règles
             </h2>
             <p className="mt-4 text-sm text-[color:var(--color-text-muted)]">
-              Un règlement clair et compétitif. Statut elite sur sélection et révocable.
+              Contrat non négociable. Zéro tolérance. Statut révocable.
             </p>
           </article>
           <TopTeams />
