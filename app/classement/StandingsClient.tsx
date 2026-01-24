@@ -31,6 +31,24 @@ export default function StandingsClient() {
   const [loading, setLoading] = useState(true);
   const [source, setSource] = useState<"supabase" | "fallback">("supabase");
 
+  const teamFallbackStandings = useMemo<SiteStandingsRow[]>(() => {
+    return teams.map((team) => ({
+      teamId: team.id,
+      teamName: team.name,
+      teamTag: team.tag ?? null,
+      division: team.division ?? "D1",
+      wins: 0,
+      losses: 0,
+      setsWon: 0,
+      setsLost: 0,
+      pointsSets: 0,
+      pointsAdmin: 0,
+      pointsTotal: 0,
+    }));
+  }, [teams]);
+
+  const standingsToDisplay = standings.length > 0 ? standings : teamFallbackStandings;
+
   useEffect(() => {
     let mounted = true;
 
@@ -76,7 +94,7 @@ export default function StandingsClient() {
 
   const { standingsByDivision, teamsById } = useMemo(() => {
     const teamsMap = Object.fromEntries(teams.map((team) => [team.id, team]));
-    const grouped = standings.reduce<Record<string, SiteStandingsRow[]>>((acc, row) => {
+    const grouped = standingsToDisplay.reduce<Record<string, SiteStandingsRow[]>>((acc, row) => {
       const division = row.division ?? "D1";
       if (!acc[division]) acc[division] = [];
       acc[division].push(row);
@@ -84,7 +102,7 @@ export default function StandingsClient() {
     }, {});
 
     return { standingsByDivision: grouped, teamsById: teamsMap };
-  }, [standings, teams]);
+  }, [standingsToDisplay, teams]);
 
   if (loading) {
     return (
@@ -98,7 +116,7 @@ export default function StandingsClient() {
     );
   }
 
-  if (standings.length === 0) {
+  if (standingsToDisplay.length === 0) {
     return (
       <section className="section-card space-y-4">
         <SectionHeader
@@ -118,7 +136,11 @@ export default function StandingsClient() {
       <SectionHeader
         kicker="Classement"
         title="Classement officiel"
-        description="Publication officielle."
+        description={
+          standings.length === 0
+            ? "Liste des équipes enregistrées."
+            : "Publication officielle."
+        }
       />
       {source === "fallback" ? (
         <p className="text-xs uppercase tracking-[0.3em] text-slate-500">

@@ -306,6 +306,7 @@ const statusLabel = (status?: string | null) => {
 };
 
 const sanitizeInput = (value: string) => value.replace(/\s+/g, " ").trimStart();
+const sanitizeRosterText = (value: string) => value.replace(/\s+/g, " ").trim();
 
 export default function AdminPanel() {
   const supabase = useMemo(() => {
@@ -819,8 +820,8 @@ export default function AdminPanel() {
         role: member.role,
         slot: member.slot ?? null,
         name: sanitizeInput(member.name ?? ""),
-        mains: member.mains ? member.mains.trim() : "",
-        description: member.description ? member.description.trim() : "",
+        mains: member.mains ? sanitizeRosterText(member.mains) : "",
+        description: member.description ? sanitizeRosterText(member.description) : "",
       }))
       .filter((member) => member.name.length > 0)
       .map((member) => ({
