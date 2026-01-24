@@ -8,11 +8,11 @@
   --color-bg-soft: #0b0f10;
   --color-text: #f2f1ec;
   --color-text-muted: rgba(242, 241, 236, 0.68);
-  --color-accent: #b59454;
+  --color-accent: #d8c7a4;
   --color-accent-deep: #8b6a33;
-  --color-border: rgba(181, 148, 84, 0.28);
-  --color-border-strong: rgba(181, 148, 84, 0.45);
-  --color-border-soft: rgba(181, 148, 84, 0.18);
+  --color-border: rgba(216, 199, 164, 0.28);
+  --color-border-strong: rgba(216, 199, 164, 0.45);
+  --color-border-soft: rgba(216, 199, 164, 0.18);
   --shadow-soft: 0 24px 60px -40px rgba(0, 0, 0, 0.85);
   --radius-xs: 6px;
   --radius-sm: 10px;
@@ -26,7 +26,10 @@
   --space-6: 2rem;
   --space-7: 3rem;
   --space-8: 4rem;
-  --hero-image: url("https://media.discordapp.net/attachments/1434252768633290952/1463562452829601967/image.png?ex=6974eb40&is=697399c0&hm=5773e8ee9f5c7ffaf6c3b52e57e206d49481732fba6467c192200a2f9af1db6d&=&format=webp&quality=lossless&width=875&height=583");
+  --hero-image: url("https://cdn.discordapp.com/attachments/1434252768633290952/1464557129993031843/content.png?ex=6975e69d&is=6974951d&hm=60f9cbc48646c1a570a16e3db31e1017654306119c4d6a6568044dec1a225ee3");
+  --fog-image: radial-gradient(circle at 40% 10%, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0) 55%),
+    radial-gradient(circle at 70% 30%, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0) 60%),
+    radial-gradient(circle at 20% 55%, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0) 65%);
   --grain-image: url("data:image/svg+xml,%3Csvg width='180' height='180' viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)' opacity='0.22'/%3E%3C/svg%3E");
   --dust-image: url("data:image/svg+xml,%3Csvg width='240' height='240' viewBox='0 0 240 240' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='12' cy='18' r='1.2' fill='white'/%3E%3Ccircle cx='78' cy='44' r='0.9' fill='white'/%3E%3Ccircle cx='160' cy='32' r='1.1' fill='white'/%3E%3Ccircle cx='210' cy='72' r='0.8' fill='white'/%3E%3Ccircle cx='32' cy='120' r='0.9' fill='white'/%3E%3Ccircle cx='92' cy='170' r='1.1' fill='white'/%3E%3Ccircle cx='178' cy='148' r='0.9' fill='white'/%3E%3Ccircle cx='220' cy='196' r='1' fill='white'/%3E%3C/svg%3E");
 }
@@ -66,8 +69,10 @@ body {
   }
 
   .hero-ironhill {
-    @apply relative isolate flex min-h-[78vh] items-center overflow-hidden px-4 pb-24 pt-32 sm:px-6 lg:min-h-[86vh] lg:px-8;
+    @apply relative isolate flex min-h-[100vh] items-center overflow-hidden px-4 sm:px-6 lg:px-8;
     background-color: var(--color-bg);
+    padding-bottom: 18vh;
+    padding-top: 22vh;
   }
 
   .hero-ironhill__layer {
@@ -77,38 +82,67 @@ body {
   .hero-ironhill__bg {
     background-image: var(--hero-image);
     background-size: cover;
-    background-position: center;
-    filter: saturate(0.7) contrast(0.9) brightness(0.6);
-    transform: scale(1.02);
+    background-position: center 18%;
+    filter: saturate(0.85) contrast(1.2) brightness(0.85);
+    transform: scale(1.08);
+    animation: hero-bg-sway 26s ease-in-out infinite;
   }
 
   .hero-ironhill__overlay {
-    background: linear-gradient(180deg, rgba(7, 10, 11, 0.35) 0%, rgba(7, 10, 11, 0.8) 55%, rgba(7, 10, 11, 0.96) 100%);
+    background: radial-gradient(circle at 50% 20%, rgba(245, 242, 232, 0.2), rgba(7, 10, 11, 0.22) 35%, rgba(7, 10, 11, 0.72) 70%, rgba(7, 10, 11, 0.9) 100%),
+      linear-gradient(180deg, rgba(7, 10, 11, 0.1) 0%, rgba(7, 10, 11, 0.55) 60%, rgba(7, 10, 11, 0.85) 100%);
+    mix-blend-mode: multiply;
+  }
+
+  .hero-ironhill__halo {
+    background: radial-gradient(circle at 50% 18%, rgba(255, 248, 220, 0.45), rgba(255, 248, 220, 0) 40%);
+    mix-blend-mode: screen;
+    opacity: 0.7;
+  }
+
+  .hero-ironhill__fog {
+    background-image: var(--fog-image);
+    background-size: 160% 160%;
+    mix-blend-mode: screen;
+    opacity: 0.15;
+    animation: hero-fog-drift 22s ease-in-out infinite;
   }
 
   .hero-ironhill__grain {
     background-image: var(--grain-image);
-    opacity: 0.1;
+    opacity: 0.15;
     mix-blend-mode: soft-light;
   }
 
   .hero-ironhill__dust {
     background-image: var(--dust-image);
-    opacity: 0.06;
+    opacity: 0.08;
     mix-blend-mode: screen;
   }
 
+  .hero-ironhill__sparkles {
+    background-image:
+      radial-gradient(circle at 10% 20%, rgba(255, 255, 255, 0.3) 0, rgba(255, 255, 255, 0) 40%),
+      radial-gradient(circle at 80% 15%, rgba(255, 255, 255, 0.28) 0, rgba(255, 255, 255, 0) 38%),
+      radial-gradient(circle at 60% 45%, rgba(255, 255, 255, 0.2) 0, rgba(255, 255, 255, 0) 35%),
+      radial-gradient(circle at 25% 60%, rgba(255, 255, 255, 0.22) 0, rgba(255, 255, 255, 0) 35%),
+      radial-gradient(circle at 75% 70%, rgba(255, 255, 255, 0.18) 0, rgba(255, 255, 255, 0) 30%);
+    opacity: 0.16;
+    mix-blend-mode: screen;
+    animation: hero-sparkle-float 12s ease-in-out infinite;
+  }
+
   .hero-ironhill__vignette {
-    background: radial-gradient(circle at center, rgba(7, 10, 11, 0) 38%, rgba(7, 10, 11, 0.75) 70%, rgba(7, 10, 11, 0.92) 100%);
+    background: radial-gradient(circle at center, rgba(7, 10, 11, 0) 28%, rgba(7, 10, 11, 0.65) 65%, rgba(7, 10, 11, 0.9) 100%);
   }
 
 
   .hero-ironhill__content {
-    @apply relative z-10 mx-auto flex w-full max-w-5xl flex-col items-start gap-8 text-left;
+    @apply relative z-10 mx-auto flex w-full max-w-4xl flex-col items-center gap-8 text-center;
   }
 
   .hero-kicker {
-    @apply text-[11px] uppercase tracking-[0.28em] text-[color:var(--color-text-muted)];
+    @apply text-[11px] uppercase tracking-[0.32em] text-[color:var(--color-text-muted)];
   }
 
   .hero-divider {
@@ -117,22 +151,50 @@ body {
 
   .hero-title {
     font-family: var(--font-serif), ui-serif, Georgia, serif;
-    @apply text-4xl uppercase tracking-[0.12em] text-[color:var(--color-text)] sm:text-5xl lg:text-6xl;
-    font-weight: 500;
+    @apply text-4xl uppercase tracking-[0.16em] text-[color:var(--color-text)] sm:text-6xl lg:text-7xl;
+    font-weight: 520;
   }
 
   .hero-brand {
     font-family: var(--font-serif), ui-serif, Georgia, serif;
-    @apply text-base uppercase tracking-[0.5em] text-[color:var(--color-text)];
-    letter-spacing: 0.6em;
+    @apply text-xs uppercase tracking-[0.8em] text-[color:var(--color-text)];
+    letter-spacing: 0.7em;
   }
 
   .hero-subtitle {
-    @apply text-xs uppercase tracking-[0.28em] text-[color:var(--color-text-muted)];
+    @apply text-xs uppercase tracking-[0.32em] text-[color:var(--color-text-muted)];
   }
 
-  .hero-label {
-    @apply inline-flex items-center gap-3 border border-[color:var(--color-border)] px-4 py-2 text-[10px] uppercase tracking-[0.28em] text-[color:var(--color-accent)];
+  .hero-copy {
+    @apply text-sm text-[color:var(--color-text-muted)] sm:text-base;
+  }
+
+  .hero-cta {
+    @apply flex flex-wrap items-center justify-center gap-4;
+  }
+
+  .hero-features {
+    @apply relative z-10;
+    background-color: var(--color-bg);
+    padding: 4rem 1rem 5rem;
+  }
+
+  .hero-features__inner {
+    @apply mx-auto grid w-full max-w-5xl gap-5 md:grid-cols-3;
+  }
+
+  .hero-feature-card {
+    @apply flex flex-col gap-3 rounded-[18px] border border-[color:var(--color-border-soft)] p-5;
+    background-color: rgba(8, 11, 12, 0.86);
+    box-shadow: 0 20px 50px -35px rgba(0, 0, 0, 0.85);
+  }
+
+  .hero-feature-card h3 {
+    @apply text-sm uppercase tracking-[0.24em] text-[color:var(--color-text)];
+  }
+
+  .hero-feature-card p {
+    @apply text-sm text-[color:var(--color-text-muted)];
   }
 
   .iron-card {
@@ -295,6 +357,38 @@ body {
   }
 }
 
+@keyframes hero-bg-sway {
+  0%,
+  100% {
+    transform: scale(1.08) translateY(0);
+  }
+  50% {
+    transform: scale(1.12) translateY(-1.5%);
+  }
+}
+
+@keyframes hero-fog-drift {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+  50% {
+    transform: translate3d(-2%, 1%, 0);
+  }
+}
+
+@keyframes hero-sparkle-float {
+  0%,
+  100% {
+    opacity: 0.16;
+    transform: translate3d(0, 0, 0);
+  }
+  50% {
+    opacity: 0.24;
+    transform: translate3d(1%, -1%, 0);
+  }
+}
+
 @media (max-width: 640px) {
   .hero-ironhill {
     min-height: 70vh;
@@ -322,5 +416,11 @@ body {
 @media (prefers-reduced-motion: reduce) {
   * {
     scroll-behavior: auto !important;
+  }
+
+  .hero-ironhill__bg,
+  .hero-ironhill__fog,
+  .hero-ironhill__sparkles {
+    animation: none !important;
   }
 }
