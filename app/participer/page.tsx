@@ -1,6 +1,8 @@
 import Button from "../components/Button";
 import SectionHeader from "../components/SectionHeader";
 
+const DISCORD_INVITE = "https://discord.gg/q6sFPWCKD7";
+
 const joinSteps = [
   { label: "1. Roster", detail: "5 joueurs" },
   { label: "2. Disponibilités", detail: "Créneaux courts" },
@@ -28,7 +30,7 @@ export default function ParticiperPage() {
             ))}
           </div>
           <div className="flex flex-wrap gap-3">
-            <Button href="/inscription" variant="primary">
+            <Button href={DISCORD_INVITE} variant="primary" external>
               S&apos;inscrire
             </Button>
             <Button href="/reglement" variant="secondary">
