@@ -99,7 +99,6 @@ body::after {
   .hero-ironhill {
     @apply relative isolate flex min-h-[100vh] items-center overflow-hidden px-4 sm:px-6 lg:px-8;
     background-color: transparent;
-    background-color: rgba(7, 10, 11, 0.65);
     padding-bottom: 14vh;
     padding-top: 20vh;
   }
@@ -109,7 +108,7 @@ body::after {
   }
 
   .hero-ironhill__overlay {
-    background: linear-gradient(rgba(0, 0, 0, 0.62), rgba(0, 0, 0, 0.72));
+    background: linear-gradient(rgba(0, 0, 0, 0.08), rgba(0, 0, 0, 0.16));
   }
 
   .hero-ironhill__bg {
@@ -265,6 +264,18 @@ body::after {
     }
   }
 
+  @keyframes hero-shimmer {
+    0% {
+      background-position: 0% 50%;
+    }
+    50% {
+      background-position: 100% 50%;
+    }
+    100% {
+      background-position: 0% 50%;
+    }
+  }
+
   .frame-ornaments {
     @apply pointer-events-none absolute inset-6 sm:inset-10;
   }
@@ -356,6 +367,14 @@ body::after {
 
   .hero-title {
     @apply text-3xl tracking-[0.16em];
+    background-image: linear-gradient(120deg, #c2c4c8 0%, #ffffff 35%, #d4d6da 55%, #ffffff 70%, #c2c4c8 100%);
+    background-size: 200% 100%;
+    background-clip: text;
+    color: transparent;
+    text-shadow: 0 0 18px rgba(255, 255, 255, 0.35);
+    animation: hero-shimmer 3.2s ease-in-out infinite;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
   }
 
   .frame-ornaments__inner {
@@ -375,5 +394,9 @@ body::after {
 @media (prefers-reduced-motion: reduce) {
   * {
     scroll-behavior: auto !important;
+  }
+
+  .hero-title {
+    animation: none;
   }
 }
