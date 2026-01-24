@@ -1,4 +1,5 @@
 import HeroCard from "./components/HeroCard";
+import HallOfFame from "./components/HallOfFame";
 import TopTeams from "./components/TopTeams";
 
 export default function HomePage() {
@@ -21,6 +22,7 @@ export default function HomePage() {
           </article>
           <TopTeams />
         </section>
+        <HallOfFame />
       </div>
     </div>
   );

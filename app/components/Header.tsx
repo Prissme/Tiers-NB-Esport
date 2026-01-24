@@ -5,7 +5,6 @@ const logoUrl =
   "https://media.discordapp.net/attachments/1434252768633290952/1464582944872992859/image-Photoroom_3.png?ex=6975fea8&is=6974ad28&hm=66eb253822f4e65bad50bbf733b22df75df4c5c4ae87c757b9506c420ac71dc7&=&format=webp&quality=lossless&width=692&height=692";
 
 const navLinks = [
-  { label: "Saison 01", href: "/saison-01" },
   { label: "Règles", href: "/reglement" },
   { label: "Classement", href: "/classement" },
   { label: "S’inscrire", href: "/inscription" },
