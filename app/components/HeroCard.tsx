@@ -16,18 +16,15 @@ export default function HeroCard() {
           <div className="space-y-4">
             <p className="hero-kicker">Ligue francophone Null&apos;s Brawl</p>
             <p className="hero-brand">LFN</p>
-            <h1 className="hero-title">SEULS LES MEILLEURS MONTENT.</h1>
+            <h1 className="hero-title">VIVEZ LA LFN EN MODE CINÉMA.</h1>
             <p className="hero-identity">LFN — Ligue Française Null&apos;s Brawl</p>
-            <p className="hero-subtitle">LES AUTRES REGARDENT.</p>
+            <p className="hero-subtitle">COMPÉTITION • COMMUNAUTÉ • CONTENU PREMIUM</p>
             <p className="hero-copy">
-              Une ligue qui retient plus qu&apos;elle ne recrute. Une saison = un test.
+              Découvrez la scène Null&apos;s Brawl, suivez les équipes et choisissez un accès ELITE
+              pour profiter des avantages premium.
             </p>
-            <p className="hero-clarifier">
-              Si vous hésitez, vous n&apos;êtes pas prêt.
-            </p>
-            <p className="hero-clarifier">
-              ELITE est un statut révocable. Entrée possible. Maintien non garanti.
-            </p>
+            <p className="hero-clarifier">La LFN est la ligue francophone qui rassemble les meilleurs rosters.</p>
+            <p className="hero-clarifier">ELITE ouvre l&apos;accès aux contenus, événements et expériences VIP.</p>
           </div>
           <div className="hero-cta">
             <div className="flex flex-col items-center gap-2">
@@ -35,22 +32,22 @@ export default function HeroCard() {
                 href="https://forms.gle/pmo6Z2mRLptYMR1J7"
                 variant="primary"
                 external
-                ariaLabel="Soumettre une demande ELITE (nouvel onglet)"
+                ariaLabel="Demander l'accès ELITE (nouvel onglet)"
               >
-                Soumettre une demande ELITE
+                Demander l&apos;accès ELITE
               </Button>
-              <p className="hero-cta-note">La majorité des demandes sont refusées.</p>
+              <p className="hero-cta-note">Formule premium • accès limité</p>
             </div>
             <div className="flex flex-col items-center gap-2">
               <Button
                 href="https://discord.gg/prissme"
                 variant="tertiary"
                 external
-                ariaLabel="Observer la ligue sur Discord (nouvel onglet)"
+                ariaLabel="Découvrir la ligue sur Discord (nouvel onglet)"
               >
-                Observer la ligue
+                Découvrir la ligue
               </Button>
-              <p className="hero-cta-note">Accès surveillé • sélection humaine</p>
+              <p className="hero-cta-note">Communauté • actus • matchs</p>
             </div>
           </div>
         </div>
@@ -58,21 +55,21 @@ export default function HeroCard() {
       <section className="hero-features">
         <div className="hero-features__inner">
           <article className="hero-feature-card">
-            <h3>Ascension filtrée</h3>
+            <h3>Suivi complet</h3>
             <p>
-              Durée longue, pression constante, endurance obligatoire.
+              Calendrier, résultats, et performances des équipes LFN.
             </p>
           </article>
           <article className="hero-feature-card">
-            <h3>Contrôle permanent</h3>
+            <h3>Accès ELITE</h3>
             <p>
-              Chaque décision est observée, chaque écart est noté.
+              Contenus premium, badges, et événements réservés aux membres.
             </p>
           </article>
           <article className="hero-feature-card">
-            <h3>Sommet révocable</h3>
+            <h3>Immersion cinéma</h3>
             <p>
-              Le classement exclut plus qu&apos;il ne récompense.
+              Un décor vivant pour vivre chaque match comme un trailer.
             </p>
           </article>
         </div>

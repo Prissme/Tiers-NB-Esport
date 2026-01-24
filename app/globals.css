@@ -26,7 +26,7 @@
   --space-6: 2rem;
   --space-7: 3rem;
   --space-8: 4rem;
-  --hero-image: url("https://media.discordapp.net/attachments/1434252768633290952/1464596930783875175/9871a34b-c08e-47fe-a88f-3df3a66a4d28_1_1_1.png?ex=69760baf&is=6974ba2f&hm=47ec409ccba3dd3c100edbf9fc4ee9fe52afb2273e90b43cc575342c3ef8b49c&=&format=webp&quality=lossless&width=875&height=583");
+  --hero-image: url("/images/9871a34b-c08e-47fe-a88f-3df3a66a4d28_1_1_1.webp");
   --fog-image: radial-gradient(circle at 40% 10%, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0) 55%),
     radial-gradient(circle at 70% 30%, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0) 60%),
     radial-gradient(circle at 20% 55%, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0) 65%);
@@ -37,8 +37,23 @@
 body {
   @apply antialiased;
   font-family: var(--font-sans), system-ui, sans-serif;
-  background: linear-gradient(180deg, #070a0b 0%, #0b0f10 100%);
+  background-image: var(--hero-image);
+  background-size: cover;
+  background-position: center 20%;
+  background-attachment: fixed;
+  background-repeat: no-repeat;
   color: var(--color-text);
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(circle at 50% 15%, rgba(255, 255, 255, 0.12), rgba(7, 10, 11, 0.65) 45%, rgba(7, 10, 11, 0.9) 100%),
+    linear-gradient(180deg, rgba(7, 10, 11, 0.6) 0%, rgba(7, 10, 11, 0.95) 100%);
+  pointer-events: none;
+  z-index: -1;
 }
 
 @layer base {
@@ -70,7 +85,7 @@ body {
 
   .hero-ironhill {
     @apply relative isolate flex min-h-[100vh] items-center overflow-hidden px-4 sm:px-6 lg:px-8;
-    background-color: var(--color-bg);
+    background-color: rgba(7, 10, 11, 0.35);
     padding-bottom: 18vh;
     padding-top: 22vh;
   }
