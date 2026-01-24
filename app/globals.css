@@ -8,11 +8,11 @@
   --color-bg-soft: #0b0f10;
   --color-text: #e8e5dc;
   --color-text-muted: rgba(232, 229, 220, 0.62);
-  --color-accent: #c8b189;
-  --color-accent-deep: #8b6a33;
-  --color-border: rgba(216, 199, 164, 0.28);
-  --color-border-strong: rgba(216, 199, 164, 0.45);
-  --color-border-soft: rgba(216, 199, 164, 0.18);
+  --color-accent: #c9b26a;
+  --color-accent-deep: #bfa75a;
+  --color-border: rgba(201, 178, 106, 0.35);
+  --color-border-strong: rgba(201, 178, 106, 0.6);
+  --color-border-soft: rgba(201, 178, 106, 0.2);
   --shadow-soft: 0 24px 60px -40px rgba(0, 0, 0, 0.85);
   --radius-xs: 6px;
   --radius-sm: 10px;
@@ -74,7 +74,7 @@ body::before {
 
   .hero-ironhill {
     @apply relative isolate flex min-h-[100vh] items-center overflow-hidden px-4 sm:px-6 lg:px-8;
-    background-color: rgba(7, 10, 11, 0.42);
+    background-color: rgba(7, 10, 11, 0.65);
     padding-bottom: 14vh;
     padding-top: 20vh;
   }
@@ -86,28 +86,11 @@ body::before {
   .hero-ironhill__bg {
     background-image: var(--hero-image);
     background-size: cover;
-    background-position: center 22%;
-    filter: saturate(0.78) contrast(1.2) brightness(0.78);
-    transform: scale(1.05);
+    background-position: center;
   }
 
   .hero-ironhill__overlay {
-    background: radial-gradient(circle at 50% 20%, rgba(180, 170, 150, 0.12), rgba(7, 10, 11, 0.28) 40%, rgba(7, 10, 11, 0.78) 70%, rgba(7, 10, 11, 0.92) 100%),
-      linear-gradient(180deg, rgba(5, 8, 11, 0.12) 0%, rgba(5, 8, 11, 0.65) 62%, rgba(5, 8, 11, 0.88) 100%);
-  }
-
-  .hero-ironhill__ring {
-    @apply absolute left-1/2 top-[22%];
-    width: 190px;
-    height: 190px;
-    border-radius: 999px;
-    border: 2px solid rgba(200, 177, 137, 0.9);
-    transform: translateX(-50%);
-    box-shadow: 0 0 18px rgba(200, 177, 137, 0.25);
-  }
-
-  .hero-ironhill__vignette {
-    background: radial-gradient(circle at center, rgba(7, 10, 11, 0) 28%, rgba(7, 10, 11, 0.65) 65%, rgba(7, 10, 11, 0.9) 100%);
+    background: linear-gradient(rgba(0, 0, 0, 0.65), rgba(0, 0, 0, 0.65));
   }
 
 
@@ -122,12 +105,13 @@ body::before {
 
   .hero-title {
     font-family: var(--font-serif), ui-serif, Georgia, serif;
-    @apply text-4xl uppercase tracking-[0.2em] text-[color:var(--color-text)] sm:text-6xl lg:text-7xl;
-    font-weight: 600;
+    @apply text-4xl uppercase tracking-[0.18em] text-[color:var(--color-text)] sm:text-6xl lg:text-7xl;
+    font-weight: 500;
   }
 
   .hero-subtitle {
-    @apply text-xs uppercase tracking-[0.42em] text-[color:var(--color-text-muted)] sm:text-sm;
+    @apply text-xs uppercase tracking-[0.22em] text-[color:var(--color-text-muted)] sm:text-sm;
+    opacity: 0.7;
   }
 
   .hero-cta {
