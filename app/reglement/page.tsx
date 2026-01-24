@@ -71,7 +71,7 @@ const rulesSections = [
 
 export default function ReglementPage() {
   return (
-    <div className="space-y-12">
+    <div className="content-shell">
       <section className="motion-field p-8">
         <div className="motion-orb -left-14 top-8 h-48 w-48 motion-drift" />
         <div className="motion-orb motion-orb--blue right-2 top-4 h-56 w-56 motion-spin" />
