@@ -30,6 +30,7 @@ export default function StandingsClient() {
   const [teams, setTeams] = useState<SiteTeam[]>([]);
   const [loading, setLoading] = useState(true);
   const [source, setSource] = useState<"supabase" | "fallback">("supabase");
+  const [activeDivision, setActiveDivision] = useState<string | null>(null);
 
   const teamFallbackStandings = useMemo<SiteStandingsRow[]>(() => {
     return teams.map((team) => ({
@@ -104,6 +105,24 @@ export default function StandingsClient() {
     return { standingsByDivision: grouped, teamsById: teamsMap };
   }, [standingsToDisplay, teams]);
 
+  const availableDivisions = useMemo(() => {
+    const keys = Object.keys(standingsByDivision);
+    const preferred = ["D1", "D2"];
+    const preferredOrder = preferred.filter((division) => keys.includes(division));
+    const remaining = keys.filter((division) => !preferred.includes(division)).sort();
+    return [...preferredOrder, ...remaining];
+  }, [standingsByDivision]);
+
+  useEffect(() => {
+    if (availableDivisions.length === 0) {
+      setActiveDivision(null);
+      return;
+    }
+    if (!activeDivision || !availableDivisions.includes(activeDivision)) {
+      setActiveDivision(availableDivisions[0]);
+    }
+  }, [availableDivisions, activeDivision]);
+
   if (loading) {
     return (
       <section className="section-card space-y-6">
@@ -147,14 +166,33 @@ export default function StandingsClient() {
           Données de secours (Supabase vide)
         </p>
       ) : null}
-      {Object.entries(standingsByDivision).map(([division, rows]) => (
-        <div key={division} className="space-y-4">
-          <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">
-            {division}
-          </p>
-          <StandingsTable rows={toStandingsRows(rows)} teamsById={teamsById} />
+      {availableDivisions.length > 0 ? (
+        <div className="flex flex-wrap items-center gap-3">
+          {availableDivisions.map((division) => {
+            const isActive = division === activeDivision;
+            return (
+              <button
+                key={division}
+                type="button"
+                onClick={() => setActiveDivision(division)}
+                className={`division-toggle ${isActive ? "division-toggle--active" : ""}`}
+              >
+                {division}
+              </button>
+            );
+          })}
         </div>
-      ))}
+      ) : null}
+      {(activeDivision ? [[activeDivision, standingsByDivision[activeDivision] ?? []]] : []).map(
+        ([division, rows]) => (
+          <div key={division} className="space-y-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">
+              {division}
+            </p>
+            <StandingsTable rows={toStandingsRows(rows)} teamsById={teamsById} />
+          </div>
+        )
+      )}
     </section>
   );
 }

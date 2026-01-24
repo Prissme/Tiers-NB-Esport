@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Sekuya&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Georama:wght@400;500;600;700&family=Sekuya&display=swap");
 
 @tailwind base;
 @tailwind components;
@@ -34,7 +34,7 @@
 
 body {
   @apply antialiased;
-  font-family: "Sekuya", var(--font-sans), system-ui, sans-serif;
+  font-family: "Georama", var(--font-sans), system-ui, sans-serif;
   background-color: var(--color-bg);
   background-image: var(--site-background);
   background-position: center;
@@ -143,6 +143,10 @@ body::after {
     font-weight: 500;
   }
 
+  .font-sekuya {
+    font-family: "Sekuya", var(--font-serif), ui-serif, Georgia, serif;
+  }
+
   .hero-cta {
     @apply flex flex-col items-center justify-center gap-4 sm:flex-row;
   }
@@ -234,8 +238,19 @@ body::after {
   }
 
   .section-title {
-    font-family: var(--font-serif), ui-serif, Georgia, serif;
+    font-family: "Sekuya", var(--font-serif), ui-serif, Georgia, serif;
     @apply text-2xl uppercase tracking-[0.28em] text-[color:var(--color-text)];
+  }
+
+  .division-toggle {
+    @apply rounded-full border border-[color:var(--color-border)] px-4 py-2 text-[10px] uppercase tracking-[0.32em] text-[color:var(--color-text-muted)] transition;
+    background-color: rgba(11, 15, 16, 0.6);
+  }
+
+  .division-toggle--active {
+    @apply text-[color:var(--color-text)];
+    border-color: var(--color-border-strong);
+    background-color: rgba(11, 15, 16, 0.85);
   }
 
   .section-subtitle {

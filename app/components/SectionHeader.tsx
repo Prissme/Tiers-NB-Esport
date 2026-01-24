@@ -22,7 +22,7 @@ export default function SectionHeader({
           {kicker}
         </p>
       ) : null}
-      <h2 className="text-3xl font-bold text-white md:text-4xl">
+      <h2 className="font-sekuya text-3xl font-bold text-white md:text-4xl">
         {title}
         {highlight ? <span className="text-amber-300"> {highlight}</span> : null}
       </h2>
