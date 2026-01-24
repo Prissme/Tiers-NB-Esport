@@ -9,6 +9,7 @@ type ButtonProps = {
   variant?: ButtonVariant;
   external?: boolean;
   disabled?: boolean;
+  ariaLabel?: string;
   className?: string;
 };
 
@@ -30,6 +31,7 @@ export default function Button({
   variant = "primary",
   external = false,
   disabled = false,
+  ariaLabel,
   className,
 }: ButtonProps) {
   const classes = [baseStyles, variantStyles[variant], className].filter(Boolean).join(" ");
@@ -42,6 +44,7 @@ export default function Button({
         target="_blank"
         rel="noreferrer"
         aria-disabled={disabled}
+        aria-label={ariaLabel}
       >
         {children}
       </a>
@@ -49,7 +52,7 @@ export default function Button({
   }
 
   return (
-    <Link href={href} className={classes} aria-disabled={disabled}>
+    <Link href={href} className={classes} aria-disabled={disabled} aria-label={ariaLabel}>
       {children}
     </Link>
   );

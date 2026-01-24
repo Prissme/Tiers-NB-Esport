@@ -1,4 +1,5 @@
 import HeroCard from "./components/HeroCard";
+import EliteSection from "./components/EliteSection";
 import TopTeams from "./components/TopTeams";
 
 export default function HomePage() {
@@ -25,6 +26,7 @@ export default function HomePage() {
           </article>
           <TopTeams />
         </section>
+        <EliteSection />
       </div>
     </div>
   );
