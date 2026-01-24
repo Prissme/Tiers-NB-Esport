@@ -17,19 +17,36 @@ export default function HeroCard() {
             <p className="hero-kicker">Ligue francophone Null&apos;s Brawl</p>
             <p className="hero-brand">LFN</p>
             <h1 className="hero-title">ATTEIGNEZ LE SOMMET.</h1>
+            <p className="hero-identity">LFN — Ligue Française Null&apos;s Brawl</p>
             <p className="hero-subtitle">SI VOUS EN ÊTES CAPABLES.</p>
             <p className="hero-copy">
               Rejoignez la ligue où l&apos;air se raréfie, où seules les équipes féroces
               restent debout.
             </p>
+            <p className="hero-clarifier">ELITE est le cercle premium de la LFN.</p>
           </div>
           <div className="hero-cta">
-            <Button href="/participer" variant="primary">
-              S&apos;inscrire
-            </Button>
-            <Button href="/classement" variant="secondary">
-              Voir le classement
-            </Button>
+            <div className="flex flex-col items-center gap-2">
+              <Button
+                href="https://discord.gg/prissme"
+                variant="primary"
+                external
+                ariaLabel="S'inscrire à la LFN sur Discord (nouvel onglet)"
+              >
+                S&apos;inscrire à la LFN
+              </Button>
+            </div>
+            <div className="flex flex-col items-center gap-2">
+              <Button
+                href="https://forms.gle/pmo6Z2mRLptYMR1J7"
+                variant="secondary"
+                external
+                ariaLabel="Demander l'accès à ELITE (nouvel onglet)"
+              >
+                Demander l&apos;accès à ELITE
+              </Button>
+              <p className="hero-cta-note">Cercle premium — accès soumis à validation</p>
+            </div>
           </div>
         </div>
       </section>

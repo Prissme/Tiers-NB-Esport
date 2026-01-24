@@ -161,6 +161,10 @@ body {
     letter-spacing: 0.7em;
   }
 
+  .hero-identity {
+    @apply text-sm uppercase tracking-[0.24em] text-[color:var(--color-text)];
+  }
+
   .hero-subtitle {
     @apply text-xs uppercase tracking-[0.32em] text-[color:var(--color-text-muted)];
   }
@@ -169,8 +173,16 @@ body {
     @apply text-sm text-[color:var(--color-text-muted)] sm:text-base;
   }
 
+  .hero-clarifier {
+    @apply text-xs text-[color:var(--color-text-muted)] opacity-80;
+  }
+
   .hero-cta {
-    @apply flex flex-wrap items-center justify-center gap-4;
+    @apply flex flex-col items-center justify-center gap-4 sm:flex-row;
+  }
+
+  .hero-cta-note {
+    @apply text-[11px] uppercase tracking-[0.2em] text-[color:var(--color-text-muted)];
   }
 
   .hero-features {
