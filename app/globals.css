@@ -27,6 +27,7 @@
   --space-7: 3rem;
   --space-8: 4rem;
   --site-background: url("https://media.discordapp.net/attachments/1434252768633290952/1464596930783875175/9871a34b-c08e-47fe-a88f-3df3a66a4d28_1_1_1.png?ex=69760baf&is=6974ba2f&hm=47ec409ccba3dd3c100edbf9fc4ee9fe52afb2273e90b43cc575342c3ef8b49c&=&format=webp&quality=lossless&width=875&height=583");
+  --hero-image: var(--site-background);
 }
 
 body {
@@ -98,6 +99,7 @@ body::after {
   .hero-ironhill {
     @apply relative isolate flex min-h-[100vh] items-center overflow-hidden px-4 sm:px-6 lg:px-8;
     background-color: transparent;
+    background-color: rgba(7, 10, 11, 0.65);
     padding-bottom: 14vh;
     padding-top: 20vh;
   }
@@ -108,7 +110,18 @@ body::after {
 
   .hero-ironhill__overlay {
     background: linear-gradient(rgba(0, 0, 0, 0.62), rgba(0, 0, 0, 0.72));
+  .hero-ironhill__overlay {
+    background: linear-gradient(rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0.7));
+  .hero-ironhill__bg {
+    background-image: var(--hero-image);
+    background-size: cover;
+    background-position: center;
   }
+
+  .hero-ironhill__overlay {
+    background: linear-gradient(rgba(0, 0, 0, 0.65), rgba(0, 0, 0, 0.65));
+  }
+
 
   .hero-ironhill__content {
     @apply relative z-10 mx-auto flex w-full max-w-4xl flex-col items-center gap-8 text-center;
@@ -130,6 +143,15 @@ body::after {
     @apply text-sm uppercase tracking-[0.22em] text-[color:var(--color-text-muted)] sm:text-base;
     opacity: 0.9;
     font-weight: 600;
+    font-weight: 500;
+  }
+
+  .hero-subtitle {
+    @apply text-sm uppercase tracking-[0.22em] text-[color:var(--color-text-muted)] sm:text-base;
+    opacity: 0.9;
+    font-weight: 600;
+    @apply text-xs uppercase tracking-[0.22em] text-[color:var(--color-text-muted)] sm:text-sm;
+    opacity: 0.7;
   }
 
   .hero-cta {
