@@ -1,8 +1,8 @@
-const teams = [
-  { name: "Aegis Union", status: "12-1", rank: "01", verified: true },
-  { name: "Valon District", status: "10-3", rank: "02", verified: true },
-  { name: "Noctis Council", status: "9-4", rank: "03", verified: false },
-  { name: "Vesper Field", status: "8-5", rank: "04", verified: false },
+const benefits = [
+  { title: "Accès anticipé", detail: "Annonces et révélations avant tout le monde." },
+  { title: "Contenu premium", detail: "VODs, analyses, et interviews réservées." },
+  { title: "Avantages Discord", detail: "Rôles ELITE, salons privés, rencontres." },
+  { title: "Expérience live", detail: "Avant-premières, drops, événements spéciaux." },
 ];
 
 export default function TopTeams() {
@@ -11,44 +11,26 @@ export default function TopTeams() {
       <div className="flex items-center justify-between gap-4">
         <div>
           <p className="text-xs uppercase tracking-[0.4em] text-[color:var(--color-text-muted)]">
-            Classement
+            Avantages ELITE
           </p>
-          <h3 className="section-title mt-2 text-lg">Registre officiel</h3>
+          <h3 className="section-title mt-2 text-lg">Ce que vous recevez</h3>
           <p className="mt-2 text-xs uppercase tracking-[0.32em] text-[color:var(--color-text-muted)]">
-            Le classement exclut plus qu&apos;il ne récompense.
+            L&apos;essentiel pour vivre la LFN comme un insider.
           </p>
         </div>
-        <span className="tag-verified">Semaine 03</span>
+        <span className="tag-verified">ELITE</span>
       </div>
       <div className="mt-6 overflow-hidden">
-        <table className="ranking-table">
-          <thead>
-            <tr>
-              <th>Rang</th>
-              <th>Équipe</th>
-              <th>Record</th>
-              <th>Statut</th>
-            </tr>
-          </thead>
-          <tbody>
-            {teams.map((team) => (
-              <tr key={team.name} className="ranking-row">
-                <td className="text-xs uppercase tracking-[0.3em] text-[color:var(--color-accent)]">
-                  #{team.rank}
-                </td>
-                <td className="text-sm">{team.name}</td>
-                <td className="text-sm text-[color:var(--color-text-muted)]">{team.status}</td>
-                <td>
-                  {team.verified ? (
-                    <span className="tag-verified">VERIFIED</span>
-                  ) : (
-                    <span className="tag-review">EN REVUE</span>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <ul className="space-y-4 text-sm">
+          {benefits.map((benefit) => (
+            <li key={benefit.title} className="ranking-row flex flex-col gap-2 pb-4">
+              <span className="text-xs uppercase tracking-[0.3em] text-[color:var(--color-accent)]">
+                {benefit.title}
+              </span>
+              <span className="text-[color:var(--color-text-muted)]">{benefit.detail}</span>
+            </li>
+          ))}
+        </ul>
       </div>
     </section>
   );
