@@ -97,6 +97,7 @@ body::after {
   .hero-ironhill {
     @apply relative isolate flex min-h-[100vh] items-center overflow-hidden px-4 sm:px-6 lg:px-8;
     background-color: transparent;
+    background-color: rgba(7, 10, 11, 0.65);
     padding-bottom: 14vh;
     padding-top: 20vh;
   }
@@ -107,6 +108,14 @@ body::after {
 
   .hero-ironhill__overlay {
     background: linear-gradient(rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0.7));
+  .hero-ironhill__bg {
+    background-image: var(--hero-image);
+    background-size: cover;
+    background-position: center;
+  }
+
+  .hero-ironhill__overlay {
+    background: linear-gradient(rgba(0, 0, 0, 0.65), rgba(0, 0, 0, 0.65));
   }
 
 
@@ -130,6 +139,12 @@ body::after {
     @apply text-sm uppercase tracking-[0.22em] text-[color:var(--color-text-muted)] sm:text-base;
     opacity: 0.9;
     font-weight: 600;
+    font-weight: 500;
+  }
+
+  .hero-subtitle {
+    @apply text-xs uppercase tracking-[0.22em] text-[color:var(--color-text-muted)] sm:text-sm;
+    opacity: 0.7;
   }
 
   .hero-cta {
