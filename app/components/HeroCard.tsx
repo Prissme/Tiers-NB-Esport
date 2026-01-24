@@ -3,10 +3,7 @@ import Button from "./Button";
 export default function HeroCard() {
   return (
     <section className="hero-ironhill">
-      <div className="hero-ironhill__layer hero-ironhill__bg" aria-hidden="true" />
       <div className="hero-ironhill__layer hero-ironhill__overlay" aria-hidden="true" />
-      <div className="hero-ironhill__layer hero-ironhill__ring" aria-hidden="true" />
-      <div className="hero-ironhill__layer hero-ironhill__vignette" aria-hidden="true" />
       <div className="hero-ironhill__content">
         <div className="space-y-4">
           <p className="hero-kicker">LFN</p>
