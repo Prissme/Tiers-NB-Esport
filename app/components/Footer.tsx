@@ -9,9 +9,9 @@ export default function Footer() {
             </span>
             <div>
               <p className="text-xs uppercase tracking-[0.45em] text-slate-500">
-                Season 01
+                Saison 01
               </p>
-              <p className="text-sm text-slate-300">The Elite League</p>
+              <p className="text-sm text-slate-300">Ligue officielle</p>
             </div>
           </div>
           <p className="text-xs text-slate-500">

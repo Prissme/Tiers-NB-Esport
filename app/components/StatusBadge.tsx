@@ -8,7 +8,7 @@ const statusStyles: Record<MatchStatus, string> = {
 
 const statusLabels: Record<MatchStatus, string> = {
   scheduled: "À venir",
-  live: "LIVE",
+  live: "EN DIRECT",
   finished: "Terminé",
 };
 

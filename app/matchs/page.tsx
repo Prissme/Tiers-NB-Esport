@@ -4,7 +4,7 @@ import SectionHeader from "../components/SectionHeader";
 
 export const metadata: Metadata = {
   title: "Matchs",
-  description: "Calendrier officiel fixe de la LFN.",
+  description: "Calendrier officiel LFN.",
 };
 
 export default function MatchsPage() {
@@ -22,7 +22,7 @@ export default function MatchsPage() {
           <div className="grid gap-4 md:grid-cols-3">
             {[
               { label: "Programme", detail: "Calendrier officiel depuis Supabase." },
-              { label: "Playoffs", detail: "Phase finale visible ci-dessous." },
+              { label: "Play-offs", detail: "Phase finale visible ci-dessous." },
               { label: "Infos", detail: "Résultats et statuts en direct." },
             ].map((panel) => (
               <div key={panel.label} className="motion-card motion-shimmer">

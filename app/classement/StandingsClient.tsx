@@ -103,11 +103,10 @@ export default function StandingsClient() {
         <SectionHeader
           kicker="Information"
           title="Publication à venir"
-          description="Le programme reste disponible pendant la phase de validation."
+          description="Programme public pendant la validation."
         />
         <p className="text-sm text-slate-400">
-          Les résultats ne sont pas affichés publiquement. Le classement sera rendu public une fois
-          validé par l'organisation.
+          Résultats non publics. Classement publié après validation de l'organisation.
         </p>
       </section>
     );
@@ -118,7 +117,7 @@ export default function StandingsClient() {
       <SectionHeader
         kicker="Classement"
         title="Classement officiel"
-        description="Publication officielle de la ligue."
+        description="Publication officielle."
       />
       {source === "fallback" ? (
         <p className="text-xs uppercase tracking-[0.3em] text-slate-500">

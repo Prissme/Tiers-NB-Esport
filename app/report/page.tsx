@@ -3,7 +3,7 @@ import SectionHeader from "../components/SectionHeader";
 const reportSteps = [
   { label: "Choisir le match", detail: "Sélection rapide." },
   { label: "Entrer le score", detail: "Deux chiffres." },
-  { label: "Valider", detail: "Envoi flash." },
+  { label: "Valider", detail: "Envoi direct." },
 ];
 
 const quickFields = ["Match", "Équipe", "Score", "Note"];
@@ -16,9 +16,9 @@ export default function ReportPage() {
         <div className="motion-orb motion-orb--blue right-0 top-0 h-56 w-56 motion-spin" />
         <div className="relative z-10 space-y-6">
           <SectionHeader
-            kicker="Report"
+            kicker="Scores"
             title="Score en 20 secondes"
-            description="Formulaire ultra-court."
+            description="Formulaire court."
           />
           <div className="grid gap-4 md:grid-cols-3">
             {reportSteps.map((step) => (

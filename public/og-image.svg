@@ -11,7 +11,7 @@
   </defs>
   <rect width="1200" height="630" fill="url(#bg)" />
   <rect x="80" y="80" width="1040" height="470" rx="48" fill="url(#gold)" opacity="0.15" />
-  <text x="100" y="240" font-family="Arial, sans-serif" font-size="64" font-weight="700" fill="#f8fafc">LFN — Ligue Francophone Null’s Brawl</text>
+  <text x="100" y="240" font-family="Arial, sans-serif" font-size="64" font-weight="700" fill="#f8fafc">LFN — Ligue francophone</text>
   <text x="100" y="330" font-family="Arial, sans-serif" font-size="32" fill="#e2e8f0">Saison 1 · Divisions D1/D2 · Pré-saison</text>
   <text x="100" y="420" font-family="Arial, sans-serif" font-size="28" fill="#fbbf24">Remplacez cette image par votre visuel officiel</text>
 </svg>

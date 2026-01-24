@@ -4,7 +4,7 @@ import SectionHeader from "../components/SectionHeader";
 
 export const metadata: Metadata = {
   title: "Partenariats",
-  description: "Soutenez la LFN et découvrez nos opportunités partenaires.",
+  description: "Soutien LFN et options partenaires.",
 };
 
 const partnerBlocks = [
@@ -22,8 +22,8 @@ export default function PartenariatsPage() {
         <div className="relative z-10 space-y-6">
           <SectionHeader
             kicker="Partenariats"
-            title="Soutiens compacts"
-            description="Présence claire, pas de surcharge."
+            title="Soutien partenaire"
+            description="Présence claire, formats courts."
           />
           <div className="grid gap-4 md:grid-cols-3">
             {partnerBlocks.map((block) => (

@@ -4,7 +4,7 @@ import StandingsClient from "./StandingsClient";
 
 export const metadata: Metadata = {
   title: "Classements",
-  description: "Classement disponible après validation officielle.",
+  description: "Classement publié après validation.",
 };
 
 export default function ClassementPage() {
@@ -15,7 +15,7 @@ export default function ClassementPage() {
           <SectionHeader
             kicker="Classement"
             title="Classement officiel"
-            description="Le classement sera publié après validation officielle."
+            description="Classement publié après validation."
           />
         </div>
       </section>

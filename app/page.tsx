@@ -10,13 +10,13 @@ export default function HomePage() {
           <article className="section-card">
             <h2 className="section-title text-base">SAISON</h2>
             <p className="mt-4 text-sm text-[color:var(--color-text-muted)]">
-              Des saisons structurées et un suivi clair pour les équipes méritantes.
+              Saison encadrée avec calendrier officiel.
             </p>
           </article>
           <article className="section-card">
             <h2 className="section-title text-base">RÈGLES</h2>
             <p className="mt-4 text-sm text-[color:var(--color-text-muted)]">
-              Un règlement clair et compétitif. Statut ELITE sur sélection et révocable.
+              Règlement public. Statut ELITE sur sélection, révocable.
             </p>
           </article>
           <TopTeams />

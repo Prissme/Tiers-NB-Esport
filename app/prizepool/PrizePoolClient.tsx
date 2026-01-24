@@ -132,9 +132,9 @@ export default function PrizePoolClient() {
     <div className="space-y-12">
       <section className="section-card space-y-8">
         <SectionHeader
-          kicker="Prizepool"
+          kicker="Cagnotte"
           title="Cagnotte communautaire"
-          description="Boostez la compétition : chaque contribution débloque une expérience renforcée."
+          description="Financement pour la production et les récompenses."
         />
         <div className="flex flex-wrap items-center gap-3">
           <Tag label="Cagnotte" />
@@ -169,17 +169,17 @@ export default function PrizePoolClient() {
               <MetricCard
                 label="Casting"
                 value="Pro"
-                detail="Interviews, narration et highlights renforcés."
+                detail="Interviews, narration et highlights."
               />
               <MetricCard
                 label="Streaming"
                 value="HD"
-                detail="Overlays et design live personnalisés."
+                detail="Overlays et design live."
               />
               <MetricCard
-                label="Community"
+                label="Communauté"
                 value="Impact"
-                detail="Activation directe pour les fans."
+                detail="Actions pour la communauté."
               />
             </div>
             <section className="space-y-4">
@@ -192,7 +192,7 @@ export default function PrizePoolClient() {
             <div className="rounded-3xl border border-amber-500/20 bg-slate-950/70 p-6">
               <h2 className="text-xl font-semibold text-amber-100">Participer</h2>
               <p className="mt-2 text-sm text-amber-200/70">
-                Paiement Stripe simulé pour le MVP. Votre contribution sera visible immédiatement.
+                Paiement Stripe simulé pour le MVP. Contribution visible immédiatement.
               </p>
 
               <form onSubmit={handleSubmit} className="mt-6 space-y-4">
@@ -270,8 +270,8 @@ export default function PrizePoolClient() {
       </section>
 
       <Callout
-        title="Une cagnotte pour une scène plus forte"
-        description="Chaque contribution améliore la production, les récompenses et l'expérience du public."
+        title="Cagnotte pour la production"
+        description="Chaque contribution améliore la production et les récompenses."
       />
     </div>
   );

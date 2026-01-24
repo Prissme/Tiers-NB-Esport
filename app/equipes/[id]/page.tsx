@@ -91,7 +91,7 @@ export default async function TeamDetailPage({ params }: { params: { id: string 
             ))}
           </ul>
         ) : (
-          <PreSeasonBanner message="Roster à confirmer avant le début de la saison." />
+          <PreSeasonBanner message="Roster en attente de confirmation." />
         )}
       </section>
 
@@ -99,16 +99,16 @@ export default async function TeamDetailPage({ params }: { params: { id: string 
         <SectionHeader
           kicker="Programme"
           title="Calendrier fixe"
-          description="Les résultats ne sont pas affichés publiquement."
+          description="Résultats non publics."
         />
         <p className="text-sm text-slate-400">
-          Consultez le programme officiel pour les horaires fixes des matchs.
+          Consultez le programme officiel pour les horaires.
         </p>
         <Link
           href="/matchs"
           className="inline-flex items-center justify-center rounded-full border border-amber-300/40 bg-amber-400/10 px-5 py-3 text-xs uppercase tracking-[0.3em] text-amber-200"
         >
-          Voir le programme
+          Voir le calendrier
         </Link>
       </section>
     </div>
