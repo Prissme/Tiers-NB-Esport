@@ -4,6 +4,8 @@ import PreSeasonBanner from "../components/PreSeasonBanner";
 import SectionHeader from "../components/SectionHeader";
 import TeamsClient from "./TeamsClient";
 
+const DISCORD_INVITE = "https://discord.gg/q6sFPWCKD7";
+
 const teamTiles = [
   { label: "D1", detail: "Élite" },
   { label: "D2", detail: "Challengers" },
@@ -36,7 +38,7 @@ export default function EquipesPage() {
             ))}
           </div>
           <div className="flex flex-wrap gap-3">
-            <Button href="/inscription" variant="primary">
+            <Button href={DISCORD_INVITE} variant="primary" external>
               Inscrire
             </Button>
           </div>

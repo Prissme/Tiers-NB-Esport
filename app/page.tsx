@@ -7,19 +7,21 @@ export default function HomePage() {
     <div className="page-shell">
       <HeroCard />
       <div className="content-shell">
-        <section className="grid gap-6 lg:grid-cols-[1fr_1fr_1.1fr]">
-          <article className="section-card">
-            <h2 className="section-title text-base">SAISON</h2>
-            <p className="mt-4 text-sm text-[color:var(--color-text-muted)]">
-              Saison encadrée avec calendrier officiel.
+        <section className="grid gap-4 sm:grid-cols-2">
+          <article className="section-card text-center">
+            <p className="text-3xl font-semibold text-[color:var(--color-text)]">40+</p>
+            <p className="mt-2 text-[11px] uppercase tracking-[0.3em] text-[color:var(--color-text-muted)]">
+              Matchs joués
             </p>
           </article>
-          <article className="section-card">
-            <h2 className="section-title text-base">RÈGLES</h2>
-            <p className="mt-4 text-sm text-[color:var(--color-text-muted)]">
-              Règlement public. Statut ELITE sur sélection, révocable.
+          <article className="section-card text-center">
+            <p className="text-3xl font-semibold text-[color:var(--color-text)]">100+</p>
+            <p className="mt-2 text-[11px] uppercase tracking-[0.3em] text-[color:var(--color-text-muted)]">
+              Joueurs
             </p>
           </article>
+        </section>
+        <section className="mt-6">
           <TopTeams />
         </section>
         <HallOfFame />
