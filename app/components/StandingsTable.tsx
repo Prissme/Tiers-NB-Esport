@@ -2,6 +2,7 @@ import type { SiteTeam } from "../lib/site-types";
 
 export type StandingsRow = {
   teamId: string;
+  teamName?: string;
   wins: number;
   losses: number;
   points: number;
@@ -29,7 +30,9 @@ export default function StandingsTable({ rows, teamsById }: StandingsTableProps)
             key={row.teamId}
             className="grid grid-cols-[2fr_repeat(4,minmax(0,1fr))] items-center gap-3 px-4 py-4 text-sm text-slate-200"
           >
-            <span className="text-white">{teamsById[row.teamId]?.name ?? row.teamId}</span>
+            <span className="text-white">
+              {teamsById[row.teamId]?.name ?? row.teamName ?? row.teamId}
+            </span>
             <span className="text-center">{row.matchesPlayed}</span>
             <span className="text-center">{row.wins}</span>
             <span className="text-center">{row.losses}</span>

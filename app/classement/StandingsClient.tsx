@@ -18,6 +18,7 @@ const mapFallbackTeams = (): SiteTeam[] =>
 const toStandingsRows = (standings: SiteStandingsRow[]): StandingsRow[] =>
   standings.map((row) => ({
     teamId: row.teamId,
+    teamName: row.teamName,
     wins: row.wins ?? 0,
     losses: row.losses ?? 0,
     points: row.pointsTotal ?? row.pointsSets ?? 0,
