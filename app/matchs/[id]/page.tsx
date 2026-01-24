@@ -4,7 +4,7 @@ import SectionHeader from "../../components/SectionHeader";
 
 export const metadata: Metadata = {
   title: "Match",
-  description: "Programme fixe de la LFN.",
+  description: "Programme fixe LFN.",
 };
 
 export default function MatchDetailPage() {
@@ -17,7 +17,7 @@ export default function MatchDetailPage() {
           <SectionHeader
             kicker="Match"
             title="Détails indisponibles"
-            description="Le programme public est fixe et ne diffuse pas de résultats."
+            description="Programme public fixe, sans résultats."
           />
         </div>
       </section>
@@ -26,13 +26,13 @@ export default function MatchDetailPage() {
         <SectionHeader
           kicker="Programme"
           title="Consulter le planning"
-          description="Retrouvez les horaires fixes par journée."
+          description="Horaires fixes par journée."
         />
         <Link
           href="/matchs"
           className="inline-flex items-center justify-center rounded-full border border-amber-300/40 bg-amber-400/10 px-5 py-3 text-xs uppercase tracking-[0.3em] text-amber-200"
         >
-          Voir le programme
+          Voir le calendrier
         </Link>
       </section>
     </div>

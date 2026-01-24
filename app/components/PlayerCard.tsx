@@ -53,7 +53,7 @@ export default function PlayerCard({ player, children }: PlayerCardProps) {
             <span
               className={`rounded-full bg-gradient-to-r ${tierClass} px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em]`}
             >
-              Tier {player.tier}
+              Niveau {player.tier}
             </span>
           </div>
           <p className="mt-2 text-sm text-slate-300">

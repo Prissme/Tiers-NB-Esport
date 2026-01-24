@@ -162,7 +162,7 @@ export default function MatchesClient() {
       <SectionHeader
         kicker="Matchs"
         title="Calendrier officiel"
-        description="Suivi en direct, à venir et résultats officiels."
+        description="Suivi en direct, à venir, résultats validés."
       />
 
       {source === "fallback" ? (
@@ -172,7 +172,7 @@ export default function MatchesClient() {
       ) : null}
 
       {!hasFinishedMatches ? (
-        <PreSeasonBanner message="Pré-saison — les matchs officiels arrivent bientôt." />
+        <PreSeasonBanner message="Pré-saison — matchs officiels à venir." />
       ) : null}
 
       <div className="flex flex-wrap items-center gap-3 text-xs uppercase tracking-[0.3em] text-slate-400">
@@ -214,7 +214,7 @@ export default function MatchesClient() {
 
       {filteredMatches.length === 0 ? (
         <p className="text-sm text-slate-400">
-          Aucun match correspondant. Les prochains matchs seront annoncés prochainement.
+          Aucun match correspondant. Prochaines annonces à venir.
         </p>
       ) : (
         <div className="space-y-6">

@@ -3,67 +3,67 @@ import SectionHeader from "../components/SectionHeader";
 
 export const metadata: Metadata = {
   title: "Règlement",
-  description: "Règlement officiel de la Ligue Francophone Null’s Brawl.",
+  description: "Règlement officiel de la ligue LFN.",
 };
 
 const rulesSections = [
   {
     title: "Comportement",
     items: [
-      "Le respect est obligatoire entre tous les joueurs.",
-      "Interdits : trash-talk excessif, insultes, propos haineux.",
-      "Autorisés : pouces rouges et emotes toxiques (sans messages insultants).",
+      "Respect obligatoire entre joueurs.",
+      "Interdit : trash-talk excessif, insultes, propos haineux.",
+      "Autorisés : pouces rouges et emotes toxiques, sans messages insultants.",
     ],
   },
   {
     title: "Équipes & Roster",
     items: [
-      "Chaque équipe doit avoir 3 titulaires et jusqu’à 2 remplaçants (SUB).",
-      "Les rosters doivent être annoncés avant le début de la ligue.",
+      "3 titulaires, jusqu’à 2 remplaçants (SUB).",
+      "Roster annoncé avant le début de la ligue.",
     ],
   },
   {
     title: "Coachs & Managers",
     items: [
-      "Les coachs et managers ne peuvent pas jouer.",
-      "Aucun joueur ne peut être coach & joueur en même temps, sauf en exception.",
+      "Coachs et managers ne jouent pas.",
+      "Pas de double rôle coach/joueur, sauf exception.",
       "Exception possible en dernier recours, avec accord de l’organisation.",
     ],
   },
   {
     title: "Changements & Remplacements",
     items: [
-      "Les changements sont limités à 2 changements maximum.",
-      "Les remplacements se font uniquement parmi les joueurs SUB.",
-      "Aucun remplacement en cours de match.",
+      "Max 2 changements.",
+      "Remplacements uniquement parmi les SUB.",
+      "Pas de remplacement en cours de match.",
     ],
   },
   {
     title: "Déroulement des matchs",
     items: [
-      "Les matchs se jouent sur des modes 3c3 officiels.",
+      "Matchs en modes 3c3 officiels.",
       "Maps et modes communiqués à l’avance.",
-      "Un retard important peut entraîner un forfait ou une sanction (au bout de 15 min, le point est accordé à l'équipe adverse, après 5 autres minutes 2-0, et 5 autres minutes 3-0).",
+      "Retard important = sanction. 15 min : point adverse, +5 min : 2-0, +5 min : 3-0.",
     ],
   },
   {
     title: "Bugs & Litiges",
     items: [
-      "En cas de bug ou déconnexion justifiée, le match peut être rejoué (2 dodges = 1 point pour l'équipe adverse).",
+      "Bug/déconnexion justifiée : match rejoué (2 dodges = 1 point adverse).",
       "Tout abus sera sanctionné.",
-      "Les décisions des organisateurs sont définitives.",
+      "Décisions des organisateurs définitives.",
     ],
   },
   {
     title: "Rename",
     items: [
-      "Chaque joueur doit obligatoirement avoir les initiales de leur pseudo dans le nom (sous peine de recevoir une pénalité de 1 point).",
+      "Initiales du pseudo obligatoires dans le nom (sinon -1 point).",
     ],
   },
   {
     title: "Acceptation du règlement",
     items: [
-      "Toute participation implique l’acceptation totale de ce règlement.",
+      "Participation = acceptation du règlement.",
       "L’organisation peut modifier le règlement si nécessaire.",
     ],
   },
@@ -78,8 +78,8 @@ export default function ReglementPage() {
         <div className="relative z-10 space-y-6">
           <SectionHeader
             kicker="Règlement"
-            title="Rules Book LFN"
-            description="Consultez les règles officielles de la ligue."
+            title="Règlement LFN"
+            description="Règles officielles de la ligue."
           />
           <div className="grid gap-4 lg:grid-cols-2">
             {rulesSections.map((section) => (

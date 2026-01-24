@@ -198,7 +198,7 @@ export default function DayTwoSchedule() {
   }
 
   if (groups.length === 0) {
-    return <PreSeasonBanner message="Programme en cours de chargement." />;
+    return <PreSeasonBanner message="Programme en chargement." />;
   }
 
   const renderGroups = (label: string, data: MatchGroup[]) => (
@@ -214,7 +214,7 @@ export default function DayTwoSchedule() {
       </div>
 
       {data.length === 0 ? (
-        <p className="text-sm text-slate-300">À annoncer</p>
+        <p className="text-sm text-slate-300">À venir</p>
       ) : (
         <div className="grid gap-6">
           {data.map((group) => (
@@ -259,7 +259,7 @@ export default function DayTwoSchedule() {
   return (
     <div className="space-y-12">
       {renderGroups("Programme", regularGroups)}
-      {renderGroups("Playoffs", playoffGroups)}
+      {renderGroups("Play-offs", playoffGroups)}
     </div>
   );
 }

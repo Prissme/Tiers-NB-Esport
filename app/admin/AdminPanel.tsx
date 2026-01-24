@@ -103,6 +103,13 @@ const DIVISION_OPTIONS = [
 
 const DAY_OPTIONS = ["Day 1", "Day 2", "Day 3"];
 
+const formatDayLabel = (day: string | null) => {
+  if (!day) {
+    return "—";
+  }
+  return day.replace("Day", "Jour");
+};
+
 const ROSTER_SLOTS: Array<{ role: TeamRosterMember["role"]; slot: number | null; label: string }> =
   [
     { role: "starter", slot: 1, label: "Joueur 1" },
@@ -560,7 +567,7 @@ export default function AdminPanel() {
     const now = new Date();
     const diffMs = playoffsDeadline.getTime() - now.getTime();
     if (diffMs <= 0) {
-      return { label: "Play-offs terminés", ended: true };
+    return { label: "Play-offs terminés", ended: true };
     }
     const totalSeconds = Math.floor(diffMs / 1000);
     const days = Math.floor(totalSeconds / 86400);
@@ -600,8 +607,8 @@ export default function AdminPanel() {
       .join(" · ");
     const cards: SummaryCard[] = [
       { label: "Équipes", value: String(totalTeams), helper: divisionSummary || "Aucune division" },
-      { label: "Logos manquants", value: String(missingLogos), helper: "À compléter pour un rendu pro" },
-      { label: "Tags manquants", value: String(missingTags), helper: "À compléter pour l'affichage" },
+      { label: "Logos manquants", value: String(missingLogos), helper: "À compléter" },
+      { label: "Tags manquants", value: String(missingTags), helper: "À compléter" },
     ];
     return cards;
   }, [teams]);
@@ -611,7 +618,7 @@ export default function AdminPanel() {
     const finishedCount = matches.filter((match) => match.status === "finished").length;
     const totalCount = matches.length;
     const cards: SummaryCard[] = [
-      { label: "Live", value: String(liveCount), helper: "Matchs en cours" },
+      { label: "En direct", value: String(liveCount), helper: "Matchs en cours" },
       { label: "Terminés", value: String(finishedCount), helper: "Scores validés" },
       { label: "Total", value: String(totalCount), helper: "Matchs enregistrés" },
     ];
@@ -1900,7 +1907,7 @@ export default function AdminPanel() {
               >
                 {DAY_OPTIONS.map((day) => (
                   <option key={day} value={day}>
-                    {day}
+                    {formatDayLabel(day)}
                   </option>
                 ))}
               </select>
@@ -2010,7 +2017,7 @@ export default function AdminPanel() {
               <input
                 value={matchForm.vodUrl}
                 onChange={(event) => setMatchForm((prev) => ({ ...prev, vodUrl: event.target.value }))}
-                placeholder="VOD URL"
+                    placeholder="Lien VOD"
                 className="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white"
               />
               <input
@@ -2018,7 +2025,7 @@ export default function AdminPanel() {
                 onChange={(event) =>
                   setMatchForm((prev) => ({ ...prev, proofUrl: event.target.value }))
                 }
-                placeholder="Proof URL"
+                    placeholder="Lien preuve"
                 className="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white"
               />
             </div>
@@ -2060,7 +2067,7 @@ export default function AdminPanel() {
                   <option value="all">Toutes journées</option>
                   {DAY_OPTIONS.map((day) => (
                     <option key={day} value={day}>
-                      {day}
+                      {formatDayLabel(day)}
                     </option>
                   ))}
                 </select>
@@ -2107,14 +2114,14 @@ export default function AdminPanel() {
                 <table className="w-full min-w-[860px] text-left text-xs text-slate-300">
                   <thead className="border-b border-white/10 text-[11px] uppercase tracking-[0.2em] text-slate-500">
                     <tr>
-                      <th className="px-3 py-2">Day</th>
+                      <th className="px-3 py-2">Jour</th>
                       <th className="px-3 py-2">Division</th>
                       <th className="px-3 py-2">Heure</th>
-                      <th className="px-3 py-2">Team A</th>
-                      <th className="px-3 py-2">Team B</th>
+                      <th className="px-3 py-2">Équipe A</th>
+                      <th className="px-3 py-2">Équipe B</th>
                       <th className="px-3 py-2">Statut</th>
                       <th className="px-3 py-2">Score</th>
-                      <th className="px-3 py-2">Updated</th>
+                      <th className="px-3 py-2">Mis à jour</th>
                       <th className="px-3 py-2">Actions</th>
                     </tr>
                   </thead>
@@ -2128,7 +2135,9 @@ export default function AdminPanel() {
                           : "—";
                       return (
                         <tr key={match.id}>
-                          <td className="px-3 py-2 text-slate-200">{match.day ?? "—"}</td>
+                          <td className="px-3 py-2 text-slate-200">
+                            {formatDayLabel(match.day ?? null)}
+                          </td>
                           <td className="px-3 py-2">{match.division ?? "—"}</td>
                           <td className="px-3 py-2">{match.startTime || "—"}</td>
                           <td className="px-3 py-2">{teamA?.name ?? match.teamAId}</td>

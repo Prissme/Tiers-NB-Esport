@@ -70,7 +70,7 @@ export default async function PlayerProfilePage({ params }: { params: { slug: st
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-10">
         <PlayerCard player={player}>
           <div className="flex flex-wrap gap-4 text-xs text-slate-300">
-            <span className="badge">Stats publiques indisponibles</span>
+            <span className="badge">Stats publiques fermées</span>
           </div>
           {player.bio ? <p className="mt-3 text-sm text-slate-400">{player.bio}</p> : null}
         </PlayerCard>
@@ -78,14 +78,14 @@ export default async function PlayerProfilePage({ params }: { params: { slug: st
         <section className="section-card space-y-4">
           <h2 className="text-lg font-semibold text-white">Statistiques</h2>
           <p className="text-sm text-slate-400">
-            Les statistiques publiques seront affichées après validation officielle.
+            Statistiques publiques après validation.
           </p>
         </section>
 
         <section className="section-card space-y-6">
           <div>
-            <h2 className="text-lg font-semibold text-white">Achievements</h2>
-            <p className="text-sm text-slate-400">Débloquez-les en continuant à jouer.</p>
+            <h2 className="text-lg font-semibold text-white">Succès</h2>
+            <p className="text-sm text-slate-400">Débloqués en match.</p>
           </div>
           <AchievementGrid achievements={achievements} />
         </section>
@@ -94,7 +94,7 @@ export default async function PlayerProfilePage({ params }: { params: { slug: st
           <div>
             <h2 className="text-lg font-semibold text-white">Historique récent</h2>
             <p className="text-sm text-slate-400">
-              L'historique des matchs n'est pas affiché publiquement.
+              Historique des matchs non public.
             </p>
           </div>
         </section>

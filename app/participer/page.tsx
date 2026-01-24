@@ -4,7 +4,7 @@ import SectionHeader from "../components/SectionHeader";
 const joinSteps = [
   { label: "1. Roster", detail: "5 joueurs" },
   { label: "2. Disponibilités", detail: "Créneaux courts" },
-  { label: "3. Validation", detail: "Réponse rapide" },
+  { label: "3. Validation", detail: "Réponse après contrôle" },
 ];
 
 export default function ParticiperPage() {
@@ -29,7 +29,7 @@ export default function ParticiperPage() {
           </div>
           <div className="flex flex-wrap gap-3">
             <Button href="/inscription" variant="primary">
-              Inscription
+              S&apos;inscrire
             </Button>
             <Button href="/reglement" variant="secondary">
               Règlement

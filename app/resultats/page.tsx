@@ -10,7 +10,7 @@ export default function ResultatsPage() {
           <SectionHeader
             kicker="Résultats"
             title="Résultats officiels"
-            description="Les résultats ne sont pas affichés publiquement."
+            description="Résultats non publics."
           />
         </div>
       </section>
@@ -19,11 +19,10 @@ export default function ResultatsPage() {
         <SectionHeader
           kicker="Information"
           title="Publication officielle"
-          description="Les scores seront diffusés après validation officielle."
+          description="Scores publiés après validation."
         />
         <p className="text-sm text-slate-400">
-          Merci de consulter le programme fixe et de suivre les communications officielles pour les
-          résultats.
+          Consultez le programme fixe et les communications officielles.
         </p>
       </section>
     </div>

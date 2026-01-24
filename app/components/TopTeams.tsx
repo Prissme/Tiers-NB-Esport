@@ -1,16 +1,16 @@
 const teams = [
-  { rank: "#01", name: "Nebula Vanguard", record: "RECORD 20-1" },
-  { rank: "#01", name: "Arcadia Prime", record: "RECORD 20-1" },
-  { rank: "#02", name: "Sabre Syndicate", record: "RECORD 20-1" },
-  { rank: "#04", name: "Cryo Legion", record: "RECORD 20-1" },
+  { rank: "#01", name: "Nebula Vanguard", record: "BILAN 20-1" },
+  { rank: "#01", name: "Arcadia Prime", record: "BILAN 20-1" },
+  { rank: "#02", name: "Sabre Syndicate", record: "BILAN 20-1" },
+  { rank: "#04", name: "Cryo Legion", record: "BILAN 20-1" },
 ];
 
 export default function TopTeams() {
   return (
     <article className="section-card">
       <div className="flex items-center justify-between gap-4">
-        <h2 className="section-title text-base">TOP TEAMS</h2>
-        <span className="top-teams-filter">RECORD 01</span>
+        <h2 className="section-title text-base">TOP ÉQUIPES</h2>
+        <span className="top-teams-filter">BILAN 01</span>
       </div>
       <ul className="mt-5 space-y-3">
         {teams.map((team) => (
@@ -26,7 +26,7 @@ export default function TopTeams() {
                 </p>
               </div>
             </div>
-            <span className="top-team-badge">RECORD</span>
+            <span className="top-team-badge">BILAN</span>
           </li>
         ))}
       </ul>

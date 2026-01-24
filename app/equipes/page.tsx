@@ -7,12 +7,12 @@ import TeamsClient from "./TeamsClient";
 const teamTiles = [
   { label: "D1", detail: "Élite" },
   { label: "D2", detail: "Challengers" },
-  { label: "Rosters", detail: "Visibles" },
+  { label: "Rosters", detail: "Publics" },
 ];
 
 export const metadata: Metadata = {
   title: "Équipes",
-  description: "Rosters officiels LFN, répartis par division.",
+  description: "Rosters officiels LFN par division.",
 };
 
 export default function EquipesPage() {
@@ -24,8 +24,8 @@ export default function EquipesPage() {
         <div className="relative z-10 space-y-6">
           <SectionHeader
             kicker="Équipes"
-            title="Rosters lisibles"
-            description="Cartes courtes, infos rapides."
+            title="Rosters officiels"
+            description="Fiches rapides et claires."
           />
           <div className="grid gap-4 md:grid-cols-3">
             {teamTiles.map((tile) => (
@@ -43,9 +43,9 @@ export default function EquipesPage() {
         </div>
       </section>
 
-      <section className="section-card space-y-6">
+        <section className="section-card space-y-6">
         <SectionHeader kicker="Équipes" title="Rosters actifs" description="Pré-saison." />
-        <PreSeasonBanner message="Rosters en cours de validation. Les fiches seront complétées avant le début de la saison." />
+        <PreSeasonBanner message="Rosters en validation. Fiches complétées avant le début de saison." />
         <TeamsClient />
       </section>
     </div>

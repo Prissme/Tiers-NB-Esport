@@ -22,7 +22,7 @@ export default function AdminPage() {
           <SectionHeader
             kicker="Admin"
             title="Console de gestion"
-            description="Gère rapidement les équipes et matchs."
+            description="Gestion des équipes et des matchs."
           />
           <form action={logout}>
             <button

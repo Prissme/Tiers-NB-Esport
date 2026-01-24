@@ -8,11 +8,11 @@ export default function HeroCard() {
         <div className="space-y-4">
           <p className="hero-kicker">LFN</p>
           <h1 className="hero-title">ATTEIGNEZ LE SOMMET.</h1>
-          <p className="hero-subtitle">SI VOUS EN ÊTES CAPABLES.</p>
+          <p className="hero-subtitle">ACCÈS SUR SÉLECTION.</p>
         </div>
         <div className="hero-cta">
-          <Button href="/inscription" variant="primary" ariaLabel="Entrer dans la ligue">
-            ENTRER DANS LA LIGUE
+          <Button href="/inscription" variant="primary" ariaLabel="S'inscrire à la ligue">
+            S&apos;INSCRIRE
           </Button>
           <Button href="/classement" variant="secondary" ariaLabel="Voir le classement">
             VOIR LE CLASSEMENT

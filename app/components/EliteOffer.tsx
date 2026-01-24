@@ -14,7 +14,7 @@ export default function EliteOffer() {
           <div className="absolute inset-0 bg-[linear-gradient(120deg,rgba(12,20,44,0.4),rgba(10,15,26,0.05))]" />
           <Image
             src={eliteImage}
-            alt="Offre Elite LFN"
+            alt="Visuel ELITE LFN"
             width={874}
             height={583}
             className="relative z-10 h-full w-full object-cover saturate-[0.85]"
@@ -23,39 +23,37 @@ export default function EliteOffer() {
         </div>
         <div className="space-y-6">
           <div className="space-y-3">
-            <span className="badge">Statut sélection</span>
+            <span className="badge">Statut sur sélection</span>
             <h2 className="text-3xl font-semibold tracking-tight text-white sm:text-4xl">
               ELITE — Statut officiel, révocable
             </h2>
-            <p className="text-sm text-slate-300 sm:text-base">
-              Entrée possible. Maintien non garanti.
-            </p>
+            <p className="text-sm text-slate-300 sm:text-base">Entrée possible. Maintien non garanti.</p>
           </div>
           <ul className="space-y-3 text-sm text-slate-200 sm:text-base">
             {[
               {
-                title: "Tournois filtrés",
-                description: "Accès uniquement après validation officielle.",
+                title: "Tournois validés",
+                description: "Accès après validation officielle.",
                 icon: "🏆",
               },
               {
-                title: "Débriefs sous contrôle",
-                description: "Retours stricts, pas de promesse de progression.",
+                title: "Débriefs encadrés",
+                description: "Retours stricts. Aucune promesse de progression.",
                 icon: "🎙️",
               },
               {
-                title: "Vote MVP encadré",
+                title: "Vote MVP contrôlé",
                 description: "Réservé aux statuts validés.",
                 icon: "🗳️",
               },
               {
-                title: "Compétitions sous sélection",
-                description: "Pas d&apos;accès sans validation.",
+                title: "Compétitions sur sélection",
+                description: "Accès après validation.",
                 icon: "📊",
               },
               {
-                title: "Suivi exigeant",
-                description: "Contrôle constant, tolérance minimale.",
+                title: "Suivi régulier",
+                description: "Contrôle régulier. Tolérance minimale.",
                 icon: "🎥",
               },
             ].map((item) => (
@@ -75,7 +73,7 @@ export default function EliteOffer() {
           </ul>
           <div className="space-y-4">
             <p className="text-xs uppercase tracking-[0.24em] text-white/60">
-              Seuls les meilleurs montent. Les autres regardent.
+              Sélection stricte. Critères internes.
             </p>
             <p className="text-xs text-white/60">
               ELITE est un statut, pas un droit. Révocable à tout moment.
@@ -84,7 +82,7 @@ export default function EliteOffer() {
               La majorité des demandes sont refusées.
             </p>
             <Button href="https://forms.gle/pmo6Z2mRLptYMR1J7" variant="primary" external>
-              Soumettre une demande
+              Déposer une demande
             </Button>
           </div>
         </div>

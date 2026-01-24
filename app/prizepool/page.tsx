@@ -1,8 +1,8 @@
 import SectionHeader from "../components/SectionHeader";
 
 const poolTiles = [
-  { label: "Objectif", detail: "Boost léger" },
-  { label: "Récompense", detail: "Clear" },
+  { label: "Objectif", detail: "Effort léger" },
+  { label: "Récompense", detail: "Clair" },
   { label: "Suivi", detail: "Transparence" },
 ];
 
@@ -14,7 +14,7 @@ export default function PrizepoolPage() {
         <div className="motion-orb motion-orb--blue right-2 top-4 h-52 w-52 motion-spin" />
         <div className="relative z-10 space-y-6">
           <SectionHeader
-            kicker="Prizepool"
+            kicker="Cagnotte"
             title="Cagnotte lisible"
             description="Objectif clair, suivi léger."
           />

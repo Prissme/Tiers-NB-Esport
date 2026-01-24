@@ -1,15 +1,15 @@
 import SectionHeader from "../components/SectionHeader";
 
 const matchBlocks = [
-  { label: "Day 2", detail: "Programme officiel", tone: "19H / 20H" },
-  { label: "Day 3", detail: "Programme à venir", tone: "À annoncer" },
+  { label: "Jour 2", detail: "Programme officiel", tone: "19 h / 20 h" },
+  { label: "Jour 3", detail: "Programme à venir", tone: "À annoncer" },
 ];
 
 const matchMoments = [
-  "Activation live",
-  "Score flash",
+  "Activation en direct",
+  "Score rapide",
   "Replay court",
-  "Validation staff",
+  "Validation encadrement",
 ];
 
 export default function MatchesPage() {
@@ -22,7 +22,7 @@ export default function MatchesPage() {
           <SectionHeader
             kicker="Matchs"
             title="Calendrier simplifié"
-            description="Tout est court, clair, visuel."
+            description="Infos courtes et lisibles."
           />
           <div className="motion-line" />
           <div className="grid gap-4 md:grid-cols-3">
@@ -41,7 +41,7 @@ export default function MatchesPage() {
         <SectionHeader
           kicker="Moments"
           title="Les temps forts"
-          description="Une info = un visuel."
+          description="Une info, un visuel."
         />
         <div className="flex flex-wrap gap-3">
           {matchMoments.map((moment) => (
@@ -52,12 +52,12 @@ export default function MatchesPage() {
         </div>
         <div className="grid gap-4 md:grid-cols-2">
           <div className="motion-card">
-            <p className="text-xs uppercase tracking-[0.35em] text-slate-400">Live</p>
-            <p className="mt-3 text-sm text-white">Affichage instantané.</p>
+            <p className="text-xs uppercase tracking-[0.35em] text-slate-400">Direct</p>
+            <p className="mt-3 text-sm text-white">Affichage immédiat.</p>
           </div>
           <div className="motion-card">
             <p className="text-xs uppercase tracking-[0.35em] text-slate-400">Historique</p>
-            <p className="mt-3 text-sm text-white">Résumé rapide.</p>
+            <p className="mt-3 text-sm text-white">Résumé court.</p>
           </div>
         </div>
       </section>

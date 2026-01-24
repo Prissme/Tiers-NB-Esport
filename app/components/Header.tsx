@@ -26,7 +26,7 @@ export default function Header() {
           </span>
           <div className="hidden sm:block">
             <p className="text-[11px] uppercase tracking-[0.45em] text-[color:var(--color-text-muted)]">
-              League Force Network
+              Ligue francophone
             </p>
           </div>
         </Link>
@@ -57,7 +57,7 @@ export default function Header() {
           <Button
             href="/inscription"
             variant="secondary"
-            ariaLabel="S'inscrire à la LFN"
+            ariaLabel="S'inscrire à la ligue"
           >
             S&apos;inscrire
           </Button>

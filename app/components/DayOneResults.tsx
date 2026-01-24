@@ -109,7 +109,7 @@ export default function DayOneResults() {
     <section className="section-card space-y-6">
       <div className="space-y-2">
         <p className="badge">Résultats</p>
-        <h2 className="text-2xl font-semibold text-white">Résultats — Day 1</h2>
+        <h2 className="text-2xl font-semibold text-white">Résultats — Jour 1</h2>
       </div>
 
       {dayOneResults.length === 0 ? (
