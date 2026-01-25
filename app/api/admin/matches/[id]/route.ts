@@ -19,11 +19,18 @@ const updateSchema = z.object({
   proofUrl: z.string().nullable().optional(),
   seasonId: z.string().uuid().nullable().optional(),
   phase: z.string().nullable().optional(),
-  round: z.string().nullable().optional(),
+  round: z.union([z.string(), z.number()]).nullable().optional(),
   matchGroup: z.string().nullable().optional(),
   bestOf: z.coerce.number().int().positive().nullable().optional(),
   scheduledAt: z.string().datetime().nullable().optional(),
 });
+
+const num = (value: unknown) => {
+  if (value === null || value === undefined) return null;
+  if (typeof value === "number" && !Number.isNaN(value)) return value;
+  const match = String(value).match(/\d+/);
+  return match ? parseInt(match[0], 10) : null;
+};
 
 const resolveScheduledAt = (
   scheduledAt?: string | null,
@@ -67,7 +74,7 @@ export async function PATCH(
       return NextResponse.json({ error: "Teams must be different." }, { status: 400 });
     }
     if (parsed.data.day !== undefined) {
-      updatePayload[MATCH_COLUMNS.day] = parsed.data.day;
+      updatePayload[MATCH_COLUMNS.day] = num(parsed.data.day);
     }
     if (parsed.data.division !== undefined) {
       updatePayload[MATCH_COLUMNS.division] = parsed.data.division;
@@ -85,10 +92,10 @@ export async function PATCH(
       updatePayload[MATCH_COLUMNS.status] = parsed.data.status;
     }
     if (parsed.data.scoreA !== undefined) {
-      updatePayload[MATCH_COLUMNS.scoreA] = parsed.data.scoreA;
+      updatePayload[MATCH_COLUMNS.scoreA] = num(parsed.data.scoreA);
     }
     if (parsed.data.scoreB !== undefined) {
-      updatePayload[MATCH_COLUMNS.scoreB] = parsed.data.scoreB;
+      updatePayload[MATCH_COLUMNS.scoreB] = num(parsed.data.scoreB);
     }
     if (parsed.data.notes !== undefined) {
       updatePayload[MATCH_COLUMNS.notes] = parsed.data.notes;
@@ -106,13 +113,20 @@ export async function PATCH(
       updatePayload[MATCH_COLUMNS.phase] = parsed.data.phase;
     }
     if (parsed.data.round !== undefined) {
-      updatePayload[MATCH_COLUMNS.round] = parsed.data.round;
+      const roundValue = num(parsed.data.round);
+      if (roundValue === null) {
+        return NextResponse.json({ error: "round invalide" }, { status: 400 });
+      }
+      updatePayload[MATCH_COLUMNS.round] = roundValue;
+      if (parsed.data.matchGroup === undefined && typeof parsed.data.round === "string") {
+        updatePayload[MATCH_COLUMNS.matchGroup] = parsed.data.round;
+      }
     }
     if (parsed.data.matchGroup !== undefined) {
       updatePayload[MATCH_COLUMNS.matchGroup] = parsed.data.matchGroup;
     }
     if (parsed.data.bestOf !== undefined) {
-      updatePayload[MATCH_COLUMNS.bestOf] = parsed.data.bestOf;
+      updatePayload[MATCH_COLUMNS.bestOf] = num(parsed.data.bestOf);
     }
 
     const scheduledAt = resolveScheduledAt(
