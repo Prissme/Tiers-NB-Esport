@@ -16,8 +16,9 @@ type StandingsTableProps = {
 
 export default function StandingsTable({ rows, teamsById }: StandingsTableProps) {
   return (
-    <div className="overflow-hidden rounded-2xl border border-white/10">
-      <div className="grid grid-cols-[2fr_repeat(4,minmax(0,1fr))] gap-3 border-b border-white/10 px-4 py-4 text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">
+    <div className="overflow-hidden rounded-3xl border border-white/10 bg-slate-950/60 shadow-[0_20px_60px_-40px_rgba(0,0,0,0.8)]">
+      <div className="grid grid-cols-[64px_minmax(0,2.5fr)_repeat(4,minmax(0,1fr))] gap-3 border-b border-white/10 bg-white/[0.02] px-6 py-4 text-[11px] font-semibold uppercase tracking-[0.3em] text-slate-500">
+        <span>Rang</span>
         <span>Équipe</span>
         <span className="text-center">MJ</span>
         <span className="text-center">V</span>
@@ -25,26 +26,63 @@ export default function StandingsTable({ rows, teamsById }: StandingsTableProps)
         <span className="text-center">Pts</span>
       </div>
       <div className="divide-y divide-white/5">
-        {rows.map((row) => (
-          <div
-            key={row.teamId}
-            className="grid grid-cols-[2fr_repeat(4,minmax(0,1fr))] items-center gap-3 px-4 py-4 text-sm text-slate-200"
-          >
-            <span
-              className={`font-cal-sans ${
-                teamsById[row.teamId]?.roster?.some((member) => member.elite)
-                  ? "team-name--elite"
-                  : "text-white"
-              }`}
+        {rows.map((row, index) => {
+          const team = teamsById[row.teamId];
+          const teamName = team?.name ?? row.teamName ?? row.teamId;
+          const logoUrl = team?.logoUrl ?? null;
+          const initials = teamName
+            .split(" ")
+            .filter(Boolean)
+            .slice(0, 2)
+            .map((part) => part[0]?.toUpperCase())
+            .join("");
+          return (
+            <div
+              key={row.teamId}
+              className="grid grid-cols-[64px_minmax(0,2.5fr)_repeat(4,minmax(0,1fr))] items-center gap-3 px-6 py-5 text-sm text-slate-200"
             >
-              {teamsById[row.teamId]?.name ?? row.teamName ?? row.teamId}
-            </span>
-            <span className="text-center">{row.matchesPlayed}</span>
-            <span className="text-center">{row.wins}</span>
-            <span className="text-center">{row.losses}</span>
-            <span className="text-center">{row.points}</span>
-          </div>
-        ))}
+              <span className="text-lg font-semibold text-white">#{index + 1}</span>
+              <div className="flex min-w-0 items-center gap-4">
+                <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-2xl border border-white/10 bg-white/5">
+                  {logoUrl ? (
+                    <img
+                      src={logoUrl}
+                      alt={`Logo ${teamName}`}
+                      className="h-full w-full object-contain"
+                      loading="lazy"
+                    />
+                  ) : (
+                    <span className="text-xs font-semibold text-slate-400">{initials || "?"}</span>
+                  )}
+                </div>
+                <div className="min-w-0">
+                  <span
+                    className={`block truncate text-base font-semibold ${
+                      team?.roster?.some((member) => member.elite)
+                        ? "team-name--elite"
+                        : "text-white"
+                    }`}
+                  >
+                    {teamName}
+                  </span>
+                  {team?.tag ? (
+                    <span className="text-xs uppercase tracking-[0.3em] text-slate-500">
+                      {team.tag}
+                    </span>
+                  ) : null}
+                </div>
+              </div>
+              <span className="text-center text-base font-semibold text-white">
+                {row.matchesPlayed}
+              </span>
+              <span className="text-center text-base font-semibold text-white">{row.wins}</span>
+              <span className="text-center text-base font-semibold text-white">{row.losses}</span>
+              <span className="text-center text-base font-semibold text-amber-200">
+                {row.points}
+              </span>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
