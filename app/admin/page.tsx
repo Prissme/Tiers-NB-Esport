@@ -85,33 +85,17 @@ export default function AdminPage() {
   };
 
   const checkAdmin = async () => {
-    const { data: authData } = await supabase.auth.getUser();
-    const user = authData?.user;
-    if (!user) {
-      router.replace("/admin/login");
-      return;
-    }
-
-    const role = (user.app_metadata as { role?: string })?.role ??
-      (user.user_metadata as { role?: string })?.role;
-
-    if (role === "admin") {
+    try {
+      const response = await fetch("/api/admin/session", { cache: "no-store" });
+      if (!response.ok) {
+        router.replace("/admin/login");
+        return;
+      }
       setLoading(false);
-      return;
-    }
-
-    const { data: profile, error } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", user.id)
-      .maybeSingle();
-
-    if (error || profile?.role !== "admin") {
+    } catch (error) {
+      console.error("Admin session check failed", error);
       router.replace("/admin/login");
-      return;
     }
-
-    setLoading(false);
   };
 
   useEffect(() => {
