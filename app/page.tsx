@@ -7,13 +7,13 @@ export default function HomePage() {
       <HeroCard />
       <div className="content-shell">
         <section className="grid gap-6 text-center sm:grid-cols-2">
-          <article>
+          <article className="social-proof-card social-proof-card--gold">
             <p className="font-sekuya text-5xl text-[color:var(--color-text)] sm:text-6xl">40+</p>
             <p className="mt-2 text-[11px] uppercase tracking-[0.3em] text-[color:var(--color-text-muted)]">
               Matchs joués
             </p>
           </article>
-          <article>
+          <article className="social-proof-card social-proof-card--gold social-proof-card--delay">
             <p className="font-sekuya text-5xl text-[color:var(--color-text)] sm:text-6xl">100+</p>
             <p className="mt-2 text-[11px] uppercase tracking-[0.3em] text-[color:var(--color-text-muted)]">
               Joueurs
