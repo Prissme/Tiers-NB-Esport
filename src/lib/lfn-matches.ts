@@ -32,22 +32,22 @@ export type ResultMatch = {
 };
 
 export type MatchPayload = {
-  day?: string | null;
+  day?: string | number | null;
   division?: string | null;
   startTime?: string | null;
   teamAId: string;
   teamBId: string;
   status: string;
-  scoreA: number | null;
-  scoreB: number | null;
+  scoreA: number | string | null;
+  scoreB: number | string | null;
   notes?: string | null;
   vodUrl?: string | null;
   proofUrl?: string | null;
   seasonId?: string | null;
   phase?: string | null;
-  round?: string | null;
+  round?: string | number | null;
   matchGroup?: string | null;
-  bestOf?: number | null;
+  bestOf?: number | string | null;
   scheduledAt?: string | null;
 };
 
@@ -65,6 +65,17 @@ const toNumber = (value: unknown) => {
   }
   const parsed = Number(value);
   return Number.isNaN(parsed) ? null : parsed;
+};
+
+const num = (value: unknown) => {
+  if (value === null || value === undefined) {
+    return null;
+  }
+  if (typeof value === "number" && !Number.isNaN(value)) {
+    return value;
+  }
+  const match = String(value).match(/\d+/);
+  return match ? parseInt(match[0], 10) : null;
 };
 
 const mapMatchRow = (row: Record<string, unknown>): ResultMatch => ({
@@ -113,25 +124,35 @@ export const getMatches = async (filters?: MatchFilters): Promise<ResultMatch[]>
 
 export const createMatch = async (payload: MatchPayload): Promise<ResultMatch> => {
   const supabase = getClient();
+  const roundValue = num(payload.round);
+  if (payload.round !== undefined && roundValue === null) {
+    throw new Error("round invalide");
+  }
+  const matchLabel =
+    typeof payload.matchGroup === "string"
+      ? payload.matchGroup
+      : typeof payload.round === "string"
+        ? payload.round
+        : null;
   const { data, error } = await supabase
     .from(MATCHES_TABLE)
     .insert({
-      day: payload.day ?? null,
+      day: num(payload.day),
       division: payload.division ?? null,
       start_time: payload.startTime ?? null,
       team_a_id: payload.teamAId,
       team_b_id: payload.teamBId,
       status: payload.status,
-      score_a: payload.scoreA,
-      score_b: payload.scoreB,
+      score_a: num(payload.scoreA),
+      score_b: num(payload.scoreB),
       notes: payload.notes ?? null,
       vod_url: payload.vodUrl ?? null,
       proof_url: payload.proofUrl ?? null,
       season_id: payload.seasonId ?? null,
       phase: payload.phase ?? "regular",
-      round: payload.round ?? null,
-      match_group: payload.matchGroup ?? null,
-      best_of: payload.bestOf ?? null,
+      round: roundValue,
+      match_group: matchLabel,
+      best_of: num(payload.bestOf),
       scheduled_at: payload.scheduledAt ?? null,
     })
     .select("*")
@@ -146,25 +167,35 @@ export const createMatch = async (payload: MatchPayload): Promise<ResultMatch> =
 
 export const updateMatch = async (id: string, payload: MatchPayload): Promise<ResultMatch> => {
   const supabase = getClient();
+  const roundValue = num(payload.round);
+  if (payload.round !== undefined && roundValue === null) {
+    throw new Error("round invalide");
+  }
+  const matchLabel =
+    typeof payload.matchGroup === "string"
+      ? payload.matchGroup
+      : typeof payload.round === "string"
+        ? payload.round
+        : null;
   const { data, error } = await supabase
     .from(MATCHES_TABLE)
     .update({
-      day: payload.day ?? null,
+      day: num(payload.day),
       division: payload.division ?? null,
       start_time: payload.startTime ?? null,
       team_a_id: payload.teamAId,
       team_b_id: payload.teamBId,
       status: payload.status,
-      score_a: payload.scoreA,
-      score_b: payload.scoreB,
+      score_a: num(payload.scoreA),
+      score_b: num(payload.scoreB),
       notes: payload.notes ?? null,
       vod_url: payload.vodUrl ?? null,
       proof_url: payload.proofUrl ?? null,
       season_id: payload.seasonId ?? null,
       phase: payload.phase ?? "regular",
-      round: payload.round ?? null,
-      match_group: payload.matchGroup ?? null,
-      best_of: payload.bestOf ?? null,
+      round: roundValue,
+      match_group: matchLabel,
+      best_of: num(payload.bestOf),
       scheduled_at: payload.scheduledAt ?? null,
     })
     .eq("id", id)

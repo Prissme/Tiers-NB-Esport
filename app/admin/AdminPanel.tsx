@@ -1339,7 +1339,8 @@ export default function AdminPanel() {
             scoreA: null,
             scoreB: null,
             phase: "regular",
-            round: `Match ${matchIndex + 1}`,
+            round: matchIndex + 1,
+            matchGroup: `Match ${matchIndex + 1}`,
             scheduledAt,
           });
           createdCount += 1;

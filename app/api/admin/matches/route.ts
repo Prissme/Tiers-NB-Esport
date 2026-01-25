@@ -19,11 +19,18 @@ const matchSchema = z.object({
   proofUrl: z.string().nullable().optional(),
   seasonId: z.string().uuid().nullable().optional(),
   phase: z.string().nullable().optional(),
-  round: z.string().nullable().optional(),
+  round: z.union([z.string(), z.number()]).nullable().optional(),
   matchGroup: z.string().nullable().optional(),
   bestOf: z.coerce.number().int().positive().nullable().optional(),
   scheduledAt: z.string().datetime().nullable().optional(),
 });
+
+const num = (value: unknown) => {
+  if (value === null || value === undefined) return null;
+  if (typeof value === "number" && !Number.isNaN(value)) return value;
+  const match = String(value).match(/\d+/);
+  return match ? parseInt(match[0], 10) : null;
+};
 
 const resolveScheduledAt = (
   scheduledAt?: string | null,
@@ -68,24 +75,34 @@ export async function POST(request: Request) {
     }
 
     const scheduledAt = resolveScheduledAt(data.scheduledAt, data.day, data.startTime);
+    const roundValue = num(data.round);
+    if (data.round !== undefined && roundValue === null) {
+      return NextResponse.json({ error: "round invalide" }, { status: 400 });
+    }
+    const matchLabel =
+      typeof data.matchGroup === "string"
+        ? data.matchGroup
+        : typeof data.round === "string"
+          ? data.round
+          : null;
 
     const insertPayload: Record<string, unknown> = {
-      [MATCH_COLUMNS.day]: data.day ?? null,
+      [MATCH_COLUMNS.day]: num(data.day),
       [MATCH_COLUMNS.division]: data.division ?? null,
       [MATCH_COLUMNS.startTime]: data.startTime ?? null,
       [MATCH_COLUMNS.teamAId]: data.teamAId,
       [MATCH_COLUMNS.teamBId]: data.teamBId,
       [MATCH_COLUMNS.status]: data.status ?? "scheduled",
-      [MATCH_COLUMNS.scoreA]: data.status === "finished" ? data.scoreA : null,
-      [MATCH_COLUMNS.scoreB]: data.status === "finished" ? data.scoreB : null,
+      [MATCH_COLUMNS.scoreA]: data.status === "finished" ? num(data.scoreA) : null,
+      [MATCH_COLUMNS.scoreB]: data.status === "finished" ? num(data.scoreB) : null,
       [MATCH_COLUMNS.notes]: data.notes ?? null,
       [MATCH_COLUMNS.vodUrl]: data.vodUrl ?? null,
       [MATCH_COLUMNS.proofUrl]: data.proofUrl ?? null,
       [MATCH_COLUMNS.seasonId]: data.seasonId ?? null,
       [MATCH_COLUMNS.phase]: data.phase ?? "regular",
-      [MATCH_COLUMNS.round]: data.round ?? null,
-      [MATCH_COLUMNS.matchGroup]: data.matchGroup ?? null,
-      [MATCH_COLUMNS.bestOf]: data.bestOf ?? null,
+      [MATCH_COLUMNS.round]: roundValue,
+      [MATCH_COLUMNS.matchGroup]: matchLabel,
+      [MATCH_COLUMNS.bestOf]: num(data.bestOf),
       [MATCH_COLUMNS.scheduledAt]: scheduledAt,
     };
 

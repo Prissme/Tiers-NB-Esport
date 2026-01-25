@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { Cormorant_Garamond, Inter } from "next/font/google";
 import Footer from "./components/Footer";
 import Header from "./components/Header";
+import PageTransition from "./components/PageTransition";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -64,7 +65,9 @@ export default function RootLayout({
       <body className="min-h-screen bg-[color:var(--color-bg)] text-[color:var(--color-text)]">
         <div className="relative min-h-screen overflow-hidden">
           <Header />
-          <main className="relative z-10">{children}</main>
+          <main className="relative z-10">
+            <PageTransition>{children}</PageTransition>
+          </main>
           <Footer />
         </div>
       </body>
