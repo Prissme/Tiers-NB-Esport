@@ -4,7 +4,7 @@ const hallOfFameEntries = [
     winner: "T1",
     date: "26/12/2025",
     image:
-      "https://media.discordapp.net/attachments/1434252768633290952/1464746362250854531/ChatGPT_Image_24_janv._2026_23_18_25.png?ex=697696da&is=6975455a&hm=e4597016c9927739cd4362832d779a04cb7442b0e0fd12a08cfff06e7c0cd51e&=&format=webp&quality=lossless&width=875&height=583",
+      "https://media.discordapp.net/attachments/1434252768633290952/1464897892274667660/ChatGPT_Image_25_janv._2026_09_16_59.png?ex=697723fa&is=6975d27a&hm=2e0366744cc120da02f5c7b54ab4636f6086b5f851b90571cb2a30f386e76b83&=&format=webp&quality=lossless&width=874&height=583",
   },
   {
     season: "Season 2",
@@ -27,16 +27,23 @@ export default function HallOfFame() {
     <section className="mt-16 overflow-hidden rounded-[32px] border border-white/10 bg-[linear-gradient(135deg,_rgba(6,10,22,0.9),_rgba(9,14,30,0.9))] px-5 py-12 shadow-[0_0_60px_rgba(0,0,0,0.35)] sm:px-8 lg:px-12">
       <div className="mx-auto flex max-w-6xl flex-col gap-10">
         <div className="flex flex-col gap-4 text-center sm:text-left">
-          <p className="text-xs font-semibold uppercase tracking-[0.4em] text-slate-200/70">
+          <p className="font-sekuya text-xs font-semibold uppercase tracking-[0.4em] text-slate-200/70">
             Hall of Fame
           </p>
-          <h2 className="text-3xl font-semibold text-white sm:text-4xl">
+          <h2 className="font-sekuya text-3xl font-semibold text-white sm:text-4xl">
             Les winners des précédentes LFN
           </h2>
-          <p className="max-w-2xl text-sm text-slate-300">
-            De la Saison 1 à la Saison 3, ils ont pris la lumière. Saison 4 :{" "}
-            <span className="font-semibold text-slate-100">Peut-être toi qui sait ?</span>
-          </p>
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <p className="max-w-2xl text-sm text-slate-300">
+              De la Saison 1 à la Saison 3, ils ont pris la lumière. Saison 4 :{" "}
+              <span className="font-sekuya font-semibold text-slate-100">
+                Peut-être toi qui sait ?
+              </span>
+            </p>
+            <a href="/inscription" className="season-signup-button">
+              S&apos;inscrire
+            </a>
+          </div>
         </div>
         <div className="flex flex-col gap-10">
           {hallOfFameEntries.map((entry) => (
@@ -54,22 +61,24 @@ export default function HallOfFame() {
               </div>
               <div className="absolute inset-0 bg-gradient-to-t from-[#05070f] via-transparent to-transparent opacity-80" />
               <div className="absolute bottom-0 left-0 right-0 flex flex-col gap-2 p-6">
-                <p className="text-xs uppercase tracking-[0.35em] text-slate-200/80">
+                <p className="font-sekuya text-xs uppercase tracking-[0.35em] text-slate-200/80">
                   {entry.season}
                 </p>
                 <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-300/80">
                   {entry.date}
                 </p>
-                <h3 className="text-xl font-semibold text-white">{entry.winner}</h3>
+                <h3 className="font-sekuya text-xl font-semibold text-white">
+                  {entry.winner}
+                </h3>
               </div>
             </article>
           ))}
           <article className="relative flex min-h-[280px] flex-col justify-between rounded-3xl border border-dashed border-white/25 bg-white/[0.04] p-8 text-white shadow-[0_15px_45px_rgba(0,0,0,0.3)]">
             <div className="space-y-3">
-              <p className="text-xs uppercase tracking-[0.35em] text-slate-200/70">
+              <p className="font-sekuya text-xs uppercase tracking-[0.35em] text-slate-200/70">
                 Season 4
               </p>
-              <h3 className="text-2xl font-semibold">
+              <h3 className="font-sekuya text-2xl font-semibold">
                 Peut-être toi qui sait ?
               </h3>
               <p className="text-sm text-slate-300">

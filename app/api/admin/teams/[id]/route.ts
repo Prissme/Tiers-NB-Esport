@@ -17,6 +17,7 @@ const memberSchema = z
     name: z.string().min(1),
     mains: z.string().min(1).optional().nullable(),
     description: z.string().min(1).optional().nullable(),
+    elite: z.boolean().optional().nullable(),
   })
   .refine(
     (member) => (member.role === "coach" ? member.slot == null : member.slot != null),
@@ -152,6 +153,7 @@ export async function PATCH(
           [TEAM_MEMBER_COLUMNS.name]: member.name,
           [TEAM_MEMBER_COLUMNS.mains]: member.mains ?? null,
           [TEAM_MEMBER_COLUMNS.description]: member.description ?? null,
+          [TEAM_MEMBER_COLUMNS.elite]: member.elite ?? false,
           [TEAM_MEMBER_COLUMNS.seasonId]: parsed.data.seasonId ?? null,
           [TEAM_MEMBER_COLUMNS.isActive]: true,
         }));

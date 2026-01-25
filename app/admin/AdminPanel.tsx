@@ -39,6 +39,7 @@ type TeamRosterMember = {
   name: string;
   mains: string | null;
   description: string | null;
+  elite?: boolean | null;
   wins?: number | null;
   losses?: number | null;
   points?: number | null;
@@ -128,6 +129,7 @@ const buildRosterTemplate = () =>
     name: "",
     mains: "",
     description: "",
+    elite: false,
   }));
 
 const normalizeRoster = (roster?: TeamRosterMember[] | null) => {
@@ -148,6 +150,7 @@ const normalizeRoster = (roster?: TeamRosterMember[] | null) => {
       name: existing.name ?? "",
       mains: existing.mains ?? "",
       description: existing.description ?? "",
+      elite: existing.elite ?? false,
     };
   });
   const extraMembers = roster.filter((member) => {
@@ -170,6 +173,7 @@ const findRosterEntry = (
     name: "",
     mains: "",
     description: "",
+    elite: false,
   };
 
 const normalizeNullable = (value: string | null) => {
@@ -440,6 +444,7 @@ export default function AdminPanel() {
     description: row[TEAM_MEMBER_COLUMNS.description]
       ? String(row[TEAM_MEMBER_COLUMNS.description])
       : null,
+    elite: row[TEAM_MEMBER_COLUMNS.elite] ? Boolean(row[TEAM_MEMBER_COLUMNS.elite]) : false,
   });
 
   const teamOptions = useMemo(
@@ -747,6 +752,36 @@ export default function AdminPanel() {
         name: field === "name" ? value : "",
         mains: field === "mains" ? value : "",
         description: field === "description" ? value : "",
+        elite: false,
+      });
+    }
+
+    return normalizeRoster(nextRoster);
+  };
+
+  const updateRosterElite = (
+    roster: TeamRosterMember[],
+    role: TeamRosterMember["role"],
+    slot: number | null,
+    elite: boolean
+  ) => {
+    let updated = false;
+    const nextRoster = roster.map((member) => {
+      if (member.role === role && (member.slot ?? null) === (slot ?? null)) {
+        updated = true;
+        return { ...member, elite };
+      }
+      return member;
+    });
+
+    if (!updated) {
+      nextRoster.push({
+        role,
+        slot,
+        name: "",
+        mains: "",
+        description: "",
+        elite,
       });
     }
 
@@ -771,6 +806,7 @@ export default function AdminPanel() {
           name: "",
           mains: "",
           description: "",
+          elite: false,
         };
         return {
           ...team,
@@ -788,7 +824,7 @@ export default function AdminPanel() {
         }
         const nextRoster = team.roster.map((member) =>
           member.role === role && (member.slot ?? null) === (slot ?? null)
-            ? { ...member, name: "", mains: "", description: "" }
+            ? { ...member, name: "", mains: "", description: "", elite: false }
             : member
         );
         return { ...team, roster: normalizeRoster(nextRoster) };
@@ -822,6 +858,7 @@ export default function AdminPanel() {
         name: sanitizeInput(member.name ?? ""),
         mains: member.mains ? sanitizeRosterText(member.mains) : "",
         description: member.description ? sanitizeRosterText(member.description) : "",
+        elite: Boolean(member.elite),
       }))
       .filter((member) => member.name.length > 0)
       .map((member) => ({
@@ -830,6 +867,7 @@ export default function AdminPanel() {
         name: member.name,
         mains: normalizeNullable(member.mains),
         description: normalizeNullable(member.description),
+        elite: member.elite,
       }));
 
   const handleTeamRosterField = (
@@ -845,6 +883,24 @@ export default function AdminPanel() {
           ? {
               ...team,
               roster: updateRosterEntry(team.roster, role, slot, field, value),
+            }
+          : team
+      )
+    );
+  };
+
+  const handleTeamRosterElite = (
+    id: string,
+    role: TeamRosterMember["role"],
+    slot: number | null,
+    elite: boolean
+  ) => {
+    setTeams((prev) =>
+      prev.map((team) =>
+        team.id === id
+          ? {
+              ...team,
+              roster: updateRosterElite(team.roster, role, slot, elite),
             }
           : team
       )
@@ -908,6 +964,7 @@ export default function AdminPanel() {
           [TEAM_MEMBER_COLUMNS.name]: member.name,
           [TEAM_MEMBER_COLUMNS.mains]: member.mains ?? null,
           [TEAM_MEMBER_COLUMNS.description]: member.description ?? null,
+          [TEAM_MEMBER_COLUMNS.elite]: member.elite ?? false,
         }));
         const { error: rosterError } = await supabase
           .from(TEAM_MEMBERS_TABLE)
@@ -1710,6 +1767,7 @@ export default function AdminPanel() {
                                     <th className="px-2 py-2">Pseudo</th>
                                     <th className="px-2 py-2">Mains</th>
                                     <th className="px-2 py-2">Description</th>
+                                    <th className="px-2 py-2 text-center">ELITE</th>
                                     <th className="px-2 py-2">Actions</th>
                                   </tr>
                                 </thead>
@@ -1777,6 +1835,21 @@ export default function AdminPanel() {
                                             }
                                             placeholder="Description"
                                             className="w-full rounded-lg border border-white/10 bg-slate-950/70 px-2 py-1 text-xs text-white"
+                                          />
+                                        </td>
+                                        <td className="px-2 py-2 text-center">
+                                          <input
+                                            type="checkbox"
+                                            checked={Boolean(member.elite)}
+                                            onChange={(event) =>
+                                              handleTeamRosterElite(
+                                                team.id,
+                                                member.role,
+                                                member.slot,
+                                                event.target.checked
+                                              )
+                                            }
+                                            className="h-4 w-4 rounded border-white/20 bg-slate-950/70 text-amber-400 focus:ring-amber-400/40"
                                           />
                                         </td>
                                         <td className="px-2 py-2">

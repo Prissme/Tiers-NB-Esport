@@ -30,7 +30,13 @@ export default function StandingsTable({ rows, teamsById }: StandingsTableProps)
             key={row.teamId}
             className="grid grid-cols-[2fr_repeat(4,minmax(0,1fr))] items-center gap-3 px-4 py-4 text-sm text-slate-200"
           >
-            <span className="text-white">
+            <span
+              className={`font-cal-sans ${
+                teamsById[row.teamId]?.roster?.some((member) => member.elite)
+                  ? "team-name--elite"
+                  : "text-white"
+              }`}
+            >
               {teamsById[row.teamId]?.name ?? row.teamName ?? row.teamId}
             </span>
             <span className="text-center">{row.matchesPlayed}</span>
