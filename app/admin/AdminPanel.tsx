@@ -78,7 +78,7 @@ const emptyTeamForm = {
 };
 
 const emptyMatchForm: MatchFormState = {
-  day: "Day 2",
+  day: "1",
   division: "",
   startTime: "",
   teamAId: "",
@@ -102,15 +102,34 @@ const DIVISION_OPTIONS = [
   { value: "D2", label: "Division 2" },
 ];
 
+const normalizeDayValue = (day: string | null | undefined) => {
+  if (!day) {
+    return null;
+  }
+  const trimmed = day.trim();
+  const dayMatch = trimmed.match(/^Day\s*(\d+)$/i);
+  if (dayMatch) {
+    return dayMatch[1];
+  }
+  if (/^\d+$/.test(trimmed)) {
+    return trimmed;
+  }
+  return trimmed;
+};
+
 const formatDayLabel = (day: string | null) => {
   if (!day) {
     return "—";
   }
-  return day.replace("Day", "Jour");
+  const normalized = normalizeDayValue(day);
+  if (normalized && /^\d+$/.test(normalized)) {
+    return `Jour ${normalized}`;
+  }
+  return day;
 };
 
 const buildDayOptions = (count: number) =>
-  Array.from({ length: Math.max(count, 1) }, (_, index) => `Day ${index + 1}`);
+  Array.from({ length: Math.max(count, 1) }, (_, index) => String(index + 1));
 
 const parseTimeSlots = (value: string) =>
   value
@@ -741,7 +760,9 @@ export default function AdminPanel() {
 
   const filteredMatches = useMemo(() => {
     return matches.filter((match) => {
-      const matchesDay = matchDay === "all" || (match.day ?? "") === matchDay;
+      const matchesDay =
+        matchDay === "all" ||
+        normalizeDayValue(match.day ?? "") === normalizeDayValue(matchDay);
       const matchesDivision = matchDivision === "all" || (match.division ?? "") === matchDivision;
       const matchesStatus = matchStatus === "all" || match.status === matchStatus;
       return matchesDay && matchesDivision && matchesStatus;
@@ -1285,7 +1306,7 @@ export default function AdminPanel() {
       let createdCount = 0;
 
       for (let roundIndex = 0; roundIndex < rounds.length; roundIndex += 1) {
-        const dayLabel = dayOptions[roundIndex] ?? `Day ${roundIndex + 1}`;
+        const dayLabel = dayOptions[roundIndex] ?? String(roundIndex + 1);
         const dayDate = new Date(baseDate);
         dayDate.setDate(baseDate.getDate() + roundIndex);
 
@@ -1333,7 +1354,7 @@ export default function AdminPanel() {
     const scoreA = form.scoreA === "" ? null : Number(form.scoreA);
     const scoreB = form.scoreB === "" ? null : Number(form.scoreB);
     return {
-      day: form.day,
+      day: normalizeDayValue(form.day),
       division: form.division,
       startTime: trimmedStart,
       teamAId: form.teamAId,
@@ -1412,7 +1433,7 @@ export default function AdminPanel() {
   const handleEditMatch = (match: Match) => {
     setEditingMatchId(match.id);
     setMatchForm({
-      day: match.day ?? "Day 1",
+      day: normalizeDayValue(match.day ?? "1") ?? "1",
       division: match.division ?? "",
       startTime: match.startTime ?? "",
       teamAId: match.teamAId,
