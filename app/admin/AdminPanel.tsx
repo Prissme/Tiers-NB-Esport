@@ -907,6 +907,47 @@ export default function AdminPanel() {
     );
   };
 
+  const formatTeamUpdateError = (error: unknown) => {
+    if (!error) {
+      return "Échec de la mise à jour.";
+    }
+
+    const details: string[] = [];
+
+    if (error instanceof Error) {
+      details.push(error.message);
+    }
+
+    if (typeof error === "object") {
+      const errorRecord = error as Record<string, unknown>;
+      const code = typeof errorRecord.code === "string" ? errorRecord.code : null;
+      const message = typeof errorRecord.message === "string" ? errorRecord.message : null;
+      const hint = typeof errorRecord.hint === "string" ? errorRecord.hint : null;
+      const info = typeof errorRecord.details === "string" ? errorRecord.details : null;
+
+      if (message && !details.includes(message)) {
+        details.push(message);
+      }
+      if (code) details.push(`code: ${code}`);
+      if (info) details.push(`details: ${info}`);
+      if (hint) details.push(`hint: ${hint}`);
+
+      if (details.length === 0) {
+        try {
+          details.push(JSON.stringify(errorRecord));
+        } catch {
+          // ignore JSON errors
+        }
+      }
+    }
+
+    if (details.length === 0) {
+      return "Échec de la mise à jour.";
+    }
+
+    return `Échec de la mise à jour: ${details.join(" | ")}`;
+  };
+
   const handleSaveTeam = async (team: Team) => {
     setStatusMessage(null);
     setErrorMessage(null);
@@ -1025,7 +1066,7 @@ export default function AdminPanel() {
       showToast("success", "Équipe mise à jour.");
     } catch (error) {
       console.error("Admin team update error:", error);
-      const errorMessage = error instanceof Error ? error.message : "Échec de la mise à jour.";
+      const errorMessage = formatTeamUpdateError(error);
       setErrorMessage(errorMessage);
       showToast("error", errorMessage);
     }
