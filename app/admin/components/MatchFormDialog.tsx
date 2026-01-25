@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
+import type { ChangeEvent, FormEvent } from "react";
 import { supabase } from "../../../lib/supabaseClient";
 import {
   extractRound,
@@ -82,10 +81,7 @@ export default function MatchFormDialog({
     [initialValues, seasonId]
   );
 
-  const form = useForm<MatchFormValues>({
-    resolver: zodResolver(matchFormSchema),
-    defaultValues,
-  });
+  const [values, setValues] = useState<MatchFormValues>(defaultValues);
 
   useEffect(() => {
     const values = buildDefaultValues(initialValues, seasonId);
@@ -104,39 +100,67 @@ export default function MatchFormDialog({
       values.playedDate = played.date;
       values.playedTime = played.time;
     }
-    form.reset(values);
-  }, [form, initialValues, seasonId]);
+    setValues(values);
+  }, [initialValues, seasonId]);
 
-  const handleSubmit = form.handleSubmit(async (values) => {
+  const updateField = <Key extends keyof MatchFormValues>(field: Key, value: MatchFormValues[Key]) => {
+    setValues((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleNumberChange =
+    (field: keyof MatchFormValues, allowNull = false) =>
+    (event: ChangeEvent<HTMLInputElement>) => {
+      const rawValue = event.target.value;
+      const nextValue = rawValue === "" && allowNull ? null : Number(rawValue);
+      if (rawValue === "" && !allowNull) {
+        updateField(field, 0 as MatchFormValues[typeof field]);
+        return;
+      }
+      updateField(field, nextValue as MatchFormValues[typeof field]);
+    };
+
+  const handleTextChange =
+    (field: keyof MatchFormValues) =>
+    (event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+      updateField(field, event.target.value as MatchFormValues[typeof field]);
+    };
+
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const parsed = matchFormSchema.safeParse(values);
+    if (!parsed.success) {
+      setErrorMessage(parsed.error.issues[0]?.message ?? "Validation invalide.");
+      return;
+    }
     setSaving(true);
     setErrorMessage(null);
 
     const payload = {
-      day: values.day,
-      day_label: values.dayLabel || null,
-      round: extractRound(values.round ?? null, values.matchGroup),
-      match_group: values.matchGroup,
-      phase: values.phase,
-      division: values.division,
-      best_of: values.bestOf ?? null,
-      status: values.status,
-      team_a_id: values.teamAId,
-      team_b_id: values.teamBId,
-      scheduled_at: toTimestamp(values.scheduledDate, values.scheduledTime),
-      start_time: toTimestamp(values.startDate, values.startTime),
-      played_at: toTimestamp(values.playedDate, values.playedTime),
-      score_a: values.scoreA ?? null,
-      score_b: values.scoreB ?? null,
-      sets_a: values.setsA ?? null,
-      sets_b: values.setsB ?? null,
-      notes: values.notes || null,
-      proof_url: values.proofUrl || null,
-      vod_url: values.vodUrl || null,
-      season_id: values.seasonId ?? seasonId ?? null,
+      day: parsed.data.day,
+      day_label: parsed.data.dayLabel || null,
+      round: extractRound(parsed.data.round ?? null, parsed.data.matchGroup),
+      match_group: parsed.data.matchGroup,
+      phase: parsed.data.phase,
+      division: parsed.data.division,
+      best_of: parsed.data.bestOf ?? null,
+      status: parsed.data.status,
+      team_a_id: parsed.data.teamAId,
+      team_b_id: parsed.data.teamBId,
+      scheduled_at: toTimestamp(parsed.data.scheduledDate, parsed.data.scheduledTime),
+      start_time: toTimestamp(parsed.data.startDate, parsed.data.startTime),
+      played_at: toTimestamp(parsed.data.playedDate, parsed.data.playedTime),
+      score_a: parsed.data.scoreA ?? null,
+      score_b: parsed.data.scoreB ?? null,
+      sets_a: parsed.data.setsA ?? null,
+      sets_b: parsed.data.setsB ?? null,
+      notes: parsed.data.notes || null,
+      proof_url: parsed.data.proofUrl || null,
+      vod_url: parsed.data.vodUrl || null,
+      season_id: parsed.data.seasonId ?? seasonId ?? null,
     };
 
-    const query = values.id
-      ? supabase.from("lfn_matches").update(payload).eq("id", values.id)
+    const query = parsed.data.id
+      ? supabase.from("lfn_matches").update(payload).eq("id", parsed.data.id)
       : supabase.from("lfn_matches").insert(payload);
 
     const { error } = await query;
@@ -150,7 +174,7 @@ export default function MatchFormDialog({
     setSaving(false);
     onSaved();
     onOpenChange(false);
-  });
+  };
 
   if (!open) {
     return null;
@@ -181,7 +205,8 @@ export default function MatchFormDialog({
               Jour
               <input
                 type="number"
-                {...form.register("day")}
+                value={values.day}
+                onChange={handleNumberChange("day")}
                 className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-white"
               />
             </label>
@@ -189,7 +214,8 @@ export default function MatchFormDialog({
               Label jour
               <input
                 type="text"
-                {...form.register("dayLabel")}
+                value={values.dayLabel ?? ""}
+                onChange={handleTextChange("dayLabel")}
                 className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-white"
               />
             </label>
@@ -197,7 +223,8 @@ export default function MatchFormDialog({
               Round (num)
               <input
                 type="number"
-                {...form.register("round")}
+                value={values.round ?? ""}
+                onChange={handleNumberChange("round", true)}
                 className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-white"
               />
             </label>
@@ -208,7 +235,8 @@ export default function MatchFormDialog({
               Match label
               <input
                 type="text"
-                {...form.register("matchGroup")}
+                value={values.matchGroup}
+                onChange={handleTextChange("matchGroup")}
                 className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-white"
               />
             </label>
@@ -216,7 +244,8 @@ export default function MatchFormDialog({
               Phase
               <input
                 type="text"
-                {...form.register("phase")}
+                value={values.phase}
+                onChange={handleTextChange("phase")}
                 className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-white"
               />
             </label>
@@ -224,7 +253,8 @@ export default function MatchFormDialog({
               Division
               <input
                 type="text"
-                {...form.register("division")}
+                value={values.division}
+                onChange={handleTextChange("division")}
                 className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-white"
               />
             </label>
@@ -234,7 +264,8 @@ export default function MatchFormDialog({
             <label className="space-y-2 text-sm text-white/70">
               Equipe A
               <select
-                {...form.register("teamAId")}
+                value={values.teamAId}
+                onChange={handleTextChange("teamAId")}
                 className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-white"
               >
                 <option value="">Sélectionner</option>
@@ -248,7 +279,8 @@ export default function MatchFormDialog({
             <label className="space-y-2 text-sm text-white/70">
               Equipe B
               <select
-                {...form.register("teamBId")}
+                value={values.teamBId}
+                onChange={handleTextChange("teamBId")}
                 className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-white"
               >
                 <option value="">Sélectionner</option>
@@ -266,14 +298,16 @@ export default function MatchFormDialog({
               Best of
               <input
                 type="number"
-                {...form.register("bestOf")}
+                value={values.bestOf ?? ""}
+                onChange={handleNumberChange("bestOf", true)}
                 className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-white"
               />
             </label>
             <label className="space-y-2 text-sm text-white/70">
               Status
               <select
-                {...form.register("status")}
+                value={values.status}
+                onChange={handleTextChange("status")}
                 className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-white"
               >
                 <option value="scheduled">Programmé</option>
@@ -285,7 +319,8 @@ export default function MatchFormDialog({
               Saison
               <input
                 type="text"
-                {...form.register("seasonId")}
+                value={values.seasonId ?? ""}
+                onChange={handleTextChange("seasonId")}
                 placeholder={seasonId ?? "UUID"}
                 className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-white"
               />
@@ -300,7 +335,8 @@ export default function MatchFormDialog({
                   Date
                   <input
                     type="date"
-                    {...form.register("scheduledDate")}
+                    value={values.scheduledDate ?? ""}
+                    onChange={handleTextChange("scheduledDate")}
                     className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-white"
                   />
                 </label>
@@ -308,7 +344,8 @@ export default function MatchFormDialog({
                   Heure
                   <input
                     type="time"
-                    {...form.register("scheduledTime")}
+                    value={values.scheduledTime ?? ""}
+                    onChange={handleTextChange("scheduledTime")}
                     className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-white"
                   />
                 </label>
@@ -321,7 +358,8 @@ export default function MatchFormDialog({
                   Date
                   <input
                     type="date"
-                    {...form.register("startDate")}
+                    value={values.startDate ?? ""}
+                    onChange={handleTextChange("startDate")}
                     className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-white"
                   />
                 </label>
@@ -329,7 +367,8 @@ export default function MatchFormDialog({
                   Heure
                   <input
                     type="time"
-                    {...form.register("startTime")}
+                    value={values.startTime ?? ""}
+                    onChange={handleTextChange("startTime")}
                     className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-white"
                   />
                 </label>
@@ -345,7 +384,8 @@ export default function MatchFormDialog({
                   Score A
                   <input
                     type="number"
-                    {...form.register("scoreA")}
+                    value={values.scoreA ?? ""}
+                    onChange={handleNumberChange("scoreA", true)}
                     className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-white"
                   />
                 </label>
@@ -353,7 +393,8 @@ export default function MatchFormDialog({
                   Score B
                   <input
                     type="number"
-                    {...form.register("scoreB")}
+                    value={values.scoreB ?? ""}
+                    onChange={handleNumberChange("scoreB", true)}
                     className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-white"
                   />
                 </label>
@@ -361,7 +402,8 @@ export default function MatchFormDialog({
                   Sets A
                   <input
                     type="number"
-                    {...form.register("setsA")}
+                    value={values.setsA ?? ""}
+                    onChange={handleNumberChange("setsA", true)}
                     className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-white"
                   />
                 </label>
@@ -369,7 +411,8 @@ export default function MatchFormDialog({
                   Sets B
                   <input
                     type="number"
-                    {...form.register("setsB")}
+                    value={values.setsB ?? ""}
+                    onChange={handleNumberChange("setsB", true)}
                     className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-white"
                   />
                 </label>
@@ -379,7 +422,8 @@ export default function MatchFormDialog({
                   Joué le (date)
                   <input
                     type="date"
-                    {...form.register("playedDate")}
+                    value={values.playedDate ?? ""}
+                    onChange={handleTextChange("playedDate")}
                     className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-white"
                   />
                 </label>
@@ -387,7 +431,8 @@ export default function MatchFormDialog({
                   Heure
                   <input
                     type="time"
-                    {...form.register("playedTime")}
+                    value={values.playedTime ?? ""}
+                    onChange={handleTextChange("playedTime")}
                     className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-white"
                   />
                 </label>
@@ -400,7 +445,8 @@ export default function MatchFormDialog({
                   Proof URL
                   <input
                     type="url"
-                    {...form.register("proofUrl")}
+                    value={values.proofUrl ?? ""}
+                    onChange={handleTextChange("proofUrl")}
                     className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-white"
                   />
                 </label>
@@ -408,7 +454,8 @@ export default function MatchFormDialog({
                   VOD URL
                   <input
                     type="url"
-                    {...form.register("vodUrl")}
+                    value={values.vodUrl ?? ""}
+                    onChange={handleTextChange("vodUrl")}
                     className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-white"
                   />
                 </label>
@@ -419,7 +466,8 @@ export default function MatchFormDialog({
           <label className="space-y-2 text-sm text-white/70">
             Notes
             <textarea
-              {...form.register("notes")}
+              value={values.notes ?? ""}
+              onChange={handleTextChange("notes")}
               rows={3}
               className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-white"
             />
