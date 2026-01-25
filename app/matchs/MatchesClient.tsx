@@ -1,9 +1,10 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState, useEffect } from "react";
-import MatchCard from "../components/MatchCard";
 import PreSeasonBanner from "../components/PreSeasonBanner";
 import SectionHeader from "../components/SectionHeader";
+import StatusBadge from "../components/StatusBadge";
 import type { MatchGroup, SiteMatch } from "../lib/site-types";
 import { matches as fallbackMatches, teams as fallbackTeams } from "../../src/data";
 
@@ -70,6 +71,26 @@ const formatDateLabel = (value: string | null, fallback?: string | null) => {
     year: "numeric",
   });
 };
+
+const formatMatchTime = (dateISO: string | null, startTime?: string | null) => {
+  if (!dateISO) {
+    return startTime ? startTime.replace(":00", "h") : "";
+  }
+  const date = new Date(dateISO);
+  if (Number.isNaN(date.getTime())) return startTime ?? "";
+  return date.toLocaleTimeString("fr-FR", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+};
+
+const getTeamInitials = (name: string) =>
+  name
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join("");
 
 export default function MatchesClient() {
   const [divisionFilter, setDivisionFilter] = useState("all");
@@ -139,6 +160,89 @@ export default function MatchesClient() {
   }, [divisionFilter, statusFilter, matches]);
 
   const hasFinishedMatches = matches.some((match) => match.status === "finished");
+
+  const renderMatchCard = (match: SiteMatch) => {
+    const dateLabel = formatDateLabel(match.scheduledAt, match.dayLabel);
+    const timeLabel = formatMatchTime(match.scheduledAt, match.startTime);
+    const teamAInitials = getTeamInitials(match.teamA.name);
+    const teamBInitials = getTeamInitials(match.teamB.name);
+
+    return (
+      <Link
+        key={match.id}
+        href={`/matchs/${match.id}`}
+        className="group relative overflow-hidden rounded-3xl border border-white/10 bg-slate-950/40 p-6 shadow-[0_20px_60px_-45px_rgba(0,0,0,0.9)] backdrop-blur transition hover:border-amber-300/40 hover:bg-slate-950/50"
+      >
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.08),transparent_55%)] opacity-70" />
+        <div className="absolute right-6 top-5 text-right text-[11px] uppercase tracking-[0.3em] text-slate-300">
+          <p>{dateLabel}</p>
+          {timeLabel ? <p className="mt-1 text-sm font-semibold text-amber-200">{timeLabel}</p> : null}
+        </div>
+        <div className="relative z-10 grid gap-6 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center">
+          <div className="flex items-center gap-4">
+            <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-3xl border border-white/10 bg-white/5">
+              {match.teamA.logoUrl ? (
+                <img
+                  src={match.teamA.logoUrl}
+                  alt={`Logo ${match.teamA.name}`}
+                  className="h-full w-full object-contain"
+                  loading="lazy"
+                />
+              ) : (
+                <span className="text-sm font-semibold text-slate-400">{teamAInitials || "?"}</span>
+              )}
+            </div>
+            <div>
+              <p className="text-lg font-semibold text-white">{match.teamA.name}</p>
+              {match.teamA.tag ? (
+                <p className="text-xs uppercase tracking-[0.3em] text-slate-500">
+                  {match.teamA.tag}
+                </p>
+              ) : null}
+            </div>
+          </div>
+
+          <div className="flex flex-col items-center gap-3 text-center">
+            <p className="text-xs uppercase tracking-[0.3em] text-slate-400">
+              {match.division ?? "Division"}
+            </p>
+            {match.status === "finished" ? (
+              <p className="text-3xl font-semibold text-amber-200">
+                {match.scoreA ?? "-"} <span className="text-slate-400">-</span>{" "}
+                {match.scoreB ?? "-"}
+              </p>
+            ) : (
+              <p className="text-3xl font-semibold text-white">VS</p>
+            )}
+            <StatusBadge status={match.status} />
+          </div>
+
+          <div className="flex items-center justify-end gap-4 text-right">
+            <div>
+              <p className="text-lg font-semibold text-white">{match.teamB.name}</p>
+              {match.teamB.tag ? (
+                <p className="text-xs uppercase tracking-[0.3em] text-slate-500">
+                  {match.teamB.tag}
+                </p>
+              ) : null}
+            </div>
+            <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-3xl border border-white/10 bg-white/5">
+              {match.teamB.logoUrl ? (
+                <img
+                  src={match.teamB.logoUrl}
+                  alt={`Logo ${match.teamB.name}`}
+                  className="h-full w-full object-contain"
+                  loading="lazy"
+                />
+              ) : (
+                <span className="text-sm font-semibold text-slate-400">{teamBInitials || "?"}</span>
+              )}
+            </div>
+          </div>
+        </div>
+      </Link>
+    );
+  };
 
   if (loading) {
     return (
@@ -222,9 +326,7 @@ export default function MatchesClient() {
             <div key={label} className="space-y-3">
               <p className="text-xs uppercase tracking-[0.35em] text-slate-400">{label}</p>
               <div className="grid gap-3">
-                {dayMatches.map((match) => (
-                  <MatchCard key={match.id} match={match} />
-                ))}
+                {dayMatches.map((match) => renderMatchCard(match))}
               </div>
             </div>
           ))}
@@ -241,9 +343,7 @@ export default function MatchesClient() {
           <p className="text-sm text-slate-400">Playoffs à venir.</p>
         ) : (
           <div className="grid gap-3">
-            {playoffsMatches.map((match) => (
-              <MatchCard key={`playoff-${match.id}`} match={match} />
-            ))}
+            {playoffsMatches.map((match) => renderMatchCard(match))}
           </div>
         )}
       </div>
