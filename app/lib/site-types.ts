@@ -19,6 +19,7 @@ export type SiteRosterMember = {
   name: string;
   mains: string | null;
   description: string | null;
+  elite?: boolean | null;
   seasonId?: string | null;
   isActive?: boolean | null;
 };

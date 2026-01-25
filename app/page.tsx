@@ -1,6 +1,5 @@
 import HeroCard from "./components/HeroCard";
 import HallOfFame from "./components/HallOfFame";
-import TopTeams from "./components/TopTeams";
 
 export default function HomePage() {
   return (
@@ -22,9 +21,8 @@ export default function HomePage() {
           </article>
         </section>
         <section className="mt-6">
-          <TopTeams />
+          <HallOfFame />
         </section>
-        <HallOfFame />
       </div>
     </div>
   );

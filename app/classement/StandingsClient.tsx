@@ -151,7 +151,7 @@ export default function StandingsClient() {
   }
 
   return (
-    <section className="section-card space-y-10">
+    <section className="section-card space-y-10 border-0 bg-white/[0.03]">
       <SectionHeader
         kicker="Classement"
         title="Classement officiel"

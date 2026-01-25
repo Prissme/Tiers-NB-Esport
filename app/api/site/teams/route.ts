@@ -81,6 +81,7 @@ const mapMemberRow = (row: Record<string, unknown>) => ({
   description: row[TEAM_MEMBER_COLUMNS.description]
     ? String(row[TEAM_MEMBER_COLUMNS.description])
     : null,
+  elite: row[TEAM_MEMBER_COLUMNS.elite] ? Boolean(row[TEAM_MEMBER_COLUMNS.elite]) : false,
   seasonId: row[TEAM_MEMBER_COLUMNS.seasonId]
     ? String(row[TEAM_MEMBER_COLUMNS.seasonId])
     : null,

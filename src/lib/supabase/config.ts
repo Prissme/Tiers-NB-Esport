@@ -31,6 +31,7 @@ export const TEAM_MEMBER_COLUMNS = {
   name: process.env.LFN_TEAM_MEMBER_NAME_COLUMN || "player_name",
   mains: process.env.LFN_TEAM_MEMBER_MAINS_COLUMN || "mains",
   description: process.env.LFN_TEAM_MEMBER_DESCRIPTION_COLUMN || "description",
+  elite: process.env.LFN_TEAM_MEMBER_ELITE_COLUMN || "is_elite",
   seasonId: process.env.LFN_TEAM_MEMBER_SEASON_COLUMN || "season_id",
   isActive: process.env.LFN_TEAM_MEMBER_ACTIVE_COLUMN || "is_active",
 };
