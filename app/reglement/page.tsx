@@ -83,7 +83,10 @@ export default function ReglementPage() {
           />
           <div className="grid gap-4 lg:grid-cols-2">
             {rulesSections.map((section) => (
-              <div key={section.title} className="motion-card motion-shimmer space-y-3">
+              <div
+                key={section.title}
+                className="motion-card motion-shimmer space-y-3 bg-white/[0.03]"
+              >
                 <p className="text-xs uppercase tracking-[0.35em] text-slate-400">{section.title}</p>
                 <ul className="space-y-2 text-sm text-white">
                   {section.items.map((item) => (

@@ -22,6 +22,8 @@ const hallOfFameEntries = [
   },
 ];
 
+const DISCORD_INVITE = "https://discord.gg/q6sFPWCKD7";
+
 export default function HallOfFame() {
   return (
     <section className="mt-16 overflow-hidden rounded-[32px] border border-white/10 bg-[linear-gradient(135deg,_rgba(6,10,22,0.9),_rgba(9,14,30,0.9))] px-5 py-12 shadow-[0_0_60px_rgba(0,0,0,0.35)] sm:px-8 lg:px-12">
@@ -37,19 +39,16 @@ export default function HallOfFame() {
             <p className="max-w-2xl text-sm text-slate-300">
               De la Saison 1 à la Saison 3, ils ont pris la lumière. Saison 4 :{" "}
               <span className="font-sekuya font-semibold text-slate-100">
-                Peut-être toi qui sait ?
+                Peut-être toi, si t&apos;en es capable.
               </span>
             </p>
-            <a href="/inscription" className="season-signup-button">
-              S&apos;inscrire
-            </a>
           </div>
         </div>
         <div className="flex flex-col gap-10">
           {hallOfFameEntries.map((entry) => (
             <article
               key={entry.season}
-              className="group relative overflow-hidden rounded-3xl border border-white/10 bg-white/[0.04] shadow-[0_20px_50px_rgba(4,10,30,0.45)]"
+              className="group relative overflow-hidden rounded-3xl border border-white/10 bg-white/[0.03] shadow-[0_20px_50px_rgba(4,10,30,0.45)]"
             >
               <div className="aspect-[16/9] w-full overflow-hidden">
                 <img
@@ -73,19 +72,29 @@ export default function HallOfFame() {
               </div>
             </article>
           ))}
-          <article className="relative flex min-h-[280px] flex-col justify-between rounded-3xl border border-dashed border-white/25 bg-white/[0.04] p-8 text-white shadow-[0_15px_45px_rgba(0,0,0,0.3)]">
+          <article className="relative flex min-h-[280px] flex-col justify-between rounded-3xl border border-dashed border-white/25 bg-white/[0.03] p-8 text-white shadow-[0_15px_45px_rgba(0,0,0,0.3)]">
             <div className="space-y-3">
               <p className="font-sekuya text-xs uppercase tracking-[0.35em] text-slate-200/70">
                 Season 4
               </p>
               <h3 className="font-sekuya text-2xl font-semibold">
-                Peut-être toi qui sait ?
+                Peut-être toi, si t&apos;en es capable
               </h3>
               <p className="text-sm text-slate-300">
                 La place est libre. Écris la prochaine légende.
               </p>
             </div>
-            <div className="mt-10 h-24 w-24 rounded-full border border-white/20 bg-white/5 blur-[0.5px]" />
+            <div className="mt-10 flex flex-col items-start gap-6">
+              <div className="h-24 w-24 rounded-full border border-white/20 bg-white/5 blur-[0.5px]" />
+              <a
+                href={DISCORD_INVITE}
+                className="season-signup-button"
+                target="_blank"
+                rel="noreferrer"
+              >
+                S&apos;inscrire
+              </a>
+            </div>
           </article>
         </div>
       </div>
