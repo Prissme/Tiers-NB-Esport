@@ -61,6 +61,17 @@ type MatchFormState = {
   proofUrl: string;
 };
 
+type ScheduleMatchInput = {
+  time: string;
+  teamAId: string;
+  teamBId: string;
+};
+
+type ScheduleDayInput = {
+  date: string;
+  matches: ScheduleMatchInput[];
+};
+
 type SummaryCard = {
   label: string;
   value: string;
@@ -131,41 +142,23 @@ const formatDayLabel = (day: string | null) => {
 const buildDayOptions = (count: number) =>
   Array.from({ length: Math.max(count, 1) }, (_, index) => String(index + 1));
 
-const parseTimeSlots = (value: string) =>
-  value
-    .split(",")
-    .map((entry) => entry.trim())
-    .filter(Boolean);
+const MATCHES_PER_DAY = 2;
 
-const buildRoundRobinRounds = (teamIds: string[]) => {
-  const list = [...teamIds];
-  if (list.length % 2 === 1) {
-    list.push("bye");
-  }
-  const totalTeams = list.length;
-  const roundsCount = totalTeams - 1;
-  const half = totalTeams / 2;
-  const rotation = [...list];
-  const rounds: Array<Array<[string, string]>> = [];
-
-  for (let round = 0; round < roundsCount; round += 1) {
-    const pairs: Array<[string, string]> = [];
-    for (let index = 0; index < half; index += 1) {
-      const teamA = rotation[index];
-      const teamB = rotation[totalTeams - 1 - index];
-      if (teamA !== "bye" && teamB !== "bye") {
-        pairs.push([teamA, teamB]);
-      }
-    }
-    rounds.push(pairs);
-    const fixed = rotation[0];
-    const rotated = rotation.slice(1);
-    rotated.unshift(rotated.pop() ?? "");
-    rotation.splice(0, rotation.length, fixed, ...rotated);
-  }
-
-  return rounds;
-};
+const buildScheduleDays = (count: number, previous: ScheduleDayInput[] = []) =>
+  Array.from({ length: Math.max(count, 1) }, (_, index) => {
+    const existingDay = previous[index];
+    return {
+      date: existingDay?.date ?? "",
+      matches: Array.from({ length: MATCHES_PER_DAY }, (_, matchIndex) => {
+        const existingMatch = existingDay?.matches?.[matchIndex];
+        return {
+          time: existingMatch?.time ?? "",
+          teamAId: existingMatch?.teamAId ?? "",
+          teamBId: existingMatch?.teamBId ?? "",
+        };
+      }),
+    };
+  });
 
 const ROSTER_SLOTS: Array<{ role: TeamRosterMember["role"]; slot: number | null; label: string }> =
   [
@@ -401,8 +394,6 @@ export default function AdminPanel() {
   const [matchStatus, setMatchStatus] = useState("all");
   const [competitionDays, setCompetitionDays] = useState(3);
   const [scheduleDivision, setScheduleDivision] = useState("D1");
-  const [scheduleStartDate, setScheduleStartDate] = useState("");
-  const [scheduleTimes, setScheduleTimes] = useState("19:00, 20:00, 21:00");
   const [scheduleGenerating, setScheduleGenerating] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<{
@@ -426,10 +417,17 @@ export default function AdminPanel() {
     [playoffsDeadline]
   );
   const dayOptions = useMemo(() => buildDayOptions(competitionDays), [competitionDays]);
+  const [scheduleDays, setScheduleDays] = useState<ScheduleDayInput[]>(
+    () => buildScheduleDays(competitionDays)
+  );
   const [playoffsCountdown, setPlayoffsCountdown] = useState({
     label: "Calcul en cours...",
     ended: false,
   });
+
+  useEffect(() => {
+    setScheduleDays((prev) => buildScheduleDays(competitionDays, prev));
+  }, [competitionDays]);
 
   if (!supabase) {
     return (
@@ -513,6 +511,12 @@ export default function AdminPanel() {
     () => teams.map((team) => ({ label: `${team.name} (${team.tag ?? "?"})`, value: team.id })),
     [teams]
   );
+  const scheduleTeamOptions = useMemo(() => {
+    const normalizedDivision = normalizeDivision(scheduleDivision);
+    return teams
+      .filter((team) => normalizeDivision(team.division ?? "") === normalizedDivision)
+      .map((team) => ({ label: `${team.name} (${team.tag ?? "?"})`, value: team.id }));
+  }, [teams, scheduleDivision]);
 
   const loadTeams = useCallback(async () => {
     let teamsQuery = supabase.from("lfn_teams").select("*").order("created_at", {
@@ -1240,6 +1244,29 @@ export default function AdminPanel() {
     setMatchFormErrors([]);
   };
 
+  const handleScheduleDayDateChange = (dayIndex: number, value: string) => {
+    setScheduleDays((prev) =>
+      prev.map((day, index) => (index === dayIndex ? { ...day, date: value } : day))
+    );
+  };
+
+  const handleScheduleMatchChange = (
+    dayIndex: number,
+    matchIndex: number,
+    field: keyof ScheduleMatchInput,
+    value: string
+  ) => {
+    setScheduleDays((prev) =>
+      prev.map((day, index) => {
+        if (index !== dayIndex) return day;
+        const matches = day.matches.map((match, idx) =>
+          idx === matchIndex ? { ...match, [field]: value } : match
+        );
+        return { ...day, matches };
+      })
+    );
+  };
+
   const handleGenerateSchedule = async () => {
     setStatusMessage(null);
     setErrorMessage(null);
@@ -1254,49 +1281,36 @@ export default function AdminPanel() {
       return;
     }
 
-    const divisionTeams = teams
-      .filter((team) => normalizeDivision(team.division ?? "") === normalizedDivision)
-      .map((team) => team.id);
-
-    if (divisionTeams.length < 2) {
+    if (scheduleTeamOptions.length < 2) {
       showToast("error", "Ajoutez au moins 2 équipes dans la division.");
       return;
     }
 
-    const timeSlots = parseTimeSlots(scheduleTimes);
-    if (timeSlots.length === 0) {
-      showToast("error", "Ajoutez au moins un horaire (ex: 19:00, 20:00).");
-      return;
-    }
+    const validationErrors: string[] = [];
+    scheduleDays.forEach((day, dayIndex) => {
+      if (!day.date) {
+        validationErrors.push(`Date manquante pour le jour ${dayIndex + 1}.`);
+      }
+      day.matches.forEach((match, matchIndex) => {
+        if (!match.time) {
+          validationErrors.push(`Heure manquante pour le match ${matchIndex + 1} (jour ${dayIndex + 1}).`);
+        }
+        if (!match.teamAId || !match.teamBId) {
+          validationErrors.push(`Équipes manquantes pour le match ${matchIndex + 1} (jour ${dayIndex + 1}).`);
+        } else if (match.teamAId === match.teamBId) {
+          validationErrors.push(`Les équipes doivent être différentes (match ${matchIndex + 1}, jour ${dayIndex + 1}).`);
+        }
+        if (day.date && match.time) {
+          const scheduled = new Date(`${day.date}T${match.time}:00`);
+          if (Number.isNaN(scheduled.getTime())) {
+            validationErrors.push(`Date/heure invalide pour le match ${matchIndex + 1} (jour ${dayIndex + 1}).`);
+          }
+        }
+      });
+    });
 
-    if (!scheduleStartDate) {
-      showToast("error", "Choisissez une date de départ.");
-      return;
-    }
-
-    const baseDate = new Date(`${scheduleStartDate}T00:00:00`);
-    if (Number.isNaN(baseDate.getTime())) {
-      showToast("error", "La date de départ est invalide.");
-      return;
-    }
-
-    const rounds = buildRoundRobinRounds(divisionTeams);
-    const roundsRequired = rounds.length;
-    const matchesPerRound = rounds[0]?.length ?? 0;
-
-    if (competitionDays < roundsRequired) {
-      showToast(
-        "error",
-        `Il faut au moins ${roundsRequired} journées pour ${divisionTeams.length} équipes.`
-      );
-      return;
-    }
-
-    if (timeSlots.length < matchesPerRound) {
-      showToast(
-        "error",
-        `Prévois au moins ${matchesPerRound} horaires pour chaque journée.`
-      );
+    if (validationErrors.length) {
+      showToast("error", validationErrors[0]);
       return;
     }
 
@@ -1305,31 +1319,27 @@ export default function AdminPanel() {
     try {
       let createdCount = 0;
 
-      for (let roundIndex = 0; roundIndex < rounds.length; roundIndex += 1) {
-        const dayLabel = dayOptions[roundIndex] ?? String(roundIndex + 1);
-        const dayDate = new Date(baseDate);
-        dayDate.setDate(baseDate.getDate() + roundIndex);
+      for (let dayIndex = 0; dayIndex < scheduleDays.length; dayIndex += 1) {
+        const dayLabel = dayOptions[dayIndex] ?? String(dayIndex + 1);
+        const dayEntry = scheduleDays[dayIndex];
 
-        for (let matchIndex = 0; matchIndex < rounds[roundIndex].length; matchIndex += 1) {
-          const [teamAId, teamBId] = rounds[roundIndex][matchIndex];
-          const time = timeSlots[matchIndex] ?? "";
-          const scheduledAt = time
-            ? new Date(
-                `${dayDate.toISOString().slice(0, 10)}T${time}:00`
-              ).toISOString()
+        for (let matchIndex = 0; matchIndex < dayEntry.matches.length; matchIndex += 1) {
+          const match = dayEntry.matches[matchIndex];
+          const scheduledAt = match.time
+            ? new Date(`${dayEntry.date}T${match.time}:00`).toISOString()
             : null;
 
           await createResultMatch({
             day: dayLabel,
             division: normalizedDivision,
-            startTime: time,
-            teamAId,
-            teamBId,
+            startTime: match.time,
+            teamAId: match.teamAId,
+            teamBId: match.teamBId,
             status: "scheduled",
             scoreA: null,
             scoreB: null,
             phase: "regular",
-            round: `Round ${roundIndex + 1}`,
+            round: `Match ${matchIndex + 1}`,
             scheduledAt,
           });
           createdCount += 1;
@@ -2161,12 +2171,12 @@ export default function AdminPanel() {
               <div>
                 <h2 className="text-lg font-semibold text-white">Générer le programme</h2>
                 <p className="text-xs text-slate-400">
-                  Crée automatiquement un round robin complet pour une division.
+                  Préparez les journées, horaires et confrontations pour une division.
                 </p>
               </div>
             </div>
 
-            <div className="grid gap-3 md:grid-cols-4">
+            <div className="grid gap-3 md:grid-cols-2">
               <select
                 value={scheduleDivision}
                 onChange={(event) => setScheduleDivision(event.target.value)}
@@ -2186,27 +2196,85 @@ export default function AdminPanel() {
                 placeholder="Journées"
                 className="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white"
               />
-              <input
-                type="date"
-                value={scheduleStartDate}
-                onChange={(event) => setScheduleStartDate(event.target.value)}
-                className="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white"
-              />
-              <input
-                value={scheduleTimes}
-                onChange={(event) => setScheduleTimes(event.target.value)}
-                placeholder="Horaires (ex: 19:00, 20:00)"
-                className="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white"
-              />
             </div>
 
-            <div className="flex flex-wrap gap-2 text-xs text-slate-400">
-              <span className="rounded-full border border-white/10 px-3 py-1">
-                Journées disponibles: {competitionDays}
-              </span>
-              <span className="rounded-full border border-white/10 px-3 py-1">
-                Horaires: {parseTimeSlots(scheduleTimes).length || 0}
-              </span>
+            <div className="space-y-3">
+              {scheduleDays.map((day, dayIndex) => (
+                <div
+                  key={`schedule-day-${dayIndex}`}
+                  className="rounded-2xl border border-white/10 bg-white/5 p-4"
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <p className="text-sm font-semibold text-white">Jour {dayIndex + 1}</p>
+                    <input
+                      type="date"
+                      value={day.date}
+                      onChange={(event) => handleScheduleDayDateChange(dayIndex, event.target.value)}
+                      className="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white"
+                    />
+                  </div>
+                  <div className="mt-4 grid gap-3 md:grid-cols-2">
+                    {day.matches.map((match, matchIndex) => (
+                      <div
+                        key={`schedule-match-${dayIndex}-${matchIndex}`}
+                        className="rounded-xl border border-white/10 bg-slate-950/60 p-3"
+                      >
+                        <p className="text-xs uppercase tracking-[0.3em] text-slate-400">
+                          Match {matchIndex + 1}
+                        </p>
+                        <div className="mt-3 grid gap-2 md:grid-cols-[120px_repeat(2,minmax(0,1fr))]">
+                          <input
+                            type="time"
+                            value={match.time}
+                            onChange={(event) =>
+                              handleScheduleMatchChange(dayIndex, matchIndex, "time", event.target.value)
+                            }
+                            className="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white"
+                          />
+                          <select
+                            value={match.teamAId}
+                            onChange={(event) =>
+                              handleScheduleMatchChange(
+                                dayIndex,
+                                matchIndex,
+                                "teamAId",
+                                event.target.value
+                              )
+                            }
+                            className="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white"
+                          >
+                            <option value="">Équipe A</option>
+                            {scheduleTeamOptions.map((team) => (
+                              <option key={team.value} value={team.value}>
+                                {team.label}
+                              </option>
+                            ))}
+                          </select>
+                          <select
+                            value={match.teamBId}
+                            onChange={(event) =>
+                              handleScheduleMatchChange(
+                                dayIndex,
+                                matchIndex,
+                                "teamBId",
+                                event.target.value
+                              )
+                            }
+                            className="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white"
+                          >
+                            <option value="">Équipe B</option>
+                            {scheduleTeamOptions.map((team) => (
+                              <option key={team.value} value={team.value}>
+                                {team.label}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
             </div>
 
             <div className="flex flex-wrap gap-2">
