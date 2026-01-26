@@ -4,12 +4,12 @@ import Button from "./Button";
 const logoUrl =
   "https://media.discordapp.net/attachments/1434252768633290952/1464582944872992859/image-Photoroom_3.png?ex=6975fea8&is=6974ad28&hm=66eb253822f4e65bad50bbf733b22df75df4c5c4ae87c757b9506c420ac71dc7&=&format=webp&quality=lossless&width=692&height=692";
 
-const DISCORD_INVITE = "https://discord.gg/q6sFPWCKD7";
+const INSCRIPTION_PATH = "/inscription";
 
 const navLinks = [
   { label: "Règles", href: "/reglement" },
   { label: "Classement", href: "/classement" },
-  { label: "S’inscrire", href: DISCORD_INVITE, external: true },
+  { label: "S’inscrire", href: INSCRIPTION_PATH },
 ];
 
 export default function Header() {
@@ -55,12 +55,7 @@ export default function Header() {
           )}
         </nav>
         <div className="md:hidden">
-          <Button
-            href={DISCORD_INVITE}
-            variant="secondary"
-            ariaLabel="S'inscrire à la ligue"
-            external
-          >
+          <Button href={INSCRIPTION_PATH} variant="secondary" ariaLabel="S'inscrire à la ligue">
             S&apos;inscrire
           </Button>
         </div>

@@ -22,25 +22,20 @@ const hallOfFameEntries = [
   },
 ];
 
-const DISCORD_INVITE = "https://discord.gg/q6sFPWCKD7";
+const INSCRIPTION_PATH = "/inscription";
 
 export default function HallOfFame() {
   return (
-    <section className="mt-16 overflow-hidden rounded-[32px] border border-white/10 bg-[linear-gradient(135deg,_rgba(6,10,22,0.9),_rgba(9,14,30,0.9))] px-5 py-12 shadow-[0_0_60px_rgba(0,0,0,0.35)] sm:px-8 lg:px-12">
+    <section className="mt-16 overflow-hidden rounded-[32px] border border-white/10 bg-[linear-gradient(135deg,_rgba(6,10,22,0.75),_rgba(9,14,30,0.75))] px-5 py-12 shadow-[0_0_60px_rgba(0,0,0,0.3)] sm:px-8 lg:px-12">
       <div className="mx-auto flex max-w-6xl flex-col gap-10">
         <div className="flex flex-col gap-4 text-center sm:text-left">
-          <p className="font-sekuya text-xs font-semibold uppercase tracking-[0.4em] text-slate-200/70">
+          <h2 className="font-sekuya text-2xl font-semibold text-white sm:text-3xl">
             Hall of Fame
-          </p>
-          <h2 className="font-sekuya text-3xl font-semibold text-white sm:text-4xl">
-            Les winners des précédentes LFN
           </h2>
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <p className="max-w-2xl text-sm text-slate-300">
-              De la Saison 1 à la Saison 3, ils ont pris la lumière. Saison 4 :{" "}
-              <span className="font-sekuya font-semibold text-slate-100">
-                Peut-être toi, si t&apos;en es capable.
-              </span>
+              De la Saison 1 à la Saison 3, ils ont pris la lumière. La Saison 4 arrive, la place
+              est encore à prendre.
             </p>
           </div>
         </div>
@@ -87,10 +82,8 @@ export default function HallOfFame() {
             <div className="mt-10 flex flex-col items-start gap-6">
               <div className="h-24 w-24 rounded-full border border-white/20 bg-white/5 blur-[0.5px]" />
               <a
-                href={DISCORD_INVITE}
+                href={INSCRIPTION_PATH}
                 className="season-signup-button"
-                target="_blank"
-                rel="noreferrer"
               >
                 S&apos;inscrire
               </a>

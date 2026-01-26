@@ -4,7 +4,7 @@ import PreSeasonBanner from "../components/PreSeasonBanner";
 import SectionHeader from "../components/SectionHeader";
 import TeamsClient from "./TeamsClient";
 
-const DISCORD_INVITE = "https://discord.gg/q6sFPWCKD7";
+const INSCRIPTION_PATH = "/inscription";
 
 const teamTiles = [
   { label: "D1", detail: "Élite" },
@@ -38,14 +38,13 @@ export default function EquipesPage() {
             ))}
           </div>
           <div className="flex flex-wrap gap-3">
-            <Button href={DISCORD_INVITE} variant="primary" external>
-              Inscrire
+            <Button href={INSCRIPTION_PATH} variant="primary">
+              S&apos;inscrire
             </Button>
           </div>
         </div>
       </section>
-
-        <section className="section-card space-y-6">
+      <section className="section-card space-y-6">
         <SectionHeader kicker="Équipes" title="Rosters actifs" description="Pré-saison." />
         <PreSeasonBanner message="Rosters en validation. Fiches complétées avant le début de saison." />
         <TeamsClient />
