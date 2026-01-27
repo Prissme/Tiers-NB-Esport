@@ -166,11 +166,13 @@ export default function MatchesClient() {
     const timeLabel = formatMatchTime(match.scheduledAt, match.startTime);
     const teamAInitials = getTeamInitials(match.teamA.name);
     const teamBInitials = getTeamInitials(match.teamB.name);
+    const actionLabel =
+      match.status === "live" ? "Regarder en live" : "S’inscrire via Discord";
+    const actionHref = match.status === "live" ? `/matchs/${match.id}` : "/inscription";
 
     return (
-      <Link
+      <article
         key={match.id}
-        href={`/matchs/${match.id}`}
         className="group relative overflow-hidden rounded-3xl border border-white/10 bg-slate-950/40 p-6 shadow-[0_20px_60px_-45px_rgba(0,0,0,0.9)] backdrop-blur transition hover:border-amber-300/40 hover:bg-slate-950/50"
       >
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.08),transparent_55%)] opacity-70" />
@@ -178,7 +180,10 @@ export default function MatchesClient() {
           <p>{dateLabel}</p>
           {timeLabel ? <p className="mt-1 text-sm font-semibold text-amber-200">{timeLabel}</p> : null}
         </div>
-        <div className="relative z-10 grid gap-6 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center">
+        <Link
+          href={`/matchs/${match.id}`}
+          className="relative z-10 grid gap-6 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center"
+        >
           <div className="flex items-center gap-4">
             <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-3xl border border-white/10 bg-white/5">
               {match.teamA.logoUrl ? (
@@ -239,8 +244,16 @@ export default function MatchesClient() {
               )}
             </div>
           </div>
+        </Link>
+        <div className="relative z-10 mt-6 flex justify-end">
+          <Link
+            href={actionHref}
+            className="inline-flex items-center justify-center rounded-full border border-amber-300/40 bg-amber-400/10 px-4 py-2 text-[11px] uppercase tracking-[0.3em] text-amber-200"
+          >
+            {actionLabel}
+          </Link>
         </div>
-      </Link>
+      </article>
     );
   };
 

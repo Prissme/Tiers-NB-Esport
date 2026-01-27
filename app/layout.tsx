@@ -28,9 +28,9 @@ export const metadata: Metadata = {
   description:
     "LFN — Ligue francophone. Accès sur sélection, saisons encadrées, classement officiel.",
   icons: {
-    icon: "https://cdn.discordapp.com/attachments/1434252768633290952/1465784436863009039/content.png?ex=697a5da2&is=69790c22&hm=a083df280ac73a6d78e669f8deb73358115f3df1547087e7ec6453fa96e3fc9e",
+    icon: "https://media.discordapp.net/attachments/1434252768633290952/1465789599056920798/image-Photoroom_9.png?ex=697a6271&is=697910f1&hm=e0990ddef7862a837e2984eecdecde04b6417c436bd5e522b7b09b27a346f18e&=&format=webp&quality=lossless&width=692&height=692",
     apple:
-      "https://cdn.discordapp.com/attachments/1434252768633290952/1465784436863009039/content.png?ex=697a5da2&is=69790c22&hm=a083df280ac73a6d78e669f8deb73358115f3df1547087e7ec6453fa96e3fc9e",
+      "https://media.discordapp.net/attachments/1434252768633290952/1465789599056920798/image-Photoroom_9.png?ex=697a6271&is=697910f1&hm=e0990ddef7862a837e2984eecdecde04b6417c436bd5e522b7b09b27a346f18e&=&format=webp&quality=lossless&width=692&height=692",
   },
   openGraph: {
     title: "LFN — Ligue francophone",
