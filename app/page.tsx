@@ -2,9 +2,6 @@ import HeroCard from "./components/HeroCard";
 import HallOfFame from "./components/HallOfFame";
 import EliteOffer from "./components/EliteOffer";
 import SectionHeader from "./components/SectionHeader";
-import Button from "./components/Button";
-
-const DISCORD_INVITE = "https://discord.gg/q6sFPWCKD7";
 
 export default function HomePage() {
   return (
@@ -15,17 +12,17 @@ export default function HomePage() {
           <SectionHeader
             kicker="Pourquoi la LFN ?"
             title="Une ligue claire, une hype constante"
-            description="Un cadre compétitif lisible, des matchs réguliers, et une communauté qui suit chaque étape."
+            description="Trois points simples, sans détour."
             align="center"
           />
-          <div className="grid gap-4 text-left md:grid-cols-3">
+          <div className="space-y-5 text-left">
             {[
               {
                 title: "Compétitif structuré",
                 detail: "Saisons encadrées, règles nettes, classement officiel.",
               },
               {
-                title: "Hype en continu",
+                title: "Hype continue",
                 detail: "Matchs suivis, résultats rapides, mise en avant des équipes.",
               },
               {
@@ -33,10 +30,13 @@ export default function HomePage() {
                 detail: "Tout passe par Discord pour rejoindre, suivre et progresser.",
               },
             ].map((item) => (
-              <article key={item.title} className="section-card space-y-3">
+              <div
+                key={item.title}
+                className="flex flex-col gap-2 border-b border-white/10 pb-5 last:border-b-0 last:pb-0"
+              >
                 <p className="text-xs uppercase tracking-[0.35em] text-slate-400">{item.title}</p>
                 <p className="text-sm text-slate-200">{item.detail}</p>
-              </article>
+              </div>
             ))}
           </div>
         </section>
@@ -59,52 +59,14 @@ export default function HomePage() {
           </article>
         </section>
         <section className="space-y-6">
-          <SectionHeader
-            kicker="ELITE"
-            title="Le cercle prestige de la LFN"
-            description="Influence la ligue, participe aux décisions et marque ta saison."
-          />
           <EliteOffer />
-        </section>
-        <section className="section-card flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
-          <div className="space-y-3">
-            <SectionHeader
-              kicker="Discord"
-              title="Rejoins la communauté LFN sur Discord"
-              description="Calendrier, inscriptions, annonces et entraide : tout se passe dans le serveur."
-            />
-          </div>
-          <Button href={DISCORD_INVITE} variant="primary" external>
-            Rejoindre le Discord
-          </Button>
         </section>
         <section className="space-y-4">
           <SectionHeader
             kicker="LFN & Null’s Brawl"
             title="Une ligue francophone dédiée à Null’s Brawl"
-            description="La LFN (Ligue Francophone) est une compétition communautaire créée pour structurer la scène Null’s Brawl. Chaque saison rassemble des équipes francophones qui veulent un cadre clair, des matchs réguliers et une visibilité grandissante."
+            description="Compétition communautaire structurée pour la scène francophone."
           />
-          <p className="text-sm text-slate-300">
-            Null’s Brawl est un serveur privé inspiré de Brawl Stars. La LFN existe pour offrir un
-            niveau de jeu organisé, des résultats fiables et des événements qui donnent envie de
-            revenir chaque semaine.
-          </p>
-        </section>
-        <section className="mt-6 space-y-4 text-center sm:text-left">
-          <p className="text-sm text-slate-300 sm:text-base">
-            La LFN est le projet le plus ambitieux de tout Null&apos;s Brawl : une ligue e-sport
-            pensée pour les joueurs français, avec un cadre compétitif clair et une communauté qui
-            met en avant la performance.
-          </p>
-          <p className="text-xs uppercase tracking-[0.32em] text-slate-400">
-            Sponsors &amp; partenaires :{" "}
-            <a
-              href="mailto:contact@lfn-esports.fr"
-              className="font-semibold text-slate-200 hover:text-white"
-            >
-              contact@lfn-esports.fr
-            </a>
-          </p>
         </section>
         <section className="mt-6">
           <HallOfFame />

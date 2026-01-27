@@ -10,7 +10,7 @@ export default function HeroCard() {
           <p className="hero-kicker">LFN</p>
           <h1 className="hero-title">La ligue francophone compétitive sur Null’s Brawl</h1>
           <p className="hero-subtitle">
-            Regarde les matchs officiels, rejoins la compétition et connecte-toi à la communauté.
+            Des matchs officiels, un cadre clair, une scène qui monte.
           </p>
         </div>
         <div className="hero-cta">
@@ -22,7 +22,7 @@ export default function HeroCard() {
           </Button>
         </div>
         <p className="text-xs uppercase tracking-[0.32em] text-white/70">
-          Toutes les inscriptions se font sur Discord
+          Toutes les inscriptions se font sur Discord.
         </p>
         <CountdownTimer />
       </div>
