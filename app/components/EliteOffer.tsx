@@ -23,38 +23,30 @@ export default function EliteOffer() {
         </div>
         <div className="space-y-6">
           <div className="space-y-3">
-            <span className="badge">Statut sur sélection</span>
+            <span className="badge">ELITE</span>
             <h2 className="text-3xl font-semibold tracking-tight text-white sm:text-4xl">
-              ELITE — Statut officiel, révocable
+              ELITE = influencer la LFN
             </h2>
-            <p className="text-sm text-slate-300 sm:text-base">Entrée possible. Maintien non garanti.</p>
+            <p className="text-sm text-slate-300 sm:text-base">
+              Un cercle prestige pour agir sur la ligue et vivre l&apos;expérience complète.
+            </p>
           </div>
           <ul className="space-y-3 text-sm text-slate-200 sm:text-base">
             {[
               {
-                title: "Tournois validés",
-                description: "Accès après validation officielle.",
-                icon: "🏆",
-              },
-              {
-                title: "Débriefs encadrés",
-                description: "Retours stricts. Aucune promesse de progression.",
+                title: "Accès aftermatchs",
+                description: "Échanges post-matchs réservés aux membres ELITE.",
                 icon: "🎙️",
               },
               {
-                title: "Vote MVP contrôlé",
-                description: "Réservé aux statuts validés.",
+                title: "Votes MVP / MEPS",
+                description: "Participe aux votes qui rythment la saison.",
                 icon: "🗳️",
               },
               {
-                title: "Compétitions sur sélection",
-                description: "Accès après validation.",
-                icon: "📊",
-              },
-              {
-                title: "Suivi régulier",
-                description: "Contrôle régulier. Tolérance minimale.",
-                icon: "🎥",
+                title: "Emote d’équipe",
+                description: "Affiche ton équipe avec une emote dédiée.",
+                icon: "✨",
               },
             ].map((item) => (
               <li
@@ -73,16 +65,13 @@ export default function EliteOffer() {
           </ul>
           <div className="space-y-4">
             <p className="text-xs uppercase tracking-[0.24em] text-white/60">
-              Sélection stricte. Critères internes.
+              Sélection encadrée, accès prestige.
             </p>
             <p className="text-xs text-white/60">
-              ELITE est un statut, pas un droit. Révocable à tout moment.
-            </p>
-            <p className="text-xs uppercase tracking-[0.24em] text-white/60">
-              La majorité des demandes sont refusées.
+              ELITE rassemble les profils qui veulent faire avancer la ligue.
             </p>
             <Button href="https://forms.gle/pmo6Z2mRLptYMR1J7" variant="primary" external>
-              Déposer une demande
+              Rejoindre ELITE
             </Button>
           </div>
         </div>

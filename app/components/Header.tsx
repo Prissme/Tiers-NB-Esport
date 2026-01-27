@@ -2,14 +2,14 @@ import Link from "next/link";
 import Button from "./Button";
 
 const logoUrl =
-  "https://cdn.discordapp.com/attachments/1434252768633290952/1465784436863009039/content.png?ex=697a5da2&is=69790c22&hm=a083df280ac73a6d78e669f8deb73358115f3df1547087e7ec6453fa96e3fc9e";
+  "https://media.discordapp.net/attachments/1434252768633290952/1465789599056920798/image-Photoroom_9.png?ex=697a6271&is=697910f1&hm=e0990ddef7862a837e2984eecdecde04b6417c436bd5e522b7b09b27a346f18e&=&format=webp&quality=lossless&width=692&height=692";
 
 const INSCRIPTION_PATH = "/inscription";
 
 const navLinks = [
   { label: "Règles", href: "/reglement" },
   { label: "Classement", href: "/classement" },
-  { label: "S’inscrire", href: INSCRIPTION_PATH },
+  { label: "S’inscrire via Discord", href: INSCRIPTION_PATH },
 ];
 
 export default function Header() {
@@ -17,16 +17,16 @@ export default function Header() {
     <header className="relative z-20">
       <div className="header-shell">
         <Link href="/" className="flex items-center gap-3 text-[color:var(--color-text)]">
-          <span className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-full border border-[color:var(--color-border)]">
+          <span className="flex h-11 w-11 items-center justify-center overflow-hidden">
             <img
               src={logoUrl}
               alt="Logo LFN"
-              className="h-full w-full object-cover"
+              className="h-full w-full object-contain"
               loading="lazy"
             />
           </span>
           <div className="hidden sm:block">
-            <p className="text-[11px] uppercase tracking-[0.45em] text-[color:var(--color-text-muted)]">
+            <p className="font-sekuya text-[11px] uppercase tracking-[0.45em] text-[color:var(--color-text-muted)]">
               Ligue francophone
             </p>
           </div>
@@ -55,8 +55,12 @@ export default function Header() {
           )}
         </nav>
         <div className="md:hidden">
-          <Button href={INSCRIPTION_PATH} variant="secondary" ariaLabel="S'inscrire à la ligue">
-            S&apos;inscrire
+          <Button
+            href={INSCRIPTION_PATH}
+            variant="secondary"
+            ariaLabel="S'inscrire via Discord à la ligue"
+          >
+            S&apos;inscrire via Discord
           </Button>
         </div>
       </div>
