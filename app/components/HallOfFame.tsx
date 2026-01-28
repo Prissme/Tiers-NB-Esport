@@ -15,7 +15,7 @@ const hallOfFameEntries = [
   },
   {
     season: "Season 3",
-    winner: "B&D",
+    winner: "Brandon & Dylan",
     date: "17/01/2026",
     image:
       "https://media.discordapp.net/attachments/1434252768633290952/1464746363072938118/ChatGPT_Image_24_janv._2026_23_18_19.png?ex=697696da&is=6975455a&hm=5965480177529f2d7870b2c39f2ca0af1f210be37e8284afba9bdb3a332daecb&=&format=webp&quality=lossless&width=875&height=583",
@@ -55,27 +55,29 @@ export default function HallOfFame() {
                 />
               </div>
               <div className="absolute inset-0 bg-gradient-to-t from-[#05070f] via-transparent to-transparent opacity-80" />
+              <img
+                src="https://cdn.discordapp.com/attachments/1434252768633290952/1466084863449763903/image-Photoroom_11.png?ex=697b756d&is=697a23ed&hm=d67887bbe3cd098b13789dd232d31e9c2cbc7d442fb3b088e6f9db14dbae8884"
+                alt=""
+                className="hall-of-fame-emblem"
+                loading="lazy"
+              />
               <div className="absolute bottom-0 left-0 right-0 flex flex-col gap-2 p-6">
-                <p className="font-sekuya text-xs uppercase tracking-[0.35em] text-white/70">
+                <p className="text-xs uppercase tracking-[0.35em] text-white/70">
                   {entry.season}
                 </p>
                 <p className="text-xs font-semibold uppercase tracking-[0.3em] text-white/60">
                   {entry.date}
                 </p>
-                <h3 className="font-sekuya text-xl font-semibold text-white">
-                  {entry.winner}
-                </h3>
+                <h3 className="text-xl font-semibold text-white">{entry.winner}</h3>
               </div>
             </article>
           ))}
           <article className="relative flex min-h-[280px] flex-col justify-between rounded-[14px] bg-white/[0.03] p-8 text-white shadow-[0_15px_45px_rgba(0,0,0,0.3)]">
             <div className="space-y-3">
-              <p className="font-sekuya text-xs uppercase tracking-[0.35em] text-white/60">
+              <p className="text-xs uppercase tracking-[0.35em] text-white/60">
                 Season 4
               </p>
-              <h3 className="font-sekuya text-2xl font-semibold">
-                Peut-être toi, si t&apos;en es capable
-              </h3>
+              <h3 className="text-2xl font-semibold">Peut-être toi, si t&apos;en es capable</h3>
               <p className="text-sm text-muted">
                 La place est libre. Écris la prochaine légende.
               </p>

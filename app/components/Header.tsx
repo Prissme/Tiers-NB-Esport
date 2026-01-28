@@ -6,14 +6,13 @@ import Button from "./Button";
 import DiscordIcon from "./DiscordIcon";
 
 const logoUrl =
-  "https://media.discordapp.net/attachments/1434252768633290952/1465789599056920798/image-Photoroom_9.png?ex=697a6271&is=697910f1&hm=e0990ddef7862a837e2984eecdecde04b6417c436bd5e522b7b09b27a346f18e&=&format=webp&quality=lossless&width=692&height=692";
+  "https://media.discordapp.net/attachments/1434252768633290952/1466080774112542762/image-Photoroom_10.png?ex=697b719f&is=697a201f&hm=c44af05e9f6a24a3462c0f0f85d19f7141bc84f5a2a1a8a03bd3a3b838c055f3&=&format=webp&quality=lossless&width=236&height=236";
 
 const INSCRIPTION_PATH = "/inscription";
 
 const navLinks = [
   { label: "Matches", href: "/matchs" },
   { label: "Classement", href: "/classement" },
-  { label: "Programme", href: "/matches" },
   { label: "Règlement", href: "/reglement" },
 ];
 
@@ -33,7 +32,7 @@ export default function Header() {
             />
           </span>
           <div className="hidden sm:block">
-            <p className="font-sekuya text-[11px] uppercase tracking-[0.45em] text-[color:var(--color-text-muted)]">
+            <p className="text-[11px] uppercase tracking-[0.45em] text-[color:var(--color-text-muted)]">
               Ligue francophone
             </p>
           </div>
@@ -60,7 +59,12 @@ export default function Header() {
               </Link>
             )
           )}
-          <Button href={INSCRIPTION_PATH} variant="secondary" ariaLabel="S'inscrire">
+          <Button
+            href={INSCRIPTION_PATH}
+            variant="secondary"
+            ariaLabel="S'inscrire"
+            className="discord-cta"
+          >
             <span className="flex items-center gap-2">
               S&apos;inscrire <DiscordIcon />
             </span>

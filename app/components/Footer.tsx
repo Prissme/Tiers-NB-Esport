@@ -4,15 +4,14 @@ export default function Footer() {
       <div className="mx-auto flex w-full max-w-6xl flex-col items-start justify-between gap-6 px-4 py-10 text-sm text-utility sm:px-6 md:flex-row md:items-center">
         <div className="space-y-2">
           <div className="flex items-center gap-3 text-white">
-            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/5 text-xs font-semibold tracking-[0.25em]">
-              LFN
+            <span className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-2xl bg-white/5">
+              <img
+                src="https://media.discordapp.net/attachments/1434252768633290952/1466080774112542762/image-Photoroom_10.png?ex=697b719f&is=697a201f&hm=c44af05e9f6a24a3462c0f0f85d19f7141bc84f5a2a1a8a03bd3a3b838c055f3&=&format=webp&quality=lossless&width=236&height=236"
+                alt="Logo LFN"
+                className="h-full w-full object-contain"
+                loading="lazy"
+              />
             </span>
-            <div>
-              <p className="text-xs uppercase tracking-[0.45em] text-utility">
-                Ligue francophone
-              </p>
-              <p className="text-sm text-muted">Ligue officielle</p>
-            </div>
           </div>
           <p className="text-xs text-utility">
             © {new Date().getFullYear()} LFN. Tous droits réservés.
