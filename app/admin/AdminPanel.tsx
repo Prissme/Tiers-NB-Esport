@@ -432,7 +432,7 @@ export default function AdminPanel() {
   if (!supabase) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-950 px-6 py-16 text-slate-100">
-        <div className="max-w-xl rounded-2xl border border-slate-800 bg-slate-900/60 p-8 text-center shadow-xl">
+        <div className="surface-card max-w-xl text-center shadow-xl">
           <h1 className="text-2xl font-semibold">Supabase non configuré</h1>
           <p className="mt-4 text-sm text-slate-300">
             Les clés publiques Supabase sont absentes. Ajoutez NEXT_PUBLIC_SUPABASE_URL et
@@ -1501,7 +1501,7 @@ export default function AdminPanel() {
           <p className="text-sm text-slate-400">
             Pilotez les équipes, matchs et résultats depuis un seul écran.
           </p>
-          <div className="mt-3 inline-flex flex-col rounded-2xl border border-amber-400/30 bg-amber-400/10 px-4 py-3 text-xs text-amber-100">
+          <div className="surface-alert surface-alert--warning mt-3 inline-flex flex-col text-xs">
             <span className="uppercase tracking-[0.2em] text-[10px] text-amber-100/80">
               Compte à rebours play-offs
             </span>
@@ -1516,7 +1516,7 @@ export default function AdminPanel() {
         <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
-            className="rounded-full border border-white/10 px-4 py-2 text-xs text-slate-200"
+            className="surface-pill px-4 py-2 text-xs text-slate-200"
             onClick={refreshData}
           >
             {refreshing ? "Actualisation..." : "Actualiser"}
@@ -1567,7 +1567,7 @@ export default function AdminPanel() {
         <section className="space-y-6">
           <div className="grid gap-4 md:grid-cols-3">
             {teamSummary.map((card) => (
-              <div key={card.label} className="rounded-2xl border border-white/10 bg-white/5 p-4">
+              <div key={card.label} className="surface-card--flat">
                 <p className="text-xs uppercase tracking-[0.2em] text-slate-400">{card.label}</p>
                 <p className="mt-2 text-2xl font-semibold text-white">{card.value}</p>
                 {card.helper ? <p className="text-xs text-slate-400">{card.helper}</p> : null}
@@ -1591,18 +1591,18 @@ export default function AdminPanel() {
                   setTeamForm((prev) => ({ ...prev, name: sanitizeInput(event.target.value) }))
                 }
                 placeholder="Nom"
-                className="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white"
+                className="surface-input"
               />
               <input
                 value={teamForm.tag}
                 onChange={(event) => setTeamForm((prev) => ({ ...prev, tag: event.target.value }))}
                 placeholder="Tag"
-                className="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white"
+                className="surface-input"
               />
               <select
                 value={teamForm.division}
                 onChange={(event) => setTeamForm((prev) => ({ ...prev, division: event.target.value }))}
-                className="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white"
+                className="surface-input"
               >
                 <option value="">Division</option>
                 {DIVISION_OPTIONS.map((option) => (
@@ -1615,7 +1615,7 @@ export default function AdminPanel() {
                 value={teamForm.logoUrl}
                 onChange={(event) => setTeamForm((prev) => ({ ...prev, logoUrl: event.target.value }))}
                 placeholder="Logo URL"
-                className="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white"
+                className="surface-input"
               />
             </div>
             <div className="grid gap-3 md:grid-cols-2">
@@ -1625,7 +1625,7 @@ export default function AdminPanel() {
                   setTeamForm((prev) => ({ ...prev, statsSummary: event.target.value }))
                 }
                 placeholder="Stats personnalisées"
-                className="min-h-[96px] rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white"
+                className="surface-textarea"
               />
               <textarea
                 value={teamForm.mainBrawlers}
@@ -1633,7 +1633,7 @@ export default function AdminPanel() {
                   setTeamForm((prev) => ({ ...prev, mainBrawlers: event.target.value }))
                 }
                 placeholder="Main brawlers (séparés par des virgules)"
-                className="min-h-[96px] rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white"
+                className="surface-textarea"
               />
             </div>
             {getBrawlerChips(teamForm.mainBrawlers).length ? (
@@ -1641,7 +1641,7 @@ export default function AdminPanel() {
                 {getBrawlerChips(teamForm.mainBrawlers).map((chip) => (
                   <span
                     key={`new-team-chip-${chip}`}
-                    className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-slate-200"
+                    className="surface-chip surface-chip--muted"
                   >
                     {chip}
                   </span>
@@ -1661,7 +1661,7 @@ export default function AdminPanel() {
                   return (
                     <div
                       key={`${slot.role}-${slot.slot ?? "coach"}`}
-                      className="rounded-xl border border-white/10 bg-slate-950/50 p-3"
+                      className="surface-card--flat"
                     >
                       <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
                         {slot.label}
@@ -1682,7 +1682,7 @@ export default function AdminPanel() {
                             }))
                           }
                           placeholder="Pseudo"
-                          className="w-full rounded-lg border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white"
+                          className="surface-input"
                         />
                         <input
                           value={entry.mains ?? ""}
@@ -1699,7 +1699,7 @@ export default function AdminPanel() {
                             }))
                           }
                           placeholder="Mains (ex: Shelly, Max)"
-                          className="w-full rounded-lg border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white"
+                          className="surface-input"
                         />
                         <textarea
                           value={entry.description ?? ""}
@@ -1716,7 +1716,7 @@ export default function AdminPanel() {
                             }))
                           }
                           placeholder="Description"
-                          className="min-h-[64px] w-full rounded-lg border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white"
+                          className="surface-textarea"
                         />
                         <p className="text-[11px] text-slate-500">
                           Perfs auto après enregistrement.
@@ -1744,12 +1744,12 @@ export default function AdminPanel() {
                   value={teamSearch}
                   onChange={(event) => setTeamSearch(event.target.value)}
                   placeholder="Rechercher un tag ou un nom"
-                  className="rounded-full border border-white/10 bg-slate-950/70 px-4 py-2 text-xs text-white"
+                  className="surface-pill px-4 py-2 text-xs text-white"
                 />
                 <select
                   value={teamDivision}
                   onChange={(event) => setTeamDivision(event.target.value)}
-                  className="rounded-full border border-white/10 bg-slate-950/70 px-4 py-2 text-xs text-white"
+                  className="surface-pill px-4 py-2 text-xs text-white"
                 >
                   <option value="all">Toutes divisions</option>
                   {DIVISION_OPTIONS.map((option) => (
@@ -1761,7 +1761,7 @@ export default function AdminPanel() {
                 <select
                   value={teamSortKey}
                   onChange={(event) => setTeamSortKey(event.target.value as "name" | "wins" | "points")}
-                  className="rounded-full border border-white/10 bg-slate-950/70 px-4 py-2 text-xs text-white"
+                  className="surface-pill px-4 py-2 text-xs text-white"
                 >
                   <option value="name">Tri: nom</option>
                   <option value="wins">Tri: victoires</option>
@@ -1770,11 +1770,11 @@ export default function AdminPanel() {
                 <button
                   type="button"
                   onClick={() => setTeamSortDir((prev) => (prev === "asc" ? "desc" : "asc"))}
-                  className="rounded-full border border-white/10 px-4 py-2 text-xs text-slate-200"
+                  className="surface-pill px-4 py-2 text-xs text-slate-200"
                 >
                   {teamSortDir === "asc" ? "Ascendant" : "Descendant"}
                 </button>
-                <label className="flex items-center gap-2 rounded-full border border-white/10 px-3 py-2 text-[11px] text-slate-200">
+                <label className="surface-pill px-3 py-2 text-[11px] text-slate-200">
                   <input
                     type="checkbox"
                     checked={multiOpenTeams}
@@ -1786,14 +1786,14 @@ export default function AdminPanel() {
                 <button
                   type="button"
                   onClick={expandAllTeams}
-                  className="rounded-full border border-white/10 px-4 py-2 text-xs text-slate-200"
+                  className="surface-pill px-4 py-2 text-xs text-slate-200"
                 >
                   Tout déplier
                 </button>
                 <button
                   type="button"
                   onClick={collapseAllTeams}
-                  className="rounded-full border border-white/10 px-4 py-2 text-xs text-slate-200"
+                  className="surface-pill px-4 py-2 text-xs text-slate-200"
                 >
                   Tout replier
                 </button>
@@ -1814,7 +1814,7 @@ export default function AdminPanel() {
                   return (
                     <div
                       key={team.id}
-                      className="rounded-2xl border border-white/10 bg-white/5 p-4"
+                      className="surface-card--flat"
                     >
                       <button
                         type="button"
@@ -1823,7 +1823,7 @@ export default function AdminPanel() {
                         aria-expanded={isOpen}
                       >
                         <div className="flex flex-wrap items-center gap-4">
-                          <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-white/10 bg-slate-950/60 text-xs font-semibold text-white">
+                          <div className="flex h-12 w-12 items-center justify-center rounded-[10px] bg-slate-950/60 text-xs font-semibold text-white">
                             {(team.tag ?? "??").slice(0, 4)}
                           </div>
                           <div>
@@ -1859,7 +1859,7 @@ export default function AdminPanel() {
                           <span className="rounded-full bg-white/10 px-3 py-1 text-xs text-slate-200">
                             {team.points ?? 0} pts
                           </span>
-                          <span className="rounded-full border border-white/10 px-3 py-1 text-[11px] text-slate-200">
+                          <span className="surface-chip surface-chip--muted">
                             {isOpen ? "Replier" : "Déplier"}
                           </span>
                         </div>
@@ -1867,7 +1867,7 @@ export default function AdminPanel() {
                       {isOpen ? (
                         <div className="mt-6 space-y-6">
                           <div className="grid gap-4 lg:grid-cols-2">
-                            <div className="space-y-4 rounded-2xl border border-white/10 bg-slate-950/40 p-4">
+                            <div className="surface-card--flat space-y-4">
                               <div>
                                 <p className="text-sm font-semibold text-white">Identité</p>
                                 <p className="text-xs text-slate-400">
@@ -1881,7 +1881,7 @@ export default function AdminPanel() {
                                     handleTeamField(team.id, "name", event.target.value)
                                   }
                                   placeholder="Nom"
-                                  className="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white"
+                                  className="surface-input"
                                 />
                                 <input
                                   value={team.tag ?? ""}
@@ -1889,14 +1889,14 @@ export default function AdminPanel() {
                                     handleTeamField(team.id, "tag", event.target.value)
                                   }
                                   placeholder="Tag"
-                                  className="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white"
+                                  className="surface-input"
                                 />
                                 <select
                                   value={toDivisionOption(team.division)}
                                   onChange={(event) =>
                                     handleTeamField(team.id, "division", event.target.value)
                                   }
-                                  className="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white"
+                                  className="surface-input"
                                 >
                                   <option value="">Division</option>
                                   {DIVISION_OPTIONS.map((option) => (
@@ -1911,7 +1911,7 @@ export default function AdminPanel() {
                                     handleTeamField(team.id, "logoUrl", event.target.value)
                                   }
                                   placeholder="Logo URL"
-                                  className="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white"
+                                  className="surface-input"
                                 />
                               </div>
                               {isLogoMissing ? (
@@ -1920,7 +1920,7 @@ export default function AdminPanel() {
                                 </p>
                               ) : null}
                             </div>
-                            <div className="space-y-4 rounded-2xl border border-white/10 bg-slate-950/40 p-4">
+                            <div className="surface-card--flat space-y-4">
                               <div>
                                 <p className="text-sm font-semibold text-white">Contenu</p>
                                 <p className="text-xs text-slate-400">
@@ -1933,7 +1933,7 @@ export default function AdminPanel() {
                                   handleTeamField(team.id, "statsSummary", event.target.value)
                                 }
                                 placeholder="Stats personnalisées (JSON ou texte court)"
-                                className="min-h-[96px] rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white"
+                                className="surface-textarea"
                               />
                               <textarea
                                 value={team.mainBrawlers ?? ""}
@@ -1941,14 +1941,14 @@ export default function AdminPanel() {
                                   handleTeamField(team.id, "mainBrawlers", event.target.value)
                                 }
                                 placeholder="Main brawlers (séparés par des virgules)"
-                                className="min-h-[72px] rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white"
+                                className="surface-textarea"
                               />
                               {getBrawlerChips(team.mainBrawlers).length ? (
                                 <div className="flex flex-wrap gap-2">
                                   {getBrawlerChips(team.mainBrawlers).map((chip) => (
                                     <span
                                       key={`${team.id}-chip-${chip}`}
-                                      className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-slate-200"
+                                      className="surface-chip surface-chip--muted"
                                     >
                                       {chip}
                                     </span>
@@ -1958,7 +1958,7 @@ export default function AdminPanel() {
                             </div>
                           </div>
 
-                          <div className="space-y-4 rounded-2xl border border-white/10 bg-slate-950/40 p-4">
+                          <div className="surface-card--flat space-y-4">
                             <div className="flex flex-wrap items-center justify-between gap-3">
                               <div>
                                 <p className="text-sm font-semibold text-white">Membres</p>
@@ -1975,7 +1975,7 @@ export default function AdminPanel() {
                                 <button
                                   type="button"
                                   onClick={() => addRosterMember(team.id)}
-                                  className="rounded-full border border-white/10 px-4 py-2 text-xs text-slate-200"
+                                  className="surface-pill px-4 py-2 text-xs text-slate-200"
                                 >
                                   Ajouter membre
                                 </button>
@@ -2027,7 +2027,7 @@ export default function AdminPanel() {
                                               )
                                             }
                                             placeholder="Pseudo"
-                                            className="w-full rounded-lg border border-white/10 bg-slate-950/70 px-2 py-1 text-xs text-white"
+                                            className="surface-input surface-input--compact"
                                           />
                                         </td>
                                         <td className="px-2 py-2">
@@ -2043,7 +2043,7 @@ export default function AdminPanel() {
                                               )
                                             }
                                             placeholder="Mains"
-                                            className="w-full rounded-lg border border-white/10 bg-slate-950/70 px-2 py-1 text-xs text-white"
+                                            className="surface-input surface-input--compact"
                                           />
                                         </td>
                                         <td className="px-2 py-2">
@@ -2059,7 +2059,7 @@ export default function AdminPanel() {
                                               )
                                             }
                                             placeholder="Description"
-                                            className="w-full rounded-lg border border-white/10 bg-slate-950/70 px-2 py-1 text-xs text-white"
+                                            className="surface-input surface-input--compact"
                                           />
                                         </td>
                                         <td className="px-2 py-2 text-center">
@@ -2091,7 +2091,7 @@ export default function AdminPanel() {
                                               onClick={() =>
                                                 clearRosterEntry(team.id, member.role, member.slot)
                                               }
-                                              className="rounded-full border border-white/10 px-3 py-1 text-[11px] text-slate-200"
+                                              className="surface-chip surface-chip--muted"
                                             >
                                               Effacer
                                             </button>
@@ -2101,7 +2101,7 @@ export default function AdminPanel() {
                                                 onClick={() =>
                                                   removeRosterEntry(team.id, member.role, member.slot)
                                                 }
-                                                className="rounded-full border border-rose-400/40 px-3 py-1 text-[11px] text-rose-200"
+                                                className="surface-chip text-rose-200"
                                               >
                                                 Supprimer
                                               </button>
@@ -2127,21 +2127,21 @@ export default function AdminPanel() {
                             <button
                               type="button"
                               onClick={() => handleCancelTeamEdits(team.id)}
-                              className="rounded-full border border-white/10 px-4 py-2 text-xs text-slate-200"
+                              className="surface-pill px-4 py-2 text-xs text-slate-200"
                             >
                               Annuler
                             </button>
                             <button
                               type="button"
                               onClick={() => handleCopyTeamId(team.id)}
-                              className="rounded-full border border-white/10 px-4 py-2 text-xs text-slate-200"
+                              className="surface-pill px-4 py-2 text-xs text-slate-200"
                             >
                               Copier l'ID
                             </button>
                             <button
                               type="button"
                               onClick={() => handleDeleteTeam(team.id)}
-                              className="rounded-full border border-rose-400/40 px-4 py-2 text-xs text-rose-200"
+                              className="surface-pill px-4 py-2 text-xs text-rose-200"
                             >
                               Supprimer
                             </button>
@@ -2159,7 +2159,7 @@ export default function AdminPanel() {
         <section className="space-y-6">
           <div className="grid gap-4 md:grid-cols-3">
             {matchSummary.map((card) => (
-              <div key={card.label} className="rounded-2xl border border-white/10 bg-white/5 p-4">
+              <div key={card.label} className="surface-card--flat">
                 <p className="text-xs uppercase tracking-[0.2em] text-slate-400">{card.label}</p>
                 <p className="mt-2 text-2xl font-semibold text-white">{card.value}</p>
                 {card.helper ? <p className="text-xs text-slate-400">{card.helper}</p> : null}
@@ -2181,7 +2181,7 @@ export default function AdminPanel() {
               <select
                 value={scheduleDivision}
                 onChange={(event) => setScheduleDivision(event.target.value)}
-                className="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white"
+                className="surface-input"
               >
                 {DIVISION_OPTIONS.map((option) => (
                   <option key={option.value} value={option.value}>
@@ -2195,7 +2195,7 @@ export default function AdminPanel() {
                 value={competitionDays}
                 onChange={(event) => setCompetitionDays(Number(event.target.value))}
                 placeholder="Journées"
-                className="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white"
+                className="surface-input"
               />
             </div>
 
@@ -2203,7 +2203,7 @@ export default function AdminPanel() {
               {scheduleDays.map((day, dayIndex) => (
                 <div
                   key={`schedule-day-${dayIndex}`}
-                  className="rounded-2xl border border-white/10 bg-white/5 p-4"
+                  className="surface-card--flat"
                 >
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <p className="text-sm font-semibold text-white">Jour {dayIndex + 1}</p>
@@ -2211,14 +2211,14 @@ export default function AdminPanel() {
                       type="date"
                       value={day.date}
                       onChange={(event) => handleScheduleDayDateChange(dayIndex, event.target.value)}
-                      className="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white"
+                      className="surface-input"
                     />
                   </div>
                   <div className="mt-4 grid gap-3 md:grid-cols-2">
                     {day.matches.map((match, matchIndex) => (
                       <div
                         key={`schedule-match-${dayIndex}-${matchIndex}`}
-                        className="rounded-xl border border-white/10 bg-slate-950/60 p-3"
+                        className="surface-card--flat"
                       >
                         <p className="text-xs uppercase tracking-[0.3em] text-slate-400">
                           Match {matchIndex + 1}
@@ -2230,7 +2230,7 @@ export default function AdminPanel() {
                             onChange={(event) =>
                               handleScheduleMatchChange(dayIndex, matchIndex, "time", event.target.value)
                             }
-                            className="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white"
+                            className="surface-input"
                           />
                           <select
                             value={match.teamAId}
@@ -2242,7 +2242,7 @@ export default function AdminPanel() {
                                 event.target.value
                               )
                             }
-                            className="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white"
+                            className="surface-input"
                           >
                             <option value="">Équipe A</option>
                             {scheduleTeamOptions.map((team) => (
@@ -2261,7 +2261,7 @@ export default function AdminPanel() {
                                 event.target.value
                               )
                             }
-                            className="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white"
+                            className="surface-input"
                           >
                             <option value="">Équipe B</option>
                             {scheduleTeamOptions.map((team) => (
@@ -2305,7 +2305,7 @@ export default function AdminPanel() {
                   <button
                     type="button"
                     onClick={resetMatchForm}
-                    className="rounded-full border border-white/10 px-4 py-2 text-xs text-slate-200"
+                    className="surface-pill px-4 py-2 text-xs text-slate-200"
                   >
                     Annuler
                   </button>
@@ -2325,7 +2325,7 @@ export default function AdminPanel() {
               <select
                 value={matchForm.day}
                 onChange={(event) => setMatchForm((prev) => ({ ...prev, day: event.target.value }))}
-                className="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white"
+                className="surface-input"
               >
                 {dayOptions.map((day) => (
                   <option key={day} value={day}>
@@ -2336,7 +2336,7 @@ export default function AdminPanel() {
               <select
                 value={matchForm.division}
                 onChange={(event) => setMatchForm((prev) => ({ ...prev, division: event.target.value }))}
-                className="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white"
+                className="surface-input"
               >
                 <option value="">Division</option>
                 {DIVISION_OPTIONS.map((option) => (
@@ -2352,7 +2352,7 @@ export default function AdminPanel() {
                   setMatchForm((prev) => ({ ...prev, startTime: event.target.value }))
                 }
                 placeholder="Heure"
-                className="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white"
+                className="surface-input"
               />
             </div>
 
@@ -2360,7 +2360,7 @@ export default function AdminPanel() {
               <select
                 value={matchForm.teamAId}
                 onChange={(event) => setMatchForm((prev) => ({ ...prev, teamAId: event.target.value }))}
-                className="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white"
+                className="surface-input"
               >
                 <option value="">Équipe A</option>
                 {teamOptions.map((team) => (
@@ -2372,7 +2372,7 @@ export default function AdminPanel() {
               <select
                 value={matchForm.teamBId}
                 onChange={(event) => setMatchForm((prev) => ({ ...prev, teamBId: event.target.value }))}
-                className="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white"
+                className="surface-input"
               >
                 <option value="">Équipe B</option>
                 {teamOptions.map((team) => (
@@ -2394,7 +2394,7 @@ export default function AdminPanel() {
                     };
                   })
                 }
-                className="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white"
+                className="surface-input"
               >
                 {STATUS_OPTIONS.map((option) => (
                   <option key={option.value} value={option.value}>
@@ -2414,7 +2414,7 @@ export default function AdminPanel() {
                 }
                 placeholder="Score A"
                 disabled={matchForm.status !== "finished"}
-                className="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white disabled:opacity-50"
+                className="surface-input disabled:opacity-50"
               />
               <input
                 type="number"
@@ -2425,7 +2425,7 @@ export default function AdminPanel() {
                 }
                 placeholder="Score B"
                 disabled={matchForm.status !== "finished"}
-                className="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white disabled:opacity-50"
+                className="surface-input disabled:opacity-50"
               />
             </div>
 
@@ -2434,13 +2434,13 @@ export default function AdminPanel() {
                 value={matchForm.notes}
                 onChange={(event) => setMatchForm((prev) => ({ ...prev, notes: event.target.value }))}
                 placeholder="Notes"
-                className="min-h-[80px] rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white"
+                className="surface-textarea"
               />
               <input
                 value={matchForm.vodUrl}
                 onChange={(event) => setMatchForm((prev) => ({ ...prev, vodUrl: event.target.value }))}
                     placeholder="Lien VOD"
-                className="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white"
+                className="surface-input"
               />
               <input
                 value={matchForm.proofUrl}
@@ -2448,7 +2448,7 @@ export default function AdminPanel() {
                   setMatchForm((prev) => ({ ...prev, proofUrl: event.target.value }))
                 }
                     placeholder="Lien preuve"
-                className="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white"
+                className="surface-input"
               />
             </div>
 
@@ -2464,7 +2464,7 @@ export default function AdminPanel() {
                 <button
                   type="button"
                   onClick={resetMatchForm}
-                  className="rounded-full border border-white/10 px-5 py-2 text-sm text-slate-200"
+                  className="surface-pill px-5 py-2 text-sm text-slate-200"
                 >
                   Annuler
                 </button>
@@ -2484,7 +2484,7 @@ export default function AdminPanel() {
                 <select
                   value={matchDay}
                   onChange={(event) => setMatchDay(event.target.value)}
-                  className="rounded-full border border-white/10 bg-slate-950/70 px-4 py-2 text-xs text-white"
+                  className="surface-pill px-4 py-2 text-xs text-white"
                 >
                   <option value="all">Toutes journées</option>
                   {dayOptions.map((day) => (
@@ -2496,7 +2496,7 @@ export default function AdminPanel() {
                 <select
                   value={matchDivision}
                   onChange={(event) => setMatchDivision(event.target.value)}
-                  className="rounded-full border border-white/10 bg-slate-950/70 px-4 py-2 text-xs text-white"
+                  className="surface-pill px-4 py-2 text-xs text-white"
                 >
                   <option value="all">Toutes divisions</option>
                   {DIVISION_OPTIONS.map((option) => (
@@ -2508,7 +2508,7 @@ export default function AdminPanel() {
                 <select
                   value={matchStatus}
                   onChange={(event) => setMatchStatus(event.target.value)}
-                  className="rounded-full border border-white/10 bg-slate-950/70 px-4 py-2 text-xs text-white"
+                  className="surface-pill px-4 py-2 text-xs text-white"
                 >
                   <option value="all">Tous statuts</option>
                   {STATUS_OPTIONS.map((option) => (
@@ -2520,7 +2520,7 @@ export default function AdminPanel() {
                 <button
                   type="button"
                   onClick={resetMatchForm}
-                  className="rounded-full border border-white/10 px-4 py-2 text-xs text-slate-200"
+                  className="surface-pill px-4 py-2 text-xs text-slate-200"
                 >
                   Ajouter un match
                 </button>
@@ -2580,7 +2580,7 @@ export default function AdminPanel() {
                               <button
                                 type="button"
                                 onClick={() => handleEditMatch(match)}
-                                className="rounded-full border border-white/10 px-3 py-1 text-[11px] text-slate-200"
+                                className="surface-chip surface-chip--muted"
                               >
                                 Modifier
                               </button>
@@ -2588,7 +2588,7 @@ export default function AdminPanel() {
                                 type="button"
                                 onClick={() => deleteMatch(match.id)}
                                 disabled={deletingId === match.id}
-                                className="rounded-full border border-rose-400/40 px-3 py-1 text-[11px] text-rose-200"
+                                className="surface-chip text-rose-200"
                               >
                                 {deletingId === match.id ? "Suppression..." : "Supprimer"}
                               </button>

@@ -33,7 +33,7 @@ export default function MatchCard({ match }: MatchCardProps) {
   return (
     <Link
       href={`/matchs/${match.id}`}
-      className="group flex flex-col gap-4 rounded-2xl border border-white/10 bg-white/5 px-5 py-4 transition hover:border-amber-300/40 hover:bg-white/10 animate-in"
+      className="group flex flex-col gap-4 rounded-[12px] bg-white/[0.04] px-5 py-4 transition hover:bg-white/[0.08] animate-in"
     >
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
@@ -54,7 +54,7 @@ export default function MatchCard({ match }: MatchCardProps) {
           </span>
         ) : null}
         {match.status === "finished" ? (
-          <span className="rounded-full bg-amber-400/10 px-3 py-1 text-amber-100">
+          <span className="rounded-full bg-white/10 px-3 py-1 text-slate-200">
             Score {match.scoreA ?? "-"} - {match.scoreB ?? "-"}
           </span>
         ) : null}

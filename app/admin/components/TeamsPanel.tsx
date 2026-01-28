@@ -211,18 +211,18 @@ export default function TeamsPanel() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <p className="text-xs uppercase tracking-[0.3em] text-amber-200/70">Teams</p>
+          <p className="text-xs uppercase tracking-[0.3em] text-slate-400">Teams</p>
           <h3 className="text-xl font-semibold text-white">Identité & roster</h3>
         </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-3">
-        <div className="space-y-3 rounded-3xl border border-white/10 bg-white/5 p-4">
+        <div className="surface-card--flat space-y-3">
           <label className="text-sm text-white/70">Equipe</label>
           <select
             value={selectedTeamId ?? ""}
             onChange={(event) => setSelectedTeamId(event.target.value)}
-            className="w-full rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-white"
+            className="surface-input"
           >
             <option value="">Sélectionner</option>
             {teams.map((team) => (
@@ -232,21 +232,21 @@ export default function TeamsPanel() {
             ))}
           </select>
           {selectedTeam ? (
-            <div className="rounded-2xl border border-white/10 bg-black/40 p-3 text-xs text-white/70">
+            <div className="surface-card--flat text-xs text-white/70">
               <p>{selectedTeam.division ?? "Division"}</p>
               <p className="mt-1">{selectedTeam.tag ?? "TAG"}</p>
             </div>
           ) : null}
         </div>
 
-        <div className="md:col-span-2 space-y-4 rounded-3xl border border-white/10 bg-white/5 p-6">
+        <div className="surface-card--soft md:col-span-2 space-y-4">
           <div className="grid gap-4 md:grid-cols-2">
             <label className="space-y-2 text-sm text-white/70">
               Nom
               <input
                 value={teamForm.name}
                 onChange={(event) => setTeamForm((prev) => ({ ...prev, name: event.target.value }))}
-                className="w-full rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-white"
+                className="surface-input"
               />
             </label>
             <label className="space-y-2 text-sm text-white/70">
@@ -254,7 +254,7 @@ export default function TeamsPanel() {
               <input
                 value={teamForm.tag}
                 onChange={(event) => setTeamForm((prev) => ({ ...prev, tag: event.target.value }))}
-                className="w-full rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-white"
+                className="surface-input"
               />
             </label>
             <label className="space-y-2 text-sm text-white/70">
@@ -262,7 +262,7 @@ export default function TeamsPanel() {
               <input
                 value={teamForm.division}
                 onChange={(event) => setTeamForm((prev) => ({ ...prev, division: event.target.value }))}
-                className="w-full rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-white"
+                className="surface-input"
               />
             </label>
             <label className="space-y-2 text-sm text-white/70">
@@ -270,14 +270,14 @@ export default function TeamsPanel() {
               <input
                 value={teamForm.logo_url}
                 onChange={(event) => setTeamForm((prev) => ({ ...prev, logo_url: event.target.value }))}
-                className="w-full rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-white"
+                className="surface-input"
               />
             </label>
           </div>
           <div className="flex justify-end">
             <button
               onClick={handleSaveTeam}
-              className="rounded-full bg-amber-400 px-5 py-2 text-sm font-semibold text-black hover:bg-amber-300"
+              className="surface-pill surface-pill--active px-5 py-2 text-sm font-semibold text-black"
             >
               Sauver
             </button>
@@ -285,7 +285,7 @@ export default function TeamsPanel() {
         </div>
       </div>
 
-      <div className="rounded-3xl border border-white/10 bg-slate-950/70 p-6">
+      <div className="surface-card--soft">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h4 className="text-lg font-semibold text-white">Membres</h4>
@@ -294,13 +294,13 @@ export default function TeamsPanel() {
           <div className="flex gap-2">
             <button
               onClick={handleClearMembers}
-              className="rounded-full border border-white/10 px-4 py-2 text-xs text-white/70"
+              className="surface-pill px-4 py-2 text-xs text-white/70"
             >
               Effacer
             </button>
             <button
               onClick={handleSaveMembers}
-              className="rounded-full bg-amber-400 px-4 py-2 text-xs font-semibold text-black"
+              className="surface-pill surface-pill--active px-4 py-2 text-xs font-semibold text-black"
             >
               Sauver
             </button>
@@ -308,9 +308,9 @@ export default function TeamsPanel() {
         </div>
 
         <div className="mt-4 overflow-x-auto">
-          <table className="w-full text-sm text-white/80">
-            <thead className="text-xs uppercase text-white/40">
-              <tr className="border-b border-white/10">
+          <table className="surface-table text-sm text-white/80">
+            <thead className="surface-table__header text-xs uppercase text-white/40">
+              <tr>
                 <th className="px-3 py-2 text-left">Slot</th>
                 <th className="px-3 py-2 text-left">Pseudo</th>
                 <th className="px-3 py-2 text-left">Mains</th>
@@ -320,7 +320,7 @@ export default function TeamsPanel() {
             </thead>
             <tbody>
               {members.map((member, index) => (
-                <tr key={`${member.role}-${member.slot ?? "coach"}`} className="border-b border-white/5">
+                <tr key={`${member.role}-${member.slot ?? "coach"}`} className="surface-table__row">
                   <td className="px-3 py-2 text-white/70">
                     {rosterSlots[index]?.label ?? member.role}
                   </td>
@@ -334,7 +334,7 @@ export default function TeamsPanel() {
                           return updated;
                         })
                       }
-                      className="w-full rounded-lg border border-white/10 bg-black/30 px-2 py-1 text-sm text-white"
+                      className="surface-input surface-input--compact"
                     />
                   </td>
                   <td className="px-3 py-2">
@@ -347,7 +347,7 @@ export default function TeamsPanel() {
                           return updated;
                         })
                       }
-                      className="w-full rounded-lg border border-white/10 bg-black/30 px-2 py-1 text-sm text-white"
+                      className="surface-input surface-input--compact"
                     />
                   </td>
                   <td className="px-3 py-2">
@@ -360,7 +360,7 @@ export default function TeamsPanel() {
                           return updated;
                         })
                       }
-                      className="w-full rounded-lg border border-white/10 bg-black/30 px-2 py-1 text-sm text-white"
+                      className="surface-input surface-input--compact"
                     />
                   </td>
                   <td className="px-3 py-2">
@@ -385,13 +385,13 @@ export default function TeamsPanel() {
       </div>
 
       {statusMessage ? (
-        <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-2 text-sm text-emerald-100">
+        <div className="surface-alert surface-alert--success">
           {statusMessage}
         </div>
       ) : null}
 
       {errorMessage ? (
-        <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-2 text-sm text-red-100">
+        <div className="surface-alert surface-alert--error">
           {errorMessage}
         </div>
       ) : null}

@@ -120,7 +120,7 @@ export default function DayOneResults() {
             <div key={match.id} className="motion-card flex flex-wrap items-center justify-between gap-4">
               <p className="text-sm text-white">
                 {match.teamA.name} {" "}
-                <span className="text-amber-200">{formatScoreLine(match.scoreA, match.scoreB)}</span>{" "}
+                <span className="text-slate-200">{formatScoreLine(match.scoreA, match.scoreB)}</span>{" "}
                 {match.teamB.name}
               </p>
               <span className="text-xs uppercase tracking-[0.3em] text-slate-400">

@@ -16,9 +16,7 @@ const partnerBlocks = [
 export default function PartenariatsPage() {
   return (
     <div className="space-y-12">
-      <section className="motion-field p-8">
-        <div className="motion-orb -left-12 top-8 h-48 w-48 motion-drift" />
-        <div className="motion-orb motion-orb--blue right-2 top-4 h-52 w-52 motion-spin" />
+      <section className="surface-dominant">
         <div className="relative z-10 space-y-6">
           <SectionHeader
             kicker="Partenariats"

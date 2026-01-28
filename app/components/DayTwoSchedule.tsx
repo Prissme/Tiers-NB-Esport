@@ -223,7 +223,7 @@ export default function DayTwoSchedule() {
                 <p className="text-sm font-semibold uppercase tracking-[0.35em] text-slate-200">
                   {group.label}
                 </p>
-                <span className="rounded-full border border-white/10 bg-white/10 px-3 py-1 text-xs uppercase tracking-[0.3em] text-slate-200">
+                <span className="rounded-full bg-white/10 px-3 py-1 text-xs uppercase tracking-[0.3em] text-slate-200">
                   {formatTimeLabel(group.timeLabel)}
                 </span>
               </div>
@@ -234,14 +234,14 @@ export default function DayTwoSchedule() {
                       <p className="text-sm font-semibold uppercase tracking-[0.35em] text-slate-200">
                         {match.round ?? "Match"}
                       </p>
-                      <span className="rounded-full border border-white/10 bg-white/10 px-3 py-1 text-xs uppercase tracking-[0.3em] text-slate-200">
+                      <span className="rounded-full bg-white/10 px-3 py-1 text-xs uppercase tracking-[0.3em] text-slate-200">
                         {divisionLabels[match.division ?? ""] ?? match.division ?? "LFN"}
                       </span>
                     </div>
                     <div className="flex flex-wrap gap-2">
-                      <span className="motion-pill">
+                      <span className="badge">
                         {teamMap.get(match.teamA.id)?.name ?? match.teamA.name} {" "}
-                        <span className="text-amber-200">vs</span>{" "}
+                        <span className="text-slate-300">vs</span>{" "}
                         {teamMap.get(match.teamB.id)?.name ?? match.teamB.name}
                       </span>
                       <span className="text-xs text-slate-400">{extractTeamNames(match)}</span>

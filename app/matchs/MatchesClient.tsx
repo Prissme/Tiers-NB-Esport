@@ -173,19 +173,19 @@ export default function MatchesClient() {
     return (
       <article
         key={match.id}
-        className="group relative overflow-hidden rounded-3xl border border-white/10 bg-slate-950/40 p-6 shadow-[0_20px_60px_-45px_rgba(0,0,0,0.9)] backdrop-blur transition hover:border-amber-300/40 hover:bg-slate-950/50"
+        className="group relative overflow-hidden rounded-[14px] bg-slate-950/40 p-6 shadow-[0_20px_60px_-45px_rgba(0,0,0,0.9)] backdrop-blur transition hover:bg-slate-950/50"
       >
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.08),transparent_55%)] opacity-70" />
         <div className="absolute right-6 top-5 text-right text-[11px] uppercase tracking-[0.3em] text-slate-300">
           <p>{dateLabel}</p>
-          {timeLabel ? <p className="mt-1 text-sm font-semibold text-amber-200">{timeLabel}</p> : null}
+          {timeLabel ? <p className="mt-1 text-sm font-semibold text-white">{timeLabel}</p> : null}
         </div>
         <Link
           href={`/matchs/${match.id}`}
           className="relative z-10 grid gap-6 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center"
         >
           <div className="flex items-center gap-4">
-            <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-3xl border border-white/10 bg-white/5">
+            <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-[14px] bg-white/5">
               {match.teamA.logoUrl ? (
                 <img
                   src={match.teamA.logoUrl}
@@ -212,7 +212,7 @@ export default function MatchesClient() {
               {match.division ?? "Division"}
             </p>
             {match.status === "finished" ? (
-              <p className="text-3xl font-semibold text-amber-200">
+              <p className="text-3xl font-semibold text-white">
                 {match.scoreA ?? "-"} <span className="text-slate-400">-</span>{" "}
                 {match.scoreB ?? "-"}
               </p>
@@ -231,7 +231,7 @@ export default function MatchesClient() {
                 </p>
               ) : null}
             </div>
-            <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-3xl border border-white/10 bg-white/5">
+            <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-[14px] bg-white/5">
               {match.teamB.logoUrl ? (
                 <img
                   src={match.teamB.logoUrl}
@@ -248,7 +248,7 @@ export default function MatchesClient() {
         <div className="relative z-10 mt-6 flex justify-end">
           <Link
             href={actionHref}
-            className="inline-flex items-center justify-center rounded-full border border-amber-300/40 bg-amber-400/10 px-4 py-2 text-[11px] uppercase tracking-[0.3em] text-amber-200"
+            className="inline-flex items-center justify-center rounded-full bg-white/10 px-4 py-2 text-[11px] uppercase tracking-[0.3em] text-slate-200"
           >
             {actionLabel}
           </Link>
@@ -300,10 +300,10 @@ export default function MatchesClient() {
               key={option.value}
               type="button"
               onClick={() => setDivisionFilter(option.value)}
-              className={`rounded-full border px-3 py-2 text-[11px] transition ${
+              className={`rounded-full px-3 py-2 text-[11px] transition ${
                 divisionFilter === option.value
-                  ? "border-amber-300/50 bg-amber-400/10 text-amber-100"
-                  : "border-white/10 bg-white/5 text-slate-300"
+                  ? "bg-amber-400/15 text-amber-100"
+                  : "bg-white/5 text-slate-300"
               }`}
             >
               {option.label}
@@ -317,10 +317,10 @@ export default function MatchesClient() {
               key={option.value}
               type="button"
               onClick={() => setStatusFilter(option.value)}
-              className={`rounded-full border px-3 py-2 text-[11px] transition ${
+              className={`rounded-full px-3 py-2 text-[11px] transition ${
                 statusFilter === option.value
-                  ? "border-amber-300/50 bg-amber-400/10 text-amber-100"
-                  : "border-white/10 bg-white/5 text-slate-300"
+                  ? "bg-amber-400/15 text-amber-100"
+                  : "bg-white/5 text-slate-300"
               }`}
             >
               {option.label}

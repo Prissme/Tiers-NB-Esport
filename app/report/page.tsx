@@ -11,9 +11,7 @@ const quickFields = ["Match", "Équipe", "Score", "Note"];
 export default function ReportPage() {
   return (
     <div className="space-y-10">
-      <section className="motion-field p-8">
-        <div className="motion-orb -left-10 top-8 h-44 w-44 motion-drift" />
-        <div className="motion-orb motion-orb--blue right-0 top-0 h-56 w-56 motion-spin" />
+      <section className="surface-dominant">
         <div className="relative z-10 space-y-6">
           <SectionHeader
             kicker="Scores"
@@ -39,7 +37,7 @@ export default function ReportPage() {
         />
         <div className="flex flex-wrap gap-3">
           {quickFields.map((field) => (
-            <span key={field} className="motion-pill">
+            <span key={field} className="badge">
               {field}
             </span>
           ))}
@@ -49,13 +47,13 @@ export default function ReportPage() {
             <label className="text-xs uppercase tracking-[0.35em] text-slate-400">
               Score A
             </label>
-            <div className="mt-3 h-10 rounded-2xl border border-white/10 bg-slate-950/60" />
+            <div className="mt-3 h-10 rounded-[10px] bg-slate-950/60" />
           </div>
           <div className="motion-card">
             <label className="text-xs uppercase tracking-[0.35em] text-slate-400">
               Score B
             </label>
-            <div className="mt-3 h-10 rounded-2xl border border-white/10 bg-slate-950/60" />
+            <div className="mt-3 h-10 rounded-[10px] bg-slate-950/60" />
           </div>
         </div>
       </section>

@@ -13,21 +13,21 @@ export default function PrizePoolBar({ current, goal }: PrizePoolBarProps) {
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between text-sm text-amber-200/80">
+      <div className="flex items-center justify-between text-sm text-slate-300">
         <span>Progression du prizepool</span>
-        <span className="font-semibold text-amber-200">
+        <span className="font-semibold text-white">
           {current.toLocaleString('fr-FR')}€ / {goal.toLocaleString('fr-FR')}€
         </span>
       </div>
-      <div className="h-3 w-full overflow-hidden rounded-full border border-amber-500/30 bg-slate-900/80">
+      <div className="h-3 w-full overflow-hidden rounded-full bg-slate-900/80">
         <motion.div
-          className="h-full rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-300 shadow-[0_0_18px_rgba(16,185,129,0.6)]"
+          className="h-full rounded-full bg-gradient-to-r from-slate-200 via-slate-100 to-white shadow-[0_0_18px_rgba(148,163,184,0.35)]"
           initial={{ width: 0 }}
           animate={{ width: `${percentage}%` }}
           transition={{ duration: 0.8, ease: 'easeOut' }}
         />
       </div>
-      <div className="text-xs text-amber-200/60">
+      <div className="text-xs text-slate-400">
         {percentage.toFixed(1)}% de l'objectif atteint
       </div>
     </div>

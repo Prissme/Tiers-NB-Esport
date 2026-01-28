@@ -20,9 +20,7 @@ export const metadata: Metadata = {
 export default function EquipesPage() {
   return (
     <div className="space-y-12">
-      <section className="motion-field p-8">
-        <div className="motion-orb -left-12 top-8 h-52 w-52 motion-drift" />
-        <div className="motion-orb motion-orb--blue right-0 top-4 h-56 w-56 motion-spin" />
+      <section className="surface-dominant">
         <div className="relative z-10 space-y-6">
           <SectionHeader
             kicker="Équipes"

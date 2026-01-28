@@ -15,7 +15,7 @@ export default function HomePage() {
             description="Trois points simples, sans détour."
             align="center"
           />
-          <div className="space-y-5 text-left">
+          <div className="space-y-6 text-left">
             {[
               {
                 title: "Compétitif structuré",
@@ -32,9 +32,11 @@ export default function HomePage() {
             ].map((item) => (
               <div
                 key={item.title}
-                className="flex flex-col gap-2 border-b border-white/10 pb-5 last:border-b-0 last:pb-0"
+                className="surface-flat flex flex-col gap-2"
               >
-                <p className="text-xs uppercase tracking-[0.35em] text-slate-400">{item.title}</p>
+                <p className="text-xs uppercase tracking-[0.35em] text-slate-400 title-accent">
+                  {item.title}
+                </p>
                 <p className="text-sm text-slate-200">{item.detail}</p>
               </div>
             ))}

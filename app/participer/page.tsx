@@ -12,9 +12,7 @@ const joinSteps = [
 export default function ParticiperPage() {
   return (
     <div className="space-y-12">
-      <section className="motion-field p-8">
-        <div className="motion-orb -left-10 top-6 h-48 w-48 motion-drift" />
-        <div className="motion-orb motion-orb--blue right-2 top-4 h-52 w-52 motion-spin" />
+      <section className="surface-dominant">
         <div className="relative z-10 space-y-6">
           <SectionHeader
             kicker="Participer"
