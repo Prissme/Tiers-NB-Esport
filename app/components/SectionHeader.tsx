@@ -4,6 +4,7 @@ type SectionHeaderProps = {
   kicker?: string;
   align?: "left" | "center";
   highlight?: string;
+  tone?: "dominant" | "support";
 };
 
 export default function SectionHeader({
@@ -12,22 +13,28 @@ export default function SectionHeader({
   kicker,
   align = "left",
   highlight,
+  tone = "support",
 }: SectionHeaderProps) {
   const alignClasses = align === "center" ? "text-center items-center" : "text-left";
+  const kickerClass =
+    tone === "dominant" ? "section-kicker section-kicker--dominant" : "section-kicker";
+  const titleClass =
+    tone === "dominant"
+      ? "section-title section-title--dominant dominant-title"
+      : "section-title";
+  const highlightClass = tone === "dominant" ? "signal-accent" : "title-accent";
 
   return (
     <div className={`flex flex-col gap-3 ${alignClasses}`}>
       {kicker ? (
-        <p className="text-xs font-semibold uppercase tracking-[0.4em] text-slate-400">
-          {kicker}
-        </p>
+        <p className={kickerClass}>{kicker}</p>
       ) : null}
-      <h2 className="font-sekuya text-3xl font-bold text-white md:text-4xl">
+      <h2 className={titleClass}>
         {title}
-        {highlight ? <span className="title-accent"> {highlight}</span> : null}
+        {highlight ? <span className={highlightClass}> {highlight}</span> : null}
       </h2>
       {description ? (
-        <p className="max-w-2xl text-sm text-slate-400 md:text-base">{description}</p>
+        <p className="section-description">{description}</p>
       ) : null}
     </div>
   );

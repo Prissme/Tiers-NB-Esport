@@ -113,7 +113,7 @@ export default function DayOneResults() {
       </div>
 
       {dayOneResults.length === 0 ? (
-        <p className="text-sm text-slate-300">Aucun résultat disponible.</p>
+        <p className="text-sm text-muted">Aucun résultat disponible.</p>
       ) : (
         <div className="grid gap-3">
           {dayOneResults.map((match) => (
@@ -123,7 +123,7 @@ export default function DayOneResults() {
                 <span className="text-slate-200">{formatScoreLine(match.scoreA, match.scoreB)}</span>{" "}
                 {match.teamB.name}
               </p>
-              <span className="text-xs uppercase tracking-[0.3em] text-slate-400">
+              <span className="text-xs uppercase tracking-[0.3em] text-utility">
                 {match.division}
               </span>
             </div>

@@ -18,11 +18,11 @@ const baseStyles =
 
 const variantStyles: Record<ButtonVariant, string> = {
   primary:
-    "bg-[rgba(255,255,255,0.08)] text-[color:var(--color-text)] hover:bg-[rgba(255,255,255,0.15)]",
+    "bg-[color:var(--color-accent)] text-[#20180a] shadow-[0_0_30px_rgba(201,178,106,0.35)] hover:bg-[color:var(--color-accent-deep)]",
   secondary:
-    "bg-[rgba(255,255,255,0.04)] text-[color:var(--color-text-muted)] hover:text-[color:var(--color-text)] hover:bg-[rgba(255,255,255,0.1)]",
+    "bg-[rgba(255,255,255,0.04)] text-[color:var(--color-text-faint)] hover:text-[color:var(--color-text)] hover:bg-[rgba(255,255,255,0.1)]",
   tertiary:
-    "border-transparent bg-transparent text-[color:var(--color-text-muted)] hover:text-[color:var(--color-text)]",
+    "border-transparent bg-transparent text-[color:var(--color-text-faint)] hover:text-[color:var(--color-text)]",
 };
 
 export default function Button({

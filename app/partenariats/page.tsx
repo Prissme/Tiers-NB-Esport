@@ -15,18 +15,19 @@ const partnerBlocks = [
 
 export default function PartenariatsPage() {
   return (
-    <div className="space-y-12">
-      <section className="surface-dominant">
+    <div className="page-stack">
+      <section className="surface-dominant dominant-section">
         <div className="relative z-10 space-y-6">
           <SectionHeader
             kicker="Partenariats"
             title="Soutien partenaire"
             description="Présence claire, formats courts."
+            tone="dominant"
           />
           <div className="grid gap-4 md:grid-cols-3">
             {partnerBlocks.map((block) => (
               <div key={block.label} className="motion-card motion-shimmer">
-                <p className="text-xs uppercase tracking-[0.35em] text-slate-400">{block.label}</p>
+                <p className="text-xs uppercase tracking-[0.35em] text-utility">{block.label}</p>
                 <p className="mt-3 text-sm text-white">{block.detail}</p>
               </div>
             ))}

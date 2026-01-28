@@ -16,7 +16,7 @@ interface ContributorListProps {
 export default function ContributorList({ items }: ContributorListProps) {
   if (items.length === 0) {
     return (
-      <div className="rounded-[10px] bg-slate-950/60 p-6 text-center text-sm text-slate-400">
+      <div className="rounded-[10px] bg-slate-950/60 p-6 text-center text-sm text-muted">
         Soyez le premier à contribuer à la cagnotte.
       </div>
     );
@@ -36,7 +36,7 @@ export default function ContributorList({ items }: ContributorListProps) {
             <span className="text-sm font-semibold text-slate-200">
               {item.anonymous ? 'Contributeur anonyme' : item.name}
             </span>
-            <span className="text-xs text-slate-500">Contribution récente</span>
+            <span className="text-xs text-utility">Contribution récente</span>
           </div>
           <span className="text-sm font-semibold text-white">+{item.amount.toLocaleString('fr-FR')}€</span>
         </motion.div>

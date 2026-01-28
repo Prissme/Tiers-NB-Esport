@@ -176,7 +176,7 @@ export default function MatchesClient() {
         className="group relative overflow-hidden rounded-[14px] bg-slate-950/40 p-6 shadow-[0_20px_60px_-45px_rgba(0,0,0,0.9)] backdrop-blur transition hover:bg-slate-950/50"
       >
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.08),transparent_55%)] opacity-70" />
-        <div className="absolute right-6 top-5 text-right text-[11px] uppercase tracking-[0.3em] text-slate-300">
+        <div className="absolute right-6 top-5 text-right text-[11px] uppercase tracking-[0.3em] text-utility">
           <p>{dateLabel}</p>
           {timeLabel ? <p className="mt-1 text-sm font-semibold text-white">{timeLabel}</p> : null}
         </div>
@@ -194,13 +194,13 @@ export default function MatchesClient() {
                   loading="lazy"
                 />
               ) : (
-                <span className="text-sm font-semibold text-slate-400">{teamAInitials || "?"}</span>
+                <span className="text-sm font-semibold text-utility">{teamAInitials || "?"}</span>
               )}
             </div>
             <div>
               <p className="text-lg font-semibold text-white">{match.teamA.name}</p>
               {match.teamA.tag ? (
-                <p className="text-xs uppercase tracking-[0.3em] text-slate-500">
+                <p className="text-xs uppercase tracking-[0.3em] text-utility">
                   {match.teamA.tag}
                 </p>
               ) : null}
@@ -208,12 +208,12 @@ export default function MatchesClient() {
           </div>
 
           <div className="flex flex-col items-center gap-3 text-center">
-            <p className="text-xs uppercase tracking-[0.3em] text-slate-400">
+            <p className="text-xs uppercase tracking-[0.3em] text-utility">
               {match.division ?? "Division"}
             </p>
             {match.status === "finished" ? (
               <p className="text-3xl font-semibold text-white">
-                {match.scoreA ?? "-"} <span className="text-slate-400">-</span>{" "}
+                {match.scoreA ?? "-"} <span className="text-utility">-</span>{" "}
                 {match.scoreB ?? "-"}
               </p>
             ) : (
@@ -226,7 +226,7 @@ export default function MatchesClient() {
             <div>
               <p className="text-lg font-semibold text-white">{match.teamB.name}</p>
               {match.teamB.tag ? (
-                <p className="text-xs uppercase tracking-[0.3em] text-slate-500">
+                <p className="text-xs uppercase tracking-[0.3em] text-utility">
                   {match.teamB.tag}
                 </p>
               ) : null}
@@ -240,7 +240,7 @@ export default function MatchesClient() {
                   loading="lazy"
                 />
               ) : (
-                <span className="text-sm font-semibold text-slate-400">{teamBInitials || "?"}</span>
+                <span className="text-sm font-semibold text-utility">{teamBInitials || "?"}</span>
               )}
             </div>
           </div>
@@ -248,7 +248,7 @@ export default function MatchesClient() {
         <div className="relative z-10 mt-6 flex justify-end">
           <Link
             href={actionHref}
-            className="inline-flex items-center justify-center rounded-full bg-white/10 px-4 py-2 text-[11px] uppercase tracking-[0.3em] text-slate-200"
+            className="inline-flex items-center justify-center rounded-full bg-white/10 px-4 py-2 text-[11px] uppercase tracking-[0.3em] signal-accent"
           >
             {actionLabel}
           </Link>
@@ -280,10 +280,11 @@ export default function MatchesClient() {
         kicker="Matchs"
         title="Calendrier officiel"
         description="Suivi en direct, à venir, résultats validés."
+        tone="support"
       />
 
       {source === "fallback" ? (
-        <p className="text-xs uppercase tracking-[0.3em] text-slate-500">
+        <p className="text-xs uppercase tracking-[0.3em] text-utility">
           Données de secours (Supabase vide)
         </p>
       ) : null}
@@ -292,7 +293,7 @@ export default function MatchesClient() {
         <PreSeasonBanner message="Pré-saison — matchs officiels à venir." />
       ) : null}
 
-      <div className="flex flex-wrap items-center gap-3 text-xs uppercase tracking-[0.3em] text-slate-400">
+      <div className="flex flex-wrap items-center gap-3 text-xs uppercase tracking-[0.3em] text-utility">
         <span>Division</span>
         <div className="flex flex-wrap gap-2">
           {divisionOptions.map((option) => (
@@ -303,7 +304,7 @@ export default function MatchesClient() {
               className={`rounded-full px-3 py-2 text-[11px] transition ${
                 divisionFilter === option.value
                   ? "bg-amber-400/15 text-amber-100"
-                  : "bg-white/5 text-slate-300"
+                  : "bg-white/5 text-utility"
               }`}
             >
               {option.label}
@@ -320,7 +321,7 @@ export default function MatchesClient() {
               className={`rounded-full px-3 py-2 text-[11px] transition ${
                 statusFilter === option.value
                   ? "bg-amber-400/15 text-amber-100"
-                  : "bg-white/5 text-slate-300"
+                  : "bg-white/5 text-utility"
               }`}
             >
               {option.label}
@@ -330,14 +331,14 @@ export default function MatchesClient() {
       </div>
 
       {filteredMatches.length === 0 ? (
-        <p className="text-sm text-slate-400">
+        <p className="text-sm text-muted">
           Aucun match correspondant. Prochaines annonces à venir.
         </p>
       ) : (
         <div className="space-y-6">
           {Object.entries(groupedMatches).map(([label, dayMatches]) => (
             <div key={label} className="space-y-3">
-              <p className="text-xs uppercase tracking-[0.35em] text-slate-400">{label}</p>
+              <p className="text-xs uppercase tracking-[0.35em] text-utility">{label}</p>
               <div className="grid gap-3">
                 {dayMatches.map((match) => renderMatchCard(match))}
               </div>
@@ -351,9 +352,10 @@ export default function MatchesClient() {
           kicker="Playoffs"
           title="Tableau playoffs"
           description="Phase finale et matchs à élimination."
+          tone="support"
         />
         {playoffsMatches.length === 0 ? (
-          <p className="text-sm text-slate-400">Playoffs à venir.</p>
+          <p className="text-sm text-muted">Playoffs à venir.</p>
         ) : (
           <div className="grid gap-3">
             {playoffsMatches.map((match) => renderMatchCard(match))}

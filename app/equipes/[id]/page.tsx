@@ -63,19 +63,26 @@ export default async function TeamDetailPage({ params }: { params: { id: string 
   }
 
   return (
-    <div className="space-y-10">
-      <section className="surface-dominant">
+    <div className="page-stack">
+      <section className="surface-dominant dominant-section">
         <div className="relative z-10 space-y-6">
           <SectionHeader
             kicker="Équipe"
             title={team.name}
             description={`Division ${team.division ?? "—"}`}
+            tone="dominant"
           />
         </div>
       </section>
 
-      <section className="section-card space-y-6">
-        <SectionHeader kicker="Roster" title="Effectif" description="Liste officielle." />
+      <div className="silent-gap" aria-hidden="true" />
+      <section className="section-card secondary-section space-y-6">
+        <SectionHeader
+          kicker="Roster"
+          title="Effectif"
+          description="Liste officielle."
+          tone="support"
+        />
         {team.roster && team.roster.length > 0 ? (
           <ul className="grid gap-3 md:grid-cols-2">
             {team.roster.map((player, index) => (
@@ -84,7 +91,7 @@ export default async function TeamDetailPage({ params }: { params: { id: string 
                 className="rounded-[10px] bg-white/5 px-4 py-3 transition hover:bg-white/10"
               >
                 <p className="text-sm font-semibold text-white">{player.name}</p>
-                {player.role ? <p className="text-xs text-slate-400">{player.role}</p> : null}
+                {player.role ? <p className="text-xs text-utility">{player.role}</p> : null}
               </li>
             ))}
           </ul>
@@ -93,18 +100,20 @@ export default async function TeamDetailPage({ params }: { params: { id: string 
         )}
       </section>
 
-      <section className="section-card space-y-6">
+      <div className="silent-gap" aria-hidden="true" />
+      <section className="section-card secondary-section space-y-6">
         <SectionHeader
           kicker="Programme"
           title="Calendrier fixe"
           description="Résultats non publics."
+          tone="support"
         />
-        <p className="text-sm text-slate-400">
+        <p className="text-sm text-muted">
           Consultez le programme officiel pour les horaires.
         </p>
         <Link
           href="/matchs"
-          className="inline-flex items-center justify-center rounded-full bg-white/10 px-5 py-3 text-xs uppercase tracking-[0.3em] text-slate-200"
+          className="inline-flex items-center justify-center rounded-full bg-white/10 px-5 py-3 text-xs uppercase tracking-[0.3em] signal-accent"
         >
           Voir le calendrier
         </Link>

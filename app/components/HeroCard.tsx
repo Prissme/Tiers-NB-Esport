@@ -3,12 +3,14 @@ import Button from "./Button";
 
 export default function HeroCard() {
   return (
-    <section className="hero-ironhill">
+    <section className="hero-ironhill dominant-hero">
       <div className="hero-ironhill__layer hero-ironhill__overlay" aria-hidden="true" />
       <div className="hero-ironhill__content">
         <div className="space-y-4">
           <p className="hero-kicker">LFN</p>
-          <h1 className="hero-title">La ligue francophone compétitive sur Null’s Brawl</h1>
+          <h1 className="hero-title dominant-title">
+            La ligue francophone compétitive sur Null’s Brawl
+          </h1>
           <p className="hero-subtitle">
             Des matchs officiels, un cadre clair, une scène qui monte.
           </p>
@@ -21,7 +23,7 @@ export default function HeroCard() {
             S&apos;inscrire via Discord
           </Button>
         </div>
-        <p className="text-xs uppercase tracking-[0.32em] text-white/70">
+        <p className="text-xs uppercase tracking-[0.32em] text-utility">
           Toutes les inscriptions se font sur Discord.
         </p>
         <CountdownTimer />

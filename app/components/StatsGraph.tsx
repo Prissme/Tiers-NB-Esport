@@ -30,7 +30,7 @@ const formatDate = (value: string) => {
 export default function StatsGraph({ data }: StatsGraphProps) {
   if (!data.length) {
     return (
-      <div className="flex h-64 items-center justify-center rounded-[12px] bg-slate-900/60 text-sm text-slate-400">
+      <div className="flex h-64 items-center justify-center rounded-[12px] bg-slate-900/60 text-sm text-muted">
         Pas encore de données ELO sur 30 jours.
       </div>
     );

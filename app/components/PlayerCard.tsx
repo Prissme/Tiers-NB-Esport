@@ -19,7 +19,7 @@ export default function PlayerCard({ player, children }: PlayerCardProps) {
 
   return (
     <section
-      className="surface-dominant relative overflow-hidden bg-gradient-to-br from-slate-900/90 via-slate-900/70 to-black/80 px-6 py-6 shadow-[0_25px_60px_-30px_rgba(15,23,42,0.6)] backdrop-blur"
+      className="surface-dominant dominant-section relative overflow-hidden bg-gradient-to-br from-slate-900/90 via-slate-900/70 to-black/80 px-6 py-6 shadow-[0_25px_60px_-30px_rgba(15,23,42,0.6)] backdrop-blur"
     >
       <div className="relative flex flex-col gap-6 md:flex-row md:items-center">
         <div className="relative">
@@ -34,15 +34,15 @@ export default function PlayerCard({ player, children }: PlayerCardProps) {
           <div className="flex flex-wrap items-center gap-3">
             <h1 className="text-3xl font-semibold text-white">{player.name}</h1>
             <span
-              className="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-slate-200"
+              className="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-utility"
             >
               Niveau {player.tier}
             </span>
           </div>
-          <p className="mt-2 text-sm text-slate-300">
+          <p className="mt-2 text-sm text-muted">
             ELO actuel · <span className="text-2xl font-bold text-cyan-200">{player.mmr}</span>
           </p>
-          {children ? <div className="mt-4 text-sm text-slate-300">{children}</div> : null}
+          {children ? <div className="mt-4 text-sm text-muted">{children}</div> : null}
         </div>
       </div>
     </section>

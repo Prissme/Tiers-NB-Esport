@@ -54,7 +54,7 @@ export default function AchievementGrid({ achievements }: AchievementGridProps) 
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between text-sm text-slate-300">
+      <div className="flex items-center justify-between text-sm text-muted">
         <span>{unlockedCount} / {achievements.length} achievements débloqués</span>
         <span>{progress}%</span>
       </div>
@@ -77,14 +77,14 @@ export default function AchievementGrid({ achievements }: AchievementGridProps) 
               className={`relative overflow-hidden rounded-[12px] p-4 text-sm transition-colors ${
                 unlocked
                   ? 'bg-white/10 text-slate-200'
-                  : 'bg-slate-900/70 text-slate-400'
+                  : 'bg-slate-900/70 text-utility'
               }`}
             >
               {unlocked && recent ? <ConfettiBurst /> : null}
               <div className="relative z-10 flex items-start gap-3">
                 <div
                   className={`flex h-12 w-12 items-center justify-center rounded-[10px] ${
-                    unlocked ? 'bg-white/10 text-white' : 'bg-slate-800 text-slate-300'
+                    unlocked ? 'bg-white/10 text-white' : 'bg-slate-800 text-muted'
                   }`}
                 >
                   {achievement.icon_url ? (
@@ -94,11 +94,11 @@ export default function AchievementGrid({ achievements }: AchievementGridProps) 
                   )}
                 </div>
                 <div>
-                  <p className={`font-semibold ${unlocked ? 'text-white' : 'text-slate-300'}`}>
+                  <p className={`font-semibold ${unlocked ? 'text-white' : 'text-muted'}`}>
                     {achievement.name}
                   </p>
-                  <p className="mt-1 text-xs text-slate-400">{achievement.description}</p>
-                  <p className="mt-2 text-[10px] uppercase tracking-[0.2em] text-slate-500">
+                  <p className="mt-1 text-xs text-muted">{achievement.description}</p>
+                  <p className="mt-2 text-[10px] uppercase tracking-[0.2em] text-utility">
                     {achievement.category || 'general'}
                   </p>
                 </div>

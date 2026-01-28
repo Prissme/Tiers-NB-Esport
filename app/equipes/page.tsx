@@ -19,18 +19,19 @@ export const metadata: Metadata = {
 
 export default function EquipesPage() {
   return (
-    <div className="space-y-12">
-      <section className="surface-dominant">
+    <div className="page-stack">
+      <section className="surface-dominant dominant-section">
         <div className="relative z-10 space-y-6">
           <SectionHeader
             kicker="Équipes"
             title="Rosters officiels"
             description="Fiches rapides et claires."
+            tone="dominant"
           />
           <div className="grid gap-4 md:grid-cols-3">
             {teamTiles.map((tile) => (
               <div key={tile.label} className="motion-card motion-shimmer">
-                <p className="text-xs uppercase tracking-[0.35em] text-slate-400">{tile.label}</p>
+                <p className="text-xs uppercase tracking-[0.35em] text-utility">{tile.label}</p>
                 <p className="mt-3 text-sm text-white">{tile.detail}</p>
               </div>
             ))}
@@ -42,8 +43,14 @@ export default function EquipesPage() {
           </div>
         </div>
       </section>
-      <section className="section-card space-y-6">
-        <SectionHeader kicker="Équipes" title="Rosters actifs" description="Pré-saison." />
+      <div className="silent-gap" aria-hidden="true" />
+      <section className="section-card secondary-section space-y-6">
+        <SectionHeader
+          kicker="Équipes"
+          title="Rosters actifs"
+          description="Pré-saison."
+          tone="support"
+        />
         <PreSeasonBanner message="Rosters en validation. Fiches complétées avant le début de saison." />
         <TeamsClient />
       </section>

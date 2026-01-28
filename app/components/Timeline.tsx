@@ -26,12 +26,12 @@ export default function Timeline({ items }: TimelineProps) {
           </div>
           <div className="surface-flat">
             {item.badge ? (
-              <p className="text-xs uppercase tracking-[0.35em] title-accent">
+              <p className="text-xs uppercase tracking-[0.35em] text-utility">
                 {item.badge}
               </p>
             ) : null}
             <p className="mt-2 text-white">{item.title}</p>
-            <p className="mt-2 text-sm text-slate-300">{item.description}</p>
+            <p className="mt-2 text-sm text-muted">{item.description}</p>
           </div>
         </li>
       ))}

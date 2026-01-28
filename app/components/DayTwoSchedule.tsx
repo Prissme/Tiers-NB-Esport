@@ -207,23 +207,23 @@ export default function DayTwoSchedule() {
         <p className="badge">{label}</p>
         <h2 className="text-2xl font-semibold text-white">{label}</h2>
         {source === "fallback" ? (
-          <p className="text-xs uppercase tracking-[0.3em] text-slate-500">
+          <p className="text-xs uppercase tracking-[0.3em] text-utility">
             Données de secours (Supabase vide)
           </p>
         ) : null}
       </div>
 
       {data.length === 0 ? (
-        <p className="text-sm text-slate-300">À venir</p>
+        <p className="text-sm text-muted">À venir</p>
       ) : (
         <div className="grid gap-6">
           {data.map((group) => (
             <section key={`${group.label}-${group.timeLabel}`} className="space-y-4">
               <div className="flex flex-wrap items-center justify-between gap-3">
-                <p className="text-sm font-semibold uppercase tracking-[0.35em] text-slate-200">
+                <p className="text-sm font-semibold uppercase tracking-[0.35em] text-muted">
                   {group.label}
                 </p>
-                <span className="rounded-full bg-white/10 px-3 py-1 text-xs uppercase tracking-[0.3em] text-slate-200">
+                <span className="rounded-full bg-white/10 px-3 py-1 text-xs uppercase tracking-[0.3em] text-muted">
                   {formatTimeLabel(group.timeLabel)}
                 </span>
               </div>
@@ -231,20 +231,20 @@ export default function DayTwoSchedule() {
                 {group.matches.map((match) => (
                   <div key={match.id} className="motion-card space-y-3">
                     <div className="flex flex-wrap items-center justify-between gap-3">
-                      <p className="text-sm font-semibold uppercase tracking-[0.35em] text-slate-200">
+                      <p className="text-sm font-semibold uppercase tracking-[0.35em] text-muted">
                         {match.round ?? "Match"}
                       </p>
-                      <span className="rounded-full bg-white/10 px-3 py-1 text-xs uppercase tracking-[0.3em] text-slate-200">
+                      <span className="rounded-full bg-white/10 px-3 py-1 text-xs uppercase tracking-[0.3em] text-muted">
                         {divisionLabels[match.division ?? ""] ?? match.division ?? "LFN"}
                       </span>
                     </div>
                     <div className="flex flex-wrap gap-2">
                       <span className="badge">
                         {teamMap.get(match.teamA.id)?.name ?? match.teamA.name} {" "}
-                        <span className="text-slate-300">vs</span>{" "}
+                        <span className="text-utility">vs</span>{" "}
                         {teamMap.get(match.teamB.id)?.name ?? match.teamB.name}
                       </span>
-                      <span className="text-xs text-slate-400">{extractTeamNames(match)}</span>
+                      <span className="text-xs text-utility">{extractTeamNames(match)}</span>
                     </div>
                   </div>
                 ))}

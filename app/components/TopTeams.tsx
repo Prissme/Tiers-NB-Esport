@@ -98,13 +98,13 @@ export default async function TopTeams() {
         <span className="top-teams-filter">CLASSEMENT</span>
       </div>
       {source === "fallback" ? (
-        <p className="mt-2 text-[10px] uppercase tracking-[0.35em] text-slate-500">
+        <p className="mt-2 text-[10px] uppercase tracking-[0.35em] text-utility">
           Données de secours (Supabase vide)
         </p>
       ) : null}
       <ul className="mt-5 space-y-3">
         {topTeams.length === 0 ? (
-          <li className="text-sm text-slate-400">Aucune équipe publiée.</li>
+          <li className="text-sm text-muted">Aucune équipe publiée.</li>
         ) : (
           topTeams.map((team, index) => (
             <li key={team.id} className="top-team-row">

@@ -1,8 +1,8 @@
 export default function PreSeasonBanner({ message }: { message: string }) {
   return (
-    <div className="rounded-[12px] bg-amber-400/10 px-6 py-4 text-sm text-amber-100">
-      <p className="text-xs uppercase tracking-[0.35em] text-amber-200/70">Pré-saison</p>
-      <p className="mt-2 text-sm text-amber-100">{message}</p>
+    <div className="rounded-[12px] bg-white/5 px-6 py-4 text-sm text-white">
+      <p className="text-xs uppercase tracking-[0.35em] text-utility">Pré-saison</p>
+      <p className="mt-2 text-sm text-muted">{message}</p>
     </div>
   );
 }

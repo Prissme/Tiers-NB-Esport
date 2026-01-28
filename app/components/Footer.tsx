@@ -1,20 +1,20 @@
 export default function Footer() {
   return (
     <footer className="relative z-10 bg-[#070a12]/80">
-      <div className="mx-auto flex w-full max-w-6xl flex-col items-start justify-between gap-6 px-4 py-10 text-sm text-slate-400 sm:px-6 md:flex-row md:items-center">
+      <div className="mx-auto flex w-full max-w-6xl flex-col items-start justify-between gap-6 px-4 py-10 text-sm text-utility sm:px-6 md:flex-row md:items-center">
         <div className="space-y-2">
           <div className="flex items-center gap-3 text-white">
             <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/5 text-xs font-semibold tracking-[0.25em]">
               LFN
             </span>
             <div>
-              <p className="text-xs uppercase tracking-[0.45em] text-slate-500">
+              <p className="text-xs uppercase tracking-[0.45em] text-utility">
                 Ligue francophone
               </p>
-              <p className="text-sm text-slate-300">Ligue officielle</p>
+              <p className="text-sm text-muted">Ligue officielle</p>
             </div>
           </div>
-          <p className="text-xs text-slate-500">
+          <p className="text-xs text-utility">
             © {new Date().getFullYear()} LFN. Tous droits réservés.
           </p>
         </div>

@@ -71,28 +71,29 @@ const rulesSections = [
 
 export default function ReglementPage() {
   return (
-    <div className="content-shell">
-      <section className="surface-dominant">
+    <div className="page-stack">
+      <section className="surface-dominant dominant-section">
         <div className="relative z-10 space-y-8">
           <SectionHeader
             kicker="Règlement"
             title="Règlement LFN"
             description="Règles officielles de la ligue."
+            tone="dominant"
           />
-          <div className="gold-divider" />
+          <div className="signal-divider" />
           <div className="grid gap-6 lg:grid-cols-2">
             {rulesSections.map((section) => (
               <div
                 key={section.title}
                 className="surface-flat space-y-3"
               >
-                <p className="text-xs uppercase tracking-[0.35em] text-slate-400 title-accent">
+                <p className="text-xs uppercase tracking-[0.35em] text-utility">
                   {section.title}
                 </p>
                 <ul className="space-y-2 text-sm text-white">
                   {section.items.map((item) => (
                     <li key={item} className="flex gap-2">
-                      <span className="mt-1 h-1.5 w-1.5 flex-none rounded-full bg-slate-600" />
+                      <span className="mt-1 h-1.5 w-1.5 flex-none rounded-full bg-white/40" />
                       <span>{item}</span>
                     </li>
                   ))}
