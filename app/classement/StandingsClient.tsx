@@ -125,7 +125,7 @@ export default function StandingsClient() {
 
   if (loading) {
     return (
-      <section className="section-card space-y-6">
+      <section className="section-card dominant-section space-y-6">
         <div className="space-y-2">
           <div className="skeleton h-4 w-32" />
           <div className="skeleton h-6 w-48" />
@@ -137,13 +137,14 @@ export default function StandingsClient() {
 
   if (standingsToDisplay.length === 0) {
     return (
-      <section className="section-card space-y-4">
+      <section className="section-card dominant-section space-y-4">
         <SectionHeader
           kicker="Information"
           title="Publication à venir"
           description="Programme public pendant la validation."
+          tone="dominant"
         />
-        <p className="text-sm text-slate-400">
+        <p className="text-sm text-muted">
           Résultats non publics. Classement publié après validation de l'organisation.
         </p>
       </section>
@@ -151,7 +152,7 @@ export default function StandingsClient() {
   }
 
   return (
-    <section className="section-card space-y-10 border-0 bg-white/[0.03]">
+    <section className="section-card dominant-section space-y-10 border-0 bg-white/[0.03]">
       <SectionHeader
         kicker="Classement"
         title="Classement officiel"
@@ -160,9 +161,10 @@ export default function StandingsClient() {
             ? "Liste des équipes enregistrées."
             : "Publication officielle."
         }
+        tone="dominant"
       />
       {source === "fallback" ? (
-        <p className="text-xs uppercase tracking-[0.3em] text-slate-500">
+        <p className="text-xs uppercase tracking-[0.3em] text-utility">
           Données de secours (Supabase vide)
         </p>
       ) : null}
@@ -186,7 +188,7 @@ export default function StandingsClient() {
       {(activeDivision ? [[activeDivision, standingsByDivision[activeDivision] ?? []]] : []).map(
         ([division, rows]) => (
           <div key={division} className="space-y-4">
-            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">
+            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-utility">
               {division}
             </p>
             <StandingsTable rows={toStandingsRows(rows)} teamsById={teamsById} />

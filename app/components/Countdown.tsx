@@ -48,7 +48,7 @@ export default function Countdown({ targetDate, className }: CountdownProps) {
     <div
       className={`flex flex-wrap items-center gap-3 rounded-[10px] bg-white/5 px-5 py-4 text-sm text-slate-200 ${className ?? ""}`}
     >
-      <span className="text-[11px] uppercase tracking-[0.45em] title-accent">
+      <span className="text-[11px] uppercase tracking-[0.45em] signal-accent">
         Début LFN
       </span>
       <div className="flex items-center gap-2 text-base font-semibold text-white sm:text-lg text-glow">

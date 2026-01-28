@@ -11,18 +11,19 @@ const joinSteps = [
 
 export default function ParticiperPage() {
   return (
-    <div className="space-y-12">
-      <section className="surface-dominant">
+    <div className="page-stack">
+      <section className="surface-dominant dominant-section">
         <div className="relative z-10 space-y-6">
           <SectionHeader
             kicker="Participer"
             title="Entrer en trois étapes"
             description="Court, direct, clair."
+            tone="dominant"
           />
           <div className="grid gap-4 md:grid-cols-3">
             {joinSteps.map((step) => (
               <div key={step.label} className="motion-card motion-shimmer">
-                <p className="text-xs uppercase tracking-[0.35em] text-slate-400">{step.label}</p>
+                <p className="text-xs uppercase tracking-[0.35em] text-utility">{step.label}</p>
                 <p className="mt-3 text-sm text-white">{step.detail}</p>
               </div>
             ))}

@@ -46,7 +46,7 @@ export default function CountdownTimer() {
 
   return (
     <div className="mt-6 space-y-4">
-      <p className="font-sekuya text-xs uppercase tracking-[0.4em] text-slate-300">
+      <p className="font-sekuya text-xs uppercase tracking-[0.4em] text-utility">
         SAISON 4 BIENTÔT
       </p>
       <div className="flex flex-wrap gap-6">
@@ -57,7 +57,7 @@ export default function CountdownTimer() {
                 {formatValue(item.value)}
               </span>
             </p>
-            <p className="text-[10px] uppercase tracking-[0.32em] text-[color:var(--color-text-muted)]">
+            <p className="text-[10px] uppercase tracking-[0.32em] text-[color:var(--color-text-faint)]">
               {item.label}
             </p>
           </div>

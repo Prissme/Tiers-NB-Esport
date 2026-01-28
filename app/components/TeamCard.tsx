@@ -24,12 +24,12 @@ export default function TeamCard({ team }: { team: SiteTeam }) {
           loading="lazy"
         />
       ) : (
-        <div className="flex h-12 w-12 items-center justify-center rounded-[10px] bg-white/10 text-xs font-semibold uppercase tracking-[0.2em] text-slate-200">
+        <div className="flex h-12 w-12 items-center justify-center rounded-[10px] bg-white/10 text-xs font-semibold uppercase tracking-[0.2em] text-utility">
           {getInitials(team.name)}
         </div>
       )}
       <div>
-        <p className="text-xs uppercase tracking-[0.35em] text-slate-400">
+        <p className="text-xs uppercase tracking-[0.35em] text-utility">
           {team.division ?? "—"}
         </p>
         <p className="text-sm font-semibold text-white">{team.name}</p>

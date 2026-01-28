@@ -17,7 +17,7 @@ type StandingsTableProps = {
 export default function StandingsTable({ rows, teamsById }: StandingsTableProps) {
   return (
     <div className="overflow-hidden rounded-[14px] bg-slate-950/60 shadow-[0_20px_60px_-40px_rgba(0,0,0,0.8)]">
-      <div className="grid grid-cols-[64px_minmax(0,2.5fr)_repeat(4,minmax(0,1fr))] gap-3 bg-white/[0.02] px-6 py-4 text-[11px] font-semibold uppercase tracking-[0.3em] text-slate-500">
+      <div className="grid grid-cols-[64px_minmax(0,2.5fr)_repeat(4,minmax(0,1fr))] gap-3 bg-white/[0.02] px-6 py-4 text-[11px] font-semibold uppercase tracking-[0.3em] text-utility">
         <span>Rang</span>
         <span>Équipe</span>
         <span className="text-center">MJ</span>
@@ -25,7 +25,7 @@ export default function StandingsTable({ rows, teamsById }: StandingsTableProps)
         <span className="text-center">D</span>
         <span className="text-center">Pts</span>
       </div>
-      <div className="gold-divider" />
+      <div className="quiet-divider" />
       <div className="divide-y divide-white/5">
         {rows.map((row, index) => {
           const team = teamsById[row.teamId];
@@ -53,7 +53,7 @@ export default function StandingsTable({ rows, teamsById }: StandingsTableProps)
                       loading="lazy"
                     />
                   ) : (
-                    <span className="text-xs font-semibold text-slate-400">{initials || "?"}</span>
+                    <span className="text-xs font-semibold text-utility">{initials || "?"}</span>
                   )}
                 </div>
                 <div className="min-w-0">
@@ -67,7 +67,7 @@ export default function StandingsTable({ rows, teamsById }: StandingsTableProps)
                     {teamName}
                   </span>
                   {team?.tag ? (
-                    <span className="text-xs uppercase tracking-[0.3em] text-slate-500">
+                    <span className="text-xs uppercase tracking-[0.3em] text-utility">
                       {team.tag}
                     </span>
                   ) : null}

@@ -9,13 +9,14 @@ export const metadata: Metadata = {
 
 export default function MatchsPage() {
   return (
-    <div className="space-y-12">
-      <section className="surface-dominant">
+    <div className="page-stack">
+      <section className="surface-dominant dominant-section">
         <div className="relative z-10 space-y-6">
           <SectionHeader
             kicker="Matchs"
             title="Planning officiel"
             description="Programme fixe pour la saison."
+            tone="dominant"
           />
           <div className="grid gap-4 md:grid-cols-3">
             {[
@@ -24,15 +25,17 @@ export default function MatchsPage() {
               { label: "Infos", detail: "Résultats et statuts en direct." },
             ].map((panel) => (
               <div key={panel.label} className="motion-card motion-shimmer">
-                <p className="text-xs uppercase tracking-[0.35em] text-slate-400">{panel.label}</p>
+                <p className="text-xs uppercase tracking-[0.35em] text-utility">{panel.label}</p>
                 <p className="mt-3 text-sm text-white">{panel.detail}</p>
               </div>
             ))}
           </div>
         </div>
       </section>
-
-      <MatchesClient />
+      <div className="silent-gap" aria-hidden="true" />
+      <section className="secondary-section">
+        <MatchesClient />
+      </section>
     </div>
   );
 }

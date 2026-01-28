@@ -13,7 +13,7 @@ export default function PrizePoolBar({ current, goal }: PrizePoolBarProps) {
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between text-sm text-slate-300">
+      <div className="flex items-center justify-between text-sm text-muted">
         <span>Progression du prizepool</span>
         <span className="font-semibold text-white">
           {current.toLocaleString('fr-FR')}€ / {goal.toLocaleString('fr-FR')}€
@@ -27,7 +27,7 @@ export default function PrizePoolBar({ current, goal }: PrizePoolBarProps) {
           transition={{ duration: 0.8, ease: 'easeOut' }}
         />
       </div>
-      <div className="text-xs text-slate-400">
+      <div className="text-xs text-utility">
         {percentage.toFixed(1)}% de l'objectif atteint
       </div>
     </div>

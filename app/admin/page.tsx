@@ -177,20 +177,20 @@ export default function AdminPage() {
 
   if (loading) {
     return (
-      <div className="min-h-[50vh] rounded-[14px] bg-black/60 p-12 text-center text-white/70">
+      <div className="dominant-section min-h-[50vh] rounded-[14px] bg-black/60 p-12 text-center text-white/70">
         Chargement...
       </div>
     );
   }
 
   return (
-    <div className="space-y-8">
-      <header className="rounded-[16px] bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 p-8 shadow-2xl">
+    <div className="page-stack page-stack--tight">
+      <header className="dominant-section rounded-[16px] bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 p-8 shadow-2xl">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <p className="text-xs uppercase tracking-[0.4em] text-amber-200/70">LFN ADMIN</p>
+            <p className="text-xs uppercase tracking-[0.4em] signal-accent">LFN ADMIN</p>
             <h1 className="mt-2 text-3xl font-semibold text-white">Admin Panel ELITE</h1>
-            <p className="mt-2 max-w-xl text-sm text-white/60">
+            <p className="mt-2 max-w-xl text-sm text-muted">
               Gestion complète du programme, des matchs, des résultats et des équipes. UI premium dark.
             </p>
           </div>
@@ -200,7 +200,7 @@ export default function AdminPage() {
         </div>
       </header>
 
-      <div className="flex flex-wrap gap-2 rounded-[12px] bg-white/5 p-2">
+      <div className="secondary-section flex flex-wrap gap-2 rounded-[12px] bg-white/5 p-2">
         {tabs.map((tab) => (
           <button
             key={tab.id}
@@ -219,12 +219,12 @@ export default function AdminPage() {
       ) : null}
 
       {activeTab === "programme" && (
-        <section className="space-y-6">
+        <section className="secondary-section space-y-6">
           {scheduleDays.map(([day, dayMatches]) => (
             <div key={day} className="surface-card--soft">
               <div className="flex items-center justify-between">
                 <h3 className="text-lg font-semibold text-white">{day}</h3>
-                <span className="text-xs text-white/50">{dayMatches.length} matchs</span>
+                <span className="text-xs text-utility">{dayMatches.length} matchs</span>
               </div>
               <div className="mt-4 space-y-3">
                 {dayMatches.map((match) => (
@@ -236,7 +236,7 @@ export default function AdminPage() {
                       <p className="text-sm text-white">
                         {match.match_group ?? "Match"} • {match.phase}
                       </p>
-                      <p className="text-xs text-white/50">
+                      <p className="text-xs text-utility">
                         {formatDate(getMatchDate(match)) || "Horaire à définir"}
                       </p>
                     </div>
@@ -252,18 +252,20 @@ export default function AdminPage() {
       )}
 
       {activeTab === "matchs" && (
-        <MatchesTable
-          seasonId={seasonId}
-          onMatchesUpdated={() => fetchAllMatches(seasonId)}
-        />
+        <div className="secondary-section">
+          <MatchesTable
+            seasonId={seasonId}
+            onMatchesUpdated={() => fetchAllMatches(seasonId)}
+          />
+        </div>
       )}
 
       {activeTab === "resultats" && (
-        <section className="space-y-6">
+        <section className="secondary-section space-y-6">
           <div className="surface-card--soft">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs uppercase tracking-[0.3em] text-slate-400">Résultats</p>
+                <p className="text-xs uppercase tracking-[0.3em] text-utility">Résultats</p>
                 <h3 className="text-lg font-semibold text-white">Validation des résultats</h3>
               </div>
             </div>
@@ -303,7 +305,7 @@ export default function AdminPage() {
                           {match.proof_url ? (
                             <a
                               href={match.proof_url}
-                              className="title-accent"
+                              className="text-utility transition hover:text-white"
                               target="_blank"
                               rel="noreferrer"
                             >
@@ -313,7 +315,7 @@ export default function AdminPage() {
                           {match.vod_url ? (
                             <a
                               href={match.vod_url}
-                              className="title-accent"
+                              className="text-utility transition hover:text-white"
                               target="_blank"
                               rel="noreferrer"
                             >
@@ -339,12 +341,16 @@ export default function AdminPage() {
         </section>
       )}
 
-      {activeTab === "teams" && <TeamsPanel />}
+      {activeTab === "teams" && (
+        <div className="secondary-section">
+          <TeamsPanel />
+        </div>
+      )}
 
       {activeTab === "saison" && (
-        <section className="surface-card--soft">
+        <section className="secondary-section surface-card--soft">
           <div className="space-y-3">
-            <p className="text-xs uppercase tracking-[0.3em] text-slate-400">Saison</p>
+            <p className="text-xs uppercase tracking-[0.3em] text-utility">Saison</p>
             <h3 className="text-lg font-semibold text-white">Sélectionner la saison</h3>
             <select
               value={seasonId ?? ""}
@@ -358,7 +364,7 @@ export default function AdminPage() {
                 </option>
               ))}
             </select>
-            <p className="text-xs text-white/50">
+            <p className="text-xs text-utility">
               Le filtre de saison s'applique aux matchs, programme et classement.
             </p>
           </div>
@@ -366,10 +372,10 @@ export default function AdminPage() {
       )}
 
       {activeTab === "classement" && (
-        <section className="surface-card--soft">
+        <section className="secondary-section surface-card--soft">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs uppercase tracking-[0.3em] text-slate-400">Classement</p>
+              <p className="text-xs uppercase tracking-[0.3em] text-utility">Classement</p>
               <h3 className="text-lg font-semibold text-white">Classement (client-side)</h3>
             </div>
           </div>

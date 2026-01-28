@@ -67,33 +67,33 @@ export default async function PlayerProfilePage({ params }: { params: { slug: st
 
   return (
     <main className="min-h-screen bg-slate-950 px-4 pb-20 pt-10 text-slate-100">
-      <div className="mx-auto flex w-full max-w-6xl flex-col gap-10">
+      <div className="page-stack page-stack--tight">
         <PlayerCard player={player}>
-          <div className="flex flex-wrap gap-4 text-xs text-slate-300">
+          <div className="flex flex-wrap gap-4 text-xs text-utility">
             <span className="badge">Stats publiques fermées</span>
           </div>
-          {player.bio ? <p className="mt-3 text-sm text-slate-400">{player.bio}</p> : null}
+          {player.bio ? <p className="mt-3 text-sm text-muted">{player.bio}</p> : null}
         </PlayerCard>
 
-        <section className="section-card space-y-4">
+        <section className="section-card secondary-section space-y-4">
           <h2 className="text-lg font-semibold text-white">Statistiques</h2>
-          <p className="text-sm text-slate-400">
+          <p className="text-sm text-muted">
             Statistiques publiques après validation.
           </p>
         </section>
 
-        <section className="section-card space-y-6">
+        <section className="section-card secondary-section space-y-6">
           <div>
             <h2 className="text-lg font-semibold text-white">Succès</h2>
-            <p className="text-sm text-slate-400">Débloqués en match.</p>
+            <p className="text-sm text-muted">Débloqués en match.</p>
           </div>
           <AchievementGrid achievements={achievements} />
         </section>
 
-        <section className="section-card space-y-4">
+        <section className="section-card secondary-section space-y-4">
           <div>
             <h2 className="text-lg font-semibold text-white">Historique récent</h2>
-            <p className="text-sm text-slate-400">
+            <p className="text-sm text-muted">
               Historique des matchs non public.
             </p>
           </div>

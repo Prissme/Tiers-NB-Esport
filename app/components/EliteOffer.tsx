@@ -16,25 +16,25 @@ export default function EliteOffer() {
             <h2 className="text-3xl font-semibold tracking-tight text-white sm:text-4xl">
               ELITE — le cercle prestige
             </h2>
-            <p className="text-sm text-slate-300 sm:text-base">
+            <p className="text-sm text-muted sm:text-base">
               Un accès premium pour vivre la LFN au plus près.
             </p>
           </div>
           <ul className="space-y-3 text-sm text-slate-200 sm:text-base">
             <li className="flex items-start gap-3">
-              <span className="text-base text-slate-400" aria-hidden="true">
+              <span className="text-base text-utility" aria-hidden="true">
                 •
               </span>
               Coaching hebdomadaire (vendredi)
             </li>
             <li className="flex items-start gap-3">
-              <span className="text-base text-slate-400" aria-hidden="true">
+              <span className="text-base text-utility" aria-hidden="true">
                 •
               </span>
               Accès en entractes pendant les casts
             </li>
             <li className="flex items-start gap-3">
-              <span className="text-base text-slate-400" aria-hidden="true">
+              <span className="text-base text-utility" aria-hidden="true">
                 •
               </span>
               Votes des MAPS &amp; du MVP
@@ -44,7 +44,7 @@ export default function EliteOffer() {
             <Button href="https://ko-fi.com/prissme" variant="primary" external>
               Rejoindre ELITE — 4,99€/mois
             </Button>
-            <p className="text-xs uppercase tracking-[0.24em] text-white/60">
+            <p className="text-xs uppercase tracking-[0.24em] text-utility">
               Accès réservé aux membres engagés.
             </p>
           </div>

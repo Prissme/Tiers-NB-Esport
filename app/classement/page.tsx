@@ -8,7 +8,7 @@ export const metadata: Metadata = {
 
 export default function ClassementPage() {
   return (
-    <div className="content-shell">
+    <div className="page-stack page-stack--tight">
       <StandingsClient />
     </div>
   );

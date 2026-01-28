@@ -37,14 +37,14 @@ export default function MatchCard({ match }: MatchCardProps) {
     >
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <p className="text-sm text-slate-400">{match.division ?? "—"}</p>
+          <p className="text-sm text-utility">{match.division ?? "—"}</p>
           <p className="text-lg font-semibold text-white">
-            {match.teamA.name} <span className="text-slate-400">vs</span> {match.teamB.name}
+            {match.teamA.name} <span className="text-utility">vs</span> {match.teamB.name}
           </p>
         </div>
         <StatusBadge status={match.status} />
       </div>
-      <div className="flex flex-wrap items-center gap-3 text-xs text-slate-300">
+      <div className="flex flex-wrap items-center gap-3 text-xs text-muted">
         <span className="rounded-full bg-white/10 px-3 py-1">
           {formatMatchDate(match.scheduledAt)} · {formatMatchTime(match.scheduledAt, match.startTime)}
         </span>

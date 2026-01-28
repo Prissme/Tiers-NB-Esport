@@ -99,7 +99,7 @@ export default function TeamsClient() {
   return (
     <div className="space-y-6">
       {source === "fallback" ? (
-        <p className="text-xs uppercase tracking-[0.3em] text-slate-500">
+        <p className="text-xs uppercase tracking-[0.3em] text-utility">
           Données de secours (Supabase vide)
         </p>
       ) : null}
@@ -108,7 +108,7 @@ export default function TeamsClient() {
           value={search}
           onChange={(event) => setSearch(event.target.value)}
           placeholder="Rechercher une équipe"
-          className="w-full rounded-full bg-white/5 px-4 py-3 text-sm text-slate-100 placeholder:text-slate-500 md:w-64"
+          className="w-full rounded-full bg-white/5 px-4 py-3 text-sm text-slate-100 placeholder:text-utility md:w-64"
         />
         <div className="flex flex-wrap gap-2">
           {divisionOptions.map((option) => (
@@ -119,7 +119,7 @@ export default function TeamsClient() {
               className={`rounded-full px-3 py-2 text-[11px] uppercase tracking-[0.3em] transition ${
                 divisionFilter === option.value
                   ? "bg-amber-400/15 text-amber-100"
-                  : "bg-white/5 text-slate-300"
+                  : "bg-white/5 text-utility"
               }`}
             >
               {option.label}
@@ -129,7 +129,7 @@ export default function TeamsClient() {
       </div>
 
       {filteredTeams.length === 0 ? (
-        <p className="text-sm text-slate-400">Aucune équipe trouvée.</p>
+        <p className="text-sm text-muted">Aucune équipe trouvée.</p>
       ) : (
         <div className="grid gap-3 md:grid-cols-2">
           {filteredTeams.map((team) => (

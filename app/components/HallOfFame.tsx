@@ -29,12 +29,12 @@ export default function HallOfFame() {
     <section className="mt-16 overflow-hidden rounded-[16px] bg-[linear-gradient(135deg,_rgba(6,10,22,0.75),_rgba(9,14,30,0.75))] px-5 py-12 shadow-[0_0_60px_rgba(0,0,0,0.3)] sm:px-8 lg:px-12">
       <div className="mx-auto flex max-w-6xl flex-col gap-10">
         <div className="flex flex-col gap-4 text-center sm:text-left">
-          <h2 className="font-sekuya text-2xl font-semibold text-white sm:text-3xl title-accent">
+          <h2 className="font-sekuya text-2xl font-semibold text-white sm:text-3xl">
             Hall of Fame
           </h2>
-          <div className="gold-divider max-w-[220px]" />
+          <div className="quiet-divider max-w-[220px]" />
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <p className="max-w-2xl text-sm text-slate-300">
+            <p className="max-w-2xl text-sm text-muted">
               De la Saison 1 à la Saison 3, ils ont pris la lumière. La Saison 4 arrive, la place
               est encore à prendre.
             </p>
@@ -56,10 +56,10 @@ export default function HallOfFame() {
               </div>
               <div className="absolute inset-0 bg-gradient-to-t from-[#05070f] via-transparent to-transparent opacity-80" />
               <div className="absolute bottom-0 left-0 right-0 flex flex-col gap-2 p-6">
-                <p className="font-sekuya text-xs uppercase tracking-[0.35em] text-slate-200/80">
+                <p className="font-sekuya text-xs uppercase tracking-[0.35em] text-white/70">
                   {entry.season}
                 </p>
-                <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-300/80">
+                <p className="text-xs font-semibold uppercase tracking-[0.3em] text-white/60">
                   {entry.date}
                 </p>
                 <h3 className="font-sekuya text-xl font-semibold text-white">
@@ -70,13 +70,13 @@ export default function HallOfFame() {
           ))}
           <article className="relative flex min-h-[280px] flex-col justify-between rounded-[14px] bg-white/[0.03] p-8 text-white shadow-[0_15px_45px_rgba(0,0,0,0.3)]">
             <div className="space-y-3">
-              <p className="font-sekuya text-xs uppercase tracking-[0.35em] text-slate-200/70">
+              <p className="font-sekuya text-xs uppercase tracking-[0.35em] text-white/60">
                 Season 4
               </p>
               <h3 className="font-sekuya text-2xl font-semibold">
                 Peut-être toi, si t&apos;en es capable
               </h3>
-              <p className="text-sm text-slate-300">
+              <p className="text-sm text-muted">
                 La place est libre. Écris la prochaine légende.
               </p>
             </div>

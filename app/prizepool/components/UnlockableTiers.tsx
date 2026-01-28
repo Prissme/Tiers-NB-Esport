@@ -37,17 +37,17 @@ export default function UnlockableTiers({ tiers, currentAmount }: UnlockableTier
                   <span className="text-xl">{tier.icon}</span>
                   <span>{tier.label}</span>
                 </div>
-                <p className="mt-1 text-xs text-slate-400">{tier.description}</p>
+                <p className="mt-1 text-xs text-muted">{tier.description}</p>
               </div>
               <span
                 className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                  unlocked ? 'bg-amber-400/20 text-amber-200' : 'bg-slate-800 text-slate-300'
+                  unlocked ? 'bg-amber-400/20 text-amber-200' : 'bg-slate-800 text-muted'
                 }`}
               >
                 {tier.amount.toLocaleString('fr-FR')}€
               </span>
             </div>
-            <div className="mt-4 text-xs text-slate-400">
+            <div className="mt-4 text-xs text-utility">
               {unlocked ? 'Débloqué ✅' : 'Verrouillé'}
             </div>
           </motion.div>

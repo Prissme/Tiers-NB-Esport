@@ -14,32 +14,35 @@ const matchMoments = [
 
 export default function MatchesPage() {
   return (
-    <div className="space-y-10">
-      <section className="surface-dominant">
+    <div className="page-stack">
+      <section className="surface-dominant dominant-section">
         <div className="relative z-10 space-y-6">
           <SectionHeader
             kicker="Matchs"
             title="Calendrier simplifié"
             description="Infos courtes et lisibles."
+            tone="dominant"
           />
-          <div className="gold-divider" />
+          <div className="signal-divider" />
           <div className="grid gap-4 md:grid-cols-3">
             {matchBlocks.map((block) => (
               <div key={block.label} className="motion-card motion-shimmer">
-                <p className="text-xs uppercase tracking-[0.35em] text-slate-400">{block.label}</p>
+                <p className="text-xs uppercase tracking-[0.35em] text-utility">{block.label}</p>
                 <p className="mt-3 text-sm text-white">{block.detail}</p>
-                <p className="mt-2 text-xs text-slate-300">{block.tone}</p>
+                <p className="mt-2 text-xs text-muted">{block.tone}</p>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      <section className="section-card space-y-6">
+      <div className="silent-gap" aria-hidden="true" />
+      <section className="section-card secondary-section space-y-6">
         <SectionHeader
           kicker="Moments"
           title="Les temps forts"
           description="Une info, un visuel."
+          tone="support"
         />
         <div className="flex flex-wrap gap-3">
           {matchMoments.map((moment) => (
@@ -50,11 +53,11 @@ export default function MatchesPage() {
         </div>
         <div className="grid gap-4 md:grid-cols-2">
           <div className="motion-card">
-            <p className="text-xs uppercase tracking-[0.35em] text-slate-400">Direct</p>
+            <p className="text-xs uppercase tracking-[0.35em] text-utility">Direct</p>
             <p className="mt-3 text-sm text-white">Affichage immédiat.</p>
           </div>
           <div className="motion-card">
-            <p className="text-xs uppercase tracking-[0.35em] text-slate-400">Historique</p>
+            <p className="text-xs uppercase tracking-[0.35em] text-utility">Historique</p>
             <p className="mt-3 text-sm text-white">Résumé court.</p>
           </div>
         </div>

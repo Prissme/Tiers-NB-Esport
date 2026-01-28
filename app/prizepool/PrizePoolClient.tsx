@@ -129,12 +129,13 @@ export default function PrizePoolClient() {
   );
 
   return (
-    <div className="space-y-12">
-      <section className="section-card space-y-8">
+    <div className="page-stack">
+      <section className="section-card dominant-section space-y-8">
         <SectionHeader
           kicker="Cagnotte"
           title="Cagnotte communautaire"
           description="Financement pour la production et les récompenses."
+          tone="dominant"
         />
         <div className="flex flex-wrap items-center gap-3">
           <Tag label="Cagnotte" />
@@ -145,7 +146,7 @@ export default function PrizePoolClient() {
           <div className="space-y-6">
             <div className="rounded-[14px] bg-slate-950/70 p-6 shadow-[0_0_30px_rgba(16,185,129,0.15)]">
               {loading ? (
-                <div className="text-sm text-slate-400">Chargement...</div>
+                <div className="text-sm text-muted">Chargement...</div>
               ) : (
                 <PrizePoolBar current={currentAmount} goal={goalAmount} />
               )}
@@ -155,7 +156,7 @@ export default function PrizePoolClient() {
                     key={stat.label}
                     className="rounded-[10px] bg-slate-900/70 px-4 py-3"
                   >
-                    <div className="text-xs uppercase tracking-wider text-slate-400">
+                    <div className="text-xs uppercase tracking-wider text-utility">
                       {stat.label}
                     </div>
                     <div className="mt-2 text-lg font-semibold text-white">{stat.value}</div>
@@ -181,7 +182,7 @@ export default function PrizePoolClient() {
               />
             </div>
             <section className="space-y-4">
-              <h2 className="text-xl font-semibold title-accent">Paliers débloquables</h2>
+              <h2 className="text-xl font-semibold text-white">Paliers débloquables</h2>
               <UnlockableTiers tiers={tiers} currentAmount={currentAmount} />
             </section>
           </div>
@@ -189,13 +190,13 @@ export default function PrizePoolClient() {
           <div className="space-y-6">
             <div className="rounded-[14px] bg-slate-950/70 p-6">
               <h2 className="text-xl font-semibold text-white">Participer</h2>
-              <p className="mt-2 text-sm text-slate-400">
+              <p className="mt-2 text-sm text-muted">
                 Paiement Stripe simulé pour le MVP. Contribution visible immédiatement.
               </p>
 
               <form onSubmit={handleSubmit} className="mt-6 space-y-4">
                 <div>
-                  <label className="text-xs uppercase tracking-wider text-slate-400">Pseudo</label>
+                  <label className="text-xs uppercase tracking-wider text-utility">Pseudo</label>
                   <input
                     type="text"
                     value={name}
@@ -207,7 +208,7 @@ export default function PrizePoolClient() {
                 </div>
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div>
-                    <label className="text-xs uppercase tracking-wider text-slate-400">Montant</label>
+                    <label className="text-xs uppercase tracking-wider text-utility">Montant</label>
                     <input
                       type="number"
                       min={5}
@@ -255,10 +256,10 @@ export default function PrizePoolClient() {
             <section className="rounded-[14px] bg-slate-950/70 p-6">
               <div className="flex items-center justify-between">
                 <h2 className="text-xl font-semibold text-white">Contributeurs</h2>
-                <span className="text-xs text-slate-400">Dernières contributions</span>
+                <span className="text-xs text-utility">Dernières contributions</span>
               </div>
               {loading ? (
-                <div className="mt-4 text-sm text-slate-400">Chargement des contributions...</div>
+                <div className="mt-4 text-sm text-muted">Chargement des contributions...</div>
               ) : (
                 <ContributorList items={data?.contributors ?? []} />
               )}
@@ -267,10 +268,12 @@ export default function PrizePoolClient() {
         </div>
       </section>
 
-      <Callout
-        title="Cagnotte pour la production"
-        description="Chaque contribution améliore la production et les récompenses."
-      />
+      <div className="secondary-section">
+        <Callout
+          title="Cagnotte pour la production"
+          description="Chaque contribution améliore la production et les récompenses."
+        />
+      </div>
     </div>
   );
 }
