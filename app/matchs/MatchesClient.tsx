@@ -134,7 +134,7 @@ export default function MatchesClient() {
     };
   }, []);
 
-  const { filteredMatches, groupedMatches, playoffsMatches } = useMemo(() => {
+  const { filteredMatches, groupedMatches } = useMemo(() => {
     const filtered = matches
       .filter((match) => {
         const divisionMatch = divisionFilter === "all" || match.division === divisionFilter;
@@ -155,9 +155,7 @@ export default function MatchesClient() {
       return acc;
     }, {});
 
-    const playoffs = filtered.filter((match) => match.phase === "playoffs");
-
-    return { filteredMatches: regular, groupedMatches: grouped, playoffsMatches: playoffs };
+    return { filteredMatches: regular, groupedMatches: grouped };
   }, [divisionFilter, statusFilter, matches]);
 
   const hasFinishedMatches = matches.some((match) => match.status === "finished");
@@ -186,7 +184,7 @@ export default function MatchesClient() {
           className="relative z-10 grid gap-6 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center"
         >
           <div className="flex items-center gap-4">
-            <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-[14px] bg-white/5">
+            <div className="flex h-20 w-20 items-center justify-center overflow-hidden">
               {match.teamA.logoUrl ? (
                 <img
                   src={match.teamA.logoUrl}
@@ -232,7 +230,7 @@ export default function MatchesClient() {
                 </p>
               ) : null}
             </div>
-            <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-[14px] bg-white/5">
+            <div className="flex h-20 w-20 items-center justify-center overflow-hidden">
               {match.teamB.logoUrl ? (
                 <img
                   src={match.teamB.logoUrl}
@@ -351,21 +349,6 @@ export default function MatchesClient() {
         </div>
       )}
 
-      <div className="space-y-4">
-        <SectionHeader
-          kicker="Playoffs"
-          title="Tableau playoffs"
-          description="Phase finale et matchs à élimination."
-          tone="support"
-        />
-        {playoffsMatches.length === 0 ? (
-          <p className="text-sm text-muted">Playoffs à venir.</p>
-        ) : (
-          <div className="grid gap-3">
-            {playoffsMatches.map((match) => renderMatchCard(match))}
-          </div>
-        )}
-      </div>
     </section>
   );
 }

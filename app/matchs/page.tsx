@@ -20,8 +20,6 @@ export default function MatchsPage() {
           />
           <div className="grid gap-4 md:grid-cols-3">
             {[
-              { label: "Programme", detail: "Calendrier officiel depuis Supabase." },
-              { label: "Play-offs", detail: "Phase finale visible ci-dessous." },
               { label: "Infos", detail: "Résultats et statuts en direct." },
             ].map((panel) => (
               <div key={panel.label} className="motion-card motion-shimmer">

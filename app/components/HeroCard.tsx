@@ -27,9 +27,6 @@ export default function HeroCard() {
             </span>
           </Button>
         </div>
-        <p className="text-xs uppercase tracking-[0.32em] text-utility text-center">
-          Toutes les inscriptions se font via <DiscordIcon className="ml-2" />
-        </p>
         <CountdownTimer />
       </div>
     </section>
