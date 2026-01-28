@@ -257,7 +257,7 @@ export default function DayTwoSchedule() {
   );
 
   return (
-    <div className="space-y-12">
+    <div className="space-y-12 -mx-2 sm:mx-0">
       {renderGroups("Programme", regularGroups)}
       {renderGroups("Play-offs", playoffGroups)}
     </div>

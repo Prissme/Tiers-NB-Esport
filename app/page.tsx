@@ -24,7 +24,7 @@ export default function HomePage() {
               </article>
               <article className="social-proof-card">
                 <p className="social-proof-number text-3xl text-white sm:text-4xl">
-                  30+ Viewers constants
+                  30+ Viewers
                 </p>
               </article>
             </div>

@@ -26,10 +26,10 @@ const INSCRIPTION_PATH = "/inscription";
 
 export default function HallOfFame() {
   return (
-    <section className="mt-16 overflow-hidden rounded-[16px] bg-[linear-gradient(135deg,_rgba(6,10,22,0.75),_rgba(9,14,30,0.75))] px-5 py-12 shadow-[0_0_60px_rgba(0,0,0,0.3)] sm:px-8 lg:px-12">
+    <section className="font-prata mt-16 overflow-hidden rounded-[16px] bg-[linear-gradient(135deg,_rgba(6,10,22,0.75),_rgba(9,14,30,0.75))] px-5 py-12 shadow-[0_0_60px_rgba(0,0,0,0.3)] sm:px-8 lg:px-12">
       <div className="mx-auto flex max-w-6xl flex-col gap-10">
         <div className="flex flex-col gap-4 text-center sm:text-left">
-          <h2 className="font-sekuya text-2xl font-semibold text-white sm:text-3xl">
+          <h2 className="text-2xl font-semibold text-white sm:text-3xl">
             Hall of Fame
           </h2>
           <div className="quiet-divider max-w-[220px]" />

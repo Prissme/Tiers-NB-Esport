@@ -1,11 +1,11 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
-  <defs>
-    <linearGradient id="lfnGold" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#fbbf24" />
-      <stop offset="100%" stop-color="#f59e0b" />
-    </linearGradient>
-  </defs>
   <rect width="128" height="128" rx="28" fill="#0f172a" />
-  <rect x="12" y="12" width="104" height="104" rx="24" fill="url(#lfnGold)" opacity="0.18" />
-  <text x="50%" y="54%" text-anchor="middle" font-family="Arial, sans-serif" font-size="44" font-weight="700" fill="#f8fafc">LFN</text>
+  <image
+    href="https://media.discordapp.net/attachments/1434252768633290952/1466093575224819904/image-Photoroom_12.png?ex=697b7d8b&is=697a2c0b&hm=3f3526437b32284f06c2f7d7dbf88515ebcb54692246eca72b8540ab26f35038&=&format=webp&quality=lossless&width=331&height=325"
+    x="16"
+    y="16"
+    width="96"
+    height="96"
+    preserveAspectRatio="xMidYMid meet"
+  />
 </svg>
