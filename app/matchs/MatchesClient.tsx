@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useMemo, useState, useEffect } from "react";
 import PreSeasonBanner from "../components/PreSeasonBanner";
 import SectionHeader from "../components/SectionHeader";
+import DiscordIcon from "../components/DiscordIcon";
 import StatusBadge from "../components/StatusBadge";
 import type { MatchGroup, SiteMatch } from "../lib/site-types";
 import { matches as fallbackMatches, teams as fallbackTeams } from "../../src/data";
@@ -166,8 +167,8 @@ export default function MatchesClient() {
     const timeLabel = formatMatchTime(match.scheduledAt, match.startTime);
     const teamAInitials = getTeamInitials(match.teamA.name);
     const teamBInitials = getTeamInitials(match.teamB.name);
-    const actionLabel =
-      match.status === "live" ? "Regarder en live" : "S’inscrire via Discord";
+    const isLive = match.status === "live";
+    const actionLabel = isLive ? "Regarder en live" : "S’inscrire";
     const actionHref = match.status === "live" ? `/matchs/${match.id}` : "/inscription";
 
     return (
@@ -250,7 +251,10 @@ export default function MatchesClient() {
             href={actionHref}
             className="inline-flex items-center justify-center rounded-full bg-white/10 px-4 py-2 text-[11px] uppercase tracking-[0.3em] signal-accent"
           >
-            {actionLabel}
+            <span className="flex items-center gap-2">
+              {actionLabel}
+              {isLive ? null : <DiscordIcon />}
+            </span>
           </Link>
         </div>
       </article>
