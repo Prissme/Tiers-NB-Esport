@@ -303,6 +303,47 @@ body::after {
     box-shadow: var(--shadow-secondary);
   }
 
+  .why-lfn-section {
+    opacity: calc(var(--secondary-opacity) * 0.8);
+    transform: scale(calc(var(--secondary-scale) * 0.98));
+    filter: saturate(0.55) contrast(0.75);
+    box-shadow: none;
+  }
+
+  .why-lfn-section .section-kicker {
+    font-size: 0.6rem;
+    letter-spacing: 0.32em;
+    color: var(--color-text-faint);
+    opacity: 0.75;
+  }
+
+  .why-lfn-section .section-title {
+    font-size: 1.25rem;
+    letter-spacing: 0.16em;
+    color: var(--color-text-muted);
+  }
+
+  .why-lfn-section .section-description {
+    font-size: 0.8rem;
+    color: var(--color-text-faint);
+  }
+
+  .why-lfn-section .surface-flat {
+    background-color: transparent;
+    box-shadow: none;
+    padding: 0;
+  }
+
+  .why-lfn-section .social-proof-card {
+    background-color: transparent;
+    animation: none;
+    padding: 0;
+  }
+
+  .why-lfn-section .social-proof-number {
+    text-shadow: none;
+  }
+
   .secondary-section > * {
     filter: grayscale(0.1);
   }
