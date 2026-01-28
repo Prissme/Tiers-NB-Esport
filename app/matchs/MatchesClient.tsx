@@ -2,9 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState, useEffect } from "react";
-import PreSeasonBanner from "../components/PreSeasonBanner";
 import SectionHeader from "../components/SectionHeader";
-import DiscordIcon from "../components/DiscordIcon";
 import StatusBadge from "../components/StatusBadge";
 import type { MatchGroup, SiteMatch } from "../lib/site-types";
 import { matches as fallbackMatches, teams as fallbackTeams } from "../../src/data";
@@ -13,13 +11,6 @@ const divisionOptions = [
   { label: "Toutes", value: "all" },
   { label: "D1", value: "D1" },
   { label: "D2", value: "D2" },
-];
-
-const statusOptions = [
-  { label: "Tous", value: "all" },
-  { label: "À venir", value: "scheduled" },
-  { label: "Live", value: "live" },
-  { label: "Terminé", value: "finished" },
 ];
 
 const mapFallbackMatches = (): SiteMatch[] => {
@@ -95,7 +86,6 @@ const getTeamInitials = (name: string) =>
 
 export default function MatchesClient() {
   const [divisionFilter, setDivisionFilter] = useState("all");
-  const [statusFilter, setStatusFilter] = useState("all");
   const [matches, setMatches] = useState<SiteMatch[]>([]);
   const [loading, setLoading] = useState(true);
   const [source, setSource] = useState<"supabase" | "fallback">("supabase");
@@ -138,8 +128,7 @@ export default function MatchesClient() {
     const filtered = matches
       .filter((match) => {
         const divisionMatch = divisionFilter === "all" || match.division === divisionFilter;
-        const statusMatch = statusFilter === "all" || match.status === statusFilter;
-        return divisionMatch && statusMatch;
+        return divisionMatch;
       })
       .sort((a, b) => {
         const aTime = a.scheduledAt ? new Date(a.scheduledAt).getTime() : 0;
@@ -156,19 +145,13 @@ export default function MatchesClient() {
     }, {});
 
     return { filteredMatches: regular, groupedMatches: grouped };
-  }, [divisionFilter, statusFilter, matches]);
-
-  const hasFinishedMatches = matches.some((match) => match.status === "finished");
+  }, [divisionFilter, matches]);
 
   const renderMatchCard = (match: SiteMatch) => {
     const dateLabel = formatDateLabel(match.scheduledAt, match.dayLabel);
     const timeLabel = formatMatchTime(match.scheduledAt, match.startTime);
     const teamAInitials = getTeamInitials(match.teamA.name);
     const teamBInitials = getTeamInitials(match.teamB.name);
-    const isLive = match.status === "live";
-    const actionLabel = isLive ? "Regarder en live" : "S’inscrire";
-    const actionHref = match.status === "live" ? `/matchs/${match.id}` : "/inscription";
-
     return (
       <article
         key={match.id}
@@ -244,17 +227,6 @@ export default function MatchesClient() {
             </div>
           </div>
         </Link>
-        <div className="relative z-10 mt-6 flex justify-end">
-          <Link
-            href={actionHref}
-            className="inline-flex items-center justify-center rounded-full bg-white/10 px-4 py-2 text-[11px] uppercase tracking-[0.3em] signal-accent"
-          >
-            <span className="flex items-center gap-2">
-              {actionLabel}
-              {isLive ? null : <DiscordIcon />}
-            </span>
-          </Link>
-        </div>
       </article>
     );
   };
@@ -291,10 +263,6 @@ export default function MatchesClient() {
         </p>
       ) : null}
 
-      {!hasFinishedMatches ? (
-        <PreSeasonBanner message="Pré-saison — matchs officiels à venir." />
-      ) : null}
-
       <div className="flex flex-wrap items-center gap-3 text-xs uppercase tracking-[0.3em] text-utility">
         <span>Division</span>
         <div className="flex flex-wrap gap-2">
@@ -305,23 +273,6 @@ export default function MatchesClient() {
               onClick={() => setDivisionFilter(option.value)}
               className={`rounded-full px-3 py-2 text-[11px] transition ${
                 divisionFilter === option.value
-                  ? "bg-amber-400/15 text-amber-100"
-                  : "bg-white/5 text-utility"
-              }`}
-            >
-              {option.label}
-            </button>
-          ))}
-        </div>
-        <span className="ml-4">Statut</span>
-        <div className="flex flex-wrap gap-2">
-          {statusOptions.map((option) => (
-            <button
-              key={option.value}
-              type="button"
-              onClick={() => setStatusFilter(option.value)}
-              className={`rounded-full px-3 py-2 text-[11px] transition ${
-                statusFilter === option.value
                   ? "bg-amber-400/15 text-amber-100"
                   : "bg-white/5 text-utility"
               }`}

@@ -29,7 +29,7 @@ export default function ParticiperPage() {
             ))}
           </div>
           <div className="flex flex-wrap gap-3">
-            <Button href={INSCRIPTION_PATH} variant="primary">
+            <Button href={INSCRIPTION_PATH} variant="primary" className="signup-button">
               S&apos;inscrire
             </Button>
             <Button href="/reglement" variant="secondary">
