@@ -42,6 +42,7 @@ const mapFallbackMatches = (): MatchGroup[] => {
       bestOf: null,
       scoreA: match.scoreA ?? null,
       scoreB: match.scoreB ?? null,
+      attachments: [],
       teamA: {
         id: match.teamAId,
         name: teamA?.name ?? match.teamAId,
@@ -63,10 +64,7 @@ const mapFallbackMatches = (): MatchGroup[] => {
   matches.forEach((match) => {
     const dateLabel = formatDateLabel(match.scheduledAt, match.dayLabel);
     const timeLabel = match.scheduledAt
-      ? new Date(match.scheduledAt).toLocaleTimeString("fr-FR", {
-          hour: "2-digit",
-          minute: "2-digit",
-        })
+      ? match.scheduledAt.split("T")[1]?.slice(0, 5) ?? null
       : null;
     const key = `${dateLabel}__${timeLabel ?? ""}`;
     if (!grouped[key]) {

@@ -34,10 +34,10 @@ const buildDefaultValues = (
   day: initialValues?.day ?? 1,
   dayLabel: initialValues?.dayLabel ?? "",
   round: initialValues?.round ?? null,
-  matchGroup: initialValues?.matchGroup ?? "Match 1",
-  phase: initialValues?.phase ?? "Regular",
+  matchGroup: initialValues?.matchGroup ?? "Match",
+  phase: initialValues?.phase ?? "regular",
   division: initialValues?.division ?? "D1",
-  bestOf: initialValues?.bestOf ?? 5,
+  bestOf: initialValues?.bestOf ?? null,
   status: initialValues?.status ?? "scheduled",
   teamAId: initialValues?.teamAId ?? "",
   teamBId: initialValues?.teamBId ?? "",
@@ -54,6 +54,7 @@ const buildDefaultValues = (
   notes: initialValues?.notes ?? "",
   proofUrl: initialValues?.proofUrl ?? "",
   vodUrl: initialValues?.vodUrl ?? "",
+  attachments: initialValues?.attachments ?? [],
   seasonId: initialValues?.seasonId ?? seasonId ?? null,
 });
 
@@ -63,6 +64,19 @@ const splitTimestamp = (value?: string | null) => {
   }
   const [date, time] = value.split("T");
   return { date, time: (time ?? "").slice(0, 5) };
+};
+
+const parseAttachments = (notes?: string | null) => {
+  if (!notes) return [];
+  try {
+    const parsed = JSON.parse(notes) as { attachments?: string[] };
+    if (Array.isArray(parsed.attachments)) {
+      return parsed.attachments.filter((item) => typeof item === "string");
+    }
+    return [];
+  } catch (error) {
+    return [];
+  }
 };
 
 export default function MatchFormDialog({
@@ -100,6 +114,7 @@ export default function MatchFormDialog({
       values.playedDate = played.date;
       values.playedTime = played.time;
     }
+    values.attachments = parseAttachments(values.notes);
     setValues(values);
   }, [initialValues, seasonId]);
 
@@ -127,13 +142,26 @@ export default function MatchFormDialog({
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const parsed = matchFormSchema.safeParse(values);
+    const cleanedValues = {
+      ...values,
+      attachments: (values.attachments ?? []).filter(Boolean),
+    };
+    const parsed = matchFormSchema.safeParse(cleanedValues);
     if (!parsed.success) {
       setErrorMessage(parsed.error.issues[0]?.message ?? "Validation invalide.");
       return;
     }
     setSaving(true);
     setErrorMessage(null);
+
+    const scheduledAt = toTimestamp(parsed.data.scheduledDate, parsed.data.scheduledTime);
+    const startTime = toTimestamp(parsed.data.startDate, parsed.data.startTime) ?? scheduledAt;
+    const status =
+      parsed.data.scoreA !== null && parsed.data.scoreB !== null ? "finished" : "scheduled";
+
+    const notesPayload = parsed.data.attachments?.length
+      ? JSON.stringify({ attachments: parsed.data.attachments })
+      : null;
 
     const payload = {
       day: parsed.data.day,
@@ -143,20 +171,20 @@ export default function MatchFormDialog({
       phase: parsed.data.phase,
       division: parsed.data.division,
       best_of: parsed.data.bestOf ?? null,
-      status: parsed.data.status,
+      status,
       team_a_id: parsed.data.teamAId,
       team_b_id: parsed.data.teamBId,
-      scheduled_at: toTimestamp(parsed.data.scheduledDate, parsed.data.scheduledTime),
-      start_time: toTimestamp(parsed.data.startDate, parsed.data.startTime),
+      scheduled_at: scheduledAt,
+      start_time: startTime,
       played_at: toTimestamp(parsed.data.playedDate, parsed.data.playedTime),
       score_a: parsed.data.scoreA ?? null,
       score_b: parsed.data.scoreB ?? null,
       sets_a: parsed.data.setsA ?? null,
       sets_b: parsed.data.setsB ?? null,
-      notes: parsed.data.notes || null,
-      proof_url: parsed.data.proofUrl || null,
-      vod_url: parsed.data.vodUrl || null,
-      season_id: parsed.data.seasonId ?? seasonId ?? null,
+      notes: notesPayload,
+      proof_url: null,
+      vod_url: null,
+      season_id: null,
     };
 
     const query = parsed.data.id
@@ -202,59 +230,29 @@ export default function MatchFormDialog({
         <form onSubmit={handleSubmit} className="mt-6 space-y-6">
           <div className="grid gap-4 md:grid-cols-3">
             <label className="space-y-2 text-sm text-white/70">
-              Jour
-              <input
-                type="number"
-                value={values.day}
-                onChange={handleNumberChange("day")}
-                className="surface-input"
-              />
-            </label>
-            <label className="space-y-2 text-sm text-white/70">
-              Label jour
-              <input
-                type="text"
-                value={values.dayLabel ?? ""}
-                onChange={handleTextChange("dayLabel")}
-                className="surface-input"
-              />
-            </label>
-            <label className="space-y-2 text-sm text-white/70">
-              Round (num)
-              <input
-                type="number"
-                value={values.round ?? ""}
-                onChange={handleNumberChange("round", true)}
-                className="surface-input"
-              />
-            </label>
-          </div>
-
-          <div className="grid gap-4 md:grid-cols-3">
-            <label className="space-y-2 text-sm text-white/70">
-              Match label
-              <input
-                type="text"
-                value={values.matchGroup}
-                onChange={handleTextChange("matchGroup")}
-                className="surface-input"
-              />
-            </label>
-            <label className="space-y-2 text-sm text-white/70">
-              Phase
-              <input
-                type="text"
-                value={values.phase}
-                onChange={handleTextChange("phase")}
-                className="surface-input"
-              />
-            </label>
-            <label className="space-y-2 text-sm text-white/70">
               Division
               <input
                 type="text"
                 value={values.division}
                 onChange={handleTextChange("division")}
+                className="surface-input"
+              />
+            </label>
+            <label className="space-y-2 text-sm text-white/70">
+              Date du match
+              <input
+                type="date"
+                value={values.scheduledDate ?? ""}
+                onChange={handleTextChange("scheduledDate")}
+                className="surface-input"
+              />
+            </label>
+            <label className="space-y-2 text-sm text-white/70">
+              Heure du match
+              <input
+                type="time"
+                value={values.scheduledTime ?? ""}
+                onChange={handleTextChange("scheduledTime")}
                 className="surface-input"
               />
             </label>
@@ -293,185 +291,74 @@ export default function MatchFormDialog({
             </label>
           </div>
 
-          <div className="grid gap-4 md:grid-cols-3">
+          <div className="grid gap-4 md:grid-cols-2">
             <label className="space-y-2 text-sm text-white/70">
-              Best of
+              Score équipe A
               <input
                 type="number"
-                value={values.bestOf ?? ""}
-                onChange={handleNumberChange("bestOf", true)}
+                value={values.scoreA ?? ""}
+                onChange={handleNumberChange("scoreA", true)}
                 className="surface-input"
               />
             </label>
             <label className="space-y-2 text-sm text-white/70">
-              Status
-              <select
-                value={values.status}
-                onChange={handleTextChange("status")}
-                className="surface-input"
-              >
-                <option value="scheduled">Programmé</option>
-                <option value="live">Live</option>
-                <option value="completed">Terminé</option>
-              </select>
-            </label>
-            <label className="space-y-2 text-sm text-white/70">
-              Saison
+              Score équipe B
               <input
-                type="text"
-                value={values.seasonId ?? ""}
-                onChange={handleTextChange("seasonId")}
-                placeholder={seasonId ?? "UUID"}
+                type="number"
+                value={values.scoreB ?? ""}
+                onChange={handleNumberChange("scoreB", true)}
                 className="surface-input"
               />
             </label>
           </div>
 
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="surface-card--flat">
-              <p className="text-xs uppercase tracking-[0.2em] text-white/50">Programmé</p>
-              <div className="mt-3 grid gap-3 md:grid-cols-2">
-                <label className="space-y-2 text-sm text-white/70">
-                  Date
-                  <input
-                    type="date"
-                    value={values.scheduledDate ?? ""}
-                    onChange={handleTextChange("scheduledDate")}
-                    className="surface-input"
-                  />
-                </label>
-                <label className="space-y-2 text-sm text-white/70">
-                  Heure
-                  <input
-                    type="time"
-                    value={values.scheduledTime ?? ""}
-                    onChange={handleTextChange("scheduledTime")}
-                    className="surface-input"
-                  />
-                </label>
-              </div>
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <p className="text-xs uppercase tracking-[0.2em] text-white/60">
+                Pièces jointes
+              </p>
+              <button
+                type="button"
+                onClick={() => updateField("attachments", [...(values.attachments ?? []), ""])}
+                className="surface-pill px-3 py-1 text-xs text-white/70 hover:text-white"
+              >
+                Ajouter une pièce jointe
+              </button>
             </div>
-            <div className="surface-card--flat">
-              <p className="text-xs uppercase tracking-[0.2em] text-white/50">Start time</p>
-              <div className="mt-3 grid gap-3 md:grid-cols-2">
-                <label className="space-y-2 text-sm text-white/70">
-                  Date
-                  <input
-                    type="date"
-                    value={values.startDate ?? ""}
-                    onChange={handleTextChange("startDate")}
-                    className="surface-input"
-                  />
-                </label>
-                <label className="space-y-2 text-sm text-white/70">
-                  Heure
-                  <input
-                    type="time"
-                    value={values.startTime ?? ""}
-                    onChange={handleTextChange("startTime")}
-                    className="surface-input"
-                  />
-                </label>
-              </div>
-            </div>
-          </div>
-
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="surface-card--flat">
-              <p className="text-xs uppercase tracking-[0.2em] text-white/50">Résultat</p>
-              <div className="mt-3 grid gap-3 md:grid-cols-2">
-                <label className="space-y-2 text-sm text-white/70">
-                  Score A
-                  <input
-                    type="number"
-                    value={values.scoreA ?? ""}
-                    onChange={handleNumberChange("scoreA", true)}
-                    className="surface-input"
-                  />
-                </label>
-                <label className="space-y-2 text-sm text-white/70">
-                  Score B
-                  <input
-                    type="number"
-                    value={values.scoreB ?? ""}
-                    onChange={handleNumberChange("scoreB", true)}
-                    className="surface-input"
-                  />
-                </label>
-                <label className="space-y-2 text-sm text-white/70">
-                  Sets A
-                  <input
-                    type="number"
-                    value={values.setsA ?? ""}
-                    onChange={handleNumberChange("setsA", true)}
-                    className="surface-input"
-                  />
-                </label>
-                <label className="space-y-2 text-sm text-white/70">
-                  Sets B
-                  <input
-                    type="number"
-                    value={values.setsB ?? ""}
-                    onChange={handleNumberChange("setsB", true)}
-                    className="surface-input"
-                  />
-                </label>
-              </div>
-              <div className="mt-3 grid gap-3 md:grid-cols-2">
-                <label className="space-y-2 text-sm text-white/70">
-                  Joué le (date)
-                  <input
-                    type="date"
-                    value={values.playedDate ?? ""}
-                    onChange={handleTextChange("playedDate")}
-                    className="surface-input"
-                  />
-                </label>
-                <label className="space-y-2 text-sm text-white/70">
-                  Heure
-                  <input
-                    type="time"
-                    value={values.playedTime ?? ""}
-                    onChange={handleTextChange("playedTime")}
-                    className="surface-input"
-                  />
-                </label>
-              </div>
-            </div>
-            <div className="surface-card--flat">
-              <p className="text-xs uppercase tracking-[0.2em] text-white/50">Liens</p>
-              <div className="mt-3 space-y-3">
-                <label className="space-y-2 text-sm text-white/70">
-                  Proof URL
+            <div className="space-y-2">
+              {(values.attachments ?? []).length === 0 ? (
+                <p className="text-xs text-white/40">
+                  Aucune pièce jointe ajoutée.
+                </p>
+              ) : null}
+              {(values.attachments ?? []).map((item, index) => (
+                <div key={`attachment-${index}`} className="flex items-center gap-2">
                   <input
                     type="url"
-                    value={values.proofUrl ?? ""}
-                    onChange={handleTextChange("proofUrl")}
-                    className="surface-input"
+                    value={item}
+                    onChange={(event) => {
+                      const next = [...(values.attachments ?? [])];
+                      next[index] = event.target.value;
+                      updateField("attachments", next);
+                    }}
+                    placeholder="Lien de pièce jointe"
+                    className="surface-input flex-1"
                   />
-                </label>
-                <label className="space-y-2 text-sm text-white/70">
-                  VOD URL
-                  <input
-                    type="url"
-                    value={values.vodUrl ?? ""}
-                    onChange={handleTextChange("vodUrl")}
-                    className="surface-input"
-                  />
-                </label>
-              </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const next = [...(values.attachments ?? [])];
+                      next.splice(index, 1);
+                      updateField("attachments", next);
+                    }}
+                    className="surface-pill px-3 py-1 text-xs text-white/70 hover:text-white"
+                  >
+                    Retirer
+                  </button>
+                </div>
+              ))}
             </div>
           </div>
-
-          <label className="space-y-2 text-sm text-white/70">
-            Notes
-            <textarea
-              value={values.notes ?? ""}
-              onChange={handleTextChange("notes")}
-              rows={3}
-              className="surface-input"
-            />
-          </label>
 
           {errorMessage ? (
             <div className="surface-alert surface-alert--error">

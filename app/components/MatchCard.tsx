@@ -14,15 +14,10 @@ const formatMatchDate = (dateISO: string | null) => {
 };
 
 const formatMatchTime = (dateISO: string | null, startTime?: string | null) => {
-  if (!dateISO) {
-    return startTime ? startTime.replace(":00", "h") : "";
-  }
-  const date = new Date(dateISO);
-  if (Number.isNaN(date.getTime())) return startTime ?? "";
-  return date.toLocaleTimeString("fr-FR", {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  const rawTime = startTime ?? dateISO;
+  if (!rawTime) return "";
+  const timePart = rawTime.includes("T") ? rawTime.split("T")[1] : rawTime;
+  return timePart?.slice(0, 5) ?? "";
 };
 
 type MatchCardProps = {
@@ -53,7 +48,7 @@ export default function MatchCard({ match }: MatchCardProps) {
             {match.phase === "playoffs" ? "Playoffs" : "Saison"}
           </span>
         ) : null}
-        {match.status === "finished" ? (
+        {match.scoreA !== null && match.scoreB !== null ? (
           <span className="rounded-full bg-white/10 px-3 py-1 text-slate-200">
             Score {match.scoreA ?? "-"} - {match.scoreB ?? "-"}
           </span>

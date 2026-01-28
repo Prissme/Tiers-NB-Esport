@@ -27,6 +27,7 @@ const mapFallbackMatches = (): SiteMatch[] => {
       bestOf: null,
       scoreA: match.scoreA ?? null,
       scoreB: match.scoreB ?? null,
+      attachments: [],
       teamA: {
         id: match.teamAId,
         name: teamA?.name ?? match.teamAId,

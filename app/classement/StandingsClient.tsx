@@ -25,6 +25,13 @@ const toStandingsRows = (standings: SiteStandingsRow[]): StandingsRow[] =>
     matchesPlayed: (row.wins ?? 0) + (row.losses ?? 0),
   }));
 
+const sortStandings = (rows: StandingsRow[]) =>
+  [...rows].sort((a, b) => {
+    if (b.points !== a.points) return b.points - a.points;
+    if (b.wins !== a.wins) return b.wins - a.wins;
+    return a.teamId.localeCompare(b.teamId, "fr");
+  });
+
 export default function StandingsClient() {
   const [standings, setStandings] = useState<SiteStandingsRow[]>([]);
   const [teams, setTeams] = useState<SiteTeam[]>([]);
@@ -186,14 +193,77 @@ export default function StandingsClient() {
         </div>
       ) : null}
       {(activeDivision ? [[activeDivision, standingsByDivision[activeDivision] ?? []]] : []).map(
-        ([division, rows]) => (
-          <div key={division} className="space-y-4">
-            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-utility">
-              {division}
-            </p>
-            <StandingsTable rows={toStandingsRows(rows)} teamsById={teamsById} />
-          </div>
-        )
+        ([division, rows]) => {
+          const standingsRows = sortStandings(toStandingsRows(rows));
+          const podium = standingsRows.slice(0, 3);
+          return (
+            <div key={division} className="space-y-6">
+              <p className="text-xs font-semibold uppercase tracking-[0.3em] text-utility">
+                {division}
+              </p>
+              {podium.length > 0 ? (
+                <div className="grid gap-4 md:grid-cols-3">
+                  {[1, 0, 2].map((index) => {
+                    const row = podium[index];
+                    if (!row) return <div key={`podium-empty-${index}`} />;
+                    const team = teamsById[row.teamId];
+                    const teamName = team?.name ?? row.teamName ?? row.teamId;
+                    const logoUrl = team?.logoUrl ?? null;
+                    const accent =
+                      index === 0
+                        ? "from-amber-300/30 via-amber-200/10 to-transparent"
+                        : index === 1
+                          ? "from-slate-300/30 via-slate-200/10 to-transparent"
+                          : "from-amber-900/30 via-amber-800/10 to-transparent";
+                    const badge =
+                      index === 0
+                        ? "bg-amber-300 text-black"
+                        : index === 1
+                          ? "bg-slate-200 text-slate-900"
+                          : "bg-amber-800 text-amber-100";
+                    const place = index === 0 ? "Or" : index === 1 ? "Argent" : "Bronze";
+                    return (
+                      <div
+                        key={row.teamId}
+                        className={`relative overflow-hidden rounded-[18px] border border-white/10 bg-gradient-to-br ${accent} p-6 text-center shadow-[0_25px_60px_-40px_rgba(0,0,0,0.9)]`}
+                      >
+                        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.18),transparent_60%)]" />
+                        <div className="relative z-10 space-y-4">
+                          <div
+                            className={`mx-auto inline-flex items-center justify-center rounded-full px-4 py-1 text-[10px] uppercase tracking-[0.35em] ${badge}`}
+                          >
+                            {place}
+                          </div>
+                          <div className="mx-auto flex h-20 w-20 items-center justify-center overflow-hidden rounded-2xl bg-white/10">
+                            {logoUrl ? (
+                              <img
+                                src={logoUrl}
+                                alt={`Logo ${teamName}`}
+                                className="h-full w-full object-contain"
+                                loading="lazy"
+                              />
+                            ) : (
+                              <span className="text-base font-semibold text-white">
+                                {teamName.slice(0, 2).toUpperCase()}
+                              </span>
+                            )}
+                          </div>
+                          <div>
+                            <p className="text-lg font-semibold text-white">{teamName}</p>
+                            <p className="text-xs uppercase tracking-[0.3em] text-utility">
+                              {row.points} pts
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : null}
+              <StandingsTable rows={standingsRows} teamsById={teamsById} />
+            </div>
+          );
+        }
       )}
     </section>
   );

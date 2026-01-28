@@ -11,7 +11,7 @@ export default function HomePage() {
           <div className="space-y-8">
             <div className="grid gap-6 text-center sm:grid-cols-3">
               <article className="social-proof-card social-proof-card--gold">
-                <p className="social-proof-number text-4xl text-white sm:text-5xl">40+</p>
+                <p className="social-proof-number text-4xl text-white sm:text-5xl">50+</p>
                 <p className="social-proof-label mt-2 text-[10px] uppercase tracking-[0.3em] text-slate-200">
                   Matchs en LFN
                 </p>

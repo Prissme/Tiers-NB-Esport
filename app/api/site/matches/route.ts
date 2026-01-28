@@ -40,16 +40,31 @@ const buildDateLabel = (scheduledAt?: string | null, fallback?: string | null) =
 };
 
 const buildTimeLabel = (scheduledAt?: string | null, startTime?: string | null) => {
-  if (scheduledAt) {
-    const date = new Date(scheduledAt);
-    if (!Number.isNaN(date.getTime())) {
-      return date.toLocaleTimeString("fr-FR", {
-        hour: "2-digit",
-        minute: "2-digit",
-      });
-    }
+  const raw = startTime ?? scheduledAt;
+  if (!raw) return null;
+  if (raw.includes("T")) {
+    return raw.split("T")[1]?.slice(0, 5) ?? null;
   }
-  return startTime ?? null;
+  return raw;
+};
+
+const normalizeStatus = (status?: string | null) => {
+  if (!status) return "scheduled";
+  if (status === "completed") return "finished";
+  return status;
+};
+
+const parseAttachments = (notes?: string | null) => {
+  if (!notes) return [];
+  try {
+    const parsed = JSON.parse(notes) as { attachments?: string[] };
+    if (Array.isArray(parsed.attachments)) {
+      return parsed.attachments.filter((item) => typeof item === "string");
+    }
+  } catch (error) {
+    return [];
+  }
+  return [];
 };
 
 const mapTeam = (row: Record<string, unknown> | null, fallbackId: string) => ({
@@ -68,7 +83,7 @@ const mapMatchRow = (row: Record<string, unknown>) => {
   return {
     id: String(row.id ?? ""),
     division: row.division ? String(row.division) : null,
-    status: row.status ? String(row.status) : "scheduled",
+    status: normalizeStatus(row.status ? String(row.status) : "scheduled"),
     scheduledAt: row.scheduled_at ? String(row.scheduled_at) : null,
     dayLabel: row.day ? String(row.day) : null,
     startTime: row.start_time ? String(row.start_time) : null,
@@ -78,6 +93,7 @@ const mapMatchRow = (row: Record<string, unknown>) => {
     bestOf: toNumber(row.best_of),
     scoreA: toNumber(row.score_a),
     scoreB: toNumber(row.score_b),
+    attachments: parseAttachments(row.notes ? String(row.notes) : null),
     teamA: mapTeam(teamARow, teamAId),
     teamB: mapTeam(teamBRow, teamBId),
   };
@@ -114,7 +130,7 @@ const buildQuery = (supabase: ReturnType<typeof withSchema>, params: z.infer<typ
   let query = supabase
     .from(MATCHES_TABLE)
     .select(
-      `id, division, status, scheduled_at, day, start_time, phase, round, match_group, best_of, score_a, score_b, team_a_id, team_b_id,
+      `id, division, status, scheduled_at, day, start_time, phase, round, match_group, best_of, score_a, score_b, notes, team_a_id, team_b_id,
        team_a:lfn_teams!team_a_id(id, name, tag, logo_url, division),
        team_b:lfn_teams!team_b_id(id, name, tag, logo_url, division)`
     )
@@ -154,7 +170,7 @@ export async function GET(request: Request) {
       const fallback = await supabase
         .from(MATCHES_TABLE)
         .select(
-          `id, division, status, scheduled_at, day, start_time, phase, round, match_group, best_of, score_a, score_b, team_a_id, team_b_id,
+          `id, division, status, scheduled_at, day, start_time, phase, round, match_group, best_of, score_a, score_b, notes, team_a_id, team_b_id,
            team_a:lfn_teams!team_a_id(id, name, tag, logo_url, division),
            team_b:lfn_teams!team_b_id(id, name, tag, logo_url, division)`
         )
