@@ -26,6 +26,9 @@ export default function HomePage() {
                 <p className="social-proof-number text-3xl text-white sm:text-4xl">
                   30+ Viewers
                 </p>
+                <p className="mt-2 text-[10px] uppercase tracking-[0.3em] text-slate-200">
+                  Sur discord
+                </p>
               </article>
             </div>
           </div>

@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import Button from "../components/Button";
-import PreSeasonBanner from "../components/PreSeasonBanner";
 import SectionHeader from "../components/SectionHeader";
 import TeamsClient from "./TeamsClient";
 
@@ -37,7 +36,7 @@ export default function EquipesPage() {
             ))}
           </div>
           <div className="flex flex-wrap gap-3">
-            <Button href={INSCRIPTION_PATH} variant="primary">
+            <Button href={INSCRIPTION_PATH} variant="primary" className="signup-button">
               S&apos;inscrire
             </Button>
           </div>
@@ -51,7 +50,6 @@ export default function EquipesPage() {
           description="Pré-saison."
           tone="support"
         />
-        <PreSeasonBanner message="Rosters en validation. Fiches complétées avant le début de saison." />
         <TeamsClient />
       </section>
     </div>

@@ -12,8 +12,8 @@ export default function EliteOffer() {
       <div className="relative z-10 grid items-center gap-10 lg:grid-cols-[1.15fr_0.85fr]">
         <div className="space-y-6">
           <div className="space-y-3">
-            <h2 className="font-sekuya text-2xl font-semibold tracking-tight text-white sm:text-3xl">
-              ELITE — L&apos;offre parfaite
+            <h2 className="font-sekuya text-[1.4rem] font-semibold tracking-tight text-white sm:text-3xl">
+              ELITE — BEST DEAL
             </h2>
             <p className="text-sm text-muted sm:text-base">
               Un accès premium pour vivre la LFN au plus près.
@@ -52,7 +52,7 @@ export default function EliteOffer() {
           <div className="absolute inset-0 bg-[linear-gradient(120deg,rgba(12,20,44,0.4),rgba(10,15,26,0.05))]" />
           <Image
             src={eliteImage}
-            alt="Visuel ELITE — offre parfaite"
+            alt="Visuel ELITE — best deal"
             width={874}
             height={583}
             className="relative z-10 h-full w-full object-cover saturate-[0.9]"
