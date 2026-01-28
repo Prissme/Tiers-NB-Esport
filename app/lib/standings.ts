@@ -64,13 +64,14 @@ export const buildStandings = (
 
     if (match.scoreA > match.scoreB) {
       teamAStats.wins += 1;
-      teamAStats.points += 1;
       teamBStats.losses += 1;
     } else if (match.scoreB > match.scoreA) {
       teamBStats.wins += 1;
-      teamBStats.points += 1;
       teamAStats.losses += 1;
     }
+
+    teamAStats.points += match.scoreA;
+    teamBStats.points += match.scoreB;
 
     teamAStats.scoreDiff += getScoreDiff(match, match.teamA.id);
     teamBStats.scoreDiff += getScoreDiff(match, match.teamB.id);

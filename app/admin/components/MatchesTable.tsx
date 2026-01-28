@@ -21,6 +21,7 @@ export type MatchRecord = {
   score_b: number | null;
   sets_a: number | null;
   sets_b: number | null;
+  notes: string | null;
   played_at: string | null;
   proof_url: string | null;
   vod_url: string | null;
@@ -329,6 +330,7 @@ export default function MatchesTable({ seasonId, onMatchesUpdated }: MatchesTabl
                 scoreB: selectedMatch.score_b ?? null,
                 setsA: selectedMatch.sets_a ?? null,
                 setsB: selectedMatch.sets_b ?? null,
+                notes: selectedMatch.notes ?? "",
                 proofUrl: selectedMatch.proof_url ?? "",
                 vodUrl: selectedMatch.vod_url ?? "",
                 seasonId: selectedMatch.season_id ?? seasonId ?? null,

@@ -31,6 +31,7 @@ const mapFallbackMatches = (): SiteMatch[] => {
       bestOf: null,
       scoreA: match.scoreA ?? null,
       scoreB: match.scoreB ?? null,
+      attachments: [],
       teamA: {
         id: match.teamAId,
         name: teamA?.name ?? match.teamAId,
@@ -65,15 +66,11 @@ const formatDateLabel = (value: string | null, fallback?: string | null) => {
 };
 
 const formatMatchTime = (dateISO: string | null, startTime?: string | null) => {
-  if (!dateISO) {
-    return startTime ? startTime.replace(":00", "h") : "";
-  }
-  const date = new Date(dateISO);
-  if (Number.isNaN(date.getTime())) return startTime ?? "";
-  return date.toLocaleTimeString("fr-FR", {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  const rawTime = startTime ?? dateISO;
+  if (!rawTime) return "";
+  const timePart = rawTime.includes("T") ? rawTime.split("T")[1] : rawTime;
+  if (!timePart) return "";
+  return timePart.slice(0, 5);
 };
 
 const getTeamInitials = (name: string) =>
@@ -193,7 +190,7 @@ export default function MatchesClient() {
             <p className="text-xs uppercase tracking-[0.3em] text-utility">
               {match.division ?? "Division"}
             </p>
-            {match.status === "finished" ? (
+            {match.scoreA !== null && match.scoreB !== null ? (
               <p className="text-3xl font-semibold text-white">
                 {match.scoreA ?? "-"} <span className="text-utility">-</span>{" "}
                 {match.scoreB ?? "-"}

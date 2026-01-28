@@ -11,7 +11,6 @@ const tabs = [
   { id: "matchs", label: "Matchs" },
   { id: "resultats", label: "Résultats" },
   { id: "teams", label: "Teams" },
-  { id: "saison", label: "Saison" },
   { id: "classement", label: "Classement" },
 ];
 
@@ -126,7 +125,7 @@ export default function AdminPage() {
     );
 
     matches
-      .filter((match) => match.status === "completed")
+      .filter((match) => match.status === "completed" || match.status === "finished")
       .forEach((match) => {
         if (!match.team_a_id || !match.team_b_id) {
           return;
@@ -143,15 +142,12 @@ export default function AdminPage() {
         if (scoreA > scoreB) {
           teamA.wins += 1;
           teamB.losses += 1;
-          teamA.points += 3;
         } else if (scoreB > scoreA) {
           teamB.wins += 1;
           teamA.losses += 1;
-          teamB.points += 3;
-        } else {
-          teamA.points += 1;
-          teamB.points += 1;
         }
+        teamA.points += scoreA;
+        teamB.points += scoreB;
       });
 
     return Array.from(stats.values()).sort((a, b) => {
@@ -165,7 +161,7 @@ export default function AdminPage() {
   const handleValidateResult = async (match: MatchRecord) => {
     const { error } = await supabase
       .from("lfn_matches")
-      .update({ status: "completed", played_at: match.played_at ?? match.scheduled_at ?? null })
+      .update({ status: "finished", played_at: match.played_at ?? match.scheduled_at ?? null })
       .eq("id", match.id);
 
     if (error) {
@@ -345,30 +341,6 @@ export default function AdminPage() {
         <div className="secondary-section">
           <TeamsPanel />
         </div>
-      )}
-
-      {activeTab === "saison" && (
-        <section className="secondary-section surface-card--soft">
-          <div className="space-y-3">
-            <p className="text-xs uppercase tracking-[0.3em] text-utility">Saison</p>
-            <h3 className="text-lg font-semibold text-white">Sélectionner la saison</h3>
-            <select
-              value={seasonId ?? ""}
-              onChange={(event) => setSeasonId(event.target.value)}
-              className="surface-input max-w-md"
-            >
-              <option value="">Sélectionner</option>
-              {seasons.map((season) => (
-                <option key={season.id} value={season.id}>
-                  {season.name ?? season.label ?? season.id}
-                </option>
-              ))}
-            </select>
-            <p className="text-xs text-utility">
-              Le filtre de saison s'applique aux matchs, programme et classement.
-            </p>
-          </div>
-        </section>
       )}
 
       {activeTab === "classement" && (

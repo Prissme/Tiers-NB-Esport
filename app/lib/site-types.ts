@@ -45,6 +45,7 @@ export type SiteMatch = {
   bestOf: number | null;
   scoreA: number | null;
   scoreB: number | null;
+  attachments: string[];
   teamA: SiteMatchTeam;
   teamB: SiteMatchTeam;
 };

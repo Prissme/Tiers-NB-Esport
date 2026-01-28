@@ -37,6 +37,7 @@ export const matchFormSchema = z.object({
   notes: z.string().optional().nullable(),
   proofUrl: z.string().url("Proof URL invalide.").optional().nullable().or(z.literal("")),
   vodUrl: z.string().url("VOD URL invalide.").optional().nullable().or(z.literal("")),
+  attachments: z.array(z.string().url("Pièce jointe invalide.")).optional(),
   seasonId: z.string().uuid().optional().nullable(),
 });
 
