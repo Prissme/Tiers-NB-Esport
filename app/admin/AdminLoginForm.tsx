@@ -25,14 +25,14 @@ export default function AdminLoginForm() {
         <input
           type="password"
           name="password"
-          className="mt-2 w-full rounded-xl border border-white/10 bg-slate-950/70 px-4 py-2 text-sm text-white"
+          className="surface-input mt-2"
           required
         />
       </div>
       {state.error ? <p className="text-sm text-rose-300">{state.error}</p> : null}
       <button
         type="submit"
-        className="inline-flex items-center justify-center rounded-full bg-amber-400/90 px-5 py-2 text-sm font-semibold text-slate-900 transition hover:bg-amber-300"
+        className="surface-pill surface-pill--active inline-flex items-center justify-center px-5 py-2 text-sm font-semibold text-slate-900"
       >
         Accéder
       </button>

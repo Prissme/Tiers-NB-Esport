@@ -30,14 +30,14 @@ const formatDate = (value: string) => {
 export default function StatsGraph({ data }: StatsGraphProps) {
   if (!data.length) {
     return (
-      <div className="flex h-64 items-center justify-center rounded-2xl border border-white/5 bg-slate-900/60 text-sm text-slate-400">
+      <div className="flex h-64 items-center justify-center rounded-[12px] bg-slate-900/60 text-sm text-slate-400">
         Pas encore de données ELO sur 30 jours.
       </div>
     );
   }
 
   return (
-    <div className="h-64 rounded-2xl border border-white/5 bg-slate-900/60 p-4">
+    <div className="h-64 rounded-[12px] bg-slate-900/60 p-4">
       <ResponsiveContainer width="100%" height="100%">
         <LineChart data={data} margin={{ top: 10, right: 20, left: -10, bottom: 0 }}>
           <defs>
@@ -62,8 +62,8 @@ export default function StatsGraph({ data }: StatsGraphProps) {
           <Tooltip
             contentStyle={{
               backgroundColor: 'rgba(15, 23, 42, 0.9)',
-              borderRadius: '12px',
-              border: '1px solid rgba(148, 163, 184, 0.2)',
+              borderRadius: '10px',
+              border: 'none',
               color: '#e2e8f0'
             }}
             labelFormatter={formatDate}

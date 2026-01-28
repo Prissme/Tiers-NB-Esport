@@ -14,17 +14,17 @@ export default function TeamCard({ team }: { team: SiteTeam }) {
   return (
     <Link
       href={`/equipes/${team.id}`}
-      className="group flex items-center gap-4 rounded-2xl border border-white/10 bg-white/5 px-5 py-4 transition hover:-translate-y-0.5 hover:border-amber-300/40 hover:bg-white/10 animate-in"
+      className="group flex items-center gap-4 rounded-[12px] bg-white/[0.04] px-5 py-4 transition hover:-translate-y-0.5 hover:bg-white/[0.08] animate-in"
     >
       {team.logoUrl ? (
         <img
           src={team.logoUrl}
           alt={`Logo ${team.name}`}
-          className="h-12 w-12 rounded-2xl object-cover"
+          className="h-12 w-12 rounded-[10px] object-cover"
           loading="lazy"
         />
       ) : (
-        <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-white/15 bg-white/10 text-xs font-semibold uppercase tracking-[0.2em] text-amber-200">
+        <div className="flex h-12 w-12 items-center justify-center rounded-[10px] bg-white/10 text-xs font-semibold uppercase tracking-[0.2em] text-slate-200">
           {getInitials(team.name)}
         </div>
       )}

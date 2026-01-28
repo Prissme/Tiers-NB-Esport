@@ -1,9 +1,7 @@
 export default function LoadingEquipes() {
   return (
     <div className="space-y-12">
-      <section className="motion-field p-8">
-        <div className="motion-orb -left-12 top-8 h-52 w-52 motion-drift" />
-        <div className="motion-orb motion-orb--blue right-0 top-4 h-56 w-56 motion-spin" />
+      <section className="surface-dominant">
         <div className="relative z-10 space-y-6">
           <div className="space-y-2">
             <div className="h-3 w-24 rounded-full bg-white/10" />
@@ -31,7 +29,7 @@ export default function LoadingEquipes() {
           {Array.from({ length: 4 }).map((_, index) => (
             <div
               key={index}
-              className="rounded-3xl border border-white/10 bg-slate-950/70 p-6"
+              className="surface-card--soft"
             >
               <div className="flex items-start gap-4">
                 <div className="h-16 w-16 rounded-2xl bg-white/5" />

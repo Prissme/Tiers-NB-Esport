@@ -15,22 +15,20 @@ const matchMoments = [
 export default function MatchesPage() {
   return (
     <div className="space-y-10">
-      <section className="motion-field p-8">
-        <div className="motion-orb -left-16 top-12 h-48 w-48 motion-drift" />
-        <div className="motion-orb motion-orb--blue -right-10 top-0 h-52 w-52 motion-spin" />
+      <section className="surface-dominant">
         <div className="relative z-10 space-y-6">
           <SectionHeader
             kicker="Matchs"
             title="Calendrier simplifié"
             description="Infos courtes et lisibles."
           />
-          <div className="motion-line" />
+          <div className="gold-divider" />
           <div className="grid gap-4 md:grid-cols-3">
             {matchBlocks.map((block) => (
               <div key={block.label} className="motion-card motion-shimmer">
                 <p className="text-xs uppercase tracking-[0.35em] text-slate-400">{block.label}</p>
                 <p className="mt-3 text-sm text-white">{block.detail}</p>
-                <p className="mt-2 text-xs text-amber-200/80">{block.tone}</p>
+                <p className="mt-2 text-xs text-slate-300">{block.tone}</p>
               </div>
             ))}
           </div>
@@ -45,7 +43,7 @@ export default function MatchesPage() {
         />
         <div className="flex flex-wrap gap-3">
           {matchMoments.map((moment) => (
-            <span key={moment} className="motion-pill">
+            <span key={moment} className="badge">
               {moment}
             </span>
           ))}

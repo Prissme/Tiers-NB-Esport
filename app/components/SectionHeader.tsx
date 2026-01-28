@@ -24,7 +24,7 @@ export default function SectionHeader({
       ) : null}
       <h2 className="font-sekuya text-3xl font-bold text-white md:text-4xl">
         {title}
-        {highlight ? <span className="text-amber-300"> {highlight}</span> : null}
+        {highlight ? <span className="title-accent"> {highlight}</span> : null}
       </h2>
       {description ? (
         <p className="max-w-2xl text-sm text-slate-400 md:text-base">{description}</p>

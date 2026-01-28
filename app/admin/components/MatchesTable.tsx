@@ -147,7 +147,7 @@ export default function MatchesTable({ seasonId, onMatchesUpdated }: MatchesTabl
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <p className="text-xs uppercase tracking-[0.3em] text-amber-200/70">Matchs</p>
+          <p className="text-xs uppercase tracking-[0.3em] text-slate-400">Matchs</p>
           <h3 className="text-xl font-semibold text-white">Gestion des matchs</h3>
         </div>
         <button
@@ -155,56 +155,56 @@ export default function MatchesTable({ seasonId, onMatchesUpdated }: MatchesTabl
             setSelectedMatch(null);
             setDialogOpen(true);
           }}
-          className="rounded-full bg-amber-400 px-4 py-2 text-sm font-semibold text-black hover:bg-amber-300"
+          className="surface-pill surface-pill--active px-4 py-2 text-sm font-semibold text-black"
         >
           Créer match
         </button>
       </div>
 
-      <div className="grid gap-3 rounded-3xl border border-white/10 bg-white/5 p-4 md:grid-cols-5">
+      <div className="surface-card--flat grid gap-3 md:grid-cols-5">
         <input
           value={filters.search}
           onChange={(event) => setFilters((prev) => ({ ...prev, search: event.target.value }))}
           placeholder="Recherche"
-          className="w-full rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-sm text-white"
+          className="surface-input"
         />
         <input
           value={filters.day}
           onChange={(event) => setFilters((prev) => ({ ...prev, day: event.target.value }))}
           placeholder="Day"
           type="number"
-          className="w-full rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-sm text-white"
+          className="surface-input"
         />
         <input
           value={filters.division}
           onChange={(event) => setFilters((prev) => ({ ...prev, division: event.target.value }))}
           placeholder="Division"
-          className="w-full rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-sm text-white"
+          className="surface-input"
         />
         <input
           value={filters.phase}
           onChange={(event) => setFilters((prev) => ({ ...prev, phase: event.target.value }))}
           placeholder="Phase"
-          className="w-full rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-sm text-white"
+          className="surface-input"
         />
         <input
           value={filters.status}
           onChange={(event) => setFilters((prev) => ({ ...prev, status: event.target.value }))}
           placeholder="Status"
-          className="w-full rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-sm text-white"
+          className="surface-input"
         />
       </div>
 
       {errorMessage ? (
-        <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-2 text-sm text-red-100">
+        <div className="surface-alert surface-alert--error">
           {errorMessage}
         </div>
       ) : null}
 
-      <div className="overflow-x-auto rounded-3xl border border-white/10 bg-slate-950/70">
-        <table className="w-full text-sm text-white/80">
-          <thead className="text-xs uppercase text-white/40">
-            <tr className="border-b border-white/10">
+      <div className="overflow-x-auto rounded-[12px] bg-slate-950/70">
+        <table className="surface-table text-sm text-white/80">
+          <thead className="surface-table__header text-xs uppercase text-white/40">
+            <tr>
               <th className="px-4 py-3 text-left">Jour</th>
               <th className="px-4 py-3 text-left">Round</th>
               <th className="px-4 py-3 text-left">Match</th>
@@ -233,7 +233,7 @@ export default function MatchesTable({ seasonId, onMatchesUpdated }: MatchesTabl
               </tr>
             ) : (
               matches.map((match) => (
-                <tr key={match.id} className="border-b border-white/5">
+                <tr key={match.id} className="surface-table__row">
                   <td className="px-4 py-3">{match.day_label ?? match.day ?? "—"}</td>
                   <td className="px-4 py-3">{match.round ?? "—"}</td>
                   <td className="px-4 py-3">{match.match_group ?? "—"}</td>
@@ -248,7 +248,7 @@ export default function MatchesTable({ seasonId, onMatchesUpdated }: MatchesTabl
                   <td className="px-4 py-3">{splitDate(match.scheduled_at)} {splitTime(match.scheduled_at)}</td>
                   <td className="px-4 py-3">{splitDate(match.start_time)} {splitTime(match.start_time)}</td>
                   <td className="px-4 py-3">
-                    <span className="rounded-full border border-white/10 px-3 py-1 text-xs">
+                    <span className="surface-chip surface-chip--muted">
                       {match.status ?? "—"}
                     </span>
                   </td>
@@ -259,13 +259,13 @@ export default function MatchesTable({ seasonId, onMatchesUpdated }: MatchesTabl
                           setSelectedMatch(match);
                           setDialogOpen(true);
                         }}
-                        className="rounded-full border border-white/10 px-3 py-1 text-xs text-white/70 hover:text-white"
+                        className="surface-pill px-3 py-1 text-xs text-white/70 hover:text-white"
                       >
                         Edit
                       </button>
                       <button
                         onClick={() => handleDelete(match.id)}
-                        className="rounded-full border border-red-500/40 px-3 py-1 text-xs text-red-200 hover:text-red-100"
+                        className="surface-pill px-3 py-1 text-xs text-red-200 hover:text-red-100"
                       >
                         Delete
                       </button>
@@ -286,14 +286,14 @@ export default function MatchesTable({ seasonId, onMatchesUpdated }: MatchesTabl
           <button
             onClick={() => setPage((prev) => Math.max(prev - 1, 0))}
             disabled={page === 0}
-            className="rounded-full border border-white/10 px-3 py-1 disabled:opacity-40"
+            className="surface-pill px-3 py-1 disabled:opacity-40"
           >
             Précédent
           </button>
           <button
             onClick={() => setPage((prev) => Math.min(prev + 1, totalPages - 1))}
             disabled={page >= totalPages - 1}
-            className="rounded-full border border-white/10 px-3 py-1 disabled:opacity-40"
+            className="surface-pill px-3 py-1 disabled:opacity-40"
           >
             Suivant
           </button>

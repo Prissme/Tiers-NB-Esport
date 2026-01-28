@@ -177,7 +177,7 @@ export default function AdminPage() {
 
   if (loading) {
     return (
-      <div className="min-h-[50vh] rounded-3xl border border-white/10 bg-black/60 p-12 text-center text-white/70">
+      <div className="min-h-[50vh] rounded-[14px] bg-black/60 p-12 text-center text-white/70">
         Chargement...
       </div>
     );
@@ -185,7 +185,7 @@ export default function AdminPage() {
 
   return (
     <div className="space-y-8">
-      <header className="rounded-3xl border border-white/10 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 p-8 shadow-2xl">
+      <header className="rounded-[16px] bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 p-8 shadow-2xl">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <p className="text-xs uppercase tracking-[0.4em] text-amber-200/70">LFN ADMIN</p>
@@ -194,22 +194,18 @@ export default function AdminPage() {
               Gestion complète du programme, des matchs, des résultats et des équipes. UI premium dark.
             </p>
           </div>
-          <div className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs text-white/70">
+          <div className="surface-chip surface-chip--muted">
             Saison active: {seasonId ?? "Aucune"}
           </div>
         </div>
       </header>
 
-      <div className="flex flex-wrap gap-2 rounded-3xl border border-white/10 bg-white/5 p-2">
+      <div className="flex flex-wrap gap-2 rounded-[12px] bg-white/5 p-2">
         {tabs.map((tab) => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
-            className={`rounded-full px-4 py-2 text-sm font-medium transition ${
-              activeTab === tab.id
-                ? "bg-amber-400 text-black"
-                : "border border-white/10 text-white/70 hover:text-white"
-            }`}
+            className={`surface-tab ${activeTab === tab.id ? "surface-tab--active" : ""}`}
           >
             {tab.label}
           </button>
@@ -217,7 +213,7 @@ export default function AdminPage() {
       </div>
 
       {errorMessage ? (
-        <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-2 text-sm text-red-100">
+        <div className="surface-alert surface-alert--error">
           {errorMessage}
         </div>
       ) : null}
@@ -225,7 +221,7 @@ export default function AdminPage() {
       {activeTab === "programme" && (
         <section className="space-y-6">
           {scheduleDays.map(([day, dayMatches]) => (
-            <div key={day} className="rounded-3xl border border-white/10 bg-slate-950/70 p-6">
+            <div key={day} className="surface-card--soft">
               <div className="flex items-center justify-between">
                 <h3 className="text-lg font-semibold text-white">{day}</h3>
                 <span className="text-xs text-white/50">{dayMatches.length} matchs</span>
@@ -234,7 +230,7 @@ export default function AdminPage() {
                 {dayMatches.map((match) => (
                   <div
                     key={match.id}
-                    className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3"
+                    className="flex flex-wrap items-center justify-between gap-3 rounded-[10px] bg-white/5 px-4 py-3"
                   >
                     <div>
                       <p className="text-sm text-white">
@@ -244,7 +240,7 @@ export default function AdminPage() {
                         {formatDate(getMatchDate(match)) || "Horaire à définir"}
                       </p>
                     </div>
-                    <span className="rounded-full border border-white/10 px-3 py-1 text-xs text-white/70">
+                    <span className="surface-chip surface-chip--muted">
                       {match.division ?? "Division"}
                     </span>
                   </div>
@@ -264,17 +260,17 @@ export default function AdminPage() {
 
       {activeTab === "resultats" && (
         <section className="space-y-6">
-          <div className="rounded-3xl border border-white/10 bg-slate-950/70 p-6">
+          <div className="surface-card--soft">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs uppercase tracking-[0.3em] text-amber-200/70">Résultats</p>
+                <p className="text-xs uppercase tracking-[0.3em] text-slate-400">Résultats</p>
                 <h3 className="text-lg font-semibold text-white">Validation des résultats</h3>
               </div>
             </div>
             <div className="mt-4 overflow-x-auto">
-              <table className="w-full text-sm text-white/80">
-                <thead className="text-xs uppercase text-white/40">
-                  <tr className="border-b border-white/10">
+              <table className="surface-table text-sm text-white/80">
+                <thead className="surface-table__header text-xs uppercase text-white/40">
+                  <tr>
                     <th className="px-3 py-2 text-left">Match</th>
                     <th className="px-3 py-2 text-left">Score</th>
                     <th className="px-3 py-2 text-left">Sets</th>
@@ -292,7 +288,7 @@ export default function AdminPage() {
                     </tr>
                   ) : (
                     matches.map((match) => (
-                      <tr key={match.id} className="border-b border-white/5">
+                      <tr key={match.id} className="surface-table__row">
                         <td className="px-3 py-2">
                           {match.match_group ?? "Match"}
                         </td>
@@ -307,7 +303,7 @@ export default function AdminPage() {
                           {match.proof_url ? (
                             <a
                               href={match.proof_url}
-                              className="text-amber-200"
+                              className="title-accent"
                               target="_blank"
                               rel="noreferrer"
                             >
@@ -317,7 +313,7 @@ export default function AdminPage() {
                           {match.vod_url ? (
                             <a
                               href={match.vod_url}
-                              className="text-amber-200"
+                              className="title-accent"
                               target="_blank"
                               rel="noreferrer"
                             >
@@ -328,7 +324,7 @@ export default function AdminPage() {
                         <td className="px-3 py-2 text-right">
                           <button
                             onClick={() => handleValidateResult(match)}
-                            className="rounded-full bg-amber-400 px-3 py-1 text-xs font-semibold text-black"
+                            className="surface-pill surface-pill--active px-3 py-1 text-xs font-semibold text-black"
                           >
                             Valider résultat
                           </button>
@@ -346,14 +342,14 @@ export default function AdminPage() {
       {activeTab === "teams" && <TeamsPanel />}
 
       {activeTab === "saison" && (
-        <section className="rounded-3xl border border-white/10 bg-slate-950/70 p-6">
+        <section className="surface-card--soft">
           <div className="space-y-3">
-            <p className="text-xs uppercase tracking-[0.3em] text-amber-200/70">Saison</p>
+            <p className="text-xs uppercase tracking-[0.3em] text-slate-400">Saison</p>
             <h3 className="text-lg font-semibold text-white">Sélectionner la saison</h3>
             <select
               value={seasonId ?? ""}
               onChange={(event) => setSeasonId(event.target.value)}
-              className="w-full max-w-md rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-white"
+              className="surface-input max-w-md"
             >
               <option value="">Sélectionner</option>
               {seasons.map((season) => (
@@ -370,17 +366,17 @@ export default function AdminPage() {
       )}
 
       {activeTab === "classement" && (
-        <section className="rounded-3xl border border-white/10 bg-slate-950/70 p-6">
+        <section className="surface-card--soft">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs uppercase tracking-[0.3em] text-amber-200/70">Classement</p>
+              <p className="text-xs uppercase tracking-[0.3em] text-slate-400">Classement</p>
               <h3 className="text-lg font-semibold text-white">Classement (client-side)</h3>
             </div>
           </div>
           <div className="mt-4 overflow-x-auto">
-            <table className="w-full text-sm text-white/80">
-              <thead className="text-xs uppercase text-white/40">
-                <tr className="border-b border-white/10">
+            <table className="surface-table text-sm text-white/80">
+              <thead className="surface-table__header text-xs uppercase text-white/40">
+                <tr>
                   <th className="px-3 py-2 text-left">Equipe</th>
                   <th className="px-3 py-2 text-left">W</th>
                   <th className="px-3 py-2 text-left">L</th>
@@ -390,7 +386,7 @@ export default function AdminPage() {
               </thead>
               <tbody>
                 {standings.map((team) => (
-                  <tr key={team.id} className="border-b border-white/5">
+                  <tr key={team.id} className="surface-table__row">
                     <td className="px-3 py-2 text-white/90">{team.name}</td>
                     <td className="px-3 py-2">{team.wins}</td>
                     <td className="px-3 py-2">{team.losses}</td>

@@ -14,13 +14,13 @@ type ButtonProps = {
 };
 
 const baseStyles =
-  "relative inline-flex items-center justify-center gap-2 overflow-hidden rounded-[10px] border px-7 py-[14px] text-xs font-semibold uppercase tracking-[0.12em] transition duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-border)] focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--color-bg)] disabled:pointer-events-none disabled:opacity-60";
+  "relative inline-flex items-center justify-center gap-2 overflow-hidden rounded-[8px] px-7 py-[14px] text-xs font-semibold uppercase tracking-[0.12em] transition duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-border)] focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--color-bg)] disabled:pointer-events-none disabled:opacity-60";
 
 const variantStyles: Record<ButtonVariant, string> = {
   primary:
-    "border-[color:var(--color-border)] bg-[rgba(0,0,0,0.4)] text-[color:var(--color-text)] hover:border-[color:var(--color-border-strong)] hover:bg-[rgba(0,0,0,0.6)]",
+    "bg-[rgba(255,255,255,0.08)] text-[color:var(--color-text)] hover:bg-[rgba(255,255,255,0.15)]",
   secondary:
-    "border-[color:var(--color-border)] bg-[rgba(0,0,0,0.4)] text-[color:var(--color-text-muted)] hover:text-[color:var(--color-text)] hover:border-[color:var(--color-border-strong)] hover:bg-[rgba(0,0,0,0.6)]",
+    "bg-[rgba(255,255,255,0.04)] text-[color:var(--color-text-muted)] hover:text-[color:var(--color-text)] hover:bg-[rgba(255,255,255,0.1)]",
   tertiary:
     "border-transparent bg-transparent text-[color:var(--color-text-muted)] hover:text-[color:var(--color-text)]",
 };

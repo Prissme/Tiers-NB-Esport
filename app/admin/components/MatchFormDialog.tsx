@@ -182,10 +182,10 @@ export default function MatchFormDialog({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
-      <div className="w-full max-w-4xl rounded-3xl border border-white/10 bg-slate-950/90 p-6 shadow-2xl backdrop-blur">
+      <div className="surface-card w-full max-w-4xl bg-slate-950/90 shadow-2xl backdrop-blur">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-xs uppercase tracking-[0.2em] text-amber-200/70">LFN Admin</p>
+            <p className="text-xs uppercase tracking-[0.2em] text-slate-400">LFN Admin</p>
             <h2 className="text-2xl font-semibold text-white">
               {initialValues?.id ? "Modifier le match" : "Créer un match"}
             </h2>
@@ -193,7 +193,7 @@ export default function MatchFormDialog({
           <button
             type="button"
             onClick={() => onOpenChange(false)}
-            className="rounded-full border border-white/10 px-3 py-1 text-xs text-white/70 hover:text-white"
+            className="surface-pill px-3 py-1 text-xs text-white/70 hover:text-white"
           >
             Fermer
           </button>
@@ -207,7 +207,7 @@ export default function MatchFormDialog({
                 type="number"
                 value={values.day}
                 onChange={handleNumberChange("day")}
-                className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-white"
+                className="surface-input"
               />
             </label>
             <label className="space-y-2 text-sm text-white/70">
@@ -216,7 +216,7 @@ export default function MatchFormDialog({
                 type="text"
                 value={values.dayLabel ?? ""}
                 onChange={handleTextChange("dayLabel")}
-                className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-white"
+                className="surface-input"
               />
             </label>
             <label className="space-y-2 text-sm text-white/70">
@@ -225,7 +225,7 @@ export default function MatchFormDialog({
                 type="number"
                 value={values.round ?? ""}
                 onChange={handleNumberChange("round", true)}
-                className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-white"
+                className="surface-input"
               />
             </label>
           </div>
@@ -237,7 +237,7 @@ export default function MatchFormDialog({
                 type="text"
                 value={values.matchGroup}
                 onChange={handleTextChange("matchGroup")}
-                className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-white"
+                className="surface-input"
               />
             </label>
             <label className="space-y-2 text-sm text-white/70">
@@ -246,7 +246,7 @@ export default function MatchFormDialog({
                 type="text"
                 value={values.phase}
                 onChange={handleTextChange("phase")}
-                className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-white"
+                className="surface-input"
               />
             </label>
             <label className="space-y-2 text-sm text-white/70">
@@ -255,7 +255,7 @@ export default function MatchFormDialog({
                 type="text"
                 value={values.division}
                 onChange={handleTextChange("division")}
-                className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-white"
+                className="surface-input"
               />
             </label>
           </div>
@@ -266,7 +266,7 @@ export default function MatchFormDialog({
               <select
                 value={values.teamAId}
                 onChange={handleTextChange("teamAId")}
-                className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-white"
+                className="surface-input"
               >
                 <option value="">Sélectionner</option>
                 {teams.map((team) => (
@@ -281,7 +281,7 @@ export default function MatchFormDialog({
               <select
                 value={values.teamBId}
                 onChange={handleTextChange("teamBId")}
-                className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-white"
+                className="surface-input"
               >
                 <option value="">Sélectionner</option>
                 {teams.map((team) => (
@@ -300,7 +300,7 @@ export default function MatchFormDialog({
                 type="number"
                 value={values.bestOf ?? ""}
                 onChange={handleNumberChange("bestOf", true)}
-                className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-white"
+                className="surface-input"
               />
             </label>
             <label className="space-y-2 text-sm text-white/70">
@@ -308,7 +308,7 @@ export default function MatchFormDialog({
               <select
                 value={values.status}
                 onChange={handleTextChange("status")}
-                className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-white"
+                className="surface-input"
               >
                 <option value="scheduled">Programmé</option>
                 <option value="live">Live</option>
@@ -322,13 +322,13 @@ export default function MatchFormDialog({
                 value={values.seasonId ?? ""}
                 onChange={handleTextChange("seasonId")}
                 placeholder={seasonId ?? "UUID"}
-                className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-white"
+                className="surface-input"
               />
             </label>
           </div>
 
           <div className="grid gap-4 md:grid-cols-2">
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+            <div className="surface-card--flat">
               <p className="text-xs uppercase tracking-[0.2em] text-white/50">Programmé</p>
               <div className="mt-3 grid gap-3 md:grid-cols-2">
                 <label className="space-y-2 text-sm text-white/70">
@@ -337,7 +337,7 @@ export default function MatchFormDialog({
                     type="date"
                     value={values.scheduledDate ?? ""}
                     onChange={handleTextChange("scheduledDate")}
-                    className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-white"
+                    className="surface-input"
                   />
                 </label>
                 <label className="space-y-2 text-sm text-white/70">
@@ -346,12 +346,12 @@ export default function MatchFormDialog({
                     type="time"
                     value={values.scheduledTime ?? ""}
                     onChange={handleTextChange("scheduledTime")}
-                    className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-white"
+                    className="surface-input"
                   />
                 </label>
               </div>
             </div>
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+            <div className="surface-card--flat">
               <p className="text-xs uppercase tracking-[0.2em] text-white/50">Start time</p>
               <div className="mt-3 grid gap-3 md:grid-cols-2">
                 <label className="space-y-2 text-sm text-white/70">
@@ -360,7 +360,7 @@ export default function MatchFormDialog({
                     type="date"
                     value={values.startDate ?? ""}
                     onChange={handleTextChange("startDate")}
-                    className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-white"
+                    className="surface-input"
                   />
                 </label>
                 <label className="space-y-2 text-sm text-white/70">
@@ -369,7 +369,7 @@ export default function MatchFormDialog({
                     type="time"
                     value={values.startTime ?? ""}
                     onChange={handleTextChange("startTime")}
-                    className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-white"
+                    className="surface-input"
                   />
                 </label>
               </div>
@@ -377,7 +377,7 @@ export default function MatchFormDialog({
           </div>
 
           <div className="grid gap-4 md:grid-cols-2">
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+            <div className="surface-card--flat">
               <p className="text-xs uppercase tracking-[0.2em] text-white/50">Résultat</p>
               <div className="mt-3 grid gap-3 md:grid-cols-2">
                 <label className="space-y-2 text-sm text-white/70">
@@ -386,7 +386,7 @@ export default function MatchFormDialog({
                     type="number"
                     value={values.scoreA ?? ""}
                     onChange={handleNumberChange("scoreA", true)}
-                    className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-white"
+                    className="surface-input"
                   />
                 </label>
                 <label className="space-y-2 text-sm text-white/70">
@@ -395,7 +395,7 @@ export default function MatchFormDialog({
                     type="number"
                     value={values.scoreB ?? ""}
                     onChange={handleNumberChange("scoreB", true)}
-                    className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-white"
+                    className="surface-input"
                   />
                 </label>
                 <label className="space-y-2 text-sm text-white/70">
@@ -404,7 +404,7 @@ export default function MatchFormDialog({
                     type="number"
                     value={values.setsA ?? ""}
                     onChange={handleNumberChange("setsA", true)}
-                    className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-white"
+                    className="surface-input"
                   />
                 </label>
                 <label className="space-y-2 text-sm text-white/70">
@@ -413,7 +413,7 @@ export default function MatchFormDialog({
                     type="number"
                     value={values.setsB ?? ""}
                     onChange={handleNumberChange("setsB", true)}
-                    className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-white"
+                    className="surface-input"
                   />
                 </label>
               </div>
@@ -424,7 +424,7 @@ export default function MatchFormDialog({
                     type="date"
                     value={values.playedDate ?? ""}
                     onChange={handleTextChange("playedDate")}
-                    className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-white"
+                    className="surface-input"
                   />
                 </label>
                 <label className="space-y-2 text-sm text-white/70">
@@ -433,12 +433,12 @@ export default function MatchFormDialog({
                     type="time"
                     value={values.playedTime ?? ""}
                     onChange={handleTextChange("playedTime")}
-                    className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-white"
+                    className="surface-input"
                   />
                 </label>
               </div>
             </div>
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+            <div className="surface-card--flat">
               <p className="text-xs uppercase tracking-[0.2em] text-white/50">Liens</p>
               <div className="mt-3 space-y-3">
                 <label className="space-y-2 text-sm text-white/70">
@@ -447,7 +447,7 @@ export default function MatchFormDialog({
                     type="url"
                     value={values.proofUrl ?? ""}
                     onChange={handleTextChange("proofUrl")}
-                    className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-white"
+                    className="surface-input"
                   />
                 </label>
                 <label className="space-y-2 text-sm text-white/70">
@@ -456,7 +456,7 @@ export default function MatchFormDialog({
                     type="url"
                     value={values.vodUrl ?? ""}
                     onChange={handleTextChange("vodUrl")}
-                    className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-white"
+                    className="surface-input"
                   />
                 </label>
               </div>
@@ -469,12 +469,12 @@ export default function MatchFormDialog({
               value={values.notes ?? ""}
               onChange={handleTextChange("notes")}
               rows={3}
-              className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-white"
+              className="surface-input"
             />
           </label>
 
           {errorMessage ? (
-            <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-2 text-sm text-red-100">
+            <div className="surface-alert surface-alert--error">
               {errorMessage}
             </div>
           ) : null}
@@ -483,7 +483,7 @@ export default function MatchFormDialog({
             <button
               type="button"
               onClick={() => onOpenChange(false)}
-              className="rounded-full border border-white/10 px-4 py-2 text-sm text-white/70 hover:text-white"
+              className="surface-pill px-4 py-2 text-sm text-white/70 hover:text-white"
             >
               Annuler
             </button>

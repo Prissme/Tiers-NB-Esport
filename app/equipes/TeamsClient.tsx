@@ -108,7 +108,7 @@ export default function TeamsClient() {
           value={search}
           onChange={(event) => setSearch(event.target.value)}
           placeholder="Rechercher une équipe"
-          className="w-full rounded-full border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-100 placeholder:text-slate-500 md:w-64"
+          className="w-full rounded-full bg-white/5 px-4 py-3 text-sm text-slate-100 placeholder:text-slate-500 md:w-64"
         />
         <div className="flex flex-wrap gap-2">
           {divisionOptions.map((option) => (
@@ -116,10 +116,10 @@ export default function TeamsClient() {
               key={option.value}
               type="button"
               onClick={() => setDivisionFilter(option.value)}
-              className={`rounded-full border px-3 py-2 text-[11px] uppercase tracking-[0.3em] transition ${
+              className={`rounded-full px-3 py-2 text-[11px] uppercase tracking-[0.3em] transition ${
                 divisionFilter === option.value
-                  ? "border-amber-300/50 bg-amber-400/10 text-amber-100"
-                  : "border-white/10 bg-white/5 text-slate-300"
+                  ? "bg-amber-400/15 text-amber-100"
+                  : "bg-white/5 text-slate-300"
               }`}
             >
               {option.label}

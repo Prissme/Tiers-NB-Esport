@@ -36,9 +36,9 @@ export default function Countdown({ targetDate, className }: CountdownProps) {
   if (remaining.isLive) {
     return (
       <div
-        className={`flex items-center gap-2 rounded-3xl border border-amber-400/40 bg-amber-400/10 px-5 py-3 text-sm font-semibold text-amber-200 shadow-[0_0_40px_rgba(234,179,8,0.35)] ${className ?? ""}`}
+        className={`flex items-center gap-2 rounded-[10px] bg-[rgba(201,178,106,0.12)] px-5 py-3 text-sm font-semibold text-amber-100 shadow-[0_0_40px_rgba(234,179,8,0.25)] ${className ?? ""}`}
       >
-        <span className="h-2 w-2 animate-pulse rounded-full bg-amber-300" />
+        <span className="h-2 w-2 animate-pulse rounded-full bg-amber-200" />
         La LFN a commencé
       </div>
     );
@@ -46,9 +46,9 @@ export default function Countdown({ targetDate, className }: CountdownProps) {
 
   return (
     <div
-      className={`flex flex-wrap items-center gap-3 rounded-3xl border border-white/15 bg-white/5 px-5 py-4 text-sm text-slate-200 shadow-[0_0_45px_rgba(234,179,8,0.25)] ${className ?? ""}`}
+      className={`flex flex-wrap items-center gap-3 rounded-[10px] bg-white/5 px-5 py-4 text-sm text-slate-200 ${className ?? ""}`}
     >
-      <span className="text-[11px] uppercase tracking-[0.45em] text-amber-300/80">
+      <span className="text-[11px] uppercase tracking-[0.45em] title-accent">
         Début LFN
       </span>
       <div className="flex items-center gap-2 text-base font-semibold text-white sm:text-lg text-glow">

@@ -6,9 +6,7 @@ const DISCORD_INVITE = "https://discord.gg/q6sFPWCKD7";
 export default function InscriptionPage() {
   return (
     <div className="space-y-12">
-      <section className="motion-field p-8">
-        <div className="motion-orb -left-8 top-6 h-44 w-44 motion-drift" />
-        <div className="motion-orb motion-orb--blue right-2 top-4 h-48 w-48 motion-spin" />
+      <section className="surface-dominant">
         <div className="relative z-10 space-y-6">
           <SectionHeader
             kicker="Inscription"

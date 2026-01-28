@@ -6,7 +6,7 @@ const eliteImage =
 
 export default function EliteOffer() {
   return (
-    <section className="relative overflow-hidden rounded-[28px] border border-white/10 bg-[#0b0f1a]/85 px-6 py-10 shadow-[0_30px_80px_-60px_rgba(8,12,22,0.9)] backdrop-blur-[20px] sm:px-10">
+    <section className="surface-dominant relative overflow-hidden bg-[#0b0f1a]/85 px-6 py-10 shadow-[0_30px_80px_-60px_rgba(8,12,22,0.9)] backdrop-blur-[20px] sm:px-10">
       <div className="absolute inset-0 bg-card-gradient opacity-70" />
       <div className="absolute inset-0 bg-noise opacity-30" />
       <div className="relative z-10 grid items-center gap-10 lg:grid-cols-[1.15fr_0.85fr]">
@@ -22,19 +22,19 @@ export default function EliteOffer() {
           </div>
           <ul className="space-y-3 text-sm text-slate-200 sm:text-base">
             <li className="flex items-start gap-3">
-              <span className="text-base text-amber-200" aria-hidden="true">
+              <span className="text-base text-slate-400" aria-hidden="true">
                 •
               </span>
               Coaching hebdomadaire (vendredi)
             </li>
             <li className="flex items-start gap-3">
-              <span className="text-base text-amber-200" aria-hidden="true">
+              <span className="text-base text-slate-400" aria-hidden="true">
                 •
               </span>
               Accès en entractes pendant les casts
             </li>
             <li className="flex items-start gap-3">
-              <span className="text-base text-amber-200" aria-hidden="true">
+              <span className="text-base text-slate-400" aria-hidden="true">
                 •
               </span>
               Votes des MAPS &amp; du MVP
@@ -49,7 +49,7 @@ export default function EliteOffer() {
             </p>
           </div>
         </div>
-        <div className="relative overflow-hidden rounded-[24px] border border-white/10 bg-[#0b111f]/80">
+        <div className="relative overflow-hidden rounded-[14px] bg-[#0b111f]/80">
           <div className="absolute inset-0 bg-[linear-gradient(120deg,rgba(12,20,44,0.4),rgba(10,15,26,0.05))]" />
           <Image
             src={eliteImage}

@@ -26,12 +26,13 @@ const INSCRIPTION_PATH = "/inscription";
 
 export default function HallOfFame() {
   return (
-    <section className="mt-16 overflow-hidden rounded-[32px] border border-white/10 bg-[linear-gradient(135deg,_rgba(6,10,22,0.75),_rgba(9,14,30,0.75))] px-5 py-12 shadow-[0_0_60px_rgba(0,0,0,0.3)] sm:px-8 lg:px-12">
+    <section className="mt-16 overflow-hidden rounded-[16px] bg-[linear-gradient(135deg,_rgba(6,10,22,0.75),_rgba(9,14,30,0.75))] px-5 py-12 shadow-[0_0_60px_rgba(0,0,0,0.3)] sm:px-8 lg:px-12">
       <div className="mx-auto flex max-w-6xl flex-col gap-10">
         <div className="flex flex-col gap-4 text-center sm:text-left">
-          <h2 className="font-sekuya text-2xl font-semibold text-white sm:text-3xl">
+          <h2 className="font-sekuya text-2xl font-semibold text-white sm:text-3xl title-accent">
             Hall of Fame
           </h2>
+          <div className="gold-divider max-w-[220px]" />
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <p className="max-w-2xl text-sm text-slate-300">
               De la Saison 1 à la Saison 3, ils ont pris la lumière. La Saison 4 arrive, la place
@@ -43,7 +44,7 @@ export default function HallOfFame() {
           {hallOfFameEntries.map((entry) => (
             <article
               key={entry.season}
-              className="group relative overflow-hidden rounded-3xl border border-white/10 bg-white/[0.03] shadow-[0_20px_50px_rgba(4,10,30,0.45)]"
+              className="group relative overflow-hidden rounded-[14px] bg-white/[0.03] shadow-[0_20px_50px_rgba(4,10,30,0.45)]"
             >
               <div className="aspect-[16/9] w-full overflow-hidden">
                 <img
@@ -67,7 +68,7 @@ export default function HallOfFame() {
               </div>
             </article>
           ))}
-          <article className="relative flex min-h-[280px] flex-col justify-between rounded-3xl border border-dashed border-white/25 bg-white/[0.03] p-8 text-white shadow-[0_15px_45px_rgba(0,0,0,0.3)]">
+          <article className="relative flex min-h-[280px] flex-col justify-between rounded-[14px] bg-white/[0.03] p-8 text-white shadow-[0_15px_45px_rgba(0,0,0,0.3)]">
             <div className="space-y-3">
               <p className="font-sekuya text-xs uppercase tracking-[0.35em] text-slate-200/70">
                 Season 4
@@ -80,7 +81,7 @@ export default function HallOfFame() {
               </p>
             </div>
             <div className="mt-10 flex flex-col items-start gap-6">
-              <div className="h-24 w-24 rounded-full border border-white/20 bg-white/5 blur-[0.5px]" />
+              <div className="h-24 w-24 rounded-full bg-white/5 blur-[0.5px]" />
               <a
                 href={INSCRIPTION_PATH}
                 className="season-signup-button"
