@@ -25,7 +25,8 @@ const mapFallbackTeams = (): TeamWithStats[] =>
     logoUrl: team.logoUrl,
   }));
 
-const getPoints = (row: SiteStandingsRow) => row.pointsTotal ?? row.pointsSets ?? 0;
+const getPoints = (row: SiteStandingsRow) =>
+  row.pointsSets ?? row.setsWon ?? row.pointsTotal ?? 0;
 
 const toNumber = (value: number | null | undefined) => value ?? 0;
 

@@ -4,13 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 
 const TARGETS = [
   {
-    label: "SAISON 4 BIENTÔT",
-    dateLabel: "Mercredi 28 janvier · 19H",
-    timestamp: new Date("2026-01-28T19:00:00+01:00").getTime(),
-  },
-  {
-    label: "ÉVÉNEMENT À VENIR",
-    dateLabel: "Samedi 31 janvier · 19H",
+    label: "LFN Day 2",
     timestamp: new Date("2026-01-31T19:00:00+01:00").getTime(),
   },
 ] as const;
@@ -54,7 +48,7 @@ const CountdownBlock = ({
   target,
 }: {
   title: string;
-  dateLabel: string;
+  dateLabel?: string;
   target: number;
 }) => {
   const remaining = useCountdown(target);
@@ -71,7 +65,9 @@ const CountdownBlock = ({
   return (
     <div className="space-y-2">
       <p className="text-xs uppercase tracking-[0.4em] text-utility">{title}</p>
-      <p className="text-[11px] uppercase tracking-[0.35em] text-slate-300">{dateLabel}</p>
+      {dateLabel ? (
+        <p className="text-[11px] uppercase tracking-[0.35em] text-slate-300">{dateLabel}</p>
+      ) : null}
       <div className="flex flex-wrap justify-center gap-6">
         {items.map((item) => (
           <div key={item.label} className="text-center">

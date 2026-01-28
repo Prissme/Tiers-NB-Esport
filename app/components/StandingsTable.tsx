@@ -12,9 +12,10 @@ export type StandingsRow = {
 type StandingsTableProps = {
   rows: StandingsRow[];
   teamsById: Record<string, SiteTeam>;
+  rankOffset?: number;
 };
 
-export default function StandingsTable({ rows, teamsById }: StandingsTableProps) {
+export default function StandingsTable({ rows, teamsById, rankOffset = 0 }: StandingsTableProps) {
   return (
     <div className="overflow-hidden rounded-[14px] bg-slate-950/60 shadow-[0_20px_60px_-40px_rgba(0,0,0,0.8)]">
       <div className="grid grid-cols-[48px_minmax(0,1fr)] gap-3 bg-white/[0.02] px-4 py-4 text-[11px] font-semibold uppercase tracking-[0.3em] text-utility md:grid-cols-[64px_minmax(0,2.5fr)_repeat(4,minmax(0,1fr))] md:px-6">
@@ -42,7 +43,7 @@ export default function StandingsTable({ rows, teamsById }: StandingsTableProps)
               key={row.teamId}
               className="grid grid-cols-[48px_minmax(0,1fr)] items-center gap-3 px-4 py-5 text-sm text-slate-200 md:grid-cols-[64px_minmax(0,2.5fr)_repeat(4,minmax(0,1fr))] md:px-6"
             >
-              <span className="text-lg font-semibold text-white">#{index + 1}</span>
+              <span className="text-lg font-semibold text-white">#{index + 1 + rankOffset}</span>
               <div className="flex min-w-0 items-center gap-4">
                 <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-[10px] bg-white/5">
                   {logoUrl ? (

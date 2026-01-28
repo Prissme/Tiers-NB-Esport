@@ -50,16 +50,18 @@ export default function EliteOffer() {
         </div>
         <div className="relative overflow-hidden rounded-[14px] bg-[#0b111f]/80">
           <div className="absolute inset-0 bg-[linear-gradient(120deg,rgba(12,20,44,0.4),rgba(10,15,26,0.05))]" />
-          <Image
-            src={eliteImage}
-            alt="Visuel ELITE — best deal"
-            width={874}
-            height={583}
-            className="relative z-10 h-full w-full object-cover saturate-[0.9]"
-            loading="lazy"
-            quality={80}
-            sizes="(min-width: 1024px) 40vw, 90vw"
-          />
+          <div className="relative z-10 aspect-[4/3] w-full sm:aspect-[16/10] lg:aspect-auto lg:h-full">
+            <Image
+              src={eliteImage}
+              alt="Visuel ELITE — best deal"
+              width={874}
+              height={583}
+              className="h-full w-full object-cover saturate-[0.9]"
+              loading="lazy"
+              quality={80}
+              sizes="(min-width: 1024px) 40vw, 100vw"
+            />
+          </div>
         </div>
       </div>
     </section>
