@@ -21,7 +21,7 @@ export default function HeroCard() {
           <Button href="/matchs" variant="primary">
             Regarder les matchs
           </Button>
-          <Button href="/inscription" variant="secondary">
+          <Button href="/inscription" variant="secondary" className="hero-signup-button">
             <span className="flex items-center gap-2">
               S&apos;inscrire <DiscordIcon />
             </span>

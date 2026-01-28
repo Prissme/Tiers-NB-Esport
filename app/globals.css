@@ -96,7 +96,7 @@
 
 body {
   @apply antialiased;
-  font-family: "Prata", var(--font-sans), system-ui, sans-serif;
+  font-family: var(--font-sans), system-ui, sans-serif;
   background-color: var(--color-bg);
   background-image: var(--site-background);
   background-position: center;
@@ -236,6 +236,10 @@ body::after {
   .hero-highlight-violet {
     color: #d8b4fe;
     text-shadow: 0 0 20px rgba(168, 85, 247, 0.55), 0 0 40px rgba(139, 92, 246, 0.35);
+  }
+
+  .font-prata {
+    font-family: "Prata", var(--font-sans), system-ui, sans-serif;
   }
 
   .font-sekuya {
@@ -579,10 +583,10 @@ body::after {
 
   .mobile-discord-button {
     @apply flex items-center justify-between gap-2 rounded-full px-4 py-2 text-[11px] uppercase tracking-[0.35em];
-    border: 1px solid rgba(108, 118, 224, 0.6);
-    background: #6c76e0;
-    color: #ffffff;
-    box-shadow: 0 0 20px rgba(108, 118, 224, 0.45);
+    border: 1px solid rgba(201, 178, 106, 0.6);
+    background: var(--color-accent);
+    color: #20180a;
+    box-shadow: none;
   }
 
   .discord-cta {
@@ -594,6 +598,17 @@ body::after {
 
   .discord-cta:hover {
     background: #7a83ee !important;
+  }
+
+  .hero-signup-button {
+    background: var(--color-accent) !important;
+    color: #20180a !important;
+    border: 1px solid rgba(201, 178, 106, 0.6);
+    box-shadow: 0 0 24px rgba(201, 178, 106, 0.35);
+  }
+
+  .hero-signup-button:hover {
+    background: var(--color-accent-deep) !important;
   }
 
   .hall-of-fame-emblem {

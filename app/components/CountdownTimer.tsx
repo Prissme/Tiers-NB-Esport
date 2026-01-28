@@ -50,7 +50,7 @@ export default function CountdownTimer() {
       <div className="flex flex-wrap gap-6">
         {items.map((item) => (
           <div key={item.label} className="text-center">
-            <p className="countdown-value text-3xl text-[color:var(--color-text)] sm:text-4xl">
+            <p className="countdown-value font-sekuya text-3xl text-[color:var(--color-text)] sm:text-4xl">
               <span key={`${item.label}-${item.value}`} className="countdown-value__tick">
                 {formatValue(item.value)}
               </span>

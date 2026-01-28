@@ -6,7 +6,7 @@ import Button from "./Button";
 import DiscordIcon from "./DiscordIcon";
 
 const logoUrl =
-  "https://media.discordapp.net/attachments/1434252768633290952/1466080774112542762/image-Photoroom_10.png?ex=697b719f&is=697a201f&hm=c44af05e9f6a24a3462c0f0f85d19f7141bc84f5a2a1a8a03bd3a3b838c055f3&=&format=webp&quality=lossless&width=236&height=236";
+  "https://media.discordapp.net/attachments/1434252768633290952/1466093575224819904/image-Photoroom_12.png?ex=697b7d8b&is=697a2c0b&hm=3f3526437b32284f06c2f7d7dbf88515ebcb54692246eca72b8540ab26f35038&=&format=webp&quality=lossless&width=331&height=325";
 
 const INSCRIPTION_PATH = "/inscription";
 
@@ -31,11 +31,6 @@ export default function Header() {
               loading="lazy"
             />
           </span>
-          <div className="hidden sm:block">
-            <p className="text-[11px] uppercase tracking-[0.45em] text-[color:var(--color-text-muted)]">
-              Ligue francophone
-            </p>
-          </div>
         </Link>
         <nav className="hidden items-center gap-6 md:flex">
           {navLinks.map((link) =>

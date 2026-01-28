@@ -71,6 +71,9 @@ export default function StandingsTable({ rows, teamsById }: StandingsTableProps)
                       {team.tag}
                     </span>
                   ) : null}
+                  <span className="mt-1 block text-xs font-semibold uppercase tracking-[0.3em] text-utility md:hidden">
+                    {row.points} pts
+                  </span>
                 </div>
               </div>
               <span className="hidden text-center text-base font-semibold text-white md:block">
