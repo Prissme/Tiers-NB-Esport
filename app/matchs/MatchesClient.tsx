@@ -155,16 +155,20 @@ export default function MatchesClient() {
         className="group relative overflow-hidden rounded-[14px] bg-slate-950/40 p-6 shadow-[0_20px_60px_-45px_rgba(0,0,0,0.9)] backdrop-blur transition hover:bg-slate-950/50"
       >
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.08),transparent_55%)] opacity-70" />
-        <div className="absolute right-6 top-5 text-right text-[11px] uppercase tracking-[0.3em] text-utility">
+        <div className="absolute right-6 top-5 hidden text-right text-[11px] uppercase tracking-[0.3em] text-utility md:block">
           <p>{dateLabel}</p>
           {timeLabel ? <p className="mt-1 text-sm font-semibold text-white">{timeLabel}</p> : null}
         </div>
+        <div className="relative z-10 mb-4 flex flex-wrap items-center gap-2 text-[11px] uppercase tracking-[0.3em] text-utility md:hidden">
+          <span>{dateLabel}</span>
+          {timeLabel ? <span className="text-sm font-semibold text-white">{timeLabel}</span> : null}
+        </div>
         <Link
           href={`/matchs/${match.id}`}
-          className="relative z-10 grid gap-6 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center"
+          className="relative z-10 flex flex-col gap-6 md:grid md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] md:items-center"
         >
           <div className="flex items-center gap-4">
-            <div className="flex h-20 w-20 items-center justify-center overflow-hidden">
+            <div className="flex h-16 w-16 items-center justify-center overflow-hidden sm:h-20 sm:w-20">
               {match.teamA.logoUrl ? (
                 <img
                   src={match.teamA.logoUrl}
@@ -201,7 +205,7 @@ export default function MatchesClient() {
             <StatusBadge status={match.status} />
           </div>
 
-          <div className="flex items-center justify-end gap-4 text-right">
+          <div className="flex items-center justify-start gap-4 text-left md:justify-end md:text-right">
             <div>
               <p className="text-lg font-semibold text-white">{match.teamB.name}</p>
               {match.teamB.tag ? (
@@ -210,7 +214,7 @@ export default function MatchesClient() {
                 </p>
               ) : null}
             </div>
-            <div className="flex h-20 w-20 items-center justify-center overflow-hidden">
+            <div className="flex h-16 w-16 items-center justify-center overflow-hidden sm:h-20 sm:w-20">
               {match.teamB.logoUrl ? (
                 <img
                   src={match.teamB.logoUrl}
