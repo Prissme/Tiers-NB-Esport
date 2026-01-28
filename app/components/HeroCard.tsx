@@ -1,30 +1,34 @@
 import CountdownTimer from "./CountdownTimer";
 import Button from "./Button";
+import DiscordIcon from "./DiscordIcon";
 
 export default function HeroCard() {
   return (
     <section className="hero-ironhill dominant-hero">
       <div className="hero-ironhill__layer hero-ironhill__overlay" aria-hidden="true" />
-      <div className="hero-ironhill__content">
-        <div className="space-y-4">
+      <div className="hero-ironhill__content hero-ironhill__content--center">
+        <div className="space-y-5 text-center">
           <p className="hero-kicker">LFN</p>
-          <h1 className="hero-title dominant-title">
-            La ligue francophone compétitive sur Null’s Brawl
+          <h1 className="hero-title hero-title--summit">
+            Atteignez le sommet
           </h1>
           <p className="hero-subtitle">
-            Des matchs officiels, un cadre clair, une scène qui monte.
+            La Ligue Francophone dédiée à{" "}
+            <span className="hero-highlight-violet">Null&apos;s Brawl</span>
           </p>
         </div>
-        <div className="hero-cta">
+        <div className="hero-cta hero-cta--center">
           <Button href="/matchs" variant="primary">
             Regarder les matchs
           </Button>
           <Button href="/inscription" variant="secondary">
-            S&apos;inscrire via Discord
+            <span className="flex items-center gap-2">
+              S&apos;inscrire <DiscordIcon />
+            </span>
           </Button>
         </div>
-        <p className="text-xs uppercase tracking-[0.32em] text-utility">
-          Toutes les inscriptions se font sur Discord.
+        <p className="text-xs uppercase tracking-[0.32em] text-utility text-center">
+          Toutes les inscriptions se font via <DiscordIcon className="ml-2" />
         </p>
         <CountdownTimer />
       </div>

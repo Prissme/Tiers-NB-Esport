@@ -10,9 +10,8 @@ export default function EliteOffer() {
       <div className="absolute inset-0 bg-card-gradient opacity-70" />
       <div className="absolute inset-0 bg-noise opacity-30" />
       <div className="relative z-10 grid items-center gap-10 lg:grid-cols-[1.15fr_0.85fr]">
-        <div className="space-y-6">
+        <div className="space-y-6 font-sekuya">
           <div className="space-y-3">
-            <span className="badge">ELITE</span>
             <h2 className="text-3xl font-semibold tracking-tight text-white sm:text-4xl">
               ELITE — le cercle prestige
             </h2>

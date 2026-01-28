@@ -1,5 +1,9 @@
+"use client";
+
+import { useState } from "react";
 import Link from "next/link";
 import Button from "./Button";
+import DiscordIcon from "./DiscordIcon";
 
 const logoUrl =
   "https://media.discordapp.net/attachments/1434252768633290952/1465789599056920798/image-Photoroom_9.png?ex=697a6271&is=697910f1&hm=e0990ddef7862a837e2984eecdecde04b6417c436bd5e522b7b09b27a346f18e&=&format=webp&quality=lossless&width=692&height=692";
@@ -7,12 +11,15 @@ const logoUrl =
 const INSCRIPTION_PATH = "/inscription";
 
 const navLinks = [
-  { label: "Règles", href: "/reglement" },
+  { label: "Matches", href: "/matchs" },
   { label: "Classement", href: "/classement" },
-  { label: "S’inscrire via Discord", href: INSCRIPTION_PATH },
+  { label: "Programme", href: "/matches" },
+  { label: "Règlement", href: "/reglement" },
 ];
 
 export default function Header() {
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+
   return (
     <header className="relative z-20">
       <div className="header-shell">
@@ -53,15 +60,53 @@ export default function Header() {
               </Link>
             )
           )}
+          <Button href={INSCRIPTION_PATH} variant="secondary" ariaLabel="S'inscrire">
+            <span className="flex items-center gap-2">
+              S&apos;inscrire <DiscordIcon />
+            </span>
+          </Button>
         </nav>
         <div className="md:hidden">
-          <Button
-            href={INSCRIPTION_PATH}
-            variant="secondary"
-            ariaLabel="S'inscrire via Discord à la ligue"
+          <button
+            type="button"
+            className="mobile-menu-toggle"
+            aria-expanded={isMenuOpen}
+            aria-label="Ouvrir le menu"
+            onClick={() => setIsMenuOpen((prev) => !prev)}
           >
-            S&apos;inscrire via Discord
-          </Button>
+            <span className="mobile-menu-bar" />
+            <span className="mobile-menu-bar" />
+            <span className="mobile-menu-bar" />
+          </button>
+        </div>
+      </div>
+      <div className={`mobile-menu-panel ${isMenuOpen ? "is-open" : ""}`}>
+        <div className="mobile-menu-content">
+          {navLinks.map((link) =>
+            link.external ? (
+              <a
+                key={link.href}
+                href={link.href}
+                target="_blank"
+                rel="noreferrer"
+                onClick={() => setIsMenuOpen(false)}
+              >
+                {link.label}
+              </a>
+            ) : (
+              <Link key={link.href} href={link.href} onClick={() => setIsMenuOpen(false)}>
+                {link.label}
+              </Link>
+            )
+          )}
+          <Link
+            href={INSCRIPTION_PATH}
+            className="mobile-discord-button"
+            onClick={() => setIsMenuOpen(false)}
+          >
+            <span>Rejoindre</span>
+            <DiscordIcon />
+          </Link>
         </div>
       </div>
     </header>

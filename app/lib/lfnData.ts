@@ -45,9 +45,9 @@ export const lfnData = {
     time: "21h",
   },
   organization: {
-    communication: "Communication officielle sur Discord",
+    communication: "Communication officielle sur le serveur",
     management: "Gestion manuelle",
-    publication: "Résultats publiés sur Discord + site",
+    publication: "Résultats publiés sur le serveur + site",
     sanctions: ["warns", "forfait", "exclusion"],
     administrationLabel: "Administration LFN",
   },

@@ -81,11 +81,7 @@ export default function HallOfFame() {
               </p>
             </div>
             <div className="mt-10 flex flex-col items-start gap-6">
-              <div className="h-24 w-24 rounded-full bg-white/5 blur-[0.5px]" />
-              <a
-                href={INSCRIPTION_PATH}
-                className="season-signup-button"
-              >
+              <a href={INSCRIPTION_PATH} className="season-signup-button">
                 S&apos;inscrire
               </a>
             </div>
