@@ -127,25 +127,52 @@ export default function MatchesClient() {
         const divisionMatch = divisionFilter === "all" || match.division === divisionFilter;
         return divisionMatch;
       })
+
+    const regular = filtered.filter((match) => match.phase !== "playoffs");
+    const isFinished = (status?: string | null) =>
+      status === "finished" || status === "completed";
+    const getTimestamp = (match: SiteMatch) =>
+      match.scheduledAt ? new Date(match.scheduledAt).getTime() : null;
+
+    const finishedMatches = [...regular]
+      .filter((match) => isFinished(match.status))
       .sort((a, b) => {
-        const aTime = a.scheduledAt ? new Date(a.scheduledAt).getTime() : 0;
-        const bTime = b.scheduledAt ? new Date(b.scheduledAt).getTime() : 0;
+        const aTime = getTimestamp(a) ?? Number.NEGATIVE_INFINITY;
+        const bTime = getTimestamp(b) ?? Number.NEGATIVE_INFINITY;
+        return bTime - aTime;
+      });
+
+    const upcomingMatches = [...regular]
+      .filter((match) => !isFinished(match.status))
+      .sort((a, b) => {
+        const aTime = getTimestamp(a) ?? Number.POSITIVE_INFINITY;
+        const bTime = getTimestamp(b) ?? Number.POSITIVE_INFINITY;
         return aTime - bTime;
       });
 
-    const regular = filtered.filter((match) => match.phase !== "playoffs");
-    const grouped = regular.reduce<Record<string, SiteMatch[]>>((acc, match) => {
-      const label = formatDateLabel(match.scheduledAt, match.dayLabel);
-      if (!acc[label]) acc[label] = [];
-      acc[label].push(match);
-      return acc;
-    }, {});
+    const buildGroups = (list: SiteMatch[]) => {
+      const grouped = new Map<string, SiteMatch[]>();
+      const ordered: string[] = [];
+      list.forEach((match) => {
+        const label = formatDateLabel(match.scheduledAt, match.dayLabel);
+        if (!grouped.has(label)) {
+          grouped.set(label, []);
+          ordered.push(label);
+        }
+        grouped.get(label)?.push(match);
+      });
+      return ordered.map((label) => [label, grouped.get(label) ?? []] as const);
+    };
 
-    return { filteredMatches: regular, groupedMatches: grouped };
+    const sections = [
+      { title: "Matchs terminés", groups: buildGroups(finishedMatches) },
+      { title: "Matchs à venir", groups: buildGroups(upcomingMatches) },
+    ].filter((section) => section.groups.length > 0);
+
+    return { filteredMatches: regular, groupedMatches: sections };
   }, [divisionFilter, matches]);
 
   const renderMatchCard = (match: SiteMatch) => {
-    const dateLabel = formatDateLabel(match.scheduledAt, match.dayLabel);
     const timeLabel = formatMatchTime(match.scheduledAt, match.startTime);
     const teamAInitials = getTeamInitials(match.teamA.name);
     const teamBInitials = getTeamInitials(match.teamB.name);
@@ -155,20 +182,20 @@ export default function MatchesClient() {
         className="group relative overflow-hidden rounded-[14px] bg-slate-950/40 p-6 shadow-[0_20px_60px_-45px_rgba(0,0,0,0.9)] backdrop-blur transition hover:bg-slate-950/50"
       >
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.08),transparent_55%)] opacity-70" />
-        <div className="absolute right-6 top-5 hidden text-right text-[11px] uppercase tracking-[0.3em] text-utility md:block">
-          <p>{dateLabel}</p>
-          {timeLabel ? <p className="mt-1 text-sm font-semibold text-white">{timeLabel}</p> : null}
-        </div>
-        <div className="relative z-10 mb-4 flex flex-wrap items-center gap-2 text-[11px] uppercase tracking-[0.3em] text-utility md:hidden">
-          <span>{dateLabel}</span>
-          {timeLabel ? <span className="text-sm font-semibold text-white">{timeLabel}</span> : null}
-        </div>
         <Link
           href={`/matchs/${match.id}`}
           className="relative z-10 flex flex-col gap-6 md:grid md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] md:items-center"
         >
-          <div className="flex items-center gap-4">
-            <div className="flex h-16 w-16 items-center justify-center overflow-hidden sm:h-20 sm:w-20">
+          <div className="flex items-center justify-between gap-4">
+            <div className="text-left">
+              <p className="text-lg font-semibold text-white">{match.teamA.name}</p>
+              {match.teamA.tag ? (
+                <p className="text-xs uppercase tracking-[0.3em] text-utility">
+                  {match.teamA.tag}
+                </p>
+              ) : null}
+            </div>
+            <div className="flex h-14 w-14 items-center justify-center overflow-hidden sm:h-16 sm:w-16">
               {match.teamA.logoUrl ? (
                 <img
                   src={match.teamA.logoUrl}
@@ -180,20 +207,15 @@ export default function MatchesClient() {
                 <span className="text-sm font-semibold text-utility">{teamAInitials || "?"}</span>
               )}
             </div>
-            <div>
-              <p className="text-lg font-semibold text-white">{match.teamA.name}</p>
-              {match.teamA.tag ? (
-                <p className="text-xs uppercase tracking-[0.3em] text-utility">
-                  {match.teamA.tag}
-                </p>
-              ) : null}
-            </div>
           </div>
 
-          <div className="flex flex-col items-center gap-3 text-center">
+          <div className="flex flex-col items-center gap-2 text-center">
             <p className="text-xs uppercase tracking-[0.3em] text-utility">
               {match.division ?? "Division"}
             </p>
+            {timeLabel ? (
+              <p className="text-2xl font-semibold text-white md:text-3xl">{timeLabel}</p>
+            ) : null}
             {match.scoreA !== null && match.scoreB !== null ? (
               <p className="text-3xl font-semibold text-white">
                 {match.scoreA ?? "-"} <span className="text-utility">-</span>{" "}
@@ -205,16 +227,8 @@ export default function MatchesClient() {
             <StatusBadge status={match.status} />
           </div>
 
-          <div className="flex items-center justify-start gap-4 text-left md:justify-end md:text-right">
-            <div>
-              <p className="text-lg font-semibold text-white">{match.teamB.name}</p>
-              {match.teamB.tag ? (
-                <p className="text-xs uppercase tracking-[0.3em] text-utility">
-                  {match.teamB.tag}
-                </p>
-              ) : null}
-            </div>
-            <div className="flex h-16 w-16 items-center justify-center overflow-hidden sm:h-20 sm:w-20">
+          <div className="flex items-center justify-between gap-4 text-right">
+            <div className="flex h-14 w-14 items-center justify-center overflow-hidden sm:h-16 sm:w-16">
               {match.teamB.logoUrl ? (
                 <img
                   src={match.teamB.logoUrl}
@@ -225,6 +239,14 @@ export default function MatchesClient() {
               ) : (
                 <span className="text-sm font-semibold text-utility">{teamBInitials || "?"}</span>
               )}
+            </div>
+            <div>
+              <p className="text-lg font-semibold text-white">{match.teamB.name}</p>
+              {match.teamB.tag ? (
+                <p className="text-xs uppercase tracking-[0.3em] text-utility">
+                  {match.teamB.tag}
+                </p>
+              ) : null}
             </div>
           </div>
         </Link>
@@ -290,11 +312,20 @@ export default function MatchesClient() {
         </p>
       ) : (
         <div className="space-y-6">
-          {Object.entries(groupedMatches).map(([label, dayMatches]) => (
-            <div key={label} className="space-y-3">
-              <p className="text-xs uppercase tracking-[0.35em] text-utility">{label}</p>
-              <div className="grid gap-3">
-                {dayMatches.map((match) => renderMatchCard(match))}
+          {groupedMatches.map((section) => (
+            <div key={section.title} className="space-y-4">
+              <p className="text-xs uppercase tracking-[0.35em] text-utility">
+                {section.title}
+              </p>
+              <div className="space-y-6">
+                {section.groups.map(([label, dayMatches]) => (
+                  <div key={label} className="space-y-3">
+                    <p className="text-xs uppercase tracking-[0.35em] text-utility">{label}</p>
+                    <div className="grid gap-3">
+                      {dayMatches.map((match) => renderMatchCard(match))}
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
           ))}
