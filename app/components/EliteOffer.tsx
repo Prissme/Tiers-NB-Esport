@@ -2,7 +2,7 @@ import Image from "next/image";
 import Button from "./Button";
 
 const eliteImage =
-  "https://media.discordapp.net/attachments/1434252768633290952/1465811030356660276/df6c60f6-2ffd-4747-917d-4c58e428f4e4.png?ex=697a7667&is=697924e7&hm=c06fe3a84779112d03799b7e1dfd1088c9aae66e23d100967b0b392cac8f6048&=&format=webp&quality=lossless&width=874&height=583";
+  "https://media.discordapp.net/attachments/1434252768633290952/1465811030356660276/df6c60f6-2ffd-4747-917d-4c58e428f4e4.png?ex=697c70a7&is=697b1f27&hm=de9f8541257bf18a86edbb86c4f6b88af9af62b12a8355cd913ae189cf163a15&=&format=webp&quality=lossless&width=874&height=583";
 
 export default function EliteOffer() {
   return (
@@ -13,7 +13,9 @@ export default function EliteOffer() {
         <div className="space-y-6">
           <div className="space-y-3">
             <h2 className="font-sekuya text-[1.4rem] font-semibold tracking-tight text-white sm:text-3xl">
-              ELITE — BEST DEAL
+              <span className="bg-gradient-to-r from-white via-amber-200 to-amber-400 bg-clip-text text-transparent">
+                ELITE — BEST DEAL
+              </span>
             </h2>
             <p className="text-sm text-muted sm:text-base">
               Un accès premium pour vivre la LFN au plus près.
