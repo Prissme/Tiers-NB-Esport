@@ -67,9 +67,14 @@ export default function StandingsClient() {
 
     const load = async () => {
       try {
+        const seasonResponse = await fetch("/api/site/season/current", { cache: "no-store" });
+        const seasonPayload = (await seasonResponse.json()) as { season?: { id?: string } };
+        const seasonId = seasonPayload.season?.id;
+        const query = seasonId ? `?season=${seasonId}` : "";
+
         const [standingsResponse, teamsResponse] = await Promise.all([
-          fetch("/api/site/standings", { cache: "no-store" }),
-          fetch("/api/site/teams", { cache: "no-store" }),
+          fetch(`/api/site/standings${query}`, { cache: "no-store" }),
+          fetch(`/api/site/teams${query}`, { cache: "no-store" }),
         ]);
         const standingsPayload = (await standingsResponse.json()) as {
           standings?: SiteStandingsRow[];
