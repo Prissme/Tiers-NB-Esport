@@ -1,8 +1,7 @@
 import Image from "next/image";
 import Button from "./Button";
 
-const eliteImage =
-  "https://media.discordapp.net/attachments/1434252768633290952/1465811030356660276/df6c60f6-2ffd-4747-917d-4c58e428f4e4.png?ex=697c70a7&is=697b1f27&hm=de9f8541257bf18a86edbb86c4f6b88af9af62b12a8355cd913ae189cf163a15&=&format=webp&quality=lossless&width=874&height=583";
+const eliteImage = "/images/elite-offer.svg";
 
 export default function EliteOffer() {
   return (

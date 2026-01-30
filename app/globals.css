@@ -90,7 +90,7 @@
   --secondary-scale: 1;
   --secondary-opacity: 1;
   --dominant-border: rgba(201, 178, 106, 0.35);
-  --site-background: url("https://media.discordapp.net/attachments/1434252768633290952/1464700481107398800/gigapixel-9871a34b-c08e-47fe-a88f-3df3a66a4d28_1_1_1.png?ex=69766c1f&is=69751a9f&hm=bd1ba5a6e82a46a8f1ca63ae0d50740cc74abcfc5cfaa79368dcb28e15edd53f&=&format=webp&quality=lossless&width=875&height=583");
+  --site-background: url("/images/9871a34b-c08e-47fe-a88f-3df3a66a4d28_1_1_1.webp");
   --hero-image: var(--site-background);
 }
 
