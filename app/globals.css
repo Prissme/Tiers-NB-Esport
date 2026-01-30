@@ -601,10 +601,14 @@ body::after {
 
   .mobile-discord-button {
     @apply flex items-center justify-between gap-2 rounded-full px-4 py-2 text-[11px] uppercase tracking-[0.35em];
-    border: none;
+    border: 1px solid rgba(108, 118, 224, 0.6);
     background: #6c76e0;
     color: #ffffff;
-    box-shadow: none;
+    box-shadow: 0 0 20px rgba(108, 118, 224, 0.4);
+  }
+
+  .mobile-discord-button:hover {
+    background: #7a83ee;
   }
 
   .discord-cta {
@@ -661,17 +665,20 @@ body::after {
   .particle {
     position: absolute;
     border-radius: 9999px;
-    background: radial-gradient(circle, rgba(232, 229, 220, 0.35), rgba(232, 229, 220, 0.05));
-    filter: blur(0.5px);
+    background: radial-gradient(circle, rgba(232, 229, 220, 0.65), rgba(232, 229, 220, 0.12));
+    filter: blur(0.2px);
     animation-name: particle-float;
     animation-timing-function: ease-in-out;
     animation-iteration-count: infinite;
+    mix-blend-mode: screen;
+    box-shadow: 0 0 10px rgba(232, 229, 220, 0.45);
   }
 
   .particle--glow {
-    background: radial-gradient(circle, rgba(201, 178, 106, 0.35), rgba(201, 178, 106, 0.04));
-    filter: blur(1.5px);
+    background: radial-gradient(circle, rgba(201, 178, 106, 0.6), rgba(201, 178, 106, 0.08));
+    filter: blur(1px);
     animation-name: particle-drift;
+    box-shadow: 0 0 18px rgba(201, 178, 106, 0.45);
   }
 
   .feature-card {

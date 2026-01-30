@@ -27,7 +27,7 @@ export default function Footer({ locale }: { locale: Locale }) {
           <div className="flex items-center gap-3 text-white">
             <span className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-2xl bg-white/5">
               <ReloadingImage
-                src="https://media.discordapp.net/attachments/1434252768633290952/1466084863449763903/image-Photoroom_11.png?ex=697e186d&is=697cc6ed&hm=e30de7c3aabc5ab64e71deb5f0eccc4c3beff07ba08b585a6977e3d04389e176&=&format=webp&quality=lossless&width=220&height=219"
+                src="https://media.discordapp.net/attachments/1434252768633290952/1466093575224819904/image-Photoroom_12.png?ex=697e208b&is=697ccf0b&hm=e4e4f3b232300dacbd0adae61a9c2bfcbd044a1e6d3130b152eb67641b42f047&=&format=webp&quality=lossless&width=331&height=325"
                 alt={content.logoAlt}
                 className="h-full w-full object-contain"
                 loading="lazy"
