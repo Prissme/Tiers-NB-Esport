@@ -7,19 +7,22 @@ const hallOfFameEntries = {
       season: "Saison 1",
       winner: "T1",
       date: "26/12/2025",
-      image: "/images/hall-of-fame/season-1.svg",
+      image:
+        "https://media.discordapp.net/attachments/1434252768633290952/1464746362250854531/ChatGPT_Image_24_janv._2026_23_18_25.png?ex=697dd71a&is=697c859a&hm=8a2f41d842ae9dc7351cecba513382189db2c00fed1b5586dc9c94769bbd4951&=&format=webp&quality=lossless&width=607&height=405",
     },
     {
       season: "Saison 2",
       winner: "BT",
       date: "03/01/2026",
-      image: "/images/hall-of-fame/season-2.svg",
+      image:
+        "https://media.discordapp.net/attachments/1434252768633290952/1464746362666221598/ChatGPT_Image_24_janv._2026_23_18_22.png?ex=697dd71a&is=697c859a&hm=8289ef26e9764701ea81cc96c8e4437824efbbd5d8a68e239cc8dd66a81a1821&=&format=webp&quality=lossless&width=607&height=405",
     },
     {
       season: "Saison 3",
       winner: "Brandon & Dylan",
       date: "17/01/2026",
-      image: "/images/hall-of-fame/season-3.svg",
+      image:
+        "https://media.discordapp.net/attachments/1434252768633290952/1464746363072938118/ChatGPT_Image_24_janv._2026_23_18_19.png?ex=697dd71a&is=697c859a&hm=24cff247d8a418e3ac3af10c532f2483e60f7667611eddfb3f8b6d12a46f7bee&=&format=webp&quality=lossless&width=607&height=405",
     },
   ],
   en: [
@@ -27,24 +30,31 @@ const hallOfFameEntries = {
       season: "Season 1",
       winner: "T1",
       date: "12/26/2025",
-      image: "/images/hall-of-fame/season-1.svg",
+      image:
+        "https://media.discordapp.net/attachments/1434252768633290952/1464746362250854531/ChatGPT_Image_24_janv._2026_23_18_25.png?ex=697dd71a&is=697c859a&hm=8a2f41d842ae9dc7351cecba513382189db2c00fed1b5586dc9c94769bbd4951&=&format=webp&quality=lossless&width=607&height=405",
     },
     {
       season: "Season 2",
       winner: "BT",
       date: "01/03/2026",
-      image: "/images/hall-of-fame/season-2.svg",
+      image:
+        "https://media.discordapp.net/attachments/1434252768633290952/1464746362666221598/ChatGPT_Image_24_janv._2026_23_18_22.png?ex=697dd71a&is=697c859a&hm=8289ef26e9764701ea81cc96c8e4437824efbbd5d8a68e239cc8dd66a81a1821&=&format=webp&quality=lossless&width=607&height=405",
     },
     {
       season: "Season 3",
       winner: "Brandon & Dylan",
       date: "01/17/2026",
-      image: "/images/hall-of-fame/season-3.svg",
+      image:
+        "https://media.discordapp.net/attachments/1434252768633290952/1464746363072938118/ChatGPT_Image_24_janv._2026_23_18_19.png?ex=697dd71a&is=697c859a&hm=24cff247d8a418e3ac3af10c532f2483e60f7667611eddfb3f8b6d12a46f7bee&=&format=webp&quality=lossless&width=607&height=405",
     },
   ],
 };
 
 const INSCRIPTION_PATH = "/inscription";
+const HALL_EMBLEM_URL =
+  "https://media.discordapp.net/attachments/1434252768633290952/1466084863449763903/image-Photoroom_11.png?ex=697e186d&is=697cc6ed&hm=e30de7c3aabc5ab64e71deb5f0eccc4c3beff07ba08b585a6977e3d04389e176&=&format=webp&quality=lossless&width=220&height=219";
+const SIGNUP_EMBLEM_URL =
+  "https://media.discordapp.net/attachments/1434252768633290952/1466080774112542762/image-Photoroom_10.png?ex=697e149f&is=697cc31f&hm=ac7bbb921eb8b3538106cccf9dadb1bdac9190853a30407559cf7e8eb53a80ff&=&format=webp&quality=lossless&width=236&height=236";
 
 const copy = {
   fr: {
@@ -100,7 +110,7 @@ export default function HallOfFame({ locale }: { locale: Locale }) {
               </div>
               <div className="absolute inset-0 bg-gradient-to-t from-[#05070f] via-transparent to-transparent opacity-80" />
               <ReloadingImage
-                src="https://media.discordapp.net/attachments/1434252768633290952/1466080774112542762/image-Photoroom_10.png?ex=697e149f&is=697cc31f&hm=ac7bbb921eb8b3538106cccf9dadb1bdac9190853a30407559cf7e8eb53a80ff&=&format=webp&quality=lossless&width=236&height=236"
+                src={HALL_EMBLEM_URL}
                 alt=""
                 className="hall-of-fame-emblem"
                 loading="lazy"
@@ -128,7 +138,13 @@ export default function HallOfFame({ locale }: { locale: Locale }) {
             </div>
             <div className="mt-10 flex flex-col items-start gap-6">
               <a href={INSCRIPTION_PATH} className="season-signup-button">
-                {content.signup}
+                <span>{content.signup}</span>
+                <ReloadingImage
+                  src={SIGNUP_EMBLEM_URL}
+                  alt=""
+                  className="season-signup-button__icon"
+                  loading="lazy"
+                />
               </a>
             </div>
           </article>

@@ -271,7 +271,7 @@ body::after {
   }
 
   .season-signup-button {
-    @apply inline-flex items-center justify-center rounded-full px-7 py-2 text-sm font-semibold uppercase tracking-[0.35em] text-white;
+    @apply inline-flex items-center justify-center gap-3 rounded-full px-7 py-2 text-sm font-semibold uppercase tracking-[0.35em] text-white;
     background: #6c76e0;
     border: 1px solid rgba(108, 118, 224, 0.6);
     box-shadow:
@@ -284,6 +284,12 @@ body::after {
       0 0 30px rgba(108, 118, 224, 0.45),
       inset 0 0 18px rgba(0, 0, 0, 0.35);
     transform: translateY(-1px);
+  }
+
+  .season-signup-button__icon {
+    width: 1.75rem;
+    height: 1.75rem;
+    filter: drop-shadow(0 0 10px rgba(201, 178, 106, 0.55));
   }
 
   .hero-cta {
