@@ -45,6 +45,9 @@ const DEFAULT_MATCH_BEST_OF = normalizeBestOfInput(process.env.DEFAULT_MATCH_BES
 const MAX_QUEUE_ELO_DIFFERENCE = 175;
 const PL_QUEUE_CHANNEL_ID = '1442580781527732334';
 const PL_MATCH_TIMEOUT_MS = 20 * 60 * 1000;
+const SIMPLE_LOBBY_CHANNEL_ID = process.env.SIMPLE_LOBBY_CHANNEL_ID;
+const SIMPLE_LOBBY_SIZE = Number.parseInt(process.env.SIMPLE_LOBBY_SIZE || '6', 10);
+const SIMPLE_LOBBY_TEAM_SIZE = Number.parseInt(process.env.SIMPLE_LOBBY_TEAM_SIZE || '3', 10);
 const PRISSCUP_ANNOUNCE_CHANNEL_ID = '1440767483438170264';
 const PRISSCUP_EVENT_URL = 'https://discord.gg/aeqGMNvTm?event=1442798624588435517';
 const PRISSCUP_EVENT_NAME = 'PrissCup 3v3';
@@ -150,6 +153,7 @@ const prisscupData = {
   messageIdByGuild: {}
 };
 const draftSessions = new Map();
+const simpleLobbyQueues = new Map();
 
 function computeTierBoundaries(totalPlayers) {
   if (!totalPlayers || totalPlayers <= 0) {
@@ -206,6 +210,41 @@ function getTierByRank(rank, boundaries) {
   }
 
   return null;
+}
+
+function isSimpleLobbyChannel(message) {
+  return Boolean(SIMPLE_LOBBY_CHANNEL_ID && message.channelId === SIMPLE_LOBBY_CHANNEL_ID);
+}
+
+function getSimpleLobbyTeamSize() {
+  if (SIMPLE_LOBBY_TEAM_SIZE * 2 === SIMPLE_LOBBY_SIZE) {
+    return SIMPLE_LOBBY_TEAM_SIZE;
+  }
+
+  return Math.floor(SIMPLE_LOBBY_SIZE / 2);
+}
+
+function getSimpleLobbyQueue(guildId) {
+  if (!guildId) {
+    return [];
+  }
+
+  if (!simpleLobbyQueues.has(guildId)) {
+    simpleLobbyQueues.set(guildId, []);
+  }
+
+  return simpleLobbyQueues.get(guildId);
+}
+
+function shufflePlayers(players) {
+  const shuffled = [...players];
+
+  for (let index = shuffled.length - 1; index > 0; index -= 1) {
+    const swapIndex = Math.floor(Math.random() * (index + 1));
+    [shuffled[index], shuffled[swapIndex]] = [shuffled[swapIndex], shuffled[index]];
+  }
+
+  return shuffled;
 }
 
 function getVotesRequired(state = null) {
@@ -1922,8 +1961,91 @@ async function handlePLLeaveCommand(message) {
   }
 }
 
+async function handleSimpleLobbyJoin(message) {
+  if (!message.guild) {
+    return;
+  }
+
+  if (!SIMPLE_LOBBY_CHANNEL_ID) {
+    return;
+  }
+
+  const queue = getSimpleLobbyQueue(message.guild.id);
+  const memberId = message.author.id;
+
+  if (queue.includes(memberId)) {
+    await message.reply({
+      content: `✅ <@${memberId}> est déjà dans le lobby (${queue.length}/${SIMPLE_LOBBY_SIZE}).`,
+      allowedMentions: { repliedUser: false }
+    });
+    return;
+  }
+
+  if (queue.length >= SIMPLE_LOBBY_SIZE) {
+    queue.length = 0;
+  }
+
+  queue.push(memberId);
+
+  if (queue.length < SIMPLE_LOBBY_SIZE) {
+    await message.reply({
+      content: `✅ <@${memberId}> a rejoint le lobby (${queue.length}/${SIMPLE_LOBBY_SIZE}).`,
+      allowedMentions: { repliedUser: false }
+    });
+    return;
+  }
+
+  const teamSize = getSimpleLobbyTeamSize();
+  const shuffled = shufflePlayers(queue);
+  const teamOne = shuffled.slice(0, teamSize);
+  const teamTwo = shuffled.slice(teamSize, teamSize * 2);
+
+  queue.length = 0;
+
+  await message.channel.send({
+    content: [
+      '🎮 Lobby prêt !',
+      `Équipe 1 (${teamOne.length}) : ${teamOne.map((id) => `<@${id}>`).join(' ')}`,
+      `Équipe 2 (${teamTwo.length}) : ${teamTwo.map((id) => `<@${id}>`).join(' ')}`
+    ].join('\n')
+  });
+}
+
+async function handleSimpleLobbyLeave(message) {
+  if (!message.guild) {
+    return;
+  }
+
+  if (!SIMPLE_LOBBY_CHANNEL_ID) {
+    return;
+  }
+
+  const queue = getSimpleLobbyQueue(message.guild.id);
+  const memberId = message.author.id;
+  const index = queue.indexOf(memberId);
+
+  if (index === -1) {
+    await message.reply({
+      content: "❌ Tu n'es pas dans le lobby.",
+      allowedMentions: { repliedUser: false }
+    });
+    return;
+  }
+
+  queue.splice(index, 1);
+  await message.reply({
+    content: `🚪 <@${memberId}> a quitté le lobby (${queue.length}/${SIMPLE_LOBBY_SIZE}).`,
+    allowedMentions: { repliedUser: false }
+  });
+}
+
 async function handleJoinCommand(message, args) {
   if (message.guild?.id === DISCORD_GUILD_ID) {
+    if (isSimpleLobbyChannel(message)) {
+      await handleSimpleLobbyJoin(message);
+      return;
+    }
+
     await ensureRuntimePlQueueLoaded(message.guild.id);
 
     if (!plQueueChannel) {
@@ -2115,6 +2237,11 @@ async function handleLeaveCommand(message) {
   const memberId = message.author.id;
 
   if (message.guild?.id === DISCORD_GUILD_ID) {
+    if (isSimpleLobbyChannel(message)) {
+      await handleSimpleLobbyLeave(message);
+      return;
+    }
+
     if (message.channelId === PL_QUEUE_CHANNEL_ID) {
       await handlePLLeaveCommand(message);
       return;
@@ -3387,6 +3514,9 @@ async function handleHelpCommand(message) {
     currentLanguage === LANGUAGE_EN
       ? [
           '`!join [@leader]` — Join the matchmaking queue or a mentioned leader\'s room',
+          ...(SIMPLE_LOBBY_CHANNEL_ID
+            ? ['`!join` — Join the quick lobby (starts at 6 players, auto-splits teams)']
+            : []),
           '`!leave` — Leave the queue',
           '`!room` — View the custom room you joined',
           '`!roomleave` — Leave your custom room',
@@ -3405,6 +3535,9 @@ async function handleHelpCommand(message) {
         ]
       : [
           '`!join [@chef]` — Rejoindre la file de matchmaking ou la room du joueur mentionné',
+          ...(SIMPLE_LOBBY_CHANNEL_ID
+            ? ['`!join` — Rejoindre le lobby rapide (démarre à 6 joueurs, équipes auto)']
+            : []),
           '`!leave` — Quitter la file d\'attente',
           '`!room` — Voir la room personnalisée que tu as rejointe',
           '`!roomleave` — Quitter ta room personnalisée',
