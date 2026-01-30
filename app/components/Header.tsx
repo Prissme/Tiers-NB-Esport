@@ -4,35 +4,62 @@ import { useState } from "react";
 import Link from "next/link";
 import Button from "./Button";
 import DiscordIcon from "./DiscordIcon";
+import LanguageSwitcher from "./LanguageSwitcher";
+import type { Locale } from "../lib/i18n";
+import ReloadingImage from "./ReloadingImage";
 
 const logoUrl = "/images/lfn-logo.svg";
 
 const INSCRIPTION_PATH = "/inscription";
 
-const navLinks = [
-  { label: "Matches", href: "/matchs" },
-  { label: "Classement", href: "/classement" },
-  { label: "Règlement", href: "/reglement" },
-];
+const navLinks = {
+  fr: [
+    { label: "Matchs", href: "/matchs" },
+    { label: "Classement", href: "/classement" },
+    { label: "Règlement", href: "/reglement" },
+  ],
+  en: [
+    { label: "Matches", href: "/matchs" },
+    { label: "Standings", href: "/classement" },
+    { label: "Rules", href: "/reglement" },
+  ],
+};
 
-export default function Header() {
+const copy = {
+  fr: {
+    logoAlt: "Logo LFN",
+    signup: "S'inscrire",
+    join: "Rejoindre",
+    openMenu: "Ouvrir le menu",
+  },
+  en: {
+    logoAlt: "LFN logo",
+    signup: "Sign up",
+    join: "Join",
+    openMenu: "Open menu",
+  },
+};
+
+export default function Header({ locale }: { locale: Locale }) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const content = copy[locale];
+  const links = navLinks[locale];
 
   return (
     <header className="relative z-20">
       <div className="header-shell">
         <Link href="/" className="flex items-center gap-3 text-[color:var(--color-text)]">
           <span className="flex h-11 w-11 items-center justify-center overflow-hidden">
-            <img
+            <ReloadingImage
               src={logoUrl}
-              alt="Logo LFN"
+              alt={content.logoAlt}
               className="h-full w-full object-contain"
               loading="lazy"
             />
           </span>
         </Link>
         <nav className="hidden items-center gap-6 md:flex">
-          {navLinks.map((link) =>
+          {links.map((link) =>
             link.external ? (
               <a
                 key={link.href}
@@ -56,20 +83,21 @@ export default function Header() {
           <Button
             href={INSCRIPTION_PATH}
             variant="secondary"
-            ariaLabel="S'inscrire"
+            ariaLabel={content.signup}
             className="discord-cta"
           >
             <span className="flex items-center gap-2">
-              S&apos;inscrire <DiscordIcon />
+              {content.signup} <DiscordIcon />
             </span>
           </Button>
+          <LanguageSwitcher locale={locale} />
         </nav>
         <div className="md:hidden">
           <button
             type="button"
             className="mobile-menu-toggle"
             aria-expanded={isMenuOpen}
-            aria-label="Ouvrir le menu"
+            aria-label={content.openMenu}
             onClick={() => setIsMenuOpen((prev) => !prev)}
           >
             <span className="mobile-menu-bar" />
@@ -80,7 +108,7 @@ export default function Header() {
       </div>
       <div className={`mobile-menu-panel ${isMenuOpen ? "is-open" : ""}`}>
         <div className="mobile-menu-content">
-          {navLinks.map((link) =>
+          {links.map((link) =>
             link.external ? (
               <a
                 key={link.href}
@@ -102,9 +130,10 @@ export default function Header() {
             className="mobile-discord-button"
             onClick={() => setIsMenuOpen(false)}
           >
-            <span>Rejoindre</span>
+            <span>{content.join}</span>
             <DiscordIcon />
           </Link>
+          <LanguageSwitcher locale={locale} />
         </div>
       </div>
     </header>

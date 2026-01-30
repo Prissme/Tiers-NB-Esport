@@ -1,9 +1,38 @@
 import Image from "next/image";
 import Button from "./Button";
+import type { Locale } from "../lib/i18n";
 
 const eliteImage = "/images/elite-offer.svg";
 
-export default function EliteOffer() {
+const copy = {
+  fr: {
+    title: "ELITE — BEST DEAL",
+    description: "Un accès premium pour vivre la LFN au plus près.",
+    perks: [
+      "Coaching hebdomadaire (vendredi)",
+      "Accès en entractes pendant les casts",
+      "Votes des MAPS & du MVP",
+    ],
+    cta: "Rejoindre ELITE — 4,99€/mois",
+    note: "Accès réservé aux membres engagés.",
+    imageAlt: "Visuel ELITE — best deal",
+  },
+  en: {
+    title: "ELITE — BEST DEAL",
+    description: "Premium access to experience LFN from up close.",
+    perks: [
+      "Weekly coaching (Friday)",
+      "Intermission access during casts",
+      "MAPS & MVP voting rights",
+    ],
+    cta: "Join ELITE — €4.99/month",
+    note: "Access reserved for committed members.",
+    imageAlt: "ELITE — best deal visual",
+  },
+};
+
+export default function EliteOffer({ locale }: { locale: Locale }) {
+  const content = copy[locale];
   return (
     <section className="surface-dominant relative overflow-hidden bg-[#0b0f1a]/85 px-6 py-10 shadow-[0_30px_80px_-60px_rgba(8,12,22,0.9)] backdrop-blur-[20px] sm:px-10">
       <div className="absolute inset-0 bg-card-gradient opacity-70" />
@@ -13,39 +42,29 @@ export default function EliteOffer() {
           <div className="space-y-3">
             <h2 className="font-sekuya text-[1.4rem] font-semibold tracking-tight text-white sm:text-3xl">
               <span className="bg-gradient-to-r from-white via-amber-200 to-amber-400 bg-clip-text text-transparent">
-                ELITE — BEST DEAL
+                {content.title}
               </span>
             </h2>
             <p className="text-sm text-muted sm:text-base">
-              Un accès premium pour vivre la LFN au plus près.
+              {content.description}
             </p>
           </div>
           <ul className="space-y-3 text-sm text-slate-200 sm:text-base">
-            <li className="flex items-start gap-3">
-              <span className="text-base text-utility" aria-hidden="true">
-                •
-              </span>
-              Coaching hebdomadaire (vendredi)
-            </li>
-            <li className="flex items-start gap-3">
-              <span className="text-base text-utility" aria-hidden="true">
-                •
-              </span>
-              Accès en entractes pendant les casts
-            </li>
-            <li className="flex items-start gap-3">
-              <span className="text-base text-utility" aria-hidden="true">
-                •
-              </span>
-              Votes des MAPS &amp; du MVP
-            </li>
+            {content.perks.map((perk) => (
+              <li key={perk} className="flex items-start gap-3">
+                <span className="text-base text-utility" aria-hidden="true">
+                  •
+                </span>
+                {perk}
+              </li>
+            ))}
           </ul>
           <div className="space-y-3">
             <Button href="https://ko-fi.com/prissme" variant="primary" external>
-              Rejoindre ELITE — 4,99€/mois
+              {content.cta}
             </Button>
             <p className="text-xs uppercase tracking-[0.24em] text-utility">
-              Accès réservé aux membres engagés.
+              {content.note}
             </p>
           </div>
         </div>
@@ -54,7 +73,7 @@ export default function EliteOffer() {
           <div className="relative z-10 aspect-[4/3] w-full sm:aspect-[16/10] lg:aspect-auto lg:h-full">
             <Image
               src={eliteImage}
-              alt="Visuel ELITE — best deal"
+              alt={content.imageAlt}
               width={874}
               height={583}
               className="h-full w-full object-cover saturate-[0.9]"

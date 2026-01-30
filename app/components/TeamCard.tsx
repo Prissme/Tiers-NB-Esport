@@ -1,5 +1,7 @@
 import Link from "next/link";
 import type { SiteTeam } from "../lib/site-types";
+import type { Locale } from "../lib/i18n";
+import ReloadingImage from "./ReloadingImage";
 
 const getInitials = (name: string) =>
   name
@@ -10,16 +12,26 @@ const getInitials = (name: string) =>
     .slice(0, 2)
     .toUpperCase();
 
-export default function TeamCard({ team }: { team: SiteTeam }) {
+const copy = {
+  fr: {
+    logoAlt: (name: string) => `Logo ${name}`,
+  },
+  en: {
+    logoAlt: (name: string) => `${name} logo`,
+  },
+};
+
+export default function TeamCard({ team, locale }: { team: SiteTeam; locale: Locale }) {
+  const content = copy[locale];
   return (
     <Link
       href={`/equipes/${team.id}`}
       className="group flex items-center gap-4 rounded-[12px] bg-white/[0.04] px-5 py-4 transition hover:-translate-y-0.5 hover:bg-white/[0.08] animate-in"
     >
       {team.logoUrl ? (
-        <img
+        <ReloadingImage
           src={team.logoUrl}
-          alt={`Logo ${team.name}`}
+          alt={content.logoAlt(team.name)}
           className="h-12 w-12 rounded-[10px] object-cover"
           loading="lazy"
         />

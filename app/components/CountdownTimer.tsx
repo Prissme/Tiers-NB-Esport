@@ -1,10 +1,14 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import type { Locale } from "../lib/i18n";
 
 const TARGETS = [
   {
-    label: "LFN Day 2",
+    label: {
+      fr: "LFN Jour 2",
+      en: "LFN Day 2",
+    },
     timestamp: new Date("2026-01-31T19:00:00+01:00").getTime(),
   },
 ] as const;
@@ -46,20 +50,26 @@ const CountdownBlock = ({
   title,
   dateLabel,
   target,
+  locale,
 }: {
   title: string;
   dateLabel?: string;
   target: number;
+  locale: Locale;
 }) => {
   const remaining = useCountdown(target);
+  const labels =
+    locale === "en"
+      ? ["Days", "Hours", "Minutes", "Seconds"]
+      : ["Jours", "Heures", "Minutes", "Secondes"];
   const items = useMemo(
     () => [
-      { label: "Jours", value: remaining.days },
-      { label: "Heures", value: remaining.hours },
-      { label: "Minutes", value: remaining.minutes },
-      { label: "Secondes", value: remaining.seconds },
+      { label: labels[0], value: remaining.days },
+      { label: labels[1], value: remaining.hours },
+      { label: labels[2], value: remaining.minutes },
+      { label: labels[3], value: remaining.seconds },
     ],
-    [remaining]
+    [labels, remaining]
   );
 
   return (
@@ -86,15 +96,16 @@ const CountdownBlock = ({
   );
 };
 
-export default function CountdownTimer() {
+export default function CountdownTimer({ locale }: { locale: Locale }) {
   return (
     <div className="mt-6 space-y-6">
       {TARGETS.map((target) => (
         <CountdownBlock
-          key={target.label}
-          title={target.label}
+          key={target.label[locale]}
+          title={target.label[locale]}
           dateLabel={target.dateLabel}
           target={target.timestamp}
+          locale={locale}
         />
       ))}
     </div>

@@ -21,6 +21,16 @@ const particles = [
   { left: "94%", top: "32%", size: 2, delay: "6s", duration: "17s", opacity: 0.33 },
 ];
 
+const glowParticles = [
+  { left: "14%", top: "22%", size: 6, delay: "1s", duration: "22s", opacity: 0.25 },
+  { left: "26%", top: "58%", size: 8, delay: "4s", duration: "26s", opacity: 0.22 },
+  { left: "38%", top: "40%", size: 7, delay: "2s", duration: "24s", opacity: 0.28 },
+  { left: "58%", top: "18%", size: 9, delay: "6s", duration: "28s", opacity: 0.2 },
+  { left: "72%", top: "62%", size: 7, delay: "3s", duration: "25s", opacity: 0.26 },
+  { left: "86%", top: "30%", size: 6, delay: "5s", duration: "23s", opacity: 0.24 },
+  { left: "10%", top: "78%", size: 8, delay: "7s", duration: "27s", opacity: 0.2 },
+];
+
 export default function BackgroundFX() {
   return (
     <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
@@ -40,6 +50,21 @@ export default function BackgroundFX() {
           <span
             key={`particle-${index}`}
             className="particle"
+            style={{
+              left: particle.left,
+              top: particle.top,
+              width: particle.size,
+              height: particle.size,
+              animationDelay: particle.delay,
+              animationDuration: particle.duration,
+              opacity: particle.opacity,
+            }}
+          />
+        ))}
+        {glowParticles.map((particle, index) => (
+          <span
+            key={`particle-glow-${index}`}
+            className="particle particle--glow"
             style={{
               left: particle.left,
               top: particle.top,

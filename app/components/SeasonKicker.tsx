@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { SiteSeason } from "../lib/site-types";
+import type { Locale } from "../lib/i18n";
 
 const fallbackSeason: SiteSeason = {
   id: "fallback",
@@ -11,12 +12,24 @@ const fallbackSeason: SiteSeason = {
   status: "active",
 };
 
-const formatSeasonLabel = (season: SiteSeason | null) => {
-  if (!season) return "Saison en cours";
-  return `${season.name} — ${season.status === "active" ? "Saison active" : "Saison"}`;
+const formatSeasonLabel = (season: SiteSeason | null, locale: Locale) => {
+  const copy = {
+    fr: {
+      current: "Saison en cours",
+      active: "Saison active",
+      season: "Saison",
+    },
+    en: {
+      current: "Current season",
+      active: "Active season",
+      season: "Season",
+    },
+  }[locale];
+  if (!season) return copy.current;
+  return `${season.name} — ${season.status === "active" ? copy.active : copy.season}`;
 };
 
-export default function SeasonKicker() {
+export default function SeasonKicker({ locale }: { locale: Locale }) {
   const [season, setSeason] = useState<SiteSeason | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -54,7 +67,7 @@ export default function SeasonKicker() {
 
   return (
     <p className="text-xs font-semibold uppercase tracking-[0.4em] text-utility">
-      {formatSeasonLabel(season)}
+      {formatSeasonLabel(season, locale)}
     </p>
   );
 }

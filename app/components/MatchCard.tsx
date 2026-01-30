@@ -1,12 +1,14 @@
 import Link from "next/link";
 import type { SiteMatch } from "../lib/site-types";
 import StatusBadge from "./StatusBadge";
+import type { Locale } from "../lib/i18n";
 
-const formatMatchDate = (dateISO: string | null) => {
+const formatMatchDate = (dateISO: string | null, locale: Locale) => {
   if (!dateISO) return "—";
   const date = new Date(dateISO);
   if (Number.isNaN(date.getTime())) return dateISO;
-  return date.toLocaleDateString("fr-FR", {
+  const dateLocale = locale === "en" ? "en-US" : "fr-FR";
+  return date.toLocaleDateString(dateLocale, {
     weekday: "short",
     day: "2-digit",
     month: "short",
@@ -22,9 +24,24 @@ const formatMatchTime = (dateISO: string | null, startTime?: string | null) => {
 
 type MatchCardProps = {
   match: SiteMatch;
+  locale: Locale;
 };
 
-export default function MatchCard({ match }: MatchCardProps) {
+const copy = {
+  fr: {
+    season: "Saison",
+    playoffs: "Playoffs",
+    score: "Score",
+  },
+  en: {
+    season: "Season",
+    playoffs: "Playoffs",
+    score: "Score",
+  },
+};
+
+export default function MatchCard({ match, locale }: MatchCardProps) {
+  const content = copy[locale];
   return (
     <Link
       href={`/matchs/${match.id}`}
@@ -37,20 +54,21 @@ export default function MatchCard({ match }: MatchCardProps) {
             {match.teamA.name} <span className="text-utility">vs</span> {match.teamB.name}
           </p>
         </div>
-        <StatusBadge status={match.status} />
+        <StatusBadge status={match.status} locale={locale} />
       </div>
       <div className="flex flex-wrap items-center gap-3 text-xs text-muted">
         <span className="rounded-full bg-white/10 px-3 py-1">
-          {formatMatchDate(match.scheduledAt)} · {formatMatchTime(match.scheduledAt, match.startTime)}
+          {formatMatchDate(match.scheduledAt, locale)} ·{" "}
+          {formatMatchTime(match.scheduledAt, match.startTime)}
         </span>
         {match.phase ? (
           <span className="rounded-full bg-white/10 px-3 py-1 uppercase tracking-[0.3em]">
-            {match.phase === "playoffs" ? "Playoffs" : "Saison"}
+            {match.phase === "playoffs" ? content.playoffs : content.season}
           </span>
         ) : null}
         {match.scoreA !== null && match.scoreB !== null ? (
           <span className="rounded-full bg-white/10 px-3 py-1 text-slate-200">
-            Score {match.scoreA ?? "-"} - {match.scoreB ?? "-"}
+            {content.score} {match.scoreA ?? "-"} - {match.scoreB ?? "-"}
           </span>
         ) : null}
       </div>

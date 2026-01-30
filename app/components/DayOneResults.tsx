@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import type { MatchGroup, SiteMatch } from "../lib/site-types";
 import { matches as fallbackMatches, teams as fallbackTeams } from "../../src/data";
+import type { Locale } from "../lib/i18n";
 
 const formatScoreLine = (scoreA?: number | null, scoreB?: number | null) => {
   if (typeof scoreA !== "number" || typeof scoreB !== "number") return "—";
@@ -49,7 +50,21 @@ const mapFallbackMatches = (): SiteMatch[] => {
 const flattenGroups = (groups: MatchGroup[]): SiteMatch[] =>
   groups.flatMap((group) => group.matches);
 
-export default function DayOneResults() {
+const copy = {
+  fr: {
+    results: "Résultats",
+    title: "Résultats — Jour 1",
+    empty: "Aucun résultat disponible.",
+  },
+  en: {
+    results: "Results",
+    title: "Results — Day 1",
+    empty: "No results available.",
+  },
+};
+
+export default function DayOneResults({ locale }: { locale: Locale }) {
+  const content = copy[locale];
   const [matches, setMatches] = useState<SiteMatch[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -109,12 +124,12 @@ export default function DayOneResults() {
   return (
     <section className="section-card space-y-6">
       <div className="space-y-2">
-        <p className="badge">Résultats</p>
-        <h2 className="text-2xl font-semibold text-white">Résultats — Jour 1</h2>
+        <p className="badge">{content.results}</p>
+        <h2 className="text-2xl font-semibold text-white">{content.title}</h2>
       </div>
 
       {dayOneResults.length === 0 ? (
-        <p className="text-sm text-muted">Aucun résultat disponible.</p>
+        <p className="text-sm text-muted">{content.empty}</p>
       ) : (
         <div className="grid gap-3">
           {dayOneResults.map((match) => (

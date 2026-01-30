@@ -4,18 +4,21 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import SectionHeader from "../../components/SectionHeader";
 import type { MatchGroup, SiteMatch } from "../../lib/site-types";
+import type { Locale } from "../../lib/i18n";
 
 type MatchDetailClientProps = {
   matchId: string;
+  locale: Locale;
 };
 
 const flattenGroups = (groups: MatchGroup[]) => groups.flatMap((group) => group.matches);
 
-const formatDate = (value: string | null) => {
-  if (!value) return "À confirmer";
+const formatDate = (value: string | null, locale: Locale) => {
+  if (!value) return locale === "en" ? "To be confirmed" : "À confirmer";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleDateString("fr-FR", {
+  const dateLocale = locale === "en" ? "en-US" : "fr-FR";
+  return date.toLocaleDateString(dateLocale, {
     weekday: "long",
     day: "2-digit",
     month: "long",
@@ -31,7 +34,56 @@ const formatTime = (value: string | null) => {
   return value.slice(0, 5);
 };
 
-export default function MatchDetailClient({ matchId }: MatchDetailClientProps) {
+const statusLabels: Record<Locale, Record<string, string>> = {
+  fr: {
+    scheduled: "À venir",
+    live: "En direct",
+    finished: "Terminé",
+  },
+  en: {
+    scheduled: "Upcoming",
+    live: "Live",
+    finished: "Finished",
+  },
+};
+
+const copy = {
+  fr: {
+    kicker: "Match",
+    unavailableTitle: "Détails indisponibles",
+    unavailableDescription: "Ce match n'est pas accessible pour le moment.",
+    attachmentsKicker: "Pièces jointes",
+    attachmentsTitle: "Documents liés au match",
+    attachmentsDescription: "Retrouvez les pièces jointes ajoutées par l'admin.",
+    noAttachments: "Aucune pièce jointe disponible.",
+    attachmentLabel: "Pièce jointe",
+    scheduleKicker: "Programme",
+    scheduleTitle: "Consulter le planning",
+    scheduleDescription: "Horaires fixes par journée.",
+    scheduleCta: "Voir le calendrier",
+    scoreLabel: "Score",
+    divisionFallback: "Division",
+  },
+  en: {
+    kicker: "Match",
+    unavailableTitle: "Details unavailable",
+    unavailableDescription: "This match is not accessible right now.",
+    attachmentsKicker: "Attachments",
+    attachmentsTitle: "Match documents",
+    attachmentsDescription: "Find the attachments added by the admin.",
+    noAttachments: "No attachments available.",
+    attachmentLabel: "Attachment",
+    scheduleKicker: "Schedule",
+    scheduleTitle: "View the schedule",
+    scheduleDescription: "Fixed times by matchday.",
+    scheduleCta: "See the calendar",
+    scoreLabel: "Score",
+    divisionFallback: "Division",
+  },
+};
+
+export default function MatchDetailClient({ matchId, locale }: MatchDetailClientProps) {
+  const content = copy[locale];
   const [match, setMatch] = useState<SiteMatch | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -80,9 +132,9 @@ export default function MatchDetailClient({ matchId }: MatchDetailClientProps) {
     return (
       <section className="surface-dominant space-y-4">
         <SectionHeader
-          kicker="Match"
-          title="Détails indisponibles"
-          description="Ce match n'est pas accessible pour le moment."
+          kicker={content.kicker}
+          title={content.unavailableTitle}
+          description={content.unavailableDescription}
         />
       </section>
     );
@@ -95,19 +147,20 @@ export default function MatchDetailClient({ matchId }: MatchDetailClientProps) {
       <section className="surface-dominant">
         <div className="relative z-10 space-y-6">
           <SectionHeader
-            kicker="Match"
+            kicker={content.kicker}
             title={`${match.teamA.name} vs ${match.teamB.name}`}
-            description={`${match.division ?? "Division"} · ${formatDate(match.scheduledAt)}${
-              timeLabel ? ` · ${timeLabel}` : ""
-            }`}
+            description={`${match.division ?? content.divisionFallback} · ${formatDate(
+              match.scheduledAt,
+              locale
+            )}${timeLabel ? ` · ${timeLabel}` : ""}`}
           />
           <div className="flex flex-wrap items-center gap-4 text-sm text-slate-200">
             <span className="rounded-full bg-white/10 px-4 py-2 uppercase tracking-[0.3em] text-xs text-utility">
-              {match.status}
+              {statusLabels[locale][match.status] ?? match.status}
             </span>
             {match.scoreA !== null && match.scoreB !== null ? (
               <span className="rounded-full bg-white/10 px-4 py-2 text-base font-semibold text-white">
-                Score {match.scoreA} - {match.scoreB}
+                {content.scoreLabel} {match.scoreA} - {match.scoreB}
               </span>
             ) : null}
           </div>
@@ -116,12 +169,12 @@ export default function MatchDetailClient({ matchId }: MatchDetailClientProps) {
 
       <section className="section-card space-y-4">
         <SectionHeader
-          kicker="Pièces jointes"
-          title="Documents liés au match"
-          description="Retrouvez les pièces jointes ajoutées par l'admin."
+          kicker={content.attachmentsKicker}
+          title={content.attachmentsTitle}
+          description={content.attachmentsDescription}
         />
         {attachments.length === 0 ? (
-          <p className="text-sm text-muted">Aucune pièce jointe disponible.</p>
+          <p className="text-sm text-muted">{content.noAttachments}</p>
         ) : (
           <ul className="space-y-2 text-sm text-slate-200">
             {attachments.map((item, index) => (
@@ -132,7 +185,7 @@ export default function MatchDetailClient({ matchId }: MatchDetailClientProps) {
                   rel="noreferrer"
                   className="inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-2 text-xs uppercase tracking-[0.25em] text-white transition hover:bg-white/20"
                 >
-                  Pièce jointe {index + 1}
+                  {content.attachmentLabel} {index + 1}
                 </a>
               </li>
             ))}
@@ -142,15 +195,15 @@ export default function MatchDetailClient({ matchId }: MatchDetailClientProps) {
 
       <section className="section-card space-y-6">
         <SectionHeader
-          kicker="Programme"
-          title="Consulter le planning"
-          description="Horaires fixes par journée."
+          kicker={content.scheduleKicker}
+          title={content.scheduleTitle}
+          description={content.scheduleDescription}
         />
         <Link
           href="/matchs"
           className="inline-flex items-center justify-center rounded-full bg-white/10 px-5 py-3 text-xs uppercase tracking-[0.3em] text-slate-200"
         >
-          Voir le calendrier
+          {content.scheduleCta}
         </Link>
       </section>
     </div>
