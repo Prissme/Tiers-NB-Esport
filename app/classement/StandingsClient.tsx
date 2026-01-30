@@ -5,6 +5,8 @@ import SectionHeader from "../components/SectionHeader";
 import StandingsTable, { type StandingsRow } from "../components/StandingsTable";
 import type { SiteStandingsRow, SiteTeam } from "../lib/site-types";
 import { teams as fallbackTeams } from "../../src/data";
+import type { Locale } from "../lib/i18n";
+import ReloadingImage from "../components/ReloadingImage";
 
 const mapFallbackTeams = (): SiteTeam[] =>
   fallbackTeams.map((team) => ({
@@ -37,7 +39,45 @@ const sortStandings = (rows: StandingsRow[]) =>
     return a.teamId.localeCompare(b.teamId, "fr");
   });
 
-export default function StandingsClient() {
+const copy = {
+  fr: {
+    info: "Information",
+    comingTitle: "Publication à venir",
+    comingDescription: "Programme public pendant la validation.",
+    comingNote:
+      "Résultats non publics. Classement publié après validation de l'organisation.",
+    standingsKicker: "Classement",
+    standingsTitle: "Classement officiel",
+    standingsFallback: "Liste des équipes enregistrées.",
+    standingsOfficial: "Publication officielle.",
+    fallbackData: "Données de secours (Supabase vide)",
+    gold: "Or",
+    silver: "Argent",
+    bronze: "Bronze",
+    points: "Points",
+    pointsShort: "pts",
+  },
+  en: {
+    info: "Information",
+    comingTitle: "Publication coming soon",
+    comingDescription: "Public schedule during validation.",
+    comingNote:
+      "Results are private. Standings published after organization validation.",
+    standingsKicker: "Standings",
+    standingsTitle: "Official standings",
+    standingsFallback: "List of registered teams.",
+    standingsOfficial: "Official publication.",
+    fallbackData: "Fallback data (empty Supabase)",
+    gold: "Gold",
+    silver: "Silver",
+    bronze: "Bronze",
+    points: "Points",
+    pointsShort: "pts",
+  },
+};
+
+export default function StandingsClient({ locale }: { locale: Locale }) {
+  const content = copy[locale];
   const [standings, setStandings] = useState<SiteStandingsRow[]>([]);
   const [teams, setTeams] = useState<SiteTeam[]>([]);
   const [loading, setLoading] = useState(true);
@@ -156,14 +196,12 @@ export default function StandingsClient() {
     return (
       <section className="section-card dominant-section space-y-4">
         <SectionHeader
-          kicker="Information"
-          title="Publication à venir"
-          description="Programme public pendant la validation."
+          kicker={content.info}
+          title={content.comingTitle}
+          description={content.comingDescription}
           tone="dominant"
         />
-        <p className="text-sm text-muted">
-          Résultats non publics. Classement publié après validation de l'organisation.
-        </p>
+        <p className="text-sm text-muted">{content.comingNote}</p>
       </section>
     );
   }
@@ -171,18 +209,14 @@ export default function StandingsClient() {
   return (
     <section className="section-card dominant-section space-y-10 border-0 bg-white/[0.03]">
       <SectionHeader
-        kicker="Classement"
-        title="Classement officiel"
-        description={
-          standings.length === 0
-            ? "Liste des équipes enregistrées."
-            : "Publication officielle."
-        }
+        kicker={content.standingsKicker}
+        title={content.standingsTitle}
+        description={standings.length === 0 ? content.standingsFallback : content.standingsOfficial}
         tone="dominant"
       />
       {source === "fallback" ? (
         <p className="text-xs uppercase tracking-[0.3em] text-utility">
-          Données de secours (Supabase vide)
+          {content.fallbackData}
         </p>
       ) : null}
       {availableDivisions.length > 0 ? (
@@ -234,7 +268,8 @@ export default function StandingsClient() {
                         : index === 1
                           ? "bg-slate-200 text-slate-900"
                           : "bg-amber-800 text-amber-100";
-                    const place = index === 0 ? "Or" : index === 1 ? "Argent" : "Bronze";
+                    const place =
+                      index === 0 ? content.gold : index === 1 ? content.silver : content.bronze;
                     const heightClass =
                       index === 0
                         ? "min-h-[240px] md:min-h-[300px]"
@@ -256,7 +291,7 @@ export default function StandingsClient() {
                           </div>
                           <div className="mx-auto flex h-20 w-20 items-center justify-center overflow-hidden rounded-2xl bg-white/10">
                             {logoUrl ? (
-                              <img
+                              <ReloadingImage
                                 src={logoUrl}
                                 alt={`Logo ${teamName}`}
                                 className="h-full w-full object-contain"
@@ -271,7 +306,7 @@ export default function StandingsClient() {
                           <div>
                             <p className="text-lg font-semibold text-white">{teamName}</p>
                             <p className="text-xs uppercase tracking-[0.3em] text-utility">
-                              {row.points} pts
+                              {row.points} {content.pointsShort}
                             </p>
                           </div>
                         </div>
@@ -286,7 +321,7 @@ export default function StandingsClient() {
                     <span className="text-lg font-semibold text-white">#4</span>
                     <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-[12px] bg-white/10">
                       {teamsById[fourth.teamId]?.logoUrl ? (
-                        <img
+                        <ReloadingImage
                           src={teamsById[fourth.teamId]?.logoUrl ?? ""}
                           alt={`Logo ${teamsById[fourth.teamId]?.name ?? fourth.teamName}`}
                           className="h-full w-full object-contain"
@@ -312,8 +347,12 @@ export default function StandingsClient() {
                     </div>
                   </div>
                   <div className="text-right">
-                    <p className="text-sm uppercase tracking-[0.3em] text-utility">Points</p>
-                    <p className="text-xl font-semibold text-white">{fourth.points} pts</p>
+                    <p className="text-sm uppercase tracking-[0.3em] text-utility">
+                      {content.points}
+                    </p>
+                    <p className="text-xl font-semibold text-white">
+                      {fourth.points} {content.pointsShort}
+                    </p>
                   </div>
                 </div>
               ) : null}
@@ -321,6 +360,7 @@ export default function StandingsClient() {
                 rows={remainingRows}
                 teamsById={teamsById}
                 rankOffset={tableOffset}
+                locale={locale}
               />
             </div>
           );

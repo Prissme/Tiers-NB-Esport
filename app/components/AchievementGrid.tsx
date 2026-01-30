@@ -1,6 +1,8 @@
-'use client';
+"use client";
 
 import { motion } from 'framer-motion';
+import type { Locale } from "../lib/i18n";
+import ReloadingImage from "./ReloadingImage";
 
 export type Achievement = {
   id: string;
@@ -13,6 +15,7 @@ export type Achievement = {
 
 type AchievementGridProps = {
   achievements: Achievement[];
+  locale: Locale;
 };
 
 const isRecentlyUnlocked = (unlockedAt?: string | null) => {
@@ -48,14 +51,28 @@ const ConfettiBurst = () => {
   );
 };
 
-export default function AchievementGrid({ achievements }: AchievementGridProps) {
+const copy = {
+  fr: {
+    unlocked: "achievements débloqués",
+    categoryFallback: "general",
+  },
+  en: {
+    unlocked: "achievements unlocked",
+    categoryFallback: "general",
+  },
+};
+
+export default function AchievementGrid({ achievements, locale }: AchievementGridProps) {
+  const content = copy[locale];
   const unlockedCount = achievements.filter((achievement) => achievement.unlocked_at).length;
   const progress = achievements.length ? Math.round((unlockedCount / achievements.length) * 100) : 0;
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between text-sm text-muted">
-        <span>{unlockedCount} / {achievements.length} achievements débloqués</span>
+        <span>
+          {unlockedCount} / {achievements.length} {content.unlocked}
+        </span>
         <span>{progress}%</span>
       </div>
       <div className="h-2 overflow-hidden rounded-full bg-slate-800">
@@ -88,7 +105,7 @@ export default function AchievementGrid({ achievements }: AchievementGridProps) 
                   }`}
                 >
                   {achievement.icon_url ? (
-                    <img src={achievement.icon_url} alt="" className="h-8 w-8" />
+                    <ReloadingImage src={achievement.icon_url} alt="" className="h-8 w-8" />
                   ) : (
                     <span className="text-xl">🏆</span>
                   )}
@@ -99,7 +116,7 @@ export default function AchievementGrid({ achievements }: AchievementGridProps) 
                   </p>
                   <p className="mt-1 text-xs text-muted">{achievement.description}</p>
                   <p className="mt-2 text-[10px] uppercase tracking-[0.2em] text-utility">
-                    {achievement.category || 'general'}
+                    {achievement.category || content.categoryFallback}
                   </p>
                 </div>
               </div>

@@ -1,4 +1,6 @@
 import type { SiteTeam } from "../lib/site-types";
+import type { Locale } from "../lib/i18n";
+import ReloadingImage from "./ReloadingImage";
 
 export type StandingsRow = {
   teamId: string;
@@ -13,18 +15,46 @@ type StandingsTableProps = {
   rows: StandingsRow[];
   teamsById: Record<string, SiteTeam>;
   rankOffset?: number;
+  locale: Locale;
 };
 
-export default function StandingsTable({ rows, teamsById, rankOffset = 0 }: StandingsTableProps) {
+const copy = {
+  fr: {
+    rank: "Rang",
+    team: "Équipe",
+    played: "MJ",
+    wins: "V",
+    losses: "D",
+    points: "Pts",
+    pointsShort: "pts",
+  },
+  en: {
+    rank: "Rank",
+    team: "Team",
+    played: "GP",
+    wins: "W",
+    losses: "L",
+    points: "Pts",
+    pointsShort: "pts",
+  },
+};
+
+export default function StandingsTable({
+  rows,
+  teamsById,
+  rankOffset = 0,
+  locale,
+}: StandingsTableProps) {
+  const content = copy[locale];
   return (
     <div className="overflow-hidden rounded-[14px] bg-slate-950/60 shadow-[0_20px_60px_-40px_rgba(0,0,0,0.8)]">
       <div className="grid grid-cols-[48px_minmax(0,1fr)] gap-3 bg-white/[0.02] px-4 py-4 text-[11px] font-semibold uppercase tracking-[0.3em] text-utility md:grid-cols-[64px_minmax(0,2.5fr)_repeat(4,minmax(0,1fr))] md:px-6">
-        <span>Rang</span>
-        <span>Équipe</span>
-        <span className="hidden text-center md:block">MJ</span>
-        <span className="hidden text-center md:block">V</span>
-        <span className="hidden text-center md:block">D</span>
-        <span className="hidden text-center md:block">Pts</span>
+        <span>{content.rank}</span>
+        <span>{content.team}</span>
+        <span className="hidden text-center md:block">{content.played}</span>
+        <span className="hidden text-center md:block">{content.wins}</span>
+        <span className="hidden text-center md:block">{content.losses}</span>
+        <span className="hidden text-center md:block">{content.points}</span>
       </div>
       <div className="quiet-divider" />
       <div className="divide-y divide-white/5">
@@ -47,7 +77,7 @@ export default function StandingsTable({ rows, teamsById, rankOffset = 0 }: Stan
               <div className="flex min-w-0 items-center gap-4">
                 <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-[10px] bg-white/5">
                   {logoUrl ? (
-                    <img
+                    <ReloadingImage
                       src={logoUrl}
                       alt={`Logo ${teamName}`}
                       className="h-full w-full object-contain"
@@ -73,7 +103,7 @@ export default function StandingsTable({ rows, teamsById, rankOffset = 0 }: Stan
                     </span>
                   ) : null}
                   <span className="mt-1 block text-xs font-semibold uppercase tracking-[0.3em] text-utility md:hidden">
-                    {row.points} pts
+                    {row.points} {content.pointsShort}
                   </span>
                 </div>
               </div>

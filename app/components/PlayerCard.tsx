@@ -1,4 +1,6 @@
 import type { ReactNode } from 'react';
+import type { Locale } from "../lib/i18n";
+import ReloadingImage from "./ReloadingImage";
 
 export type PlayerCardPlayer = {
   id: string;
@@ -12,9 +14,24 @@ export type PlayerCardPlayer = {
 type PlayerCardProps = {
   player: PlayerCardPlayer;
   children?: ReactNode;
+  locale: Locale;
 };
 
-export default function PlayerCard({ player, children }: PlayerCardProps) {
+const copy = {
+  fr: {
+    avatarAlt: (name: string) => `Avatar de ${name}`,
+    level: "Niveau",
+    currentElo: "ELO actuel",
+  },
+  en: {
+    avatarAlt: (name: string) => `${name} avatar`,
+    level: "Level",
+    currentElo: "Current ELO",
+  },
+};
+
+export default function PlayerCard({ player, children, locale }: PlayerCardProps) {
+  const content = copy[locale];
   const avatar = player.avatarUrl || `https://api.dicebear.com/7.x/identicon/svg?seed=${player.id}`;
 
   return (
@@ -23,9 +40,9 @@ export default function PlayerCard({ player, children }: PlayerCardProps) {
     >
       <div className="relative flex flex-col gap-6 md:flex-row md:items-center">
         <div className="relative">
-          <img
+          <ReloadingImage
             src={avatar}
-            alt={`Avatar de ${player.name}`}
+            alt={content.avatarAlt(player.name)}
             className="relative h-28 w-28 rounded-full object-cover shadow-lg"
           />
         </div>
@@ -36,11 +53,12 @@ export default function PlayerCard({ player, children }: PlayerCardProps) {
             <span
               className="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-utility"
             >
-              Niveau {player.tier}
+              {content.level} {player.tier}
             </span>
           </div>
           <p className="mt-2 text-sm text-muted">
-            ELO actuel · <span className="text-2xl font-bold text-cyan-200">{player.mmr}</span>
+            {content.currentElo} ·{" "}
+            <span className="text-2xl font-bold text-cyan-200">{player.mmr}</span>
           </p>
           {children ? <div className="mt-4 text-sm text-muted">{children}</div> : null}
         </div>

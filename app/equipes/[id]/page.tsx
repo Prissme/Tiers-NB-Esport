@@ -6,6 +6,7 @@ import SectionHeader from "../../components/SectionHeader";
 import { getBaseUrl } from "../../lib/get-base-url";
 import type { SiteTeam } from "../../lib/site-types";
 import { teams as fallbackTeams } from "../../../src/data";
+import { getLocale } from "../../lib/i18n";
 
 const fetchTeams = async (): Promise<SiteTeam[]> => {
   try {
@@ -55,6 +56,36 @@ export async function generateMetadata({
 }
 
 export default async function TeamDetailPage({ params }: { params: { id: string } }) {
+  const locale = getLocale();
+  const copy = {
+    fr: {
+      kicker: "Équipe",
+      divisionLabel: "Division",
+      rosterKicker: "Roster",
+      rosterTitle: "Effectif",
+      rosterDescription: "Liste officielle.",
+      rosterFallback: "Roster en attente de confirmation.",
+      scheduleKicker: "Programme",
+      scheduleTitle: "Calendrier fixe",
+      scheduleDescription: "Résultats non publics.",
+      scheduleNote: "Consultez le programme officiel pour les horaires.",
+      scheduleCta: "Voir le calendrier",
+    },
+    en: {
+      kicker: "Team",
+      divisionLabel: "Division",
+      rosterKicker: "Roster",
+      rosterTitle: "Lineup",
+      rosterDescription: "Official list.",
+      rosterFallback: "Roster awaiting confirmation.",
+      scheduleKicker: "Schedule",
+      scheduleTitle: "Fixed calendar",
+      scheduleDescription: "Results are private.",
+      scheduleNote: "Check the official schedule for times.",
+      scheduleCta: "See the calendar",
+    },
+  };
+  const content = copy[locale];
   const teams = await fetchTeams();
   const team = getTeamFromList(teams, params.id) ?? getTeamFromList(mapFallbackTeams(), params.id);
 
@@ -67,9 +98,9 @@ export default async function TeamDetailPage({ params }: { params: { id: string 
       <section className="surface-dominant dominant-section">
         <div className="relative z-10 space-y-6">
           <SectionHeader
-            kicker="Équipe"
+            kicker={content.kicker}
             title={team.name}
-            description={`Division ${team.division ?? "—"}`}
+            description={`${content.divisionLabel} ${team.division ?? "—"}`}
             tone="dominant"
           />
         </div>
@@ -78,9 +109,9 @@ export default async function TeamDetailPage({ params }: { params: { id: string 
       <div className="silent-gap" aria-hidden="true" />
       <section className="section-card secondary-section space-y-6">
         <SectionHeader
-          kicker="Roster"
-          title="Effectif"
-          description="Liste officielle."
+          kicker={content.rosterKicker}
+          title={content.rosterTitle}
+          description={content.rosterDescription}
           tone="support"
         />
         {team.roster && team.roster.length > 0 ? (
@@ -96,26 +127,26 @@ export default async function TeamDetailPage({ params }: { params: { id: string 
             ))}
           </ul>
         ) : (
-          <PreSeasonBanner message="Roster en attente de confirmation." />
+          <PreSeasonBanner message={content.rosterFallback} locale={locale} />
         )}
       </section>
 
       <div className="silent-gap" aria-hidden="true" />
       <section className="section-card secondary-section space-y-6">
         <SectionHeader
-          kicker="Programme"
-          title="Calendrier fixe"
-          description="Résultats non publics."
+          kicker={content.scheduleKicker}
+          title={content.scheduleTitle}
+          description={content.scheduleDescription}
           tone="support"
         />
         <p className="text-sm text-muted">
-          Consultez le programme officiel pour les horaires.
+          {content.scheduleNote}
         </p>
         <Link
           href="/matchs"
           className="inline-flex items-center justify-center rounded-full bg-white/10 px-5 py-3 text-xs uppercase tracking-[0.3em] signal-accent"
         >
-          Voir le calendrier
+          {content.scheduleCta}
         </Link>
       </section>
     </div>

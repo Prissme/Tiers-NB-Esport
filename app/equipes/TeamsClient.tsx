@@ -4,12 +4,33 @@ import { useEffect, useMemo, useState } from "react";
 import TeamCard from "../components/TeamCard";
 import type { SiteTeam } from "../lib/site-types";
 import { teams as fallbackTeams } from "../../src/data";
+import type { Locale } from "../lib/i18n";
 
-const divisionOptions = [
-  { label: "Toutes", value: "all" },
-  { label: "D1", value: "D1" },
-  { label: "D2", value: "D2" },
-];
+const divisionOptions: Record<Locale, Array<{ label: string; value: string }>> = {
+  fr: [
+    { label: "Toutes", value: "all" },
+    { label: "D1", value: "D1" },
+    { label: "D2", value: "D2" },
+  ],
+  en: [
+    { label: "All", value: "all" },
+    { label: "D1", value: "D1" },
+    { label: "D2", value: "D2" },
+  ],
+};
+
+const copy = {
+  fr: {
+    fallback: "Données de secours (Supabase vide)",
+    searchPlaceholder: "Rechercher une équipe",
+    noTeams: "Aucune équipe trouvée.",
+  },
+  en: {
+    fallback: "Fallback data (empty Supabase)",
+    searchPlaceholder: "Search for a team",
+    noTeams: "No teams found.",
+  },
+};
 
 const mapFallbackTeams = (): SiteTeam[] =>
   fallbackTeams.map((team) => ({
@@ -27,7 +48,8 @@ const mapFallbackTeams = (): SiteTeam[] =>
     })),
   }));
 
-export default function TeamsClient() {
+export default function TeamsClient({ locale }: { locale: Locale }) {
+  const content = copy[locale];
   const [divisionFilter, setDivisionFilter] = useState("all");
   const [search, setSearch] = useState("");
   const [teams, setTeams] = useState<SiteTeam[]>([]);
@@ -100,18 +122,18 @@ export default function TeamsClient() {
     <div className="space-y-6">
       {source === "fallback" ? (
         <p className="text-xs uppercase tracking-[0.3em] text-utility">
-          Données de secours (Supabase vide)
+          {content.fallback}
         </p>
       ) : null}
       <div className="flex flex-wrap items-center gap-3">
         <input
           value={search}
           onChange={(event) => setSearch(event.target.value)}
-          placeholder="Rechercher une équipe"
+          placeholder={content.searchPlaceholder}
           className="w-full rounded-full bg-white/5 px-4 py-3 text-sm text-slate-100 placeholder:text-utility md:w-64"
         />
         <div className="flex flex-wrap gap-2">
-          {divisionOptions.map((option) => (
+          {divisionOptions[locale].map((option) => (
             <button
               key={option.value}
               type="button"
@@ -129,11 +151,11 @@ export default function TeamsClient() {
       </div>
 
       {filteredTeams.length === 0 ? (
-        <p className="text-sm text-muted">Aucune équipe trouvée.</p>
+        <p className="text-sm text-muted">{content.noTeams}</p>
       ) : (
         <div className="grid gap-3 md:grid-cols-2">
           {filteredTeams.map((team) => (
-            <TeamCard key={team.id} team={team} />
+            <TeamCard key={team.id} team={team} locale={locale} />
           ))}
         </div>
       )}

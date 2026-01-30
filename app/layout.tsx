@@ -5,6 +5,7 @@ import Footer from "./components/Footer";
 import Header from "./components/Header";
 import BackgroundFX from "./components/BackgroundFX";
 import PageTransition from "./components/PageTransition";
+import { getLocale } from "./lib/i18n";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -60,16 +61,17 @@ export default function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
+  const locale = getLocale();
   return (
-    <html lang="fr" className={`${inter.variable} ${cormorant.variable}`}>
+    <html lang={locale} className={`${inter.variable} ${cormorant.variable}`}>
       <body className="min-h-screen bg-[color:var(--color-bg)] text-[color:var(--color-text)]">
         <div className="relative min-h-screen overflow-hidden">
           <BackgroundFX />
-          <Header />
+          <Header locale={locale} />
           <main className="relative z-10">
             <PageTransition>{children}</PageTransition>
           </main>
-          <Footer />
+          <Footer locale={locale} />
         </div>
       </body>
     </html>

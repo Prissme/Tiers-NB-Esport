@@ -4,19 +4,33 @@ import { useEffect, useMemo, useState } from "react";
 import type { MatchGroup, SiteMatch, SiteTeam } from "../lib/site-types";
 import PreSeasonBanner from "./PreSeasonBanner";
 import { matches as fallbackMatches, teams as fallbackTeams } from "../../src/data";
+import type { Locale } from "../lib/i18n";
 
-const divisionLabels: Record<string, string> = {
-  D1: "Division 1",
-  D2: "Division 2",
+const divisionLabels: Record<Locale, Record<string, string>> = {
+  fr: {
+    D1: "Division 1",
+    D2: "Division 2",
+  },
+  en: {
+    D1: "Division 1",
+    D2: "Division 2",
+  },
 };
 
-const formatTimeLabel = (time: string | null) => (time ? time.replace(":00", "H") : "TBD");
+const formatTimeLabel = (time: string | null, locale: Locale) => {
+  if (!time) return locale === "fr" ? "À définir" : "TBD";
+  if (locale === "fr") {
+    return time.replace(":00", "H");
+  }
+  return time.slice(0, 5);
+};
 
-const formatDateLabel = (value: string | null, fallback?: string | null) => {
-  if (!value) return fallback ?? "À confirmer";
+const formatDateLabel = (value: string | null, fallback: string | null | undefined, locale: Locale) => {
+  if (!value) return fallback ?? (locale === "en" ? "To be confirmed" : "À confirmer");
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleDateString("fr-FR", {
+  const dateLocale = locale === "en" ? "en-US" : "fr-FR";
+  return date.toLocaleDateString(dateLocale, {
     weekday: "long",
     day: "2-digit",
     month: "long",
@@ -24,7 +38,7 @@ const formatDateLabel = (value: string | null, fallback?: string | null) => {
   });
 };
 
-const mapFallbackMatches = (): MatchGroup[] => {
+const mapFallbackMatches = (locale: Locale): MatchGroup[] => {
   const teamMap = new Map(fallbackTeams.map((team) => [team.id, team]));
   const matches = fallbackMatches.map<SiteMatch>((match) => {
     const teamA = teamMap.get(match.teamAId);
@@ -62,7 +76,7 @@ const mapFallbackMatches = (): MatchGroup[] => {
 
   const grouped: Record<string, MatchGroup> = {};
   matches.forEach((match) => {
-    const dateLabel = formatDateLabel(match.scheduledAt, match.dayLabel);
+    const dateLabel = formatDateLabel(match.scheduledAt, match.dayLabel, locale);
     const timeLabel = match.scheduledAt
       ? match.scheduledAt.split("T")[1]?.slice(0, 5) ?? null
       : null;
@@ -109,7 +123,29 @@ const buildTeamMap = (groups: MatchGroup[]) => {
   return map;
 };
 
-export default function DayTwoSchedule() {
+const copy = {
+  fr: {
+    loading: "Programme en chargement.",
+    fallbackData: "Données de secours (Supabase vide)",
+    upcoming: "À venir",
+    matchLabel: "Match",
+    schedule: "Programme",
+    playoffs: "Play-offs",
+    vs: "vs",
+  },
+  en: {
+    loading: "Schedule loading.",
+    fallbackData: "Fallback data (empty Supabase)",
+    upcoming: "Coming soon",
+    matchLabel: "Match",
+    schedule: "Schedule",
+    playoffs: "Playoffs",
+    vs: "vs",
+  },
+};
+
+export default function DayTwoSchedule({ locale }: { locale: Locale }) {
+  const content = copy[locale];
   const [groups, setGroups] = useState<MatchGroup[]>([]);
   const [loading, setLoading] = useState(true);
   const [source, setSource] = useState<"supabase" | "fallback">("supabase");
@@ -124,7 +160,7 @@ export default function DayTwoSchedule() {
         const nextGroups = payload.groups ?? [];
         if (mounted) {
           if (nextGroups.length === 0) {
-            setGroups(mapFallbackMatches());
+            setGroups(mapFallbackMatches(locale));
             setSource("fallback");
           } else {
             setGroups(nextGroups);
@@ -133,7 +169,7 @@ export default function DayTwoSchedule() {
       } catch (error) {
         console.error("schedule load error", error);
         if (mounted) {
-          setGroups(mapFallbackMatches());
+          setGroups(mapFallbackMatches(locale));
           setSource("fallback");
         }
       } finally {
@@ -196,7 +232,7 @@ export default function DayTwoSchedule() {
   }
 
   if (groups.length === 0) {
-    return <PreSeasonBanner message="Programme en chargement." />;
+    return <PreSeasonBanner message={content.loading} locale={locale} />;
   }
 
   const renderGroups = (label: string, data: MatchGroup[]) => (
@@ -206,13 +242,13 @@ export default function DayTwoSchedule() {
         <h2 className="text-2xl font-semibold text-white">{label}</h2>
         {source === "fallback" ? (
           <p className="text-xs uppercase tracking-[0.3em] text-utility">
-            Données de secours (Supabase vide)
+            {content.fallbackData}
           </p>
         ) : null}
       </div>
 
       {data.length === 0 ? (
-        <p className="text-sm text-muted">À venir</p>
+        <p className="text-sm text-muted">{content.upcoming}</p>
       ) : (
         <div className="grid gap-6">
           {data.map((group) => (
@@ -222,7 +258,7 @@ export default function DayTwoSchedule() {
                   {group.label}
                 </p>
                 <span className="rounded-full bg-white/10 px-3 py-1 text-xs uppercase tracking-[0.3em] text-muted">
-                  {formatTimeLabel(group.timeLabel)}
+                  {formatTimeLabel(group.timeLabel, locale)}
                 </span>
               </div>
               <div className="grid gap-4 md:grid-cols-2">
@@ -230,16 +266,16 @@ export default function DayTwoSchedule() {
                   <div key={match.id} className="motion-card space-y-3">
                     <div className="flex flex-wrap items-center justify-between gap-3">
                       <p className="text-sm font-semibold uppercase tracking-[0.35em] text-muted">
-                        {match.round ?? "Match"}
+                        {match.round ?? content.matchLabel}
                       </p>
                       <span className="rounded-full bg-white/10 px-3 py-1 text-xs uppercase tracking-[0.3em] text-muted">
-                        {divisionLabels[match.division ?? ""] ?? match.division ?? "LFN"}
+                        {divisionLabels[locale][match.division ?? ""] ?? match.division ?? "LFN"}
                       </span>
                     </div>
                     <div className="flex flex-wrap gap-2">
                       <span className="badge">
-                        {teamMap.get(match.teamA.id)?.name ?? match.teamA.name} {" "}
-                        <span className="text-utility">vs</span>{" "}
+                        {teamMap.get(match.teamA.id)?.name ?? match.teamA.name}{" "}
+                        <span className="text-utility">{content.vs}</span>{" "}
                         {teamMap.get(match.teamB.id)?.name ?? match.teamB.name}
                       </span>
                       <span className="text-xs text-utility">{extractTeamNames(match)}</span>
@@ -256,8 +292,8 @@ export default function DayTwoSchedule() {
 
   return (
     <div className="space-y-12 -mx-2 sm:mx-0">
-      {renderGroups("Programme", regularGroups)}
-      {renderGroups("Play-offs", playoffGroups)}
+      {renderGroups(content.schedule, regularGroups)}
+      {renderGroups(content.playoffs, playoffGroups)}
     </div>
   );
 }

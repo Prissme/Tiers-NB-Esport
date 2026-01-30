@@ -4,14 +4,50 @@ import Link from "next/link";
 import { useMemo, useState, useEffect } from "react";
 import SectionHeader from "../components/SectionHeader";
 import StatusBadge from "../components/StatusBadge";
+import type { Locale } from "../lib/i18n";
+import ReloadingImage from "../components/ReloadingImage";
 import type { MatchGroup, SiteMatch } from "../lib/site-types";
 import { matches as fallbackMatches, teams as fallbackTeams } from "../../src/data";
 
-const divisionOptions = [
-  { label: "Toutes", value: "all" },
-  { label: "D1", value: "D1" },
-  { label: "D2", value: "D2" },
-];
+const divisionOptions: Record<Locale, Array<{ label: string; value: string }>> = {
+  fr: [
+    { label: "Toutes", value: "all" },
+    { label: "D1", value: "D1" },
+    { label: "D2", value: "D2" },
+  ],
+  en: [
+    { label: "All", value: "all" },
+    { label: "D1", value: "D1" },
+    { label: "D2", value: "D2" },
+  ],
+};
+
+const copy = {
+  fr: {
+    kicker: "Matchs",
+    title: "Calendrier officiel",
+    description: "Suivi en direct, à venir, résultats validés.",
+    fallback: "Données de secours (Supabase vide)",
+    division: "Division",
+    noMatches: "Aucun match correspondant. Prochaines annonces à venir.",
+    finished: "Matchs terminés",
+    upcoming: "Matchs à venir",
+    divisionFallback: "Division",
+    dateFallback: "À confirmer",
+  },
+  en: {
+    kicker: "Matches",
+    title: "Official schedule",
+    description: "Live tracking, upcoming fixtures, validated results.",
+    fallback: "Fallback data (empty Supabase)",
+    division: "Division",
+    noMatches: "No matching matches. Announcements coming soon.",
+    finished: "Finished matches",
+    upcoming: "Upcoming matches",
+    divisionFallback: "Division",
+    dateFallback: "To be confirmed",
+  },
+};
 
 const mapFallbackMatches = (): SiteMatch[] => {
   const teamMap = new Map(fallbackTeams.map((team) => [team.id, team]));
@@ -53,11 +89,16 @@ const mapFallbackMatches = (): SiteMatch[] => {
 const flattenGroups = (groups: MatchGroup[]): SiteMatch[] =>
   groups.flatMap((group) => group.matches);
 
-const formatDateLabel = (value: string | null, fallback?: string | null) => {
-  if (!value) return fallback ?? "À confirmer";
+const formatDateLabel = (
+  value: string | null,
+  fallback: string | null | undefined,
+  locale: Locale
+) => {
+  if (!value) return fallback ?? copy[locale].dateFallback;
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleDateString("fr-FR", {
+  const dateLocale = locale === "en" ? "en-US" : "fr-FR";
+  return date.toLocaleDateString(dateLocale, {
     weekday: "long",
     day: "2-digit",
     month: "long",
@@ -81,7 +122,8 @@ const getTeamInitials = (name: string) =>
     .map((part) => part[0]?.toUpperCase())
     .join("");
 
-export default function MatchesClient() {
+export default function MatchesClient({ locale }: { locale: Locale }) {
+  const content = copy[locale];
   const [divisionFilter, setDivisionFilter] = useState("all");
   const [matches, setMatches] = useState<SiteMatch[]>([]);
   const [loading, setLoading] = useState(true);
@@ -154,7 +196,7 @@ export default function MatchesClient() {
       const grouped = new Map<string, SiteMatch[]>();
       const ordered: string[] = [];
       list.forEach((match) => {
-        const label = formatDateLabel(match.scheduledAt, match.dayLabel);
+        const label = formatDateLabel(match.scheduledAt, match.dayLabel, locale);
         if (!grouped.has(label)) {
           grouped.set(label, []);
           ordered.push(label);
@@ -165,8 +207,8 @@ export default function MatchesClient() {
     };
 
     const sections = [
-      { title: "Matchs terminés", groups: buildGroups(finishedMatches) },
-      { title: "Matchs à venir", groups: buildGroups(upcomingMatches) },
+      { title: content.finished, groups: buildGroups(finishedMatches) },
+      { title: content.upcoming, groups: buildGroups(upcomingMatches) },
     ].filter((section) => section.groups.length > 0);
 
     return { filteredMatches: regular, groupedMatches: sections };
@@ -197,7 +239,7 @@ export default function MatchesClient() {
             </div>
             <div className="flex h-14 w-14 items-center justify-center overflow-hidden sm:h-16 sm:w-16">
               {match.teamA.logoUrl ? (
-                <img
+                <ReloadingImage
                   src={match.teamA.logoUrl}
                   alt={`Logo ${match.teamA.name}`}
                   className="h-full w-full object-contain"
@@ -211,7 +253,7 @@ export default function MatchesClient() {
 
           <div className="flex flex-col items-center gap-2 text-center">
             <p className="text-xs uppercase tracking-[0.3em] text-utility">
-              {match.division ?? "Division"}
+              {match.division ?? content.divisionFallback}
             </p>
             {timeLabel ? (
               <p className="text-2xl font-semibold text-white md:text-3xl">{timeLabel}</p>
@@ -224,13 +266,13 @@ export default function MatchesClient() {
             ) : (
               <p className="text-3xl font-semibold text-white">VS</p>
             )}
-            <StatusBadge status={match.status} />
+            <StatusBadge status={match.status} locale={locale} />
           </div>
 
           <div className="flex items-center justify-between gap-4 text-right">
             <div className="flex h-14 w-14 items-center justify-center overflow-hidden sm:h-16 sm:w-16">
               {match.teamB.logoUrl ? (
-                <img
+                <ReloadingImage
                   src={match.teamB.logoUrl}
                   alt={`Logo ${match.teamB.name}`}
                   className="h-full w-full object-contain"
@@ -274,22 +316,22 @@ export default function MatchesClient() {
   return (
     <section className="section-card space-y-6">
       <SectionHeader
-        kicker="Matchs"
-        title="Calendrier officiel"
-        description="Suivi en direct, à venir, résultats validés."
+        kicker={content.kicker}
+        title={content.title}
+        description={content.description}
         tone="support"
       />
 
       {source === "fallback" ? (
         <p className="text-xs uppercase tracking-[0.3em] text-utility">
-          Données de secours (Supabase vide)
+          {content.fallback}
         </p>
       ) : null}
 
       <div className="flex flex-wrap items-center gap-3 text-xs uppercase tracking-[0.3em] text-utility">
-        <span>Division</span>
+        <span>{content.division}</span>
         <div className="flex flex-wrap gap-2">
-          {divisionOptions.map((option) => (
+          {divisionOptions[locale].map((option) => (
             <button
               key={option.value}
               type="button"
@@ -308,7 +350,7 @@ export default function MatchesClient() {
 
       {filteredMatches.length === 0 ? (
         <p className="text-sm text-muted">
-          Aucun match correspondant. Prochaines annonces à venir.
+          {content.noMatches}
         </p>
       ) : (
         <div className="space-y-6">
