@@ -27,7 +27,7 @@ export default function Footer({ locale }: { locale: Locale }) {
           <div className="flex items-center gap-3 text-white">
             <span className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-2xl bg-white/5">
               <ReloadingImage
-                src="/images/lfn-logo.svg"
+                src="https://media.discordapp.net/attachments/1434252768633290952/1466084863449763903/image-Photoroom_11.png?ex=697e186d&is=697cc6ed&hm=e30de7c3aabc5ab64e71deb5f0eccc4c3beff07ba08b585a6977e3d04389e176&=&format=webp&quality=lossless&width=220&height=219"
                 alt={content.logoAlt}
                 className="h-full w-full object-contain"
                 loading="lazy"

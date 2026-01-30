@@ -8,7 +8,8 @@ import LanguageSwitcher from "./LanguageSwitcher";
 import type { Locale } from "../lib/i18n";
 import ReloadingImage from "./ReloadingImage";
 
-const logoUrl = "/images/lfn-logo.svg";
+const logoUrl =
+  "https://media.discordapp.net/attachments/1434252768633290952/1466084863449763903/image-Photoroom_11.png?ex=697e186d&is=697cc6ed&hm=e30de7c3aabc5ab64e71deb5f0eccc4c3beff07ba08b585a6977e3d04389e176&=&format=webp&quality=lossless&width=220&height=219";
 
 const INSCRIPTION_PATH = "/inscription";
 
