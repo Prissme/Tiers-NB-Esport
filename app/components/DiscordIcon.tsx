@@ -1,6 +1,7 @@
 import ReloadingImage from "./ReloadingImage";
 
-const DISCORD_ICON_DATA = "/images/icons/discord.svg";
+const DISCORD_ICON_DATA =
+  "https://media.discordapp.net/attachments/1434252768633290952/1466080774112542762/image-Photoroom_10.png?ex=697e149f&is=697cc31f&hm=ac7bbb921eb8b3538106cccf9dadb1bdac9190853a30407559cf7e8eb53a80ff&=&format=webp&quality=lossless&width=236&height=236";
 
 type DiscordIconProps = {
   className?: string;
