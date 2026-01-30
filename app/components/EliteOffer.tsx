@@ -2,7 +2,8 @@ import Image from "next/image";
 import Button from "./Button";
 import type { Locale } from "../lib/i18n";
 
-const eliteImage = "/images/elite-offer.svg";
+const eliteImage =
+  "https://cdn.discordapp.com/attachments/1434252768633290952/1465811030356660276/df6c60f6-2ffd-4747-917d-4c58e428f4e4.png?ex=697dc227&is=697c70a7&hm=4fda34b4b1a321231fd444c5f0cced8c8d7e7492c89101eb4d7fe8216159083a";
 
 const copy = {
   fr: {

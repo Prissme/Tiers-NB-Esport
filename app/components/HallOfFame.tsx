@@ -100,7 +100,7 @@ export default function HallOfFame({ locale }: { locale: Locale }) {
               </div>
               <div className="absolute inset-0 bg-gradient-to-t from-[#05070f] via-transparent to-transparent opacity-80" />
               <ReloadingImage
-                src="/images/hall-of-fame/emblem.svg"
+                src="https://media.discordapp.net/attachments/1434252768633290952/1466080774112542762/image-Photoroom_10.png?ex=697e149f&is=697cc31f&hm=ac7bbb921eb8b3538106cccf9dadb1bdac9190853a30407559cf7e8eb53a80ff&=&format=webp&quality=lossless&width=236&height=236"
                 alt=""
                 className="hall-of-fame-emblem"
                 loading="lazy"
