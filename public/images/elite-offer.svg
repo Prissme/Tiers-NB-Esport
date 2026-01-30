@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 874 583">
+  <defs>
+    <linearGradient id="eliteGradient" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#111827" />
+      <stop offset="50%" stop-color="#1e293b" />
+      <stop offset="100%" stop-color="#0f172a" />
+    </linearGradient>
+    <radialGradient id="eliteGlow" cx="50%" cy="35%" r="60%">
+      <stop offset="0%" stop-color="#facc15" stop-opacity="0.35" />
+      <stop offset="100%" stop-color="#0f172a" stop-opacity="0" />
+    </radialGradient>
+  </defs>
+  <rect width="874" height="583" rx="32" fill="url(#eliteGradient)" />
+  <rect width="874" height="583" rx="32" fill="url(#eliteGlow)" />
+  <g fill="#f8fafc" opacity="0.8">
+    <text x="50%" y="40%" text-anchor="middle" font-family="'Segoe UI', sans-serif" font-size="64" font-weight="700">ELITE</text>
+    <text x="50%" y="52%" text-anchor="middle" font-family="'Segoe UI', sans-serif" font-size="28" letter-spacing="6">BEST DEAL</text>
+  </g>
+  <g stroke="#facc15" stroke-width="3" opacity="0.6">
+    <line x1="120" y1="430" x2="280" y2="430" />
+    <line x1="594" y1="430" x2="754" y2="430" />
+  </g>
+</svg>

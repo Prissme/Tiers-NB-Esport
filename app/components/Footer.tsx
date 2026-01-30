@@ -6,7 +6,7 @@ export default function Footer() {
           <div className="flex items-center gap-3 text-white">
             <span className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-2xl bg-white/5">
               <img
-                src="https://media.discordapp.net/attachments/1434252768633290952/1466093575224819904/image-Photoroom_12.png?ex=697b7d8b&is=697a2c0b&hm=3f3526437b32284f06c2f7d7dbf88515ebcb54692246eca72b8540ab26f35038&=&format=webp&quality=lossless&width=331&height=325"
+                src="/images/lfn-logo.svg"
                 alt="Logo LFN"
                 className="h-full w-full object-contain"
                 loading="lazy"

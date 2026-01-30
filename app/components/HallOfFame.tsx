@@ -3,22 +3,19 @@ const hallOfFameEntries = [
     season: "Season 1",
     winner: "T1",
     date: "26/12/2025",
-    image:
-      "https://media.discordapp.net/attachments/1434252768633290952/1464897892274667660/ChatGPT_Image_25_janv._2026_09_16_59.png?ex=697723fa&is=6975d27a&hm=2e0366744cc120da02f5c7b54ab4636f6086b5f851b90571cb2a30f386e76b83&=&format=webp&quality=lossless&width=874&height=583",
+    image: "/images/hall-of-fame/season-1.svg",
   },
   {
     season: "Season 2",
     winner: "BT",
     date: "03/01/2026",
-    image:
-      "https://media.discordapp.net/attachments/1434252768633290952/1464746362666221598/ChatGPT_Image_24_janv._2026_23_18_22.png?ex=697696da&is=6975455a&hm=e7cc27542f99462b28a7ca36e1089d13142c1ed9ecfb9480c6d52c2345038ed2&=&format=webp&quality=lossless&width=875&height=583",
+    image: "/images/hall-of-fame/season-2.svg",
   },
   {
     season: "Season 3",
     winner: "Brandon & Dylan",
     date: "17/01/2026",
-    image:
-      "https://media.discordapp.net/attachments/1434252768633290952/1464746363072938118/ChatGPT_Image_24_janv._2026_23_18_19.png?ex=697696da&is=6975455a&hm=5965480177529f2d7870b2c39f2ca0af1f210be37e8284afba9bdb3a332daecb&=&format=webp&quality=lossless&width=875&height=583",
+    image: "/images/hall-of-fame/season-3.svg",
   },
 ];
 
@@ -56,7 +53,7 @@ export default function HallOfFame() {
               </div>
               <div className="absolute inset-0 bg-gradient-to-t from-[#05070f] via-transparent to-transparent opacity-80" />
               <img
-                src="https://cdn.discordapp.com/attachments/1434252768633290952/1466084863449763903/image-Photoroom_11.png?ex=697b756d&is=697a23ed&hm=d67887bbe3cd098b13789dd232d31e9c2cbc7d442fb3b088e6f9db14dbae8884"
+                src="/images/hall-of-fame/emblem.svg"
                 alt=""
                 className="hall-of-fame-emblem"
                 loading="lazy"
