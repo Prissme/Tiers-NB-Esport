@@ -1,6 +1,6 @@
 "use client";
 
-import { LOCALE_COOKIE, type Locale } from "../lib/i18n";
+import { LOCALE_COOKIE, type Locale } from "../lib/locale";
 
 const options: Array<{ label: string; value: Locale }> = [
   { label: "FR", value: "fr" },
