@@ -62,6 +62,20 @@
   }
 }
 
+@keyframes elite-particle-drift {
+  0% {
+    transform: translate3d(0, 0, 0);
+    opacity: 0.25;
+  }
+  40% {
+    opacity: 0.65;
+  }
+  100% {
+    transform: translate3d(40px, -80px, 0);
+    opacity: 0.15;
+  }
+}
+
 .page-transition {
   animation: page-fade-in 220ms ease-out;
 }
@@ -268,6 +282,120 @@ body::after {
     background-clip: text;
     color: transparent;
     text-shadow: 0 0 12px rgba(214, 169, 84, 0.25);
+  }
+
+  .elite-particles {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    overflow: hidden;
+    z-index: 2;
+  }
+
+  .elite-particle {
+    position: absolute;
+    width: 3px;
+    height: 3px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.55);
+    box-shadow: 0 0 12px rgba(255, 255, 255, 0.35);
+    animation: elite-particle-drift 16s linear infinite;
+    opacity: 0.35;
+  }
+
+  .elite-particle:nth-child(1) {
+    left: 8%;
+    top: 70%;
+    animation-duration: 18s;
+  }
+
+  .elite-particle:nth-child(2) {
+    left: 22%;
+    top: 15%;
+    width: 2px;
+    height: 2px;
+    animation-duration: 14s;
+    animation-delay: -4s;
+  }
+
+  .elite-particle:nth-child(3) {
+    left: 35%;
+    top: 45%;
+    animation-duration: 20s;
+    animation-delay: -8s;
+  }
+
+  .elite-particle:nth-child(4) {
+    left: 48%;
+    top: 82%;
+    width: 4px;
+    height: 4px;
+    animation-duration: 22s;
+    animation-delay: -10s;
+  }
+
+  .elite-particle:nth-child(5) {
+    left: 62%;
+    top: 20%;
+    animation-duration: 17s;
+    animation-delay: -2s;
+  }
+
+  .elite-particle:nth-child(6) {
+    left: 74%;
+    top: 55%;
+    width: 2px;
+    height: 2px;
+    animation-duration: 19s;
+    animation-delay: -6s;
+  }
+
+  .elite-particle:nth-child(7) {
+    left: 88%;
+    top: 30%;
+    animation-duration: 21s;
+    animation-delay: -12s;
+  }
+
+  .elite-particle:nth-child(8) {
+    left: 15%;
+    top: 35%;
+    width: 4px;
+    height: 4px;
+    animation-duration: 23s;
+    animation-delay: -14s;
+  }
+
+  .elite-particle:nth-child(9) {
+    left: 28%;
+    top: 88%;
+    width: 2px;
+    height: 2px;
+    animation-duration: 15s;
+    animation-delay: -9s;
+  }
+
+  .elite-particle:nth-child(10) {
+    left: 55%;
+    top: 10%;
+    animation-duration: 19s;
+    animation-delay: -5s;
+  }
+
+  .elite-particle:nth-child(11) {
+    left: 68%;
+    top: 78%;
+    animation-duration: 18s;
+    animation-delay: -11s;
+  }
+
+  .elite-particle:nth-child(12) {
+    left: 92%;
+    top: 60%;
+    width: 2px;
+    height: 2px;
+    animation-duration: 16s;
+    animation-delay: -7s;
   }
 
   .season-signup-button {
