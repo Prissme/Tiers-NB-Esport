@@ -2,8 +2,7 @@ import Image from "next/image";
 import Button from "./Button";
 import type { Locale } from "../lib/i18n";
 
-const eliteImage =
-  "https://media.discordapp.net/attachments/1434252768633290952/1465811030356660276/df6c60f6-2ffd-4747-917d-4c58e428f4e4.png?ex=697f13a7&is=697dc227&hm=1fee0d0212026ebed932e068484da9921dd84a30cb2520763f8037395cba3519&=&format=webp&quality=lossless&width=771&height=514";
+const eliteImage = "/VisuelElite.webp";
 
 const copy = {
   fr: {
