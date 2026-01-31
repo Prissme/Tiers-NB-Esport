@@ -9,9 +9,11 @@ const copy = {
     title: "ELITE — BEST DEAL",
     description: "Un accès premium pour vivre la LFN au plus près.",
     perks: [
-      "Coaching hebdomadaire (vendredi)",
       "Accès en entractes pendant les casts",
       "Votes des MAPS & du MVP",
+      "Rôle Discord visible",
+      "Mentions régulières au cast",
+      "Priorité sur les prochaines saisons",
     ],
     cta: "Rejoindre ELITE — 4,99€/mois",
     note: "Accès réservé aux membres engagés.",
@@ -21,9 +23,11 @@ const copy = {
     title: "ELITE — BEST DEAL",
     description: "Premium access to experience LFN from up close.",
     perks: [
-      "Weekly coaching (Friday)",
       "Intermission access during casts",
       "MAPS & MVP voting rights",
+      "Visible Discord role",
+      "Regular shout-outs during casts",
+      "Priority for upcoming seasons",
     ],
     cta: "Join ELITE — €4.99/month",
     note: "Access reserved for committed members.",
@@ -37,6 +41,11 @@ export default function EliteOffer({ locale }: { locale: Locale }) {
     <section className="surface-dominant relative overflow-hidden bg-[#0b0f1a]/85 px-6 py-10 shadow-[0_30px_80px_-60px_rgba(8,12,22,0.9)] backdrop-blur-[20px] sm:px-10">
       <div className="absolute inset-0 bg-card-gradient opacity-70" />
       <div className="absolute inset-0 bg-noise opacity-30" />
+      <div className="elite-particles" aria-hidden="true">
+        {Array.from({ length: 12 }).map((_, index) => (
+          <span key={index} className="elite-particle" />
+        ))}
+      </div>
       <div className="relative z-10 grid items-center gap-10 lg:grid-cols-[1.15fr_0.85fr]">
         <div className="space-y-6">
           <div className="space-y-3">
