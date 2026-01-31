@@ -1,8 +1,7 @@
 import Image from "next/image";
 import Button from "./Button";
 import type { Locale } from "../lib/i18n";
-
-const eliteImage = "/VisuelElite.webp";
+import eliteImage from "../../public/VisuelElite.webp";
 
 const copy = {
   fr: {
@@ -83,8 +82,8 @@ export default function EliteOffer({ locale }: { locale: Locale }) {
             <Image
               src={eliteImage}
               alt={content.imageAlt}
-              width={874}
-              height={583}
+              width={eliteImage.width}
+              height={eliteImage.height}
               className="h-full w-full object-cover saturate-[0.9]"
               loading="lazy"
               quality={80}
