@@ -1,6 +1,6 @@
 'use strict';
 
-const { spawn } = require('child_process');
+const { spawn, spawnSync } = require('child_process');
 const fs = require('fs');
 const http = require('http');
 const path = require('path');
@@ -8,6 +8,8 @@ const path = require('path');
 const { loadEnvFile } = require('./load-env');
 
 const LOG_PREFIX = '[Server]';
+const DISCORD_BOT_NODE_MODULES = path.join(__dirname, 'discord-bot', 'node_modules');
+const DISCORD_BOT_DISCORD_JS = path.join(DISCORD_BOT_NODE_MODULES, 'discord.js');
 
 function log(...args) {
   console.log(LOG_PREFIX, ...args);
@@ -41,6 +43,31 @@ function hasSupabaseServiceKey() {
   return Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY);
 }
 
+function ensureDiscordBotDependencies() {
+  if (fs.existsSync(DISCORD_BOT_DISCORD_JS)) {
+    return true;
+  }
+
+  warn('discord.js introuvable pour le bot, installation des dépendances...');
+
+  try {
+    const installResult = spawnSync('npm', ['install', '--omit=dev'], {
+      cwd: path.join(__dirname, 'discord-bot'),
+      stdio: 'inherit'
+    });
+
+    if (installResult.status !== 0) {
+      warn('Installation des dépendances du bot échouée.');
+      return false;
+    }
+
+    return fs.existsSync(DISCORD_BOT_DISCORD_JS);
+  } catch (err) {
+    warn('Impossible d’installer les dépendances du bot:', err);
+    return false;
+  }
+}
+
 async function startBotSafely() {
   if (process.env.SKIP_BOT_START === '1') {
     warn('Démarrage du bot ignoré (SKIP_BOT_START=1).');
@@ -58,6 +85,10 @@ async function startBotSafely() {
   }
 
   try {
+    if (!ensureDiscordBotDependencies()) {
+      warn('Le bot ne peut pas démarrer sans discord.js.');
+      return;
+    }
     const { startUnifiedBot } = require('./discord-bot/unified-bot');
     await startUnifiedBot();
   } catch (err) {
