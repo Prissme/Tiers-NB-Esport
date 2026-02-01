@@ -216,6 +216,26 @@ function isSimpleLobbyChannel(message) {
   return Boolean(SIMPLE_LOBBY_CHANNEL_ID && message.channelId === SIMPLE_LOBBY_CHANNEL_ID);
 }
 
+function isSimpleLobbyEnabled() {
+  return Boolean(SIMPLE_LOBBY_CHANNEL_ID || !PL_QUEUE_CHANNEL_ID);
+}
+
+function shouldUseSimpleLobby(message) {
+  if (!message?.guild || message.guild.id !== DISCORD_GUILD_ID) {
+    return false;
+  }
+
+  if (isSimpleLobbyChannel(message)) {
+    return true;
+  }
+
+  if (SIMPLE_LOBBY_CHANNEL_ID) {
+    return false;
+  }
+
+  return !PL_QUEUE_CHANNEL_ID;
+}
+
 function getSimpleLobbyTeamSize() {
   if (SIMPLE_LOBBY_TEAM_SIZE * 2 === SIMPLE_LOBBY_SIZE) {
     return SIMPLE_LOBBY_TEAM_SIZE;
@@ -1966,7 +1986,7 @@ async function handleSimpleLobbyJoin(message) {
     return;
   }
 
-  if (!SIMPLE_LOBBY_CHANNEL_ID) {
+  if (!isSimpleLobbyEnabled()) {
     return;
   }
 
@@ -2016,7 +2036,7 @@ async function handleSimpleLobbyLeave(message) {
     return;
   }
 
-  if (!SIMPLE_LOBBY_CHANNEL_ID) {
+  if (!isSimpleLobbyEnabled()) {
     return;
   }
 
@@ -2041,7 +2061,7 @@ async function handleSimpleLobbyLeave(message) {
 
 async function handleJoinCommand(message, args) {
   if (message.guild?.id === DISCORD_GUILD_ID) {
-    if (isSimpleLobbyChannel(message)) {
+    if (shouldUseSimpleLobby(message)) {
       await handleSimpleLobbyJoin(message);
       return;
     }
@@ -2237,7 +2257,7 @@ async function handleLeaveCommand(message) {
   const memberId = message.author.id;
 
   if (message.guild?.id === DISCORD_GUILD_ID) {
-    if (isSimpleLobbyChannel(message)) {
+    if (shouldUseSimpleLobby(message)) {
       await handleSimpleLobbyLeave(message);
       return;
     }
@@ -3514,7 +3534,7 @@ async function handleHelpCommand(message) {
     currentLanguage === LANGUAGE_EN
       ? [
           '`!join [@leader]` — Join the matchmaking queue or a mentioned leader\'s room',
-          ...(SIMPLE_LOBBY_CHANNEL_ID
+          ...(isSimpleLobbyEnabled()
             ? ['`!join` — Join the quick lobby (starts at 6 players, auto-splits teams)']
             : []),
           '`!leave` — Leave the queue',
@@ -3535,7 +3555,7 @@ async function handleHelpCommand(message) {
         ]
       : [
           '`!join [@chef]` — Rejoindre la file de matchmaking ou la room du joueur mentionné',
-          ...(SIMPLE_LOBBY_CHANNEL_ID
+          ...(isSimpleLobbyEnabled()
             ? ['`!join` — Rejoindre le lobby rapide (démarre à 6 joueurs, équipes auto)']
             : []),
           '`!leave` — Quitter la file d\'attente',
