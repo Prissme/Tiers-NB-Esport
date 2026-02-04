@@ -17,11 +17,13 @@ const navLinks = {
   fr: [
     { label: "Matchs", href: "/matchs" },
     { label: "Classement", href: "/classement" },
+    { label: "Hall Of Fame", href: "/hall-of-fame" },
     { label: "Règlement", href: "/reglement" },
   ],
   en: [
     { label: "Matches", href: "/matchs" },
     { label: "Standings", href: "/classement" },
+    { label: "Hall Of Fame", href: "/hall-of-fame" },
     { label: "Rules", href: "/reglement" },
   ],
 };

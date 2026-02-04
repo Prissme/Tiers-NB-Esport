@@ -11,6 +11,13 @@ const TARGETS = [
     },
     timestamp: new Date("2026-01-31T19:00:00+01:00").getTime(),
   },
+  {
+    label: {
+      fr: "LFN Jour 3",
+      en: "LFN Day 3",
+    },
+    timestamp: new Date("2026-02-06T20:00:00+01:00").getTime(),
+  },
 ] as const;
 
 type CountdownState = {

@@ -1,5 +1,4 @@
 import HeroCard from "./components/HeroCard";
-import HallOfFame from "./components/HallOfFame";
 import EliteOffer from "./components/EliteOffer";
 import { getLocale } from "./lib/i18n";
 
@@ -54,9 +53,6 @@ export default function HomePage() {
         <div className="secondary-section">
           <EliteOffer locale={locale} />
         </div>
-        <section className="secondary-section mt-6">
-          <HallOfFame locale={locale} />
-        </section>
       </div>
     </div>
   );

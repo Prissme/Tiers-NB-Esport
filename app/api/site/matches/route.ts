@@ -3,6 +3,7 @@ import { z } from "zod";
 import { createServerClient } from "../../../../src/lib/supabase/server";
 import { withSchema } from "../../../../src/lib/supabase/schema";
 import { MATCHES_TABLE } from "../../../../src/lib/supabase/config";
+import { resolveTeamLogoUrl } from "../../../lib/team-logos";
 
 const querySchema = z.object({
   season: z.string().uuid().optional(),
@@ -67,13 +68,17 @@ const parseAttachments = (notes?: string | null) => {
   return [];
 };
 
-const mapTeam = (row: Record<string, unknown> | null, fallbackId: string) => ({
-  id: row?.id ? String(row.id) : fallbackId,
-  name: row?.name ? String(row.name) : fallbackId,
-  tag: row?.tag ? String(row.tag) : null,
-  division: row?.division ? String(row.division) : null,
-  logoUrl: row?.logo_url ? String(row.logo_url) : null,
-});
+const mapTeam = (row: Record<string, unknown> | null, fallbackId: string) => {
+  const name = row?.name ? String(row.name) : fallbackId;
+  const logoUrl = row?.logo_url ? String(row.logo_url) : null;
+  return {
+    id: row?.id ? String(row.id) : fallbackId,
+    name,
+    tag: row?.tag ? String(row.tag) : null,
+    division: row?.division ? String(row.division) : null,
+    logoUrl: resolveTeamLogoUrl(name, logoUrl),
+  };
+};
 
 const mapMatchRow = (row: Record<string, unknown>) => {
   const teamARow = row.team_a as Record<string, unknown> | null;
