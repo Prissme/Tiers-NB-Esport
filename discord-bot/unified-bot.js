@@ -34,10 +34,10 @@ const ELO_DIVISOR = 400;
 const TIER_SYNC_INTERVAL_MS = 10 * 60 * 1000; // 10 minutes
 const MIN_VOTES_TO_RESOLVE = Math.max(
   1,
-  Number.parseInt(process.env.MIN_VOTES_TO_RESOLVE || '5', 10)
+  Number.parseInt(process.env.MIN_VOTES_TO_RESOLVE || '4', 10)
 );
 const MAP_CHOICES_COUNT = 1;
-const DODGE_VOTES_REQUIRED = 5;
+const DODGE_VOTES_REQUIRED = 4;
 const DODGE_ELO_PENALTY = 30;
 const ROOM_TIER_ORDER = ['E', 'D', 'C', 'B', 'A', 'S'];
 const BEST_OF_VALUES = [1, 3, 5];
@@ -51,6 +51,7 @@ const SIMPLE_LOBBY_TEAM_SIZE = Number.parseInt(process.env.SIMPLE_LOBBY_TEAM_SIZ
 const PRISSCUP_ANNOUNCE_CHANNEL_ID = '1440767483438170264';
 const PRISSCUP_EVENT_URL = 'https://discord.gg/aeqGMNvTm?event=1442798624588435517';
 const PRISSCUP_EVENT_NAME = 'PrissCup 3v3';
+const RANK_UP_CHANNEL_ID = '1236724293631611022';
 const PRISSCUP_TEAM_BADGES = ['🟦', '🟪', '🟥', '🟧', '🟨', '🟩', '🟦‍🔥', '🟫', '⬛'];
 
 const DISCORD_BOT_TOKEN = process.env.DISCORD_BOT_TOKEN;
@@ -78,8 +79,6 @@ const TIER_DISTRIBUTION = [
   { tier: 'E', ratio: 0.555, minCount: 1 }
 ];
 
-const UNRANKED_ELO_THRESHOLD = 1226;
-
 const TIER_EMOJIS = {
   S: '<:tiers:1382755986120638505>',
   A: '<:tiera:1382755988494352555>',
@@ -91,25 +90,28 @@ const TIER_EMOJIS = {
 
 const BRONZE_EMOJI = '<:Bronze:1439605520729116702>';
 const SILVER_EMOJI = '<:Silver:1439995612069101681>';
+const GOLD_EMOJI = '<:GoldPL:1468675832334520350>';
+const DIAMOND_EMOJI = '<:DiamondPL:1468679124536000603>';
+const MYTHIC_EMOJI = '<:MythicPL:1468678611153457357>';
 const WISHED_EMOJI = '<:Wished:1439415315720175636>';
 
-const WISHED_RANK_BRACKETS = [
-  { min: 1200, label: 'Silver 5' },
-  { min: 1175, label: 'Silver 4' },
-  { min: 1150, label: 'Silver 3' },
-  { min: 1125, label: 'Silver 2' },
-  { min: 1100, label: 'Silver 1' },
-  { min: 1080, label: 'Bronze 5' },
-  { min: 1060, label: 'Bronze 4' },
-  { min: 1040, label: 'Bronze 3' },
-  { min: 1020, label: 'Bronze 2' },
-  { min: 1000, label: 'Bronze 1' },
-  { min: 980, label: 'Wished 5' },
-  { min: 960, label: 'Wished 4' },
-  { min: 940, label: 'Wished 3' },
-  { min: 920, label: 'Wished 2' },
-  { min: 900, label: 'Wished 1' },
-  { min: -Infinity, label: 'Wished 0' }
+const ELO_RANKS = [
+  { min: 1450, name: 'Mythique', numeral: 'III', emoji: MYTHIC_EMOJI },
+  { min: 1400, name: 'Mythique', numeral: 'II', emoji: MYTHIC_EMOJI },
+  { min: 1350, name: 'Mythique', numeral: 'I', emoji: MYTHIC_EMOJI },
+  { min: 1300, name: 'Diamant', numeral: 'III', emoji: DIAMOND_EMOJI },
+  { min: 1260, name: 'Diamant', numeral: 'II', emoji: DIAMOND_EMOJI },
+  { min: 1220, name: 'Diamant', numeral: 'I', emoji: DIAMOND_EMOJI },
+  { min: 1180, name: 'Gold', numeral: 'III', emoji: GOLD_EMOJI },
+  { min: 1150, name: 'Gold', numeral: 'II', emoji: GOLD_EMOJI },
+  { min: 1120, name: 'Gold', numeral: 'I', emoji: GOLD_EMOJI },
+  { min: 1090, name: 'Silver', numeral: 'III', emoji: SILVER_EMOJI },
+  { min: 1070, name: 'Silver', numeral: 'II', emoji: SILVER_EMOJI },
+  { min: 1050, name: 'Silver', numeral: 'I', emoji: SILVER_EMOJI },
+  { min: 1030, name: 'Bronze', numeral: 'III', emoji: BRONZE_EMOJI },
+  { min: 1020, name: 'Bronze', numeral: 'II', emoji: BRONZE_EMOJI },
+  { min: 1010, name: 'Bronze', numeral: 'I', emoji: BRONZE_EMOJI },
+  { min: -Infinity, name: 'Wished', numeral: null, emoji: WISHED_EMOJI }
 ];
 
 const PRISSCUP_RULES_EN = `📘 PRISS Cup – Rulebook (3v3 – 8 teams)
@@ -523,6 +525,18 @@ async function removePlayersFromRuntimePlQueue(guildId, userIds = []) {
 
   plQueueCache.set(guildId, remaining);
   return remaining;
+}
+
+async function clearRuntimePlQueue(guildId) {
+  await ensureRuntimePlQueueLoaded(guildId);
+  const { error } = await supabase.from('runtime_pl_queue').delete().eq('guild_id', guildId);
+  if (error) {
+    errorLog('Unable to clear runtime PL queue:', error.message);
+    return false;
+  }
+
+  plQueueCache.set(guildId, []);
+  return true;
 }
 
 async function requeueRuntimePlPlayers(guildId, userIds = []) {
@@ -1024,20 +1038,18 @@ function normalizeRating(value) {
   return typeof value === 'number' ? value : DEFAULT_ELO;
 }
 
-function getWishedRankByElo(rating) {
+function getEloRankByRating(rating) {
   const normalized = normalizeRating(rating);
 
-  if (normalized >= UNRANKED_ELO_THRESHOLD) {
-    return null;
-  }
-
-  for (const bracket of WISHED_RANK_BRACKETS) {
-    if (normalized >= bracket.min) {
-      return bracket.label;
+  for (let index = 0; index < ELO_RANKS.length; index += 1) {
+    const rank = ELO_RANKS[index];
+    if (normalized >= rank.min) {
+      return { ...rank, index };
     }
   }
 
-  return WISHED_RANK_BRACKETS[WISHED_RANK_BRACKETS.length - 1].label;
+  const fallback = ELO_RANKS[ELO_RANKS.length - 1];
+  return { ...fallback, index: ELO_RANKS.length - 1 };
 }
 
 function getTierLabelByRank(rank, totalPlayers) {
@@ -1057,35 +1069,40 @@ function formatTierEmoji(tier) {
   return TIER_EMOJIS[tier] || tier;
 }
 
-function formatWishedRankLabel(label) {
-  if (!label) {
+function formatEloRankLabel(rankInfo) {
+  if (!rankInfo) {
     return null;
   }
 
-  const match = label.match(/(\d+)/);
-  if (!match) {
-    return label;
+  const name = rankInfo.name || '';
+  const numeral = rankInfo.numeral;
+  const emoji = rankInfo.emoji || '';
+
+  if (!numeral) {
+    return `${emoji} ${name}`.trim();
   }
 
-  const value = Number.parseInt(match[1], 10);
-  const romanNumerals = ['0', 'I', 'II', 'III', 'IV', 'V'];
-  const numeral = romanNumerals[value] || String(value);
+  return `${emoji} ${name} **${numeral}**`.trim();
+}
 
-  const lowerLabel = label.toLowerCase();
-  const emoji = lowerLabel.startsWith('silver')
-    ? SILVER_EMOJI
-    : lowerLabel.startsWith('bronze')
-      ? BRONZE_EMOJI
-      : WISHED_EMOJI;
+function getNextEloRank(rankInfo) {
+  if (!rankInfo || typeof rankInfo.index !== 'number') {
+    return null;
+  }
 
-  return `${emoji} ${numeral}`;
+  if (rankInfo.index <= 0) {
+    return null;
+  }
+
+  const nextRank = ELO_RANKS[rankInfo.index - 1];
+  return nextRank ? { ...nextRank, index: rankInfo.index - 1 } : null;
 }
 
 async function getSiteRankingInfo(targetDiscordId) {
   try {
     const { data, error } = await supabase
       .from('players')
-      .select('discord_id, mmr, solo_elo')
+      .select('discord_id, solo_elo')
       .eq('active', true)
       .not('discord_id', 'is', null);
 
@@ -1098,11 +1115,10 @@ async function getSiteRankingInfo(targetDiscordId) {
     const rankedPlayers = (data || [])
       .map((entry) => {
         const soloElo = normalizeRating(entry.solo_elo);
-        const mmr = normalizeRating(entry.mmr);
 
         return {
           discord_id: entry.discord_id,
-          weightedScore: calculateWeightedScore(soloElo, mmr)
+          weightedScore: soloElo
         };
       })
       .sort((a, b) => b.weightedScore - a.weightedScore);
@@ -1110,19 +1126,18 @@ async function getSiteRankingInfo(targetDiscordId) {
     const totalPlayers = rankedPlayers.length;
     const playerIndex = rankedPlayers.findIndex((entry) => entry.discord_id?.toString() === targetIdText);
     const rank = playerIndex === -1 ? null : playerIndex + 1;
-    const tier = rank ? getTierByRank(rank, computeTierBoundaries(totalPlayers)) : null;
 
-    return { rank, tier, totalPlayers };
+    return { rank, totalPlayers };
   } catch (err) {
     warn('Unable to compute site ranking info:', err.message);
-    return { rank: null, tier: null, totalPlayers: null };
+    return { rank: null, totalPlayers: null };
   }
 }
 
 async function getSiteRankingMap() {
   const { data, error } = await supabase
     .from('players')
-    .select('discord_id, mmr, solo_elo, active')
+    .select('discord_id, solo_elo, active')
     .not('discord_id', 'is', null);
 
   if (error) {
@@ -1134,11 +1149,10 @@ async function getSiteRankingMap() {
   const rankedPlayers = (activePlayers.length ? activePlayers : players)
     .map((entry) => {
       const soloElo = normalizeRating(entry.solo_elo);
-      const mmr = normalizeRating(entry.mmr);
 
       return {
         discord_id: entry.discord_id,
-        weightedScore: calculateWeightedScore(soloElo, mmr)
+        weightedScore: soloElo
       };
     })
     .sort((a, b) => b.weightedScore - a.weightedScore);
@@ -1224,38 +1238,22 @@ function isTierWithinRange(playerTier, minTier, maxTier) {
   return playerIndex >= minIndex && playerIndex <= maxIndex;
 }
 
-function calculateWeightedScore(soloElo, mmr) {
-  const safeSoloElo = normalizeRating(soloElo);
-  const safeMmr = normalizeRating(mmr);
-  return Math.round(safeSoloElo * 0.4 + safeMmr * 0.6);
-}
-
 function describeStreak(winStreak, loseStreak, { short = false } = {}) {
   const wins = Number.isFinite(winStreak) ? winStreak : 0;
   const losses = Number.isFinite(loseStreak) ? loseStreak : 0;
 
   if (wins > 0) {
-    const label = short
-      ? localizeText({ fr: '🔥 x{count}', en: '🔥 x{count}' }, { count: wins })
-      : localizeText(
-          { fr: '🔥 {count} victoire(s) consécutive(s)', en: '🔥 {count} win(s) in a row' },
-          { count: wins }
-        );
-    return { label, type: 'win' };
+    const label = localizeText({ fr: '🔥 **{count}**', en: '🔥 **{count}**' }, { count: wins });
+    return { label, type: 'win', short };
   }
 
   if (losses > 0) {
-    const label = short
-      ? localizeText({ fr: '💀 x{count}', en: '💀 x{count}' }, { count: losses })
-      : localizeText(
-          { fr: '💀 {count} défaite(s) consécutive(s)', en: '💀 {count} loss(es) in a row' },
-          { count: losses }
-        );
-    return { label, type: 'lose' };
+    const label = localizeText({ fr: '💀 **{count}**', en: '💀 **{count}**' }, { count: losses });
+    return { label, type: 'lose', short };
   }
 
-  const neutralLabel = localizeText({ fr: 'Série neutre', en: 'Neutral streak' });
-  return { label: neutralLabel, type: 'neutral' };
+  const neutralLabel = localizeText({ fr: '➖ **0**', en: '➖ **0**' });
+  return { label: neutralLabel, type: 'neutral', short };
 }
 
 function formatPlayerList(team) {
@@ -1360,10 +1358,14 @@ async function applyDodgePenalty(targetPlayer) {
   await sendLogMessage(
     localizeText(
       {
-        fr: '🚫 {name} perd {penalty} Elo (5 votes dodge).',
-        en: '🚫 {name} loses {penalty} Elo (5 dodge votes).'
+        fr: '🚫 {name} perd {penalty} Elo ({count} votes dodge).',
+        en: '🚫 {name} loses {penalty} Elo ({count} dodge votes).'
       },
-      { name: targetPlayer.displayName || `<@${targetPlayer.discordId}>`, penalty: DODGE_ELO_PENALTY }
+      {
+        name: targetPlayer.displayName || `<@${targetPlayer.discordId}>`,
+        penalty: DODGE_ELO_PENALTY,
+        count: DODGE_VOTES_REQUIRED
+      }
     )
   );
 
@@ -1528,6 +1530,37 @@ function buildMatchEmbed(state, resultSummary = null) {
   }
 
   return embed;
+}
+
+async function sendRankUpNotification(player, oldRating, newRating) {
+  const oldRank = getEloRankByRating(oldRating);
+  const newRank = getEloRankByRating(newRating);
+  if (!oldRank || !newRank || newRank.index >= oldRank.index) {
+    return;
+  }
+
+  if (!client) {
+    return;
+  }
+
+  const channel = await client.channels.fetch(RANK_UP_CHANNEL_ID).catch(() => null);
+  if (!channel?.isTextBased()) {
+    return;
+  }
+
+  const playerLabel = player?.discordId ? `<@${player.discordId}>` : player?.displayName || 'Joueur';
+  const oldLabel = formatEloRankLabel(oldRank);
+  const newLabel = formatEloRankLabel(newRank);
+
+  await channel.send({
+    content: localizeText(
+      {
+        fr: '🎉 {player} monte de rang : {old} → {new}',
+        en: '🎉 {player} ranked up: {old} → {new}'
+      },
+      { player: playerLabel, old: oldLabel, new: newLabel }
+    )
+  });
 }
 
 function buildResultButtons(disabled = false) {
@@ -2417,6 +2450,45 @@ async function handleQueueCommand(message) {
   await message.reply({ embeds: [embed], allowedMentions: { repliedUser: false } });
 }
 
+async function handleCleanQueueCommand(message) {
+  if (!message.guild || message.guild.id !== DISCORD_GUILD_ID) {
+    return;
+  }
+
+  const hasPermission = message.member?.permissions?.has(PermissionsBitField.Flags.ManageGuild);
+  if (!hasPermission) {
+    await message.reply({
+      content: localizeText({
+        fr: '❌ Vous devez avoir la permission Gérer le serveur pour vider la file.',
+        en: '❌ You need the Manage Server permission to clear the queue.'
+      }),
+      allowedMentions: { repliedUser: false }
+    });
+    return;
+  }
+
+  if (!message.guild) {
+    await message.reply({
+      content: localizeText({
+        fr: 'Impossible de récupérer les informations du serveur.',
+        en: 'Unable to retrieve server information.'
+      }),
+      allowedMentions: { repliedUser: false }
+    });
+    return;
+  }
+
+  const cleared = await clearRuntimePlQueue(message.guild.id);
+  await sendOrUpdateQueueMessage(message.guild, plQueueChannel);
+
+  await message.reply({
+    content: cleared
+      ? localizeText({ fr: '✅ File vidée.', en: '✅ Queue cleared.' })
+      : localizeText({ fr: '❌ Impossible de vider la file pour le moment.', en: '❌ Unable to clear the queue.' }),
+    allowedMentions: { repliedUser: false }
+  });
+}
+
 async function handleEloCommand(message) {
   const mention = message.mentions.users.first();
   const targetId = mention ? mention.id : message.author.id;
@@ -2454,21 +2526,13 @@ async function handleEloCommand(message) {
   const loseStreak = typeof player.lose_streak === 'number' ? player.lose_streak : 0;
   const streakInfo = describeStreak(winStreak, loseStreak);
   const soloElo = normalizeRating(player.solo_elo);
-  const mmr = normalizeRating(player.mmr);
-  const { tier: siteTier, rank: siteRank } = siteRanking;
-  const tierEmoji = formatTierEmoji(siteTier);
-  const tierLabel = siteTier
-    ? localizeText(
-        { fr: '{emoji} — #{rank} sur le site', en: '{emoji} — #{rank} on the site' },
-        {
-          emoji: tierEmoji || siteTier,
-          rank: siteRank || '?'
-        }
-      )
-    : localizeText({ fr: 'Sans tier', en: 'No tier' });
+  const { rank: siteRank, totalPlayers } = siteRanking;
   const wishedRankLabel =
-    formatWishedRankLabel(getWishedRankByElo(soloElo)) ||
+    formatEloRankLabel(getEloRankByRating(soloElo)) ||
     localizeText({ fr: 'Non classé', en: 'Unranked' });
+  const classementLabel = siteRank
+    ? `#**${siteRank}**${totalPlayers ? `/${totalPlayers}` : ''}`
+    : localizeText({ fr: 'Non classé', en: 'Unranked' });
 
   const embed = new EmbedBuilder()
     .setTitle(
@@ -2479,20 +2543,19 @@ async function handleEloCommand(message) {
     )
     .addFields(
       { name: 'Elo', value: `${Math.round(soloElo)}`, inline: true },
-      { name: 'MMR', value: `${Math.round(mmr)}`, inline: true },
+      {
+        name: localizeText({ fr: 'Rang', en: 'Rank' }),
+        value: wishedRankLabel,
+        inline: true
+      },
       {
         name: localizeText({ fr: 'Série en cours', en: 'Current streak' }),
         value: streakInfo.label,
         inline: true
       },
       {
-        name: localizeText({ fr: 'Tier', en: 'Tier' }),
-        value: tierLabel,
-        inline: true
-      },
-      {
-        name: localizeText({ fr: 'Rang', en: 'Rank' }),
-        value: wishedRankLabel,
+        name: localizeText({ fr: 'Classement', en: 'Ranking' }),
+        value: classementLabel,
         inline: true
       }
     )
@@ -2501,6 +2564,88 @@ async function handleEloCommand(message) {
     .setTimestamp(new Date());
 
   await message.reply({ embeds: [embed] });
+}
+
+async function handleRanksCommand(message) {
+  const targetId = message.author.id;
+
+  let player;
+  try {
+    player = await fetchPlayerByDiscordId(targetId);
+  } catch (err) {
+    errorLog('Failed to fetch player ranks:', err);
+    await message.reply({
+      content: localizeText({
+        fr: 'Erreur lors de la récupération du classement.',
+        en: 'Error while fetching rankings.'
+      }),
+      allowedMentions: { repliedUser: false }
+    });
+    return;
+  }
+
+  if (!player) {
+    await message.reply({
+      content: localizeText({
+        fr: 'Aucun profil Elo trouvé pour ce joueur.',
+        en: 'No Elo profile found for this player.'
+      }),
+      allowedMentions: { repliedUser: false }
+    });
+    return;
+  }
+
+  const soloElo = normalizeRating(player.solo_elo);
+  const currentRank = getEloRankByRating(soloElo);
+  const nextRank = getNextEloRank(currentRank);
+  const remaining = nextRank ? Math.max(0, Math.ceil(nextRank.min - soloElo)) : 0;
+
+  const progressionLines = ELO_RANKS.slice()
+    .reverse()
+    .map((rank) => {
+      const rankLabel = formatEloRankLabel(rank);
+      if (rank.min === -Infinity) {
+        return localizeText(
+          { fr: '{rank} — < 1000 Elo', en: '{rank} — < 1000 Elo' },
+          { rank: rankLabel }
+        );
+      }
+
+      return localizeText({ fr: '{rank} — {min} Elo', en: '{rank} — {min} Elo' }, {
+        rank: rankLabel,
+        min: rank.min
+      });
+    });
+
+  const goalLine = nextRank
+    ? localizeText(
+        {
+          fr: 'Prochain palier : {rank} ({remaining} Elo restants)',
+          en: 'Next milestone: {rank} ({remaining} Elo to go)'
+        },
+        { rank: formatEloRankLabel(nextRank), remaining }
+      )
+    : localizeText({
+        fr: 'Tu es déjà au rang max (Mythique **III**).',
+        en: 'You are already at the top rank (Mythique **III**).'
+      });
+
+  const embed = new EmbedBuilder()
+    .setTitle(localizeText({ fr: 'Progression Elo — Mythique **III**', en: 'Elo progression — Mythique **III**' }))
+    .setDescription(progressionLines.join('\n'))
+    .addFields(
+      { name: localizeText({ fr: 'Ton Elo', en: 'Your Elo' }), value: `${Math.round(soloElo)}`, inline: true },
+      {
+        name: localizeText({ fr: 'Rang actuel', en: 'Current rank' }),
+        value: formatEloRankLabel(currentRank),
+        inline: true
+      },
+      { name: localizeText({ fr: 'Objectif', en: 'Goal' }), value: goalLine }
+    )
+    .setColor(0x9b59b6)
+    .setTimestamp(new Date());
+
+  await message.reply({ embeds: [embed], allowedMentions: { repliedUser: false } });
 }
 
 async function handleAchievementsCommand(message) {
@@ -2536,9 +2681,6 @@ async function handleAchievementsCommand(message) {
   const currentRankLabel = siteRanking.rank
     ? `#${siteRanking.rank}`
     : localizeText({ fr: 'Non classé', en: 'Unranked' });
-  const currentTierLabel = siteRanking.tier
-    ? formatTierEmoji(siteRanking.tier)
-    : localizeText({ fr: 'Sans tier', en: 'No tier' });
 
   const scrimWins = typeof player.scrim_wins === 'number' ? player.scrim_wins : 0;
   const prissCupOpenWins =
@@ -2547,14 +2689,10 @@ async function handleAchievementsCommand(message) {
     typeof player.prisscup_1v1_wins === 'number' ? player.prisscup_1v1_wins : 0;
 
   const peakElo = normalizeRating(player.peak_elo ?? player.solo_elo);
-  const peakMmr = normalizeRating(player.peak_mmr ?? player.mmr);
   const peakRankLabel =
     typeof player.peak_rank === 'number'
       ? `#${player.peak_rank}`
       : localizeText({ fr: 'Non enregistré', en: 'Not recorded' });
-  const peakTierLabel = player.peak_tier
-    ? formatTierEmoji(player.peak_tier)
-    : localizeText({ fr: 'Non enregistré', en: 'Not recorded' });
 
   const achievementFields = [
     {
@@ -2587,28 +2725,13 @@ async function handleAchievementsCommand(message) {
       inline: true
     },
     {
-      name: localizeText({ fr: 'Peak MMR', en: 'Peak MMR' }),
-      value: `${Math.round(peakMmr)}`,
-      inline: true
-    },
-    {
       name: localizeText({ fr: 'Peak rang', en: 'Peak rank' }),
       value: peakRankLabel,
       inline: true
     },
     {
-      name: localizeText({ fr: 'Peak tier', en: 'Peak tier' }),
-      value: peakTierLabel,
-      inline: true
-    },
-    {
       name: localizeText({ fr: 'Rang actuel', en: 'Current rank' }),
       value: currentRankLabel,
-      inline: true
-    },
-    {
-      name: localizeText({ fr: 'Tier actuel', en: 'Current tier' }),
-      value: currentTierLabel,
       inline: true
     }
   );
@@ -2682,7 +2805,7 @@ async function handleLeaderboardCommand(message, args) {
       const winStreak = typeof player.win_streak === 'number' ? player.win_streak : 0;
       const loseStreak = typeof player.lose_streak === 'number' ? player.lose_streak : 0;
       const streakInfo = describeStreak(winStreak, loseStreak, { short: true });
-      const wishedRank = formatWishedRankLabel(getWishedRankByElo(soloElo));
+      const wishedRank = formatEloRankLabel(getEloRankByRating(soloElo));
       const displayName = wishedRank ? `${wishedRank} **${player.name}**` : `**${player.name}**`;
 
       lines.push(
@@ -2692,7 +2815,7 @@ async function handleLeaderboardCommand(message, args) {
             en: '{rank}. {name} — {elo} Elo — {streak}'
           },
           {
-            rank,
+            rank: `**${rank}**`,
             name: displayName,
             elo: Math.round(soloElo),
             streak: streakInfo.label
@@ -3623,8 +3746,10 @@ async function handleHelpCommand(message) {
           '`!roomleave` — Leave your custom room',
           '`!queue` — Show the Power League queue with player ranks',
           '`!file` — Show the Power League queue with player ranks (FR alias)',
+          '`!cleanqueue` — [Admin] Clear the Power League queue',
           '`!achievements [@player]` — Display player achievements and peaks',
           '`!elo [@player]` — Display Elo stats',
+          '`!ranks` — Show your Elo progression up to Mythique III',
           '`!lb [count]` — Show the leaderboard (example: !lb 25)',
           '`!maps` — Show the current map rotation',
           '`!ping` — Mention the match notification role',
@@ -3644,8 +3769,10 @@ async function handleHelpCommand(message) {
           '`!roomleave` — Quitter ta room personnalisée',
           '`!queue` — Voir la file PL avec le rang des joueurs',
           '`!file` — Voir la file PL avec le rang des joueurs',
+          '`!cleanqueue` — [Admin] Vider la file PL',
           '`!achievements [@joueur]` — Afficher les succès et les peaks du joueur',
           '`!elo [@joueur]` — Afficher le classement Elo',
+          '`!ranks` — Voir ta progression Elo vers Mythique III',
           '`!lb [nombre]` — Afficher le top classement (ex: !lb 25)',
           '`!maps` — Afficher la rotation des maps',
           '`!ping` — Mentionner le rôle de notification des matchs',
@@ -4161,6 +4288,10 @@ async function applyMatchOutcome(state, outcome, userId) {
     winner: outcome,
     completed_at: new Date().toISOString()
   });
+
+  await Promise.all(
+    changes.map((change) => sendRankUpNotification(change.player, change.oldRating, change.newRating))
+  );
 
   const winnerLine = localizeText(
     {
@@ -4983,8 +5114,8 @@ async function syncTiersWithRoles() {
   try {
     const { data, error } = await supabase
       .from('players')
-      .select('id, discord_id, name, mmr, solo_elo, active')
-      .order('mmr', { ascending: false });
+      .select('id, discord_id, name, solo_elo, active')
+      .order('solo_elo', { ascending: false });
 
     if (error) {
       throw error;
@@ -4994,12 +5125,10 @@ async function syncTiersWithRoles() {
       .filter((player) => player.discord_id)
       .map((player) => {
         const soloElo = normalizeRating(player.solo_elo);
-        const mmr = normalizeRating(player.mmr);
         return {
           ...player,
           solo_elo: soloElo,
-          mmr,
-          weightedScore: calculateWeightedScore(soloElo, mmr)
+          weightedScore: soloElo
         };
       });
   } catch (err) {
@@ -5240,11 +5369,17 @@ async function handleMessage(message) {
       case 'file':
         await handleQueueCommand(message, args);
         break;
+      case 'cleanqueue':
+        await handleCleanQueueCommand(message, args);
+        break;
       case 'achievements':
         await handleAchievementsCommand(message, args);
         break;
       case 'elo':
         await handleEloCommand(message, args);
+        break;
+      case 'ranks':
+        await handleRanksCommand(message, args);
         break;
       case 'lb':
       case 'leaderboard':
