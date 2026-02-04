@@ -9,6 +9,7 @@ import {
   TEAM_MEMBERS_TABLE,
   TEAMS_TABLE,
 } from "../../../../src/lib/supabase/config";
+import { resolveTeamLogoUrl } from "../../../lib/team-logos";
 
 const querySchema = z.object({
   season: z.string().uuid().optional(),
@@ -56,20 +57,24 @@ const buildDivisionFilters = (value: string) => {
   return [...options].filter(Boolean) as string[];
 };
 
-const mapTeamRow = (row: Record<string, unknown>) => ({
-  id: String(row[TEAM_COLUMNS.id] ?? ""),
-  name: String(row[TEAM_COLUMNS.name] ?? ""),
-  tag: row[TEAM_COLUMNS.tag] ? String(row[TEAM_COLUMNS.tag]) : null,
-  division: normalizeDivision(row[TEAM_COLUMNS.division]),
-  logoUrl: row[TEAM_COLUMNS.logoUrl] ? String(row[TEAM_COLUMNS.logoUrl]) : null,
-  seasonId: row[TEAM_COLUMNS.seasonId] ? String(row[TEAM_COLUMNS.seasonId]) : null,
-  isActive: row[TEAM_COLUMNS.isActive] ? Boolean(row[TEAM_COLUMNS.isActive]) : true,
-  statsSummary: toTextValue(row[TEAM_COLUMNS.statsSummary]),
-  mainBrawlers: toTextValue(row[TEAM_COLUMNS.mainBrawlers]),
-  wins: toNumber(row[TEAM_COLUMNS.wins]),
-  losses: toNumber(row[TEAM_COLUMNS.losses]),
-  points: toNumber(row[TEAM_COLUMNS.points]),
-});
+const mapTeamRow = (row: Record<string, unknown>) => {
+  const name = String(row[TEAM_COLUMNS.name] ?? "");
+  const logoUrl = row[TEAM_COLUMNS.logoUrl] ? String(row[TEAM_COLUMNS.logoUrl]) : null;
+  return {
+    id: String(row[TEAM_COLUMNS.id] ?? ""),
+    name,
+    tag: row[TEAM_COLUMNS.tag] ? String(row[TEAM_COLUMNS.tag]) : null,
+    division: normalizeDivision(row[TEAM_COLUMNS.division]),
+    logoUrl: resolveTeamLogoUrl(name, logoUrl),
+    seasonId: row[TEAM_COLUMNS.seasonId] ? String(row[TEAM_COLUMNS.seasonId]) : null,
+    isActive: row[TEAM_COLUMNS.isActive] ? Boolean(row[TEAM_COLUMNS.isActive]) : true,
+    statsSummary: toTextValue(row[TEAM_COLUMNS.statsSummary]),
+    mainBrawlers: toTextValue(row[TEAM_COLUMNS.mainBrawlers]),
+    wins: toNumber(row[TEAM_COLUMNS.wins]),
+    losses: toNumber(row[TEAM_COLUMNS.losses]),
+    points: toNumber(row[TEAM_COLUMNS.points]),
+  };
+};
 
 const mapMemberRow = (row: Record<string, unknown>) => ({
   id: String(row[TEAM_MEMBER_COLUMNS.id] ?? ""),

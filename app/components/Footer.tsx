@@ -8,6 +8,7 @@ const copy = {
     rules: "Règlement",
     matches: "Matchs",
     standings: "Classement",
+    hallOfFame: "Hall Of Fame",
   },
   en: {
     logoAlt: "LFN logo",
@@ -15,6 +16,7 @@ const copy = {
     rules: "Rules",
     matches: "Matches",
     standings: "Standings",
+    hallOfFame: "Hall Of Fame",
   },
 };
 
@@ -56,6 +58,12 @@ export default function Footer({ locale }: { locale: Locale }) {
             className="transition hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan/60 focus-visible:ring-offset-2 focus-visible:ring-offset-[#070a12]"
           >
             {content.standings}
+          </a>
+          <a
+            href="/hall-of-fame"
+            className="transition hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan/60 focus-visible:ring-offset-2 focus-visible:ring-offset-[#070a12]"
+          >
+            {content.hallOfFame}
           </a>
         </div>
       </div>

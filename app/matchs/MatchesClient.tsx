@@ -207,8 +207,8 @@ export default function MatchesClient({ locale }: { locale: Locale }) {
     };
 
     const sections = [
-      { title: content.finished, groups: buildGroups(finishedMatches) },
       { title: content.upcoming, groups: buildGroups(upcomingMatches) },
+      { title: content.finished, groups: buildGroups(finishedMatches) },
     ].filter((section) => section.groups.length > 0);
 
     return { filteredMatches: regular, groupedMatches: sections };
