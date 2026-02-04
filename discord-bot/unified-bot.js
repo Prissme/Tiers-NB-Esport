@@ -637,6 +637,45 @@ async function loadPendingRuntimeMatches(guildId) {
   return data || [];
 }
 
+async function formatPLQueueDetails(queue) {
+  let rankingByDiscordId = new Map();
+  let totalPlayers = null;
+
+  try {
+    const rankingInfo = await getSiteRankingMap();
+    rankingByDiscordId = rankingInfo.rankingByDiscordId;
+    totalPlayers = rankingInfo.totalPlayers;
+  } catch (err) {
+    warn('Unable to load PL rankings:', err?.message || err);
+  }
+
+  const formatLine = (id, index, language) => {
+    const rankInfo = rankingByDiscordId.get(id?.toString());
+    const rankLabel = rankInfo
+      ? language === LANGUAGE_EN
+        ? `Rank #${rankInfo.rank}${totalPlayers ? `/${totalPlayers}` : ''}`
+        : `Rang #${rankInfo.rank}${totalPlayers ? `/${totalPlayers}` : ''}`
+      : language === LANGUAGE_EN
+        ? 'Unranked'
+        : 'Non classé';
+
+    return `${index + 1}. <@${id}> — ${rankLabel}`;
+  };
+
+  const buildList = (language) => {
+    if (!queue.length) {
+      return language === LANGUAGE_EN ? 'No players in queue.' : 'Aucun joueur en file.';
+    }
+
+    return queue.map((id, index) => formatLine(id, index, language)).join('\n');
+  };
+
+  return {
+    fr: buildList(LANGUAGE_FR),
+    en: buildList(LANGUAGE_EN)
+  };
+}
+
 async function sendOrUpdateQueueMessage(guildContext, channel) {
   if (!guildContext) {
     return null;
@@ -648,8 +687,9 @@ async function sendOrUpdateQueueMessage(guildContext, channel) {
   }
 
   const queue = getPLQueue(guildContext.id);
-  const descriptionFr = `🔁 File PL : **${queue.length}/6** joueurs\nCliquez sur Rejoindre la file pour entrer anonymement.`;
-  const descriptionEn = `🔁 PL Queue : **${queue.length}/6** players\nClick Join queue to enter anonymously.`;
+  const queueDetails = await formatPLQueueDetails(queue);
+  const descriptionFr = `🔁 File PL : **${queue.length}/6** joueurs\n${queueDetails.fr}`;
+  const descriptionEn = `🔁 PL Queue : **${queue.length}/6** players\n${queueDetails.en}`;
 
   const embed = new EmbedBuilder()
     .setTitle('Power League')
@@ -1077,6 +1117,46 @@ async function getSiteRankingInfo(targetDiscordId) {
     warn('Unable to compute site ranking info:', err.message);
     return { rank: null, tier: null, totalPlayers: null };
   }
+}
+
+async function getSiteRankingMap() {
+  const { data, error } = await supabase
+    .from('players')
+    .select('discord_id, mmr, solo_elo, active')
+    .not('discord_id', 'is', null);
+
+  if (error) {
+    throw error;
+  }
+
+  const players = data || [];
+  const activePlayers = players.filter((player) => player.active !== false);
+  const rankedPlayers = (activePlayers.length ? activePlayers : players)
+    .map((entry) => {
+      const soloElo = normalizeRating(entry.solo_elo);
+      const mmr = normalizeRating(entry.mmr);
+
+      return {
+        discord_id: entry.discord_id,
+        weightedScore: calculateWeightedScore(soloElo, mmr)
+      };
+    })
+    .sort((a, b) => b.weightedScore - a.weightedScore);
+
+  const totalPlayers = rankedPlayers.length;
+  const rankingByDiscordId = new Map();
+
+  rankedPlayers.forEach((player, index) => {
+    if (!player.discord_id) {
+      return;
+    }
+
+    rankingByDiscordId.set(player.discord_id.toString(), {
+      rank: index + 1
+    });
+  });
+
+  return { rankingByDiscordId, totalPlayers };
 }
 
 function normalizeTierInput(value) {
@@ -2324,8 +2404,9 @@ async function handleQueueCommand(message) {
   const queue = getPLQueue(message.guild.id);
   await sendOrUpdateQueueMessage(message.guild, plQueueChannel);
 
-  const descriptionFr = `🔁 File PL : **${queue.length}/${MATCH_SIZE}** joueurs`;
-  const descriptionEn = `🔁 PL Queue : **${queue.length}/${MATCH_SIZE}** players`;
+  const queueDetails = await formatPLQueueDetails(queue);
+  const descriptionFr = `🔁 File PL : **${queue.length}/${MATCH_SIZE}** joueurs\n${queueDetails.fr}`;
+  const descriptionEn = `🔁 PL Queue : **${queue.length}/${MATCH_SIZE}** players\n${queueDetails.en}`;
 
   const embed = new EmbedBuilder()
     .setTitle('Power League')
@@ -3540,8 +3621,8 @@ async function handleHelpCommand(message) {
           '`!leave` — Leave the queue',
           '`!room` — View the custom room you joined',
           '`!roomleave` — Leave your custom room',
-          '`!queue` — Show the anonymous Power League queue size',
-          '`!file` — Show the anonymous Power League queue size (FR alias)',
+          '`!queue` — Show the Power League queue with player ranks',
+          '`!file` — Show the Power League queue with player ranks (FR alias)',
           '`!achievements [@player]` — Display player achievements and peaks',
           '`!elo [@player]` — Display Elo stats',
           '`!lb [count]` — Show the leaderboard (example: !lb 25)',
@@ -3561,8 +3642,8 @@ async function handleHelpCommand(message) {
           '`!leave` — Quitter la file d\'attente',
           '`!room` — Voir la room personnalisée que tu as rejointe',
           '`!roomleave` — Quitter ta room personnalisée',
-          '`!queue` — Voir la taille anonyme de la file PL',
-          '`!file` — Voir la taille anonyme de la file PL',
+          '`!queue` — Voir la file PL avec le rang des joueurs',
+          '`!file` — Voir la file PL avec le rang des joueurs',
           '`!achievements [@joueur]` — Afficher les succès et les peaks du joueur',
           '`!elo [@joueur]` — Afficher le classement Elo',
           '`!lb [nombre]` — Afficher le top classement (ex: !lb 25)',

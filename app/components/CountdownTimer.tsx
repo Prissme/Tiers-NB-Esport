@@ -6,13 +6,6 @@ import type { Locale } from "../lib/i18n";
 const TARGETS = [
   {
     label: {
-      fr: "LFN Jour 2",
-      en: "LFN Day 2",
-    },
-    timestamp: new Date("2026-01-31T19:00:00+01:00").getTime(),
-  },
-  {
-    label: {
       fr: "LFN Jour 3",
       en: "LFN Day 3",
     },
