@@ -170,6 +170,32 @@ def fetch_leaderboard(limit: int = 10) -> Tuple[List[Player], int]:
     return players, total_players
 
 
+
+
+def fetch_leaderboard_page(limit: int = 10, offset: int = 0) -> Tuple[List[Player], int]:
+    limit = max(1, int(limit))
+    offset = max(0, int(offset))
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT *, COUNT(*) OVER() AS total_players
+                FROM players
+                ORDER BY solo_elo DESC, solo_wins DESC, solo_losses ASC, name ASC
+                LIMIT %s OFFSET %s
+                """,
+                (limit, offset),
+            )
+            rows = cur.fetchall()
+    if not rows:
+        with get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute("SELECT COUNT(*) AS count FROM players")
+                total_players = int(cur.fetchone()["count"])
+        return [], total_players
+    total_players = int(rows[0].get("total_players", 0))
+    players = [Player.from_row(row) for row in rows]
+    return players, total_players
 def record_match(team1_ids: List[int], team2_ids: List[int], map_info: Dict[str, str]) -> Dict:
     with get_connection() as conn:
         with conn.cursor() as cur:

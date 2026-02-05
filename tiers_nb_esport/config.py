@@ -15,6 +15,18 @@ DEFAULT_DIVISION = os.getenv("MATCHMAKING_DEFAULT_DIVISION", "solo")
 
 # ELO
 K_FACTOR = 30
+EMBED_COLOR = 0xC99A2A
+QUEUE_OR_1_MIN_ELO = int(os.getenv("QUEUE_OR_1_MIN_ELO", "1500"))
+
+# Rangs (approximation basée sur l'ELO interne)
+RANKS = [
+    {"name": "Bronze", "min_elo": 0, "emoji": "🟤"},
+    {"name": "Argent", "min_elo": 900, "emoji": "⚪"},
+    {"name": "Or", "min_elo": 1100, "emoji": "🟡"},
+    {"name": "Or 1", "min_elo": QUEUE_OR_1_MIN_ELO, "emoji": "🏅"},
+    {"name": "Platine", "min_elo": 1700, "emoji": "💠"},
+    {"name": "Diamant", "min_elo": 1900, "emoji": "💎"},
+]
 
 # Classement tiers (ratio basé sur le classement global)
 TIER_DISTRIBUTION = [
