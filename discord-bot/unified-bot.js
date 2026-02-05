@@ -113,6 +113,7 @@ const VOLATILITY_MULTIPLIERS = [
   { min: -Infinity, multiplier: 1.0 }
 ];
 const MAX_STREAK_K_BONUS = 20;
+const RANK_THRESHOLDS = [2400, 2100, 1800, 1500, 1200];
 
 const ELO_RANKS = [
   { min: 2700, name: 'Verdoyant', numeral: null, emoji: VERDOYANT_EMOJI },
@@ -1256,10 +1257,26 @@ function getStreakKBonus(player) {
   return Math.min(MAX_STREAK_K_BONUS, Math.max(0, winStreak, loseStreak));
 }
 
-function getPersonalizedKFactor(player, baseKFactor, rating) {
-  const multiplier = getVolatilityMultiplierForRating(rating);
+function getUpsetMultiplier(playerRating, opponentAvg) {
+  const diff = Math.abs(normalizeRating(playerRating) - normalizeRating(opponentAvg));
+
+  if (diff >= 500) {
+    return 1.6;
+  }
+  if (diff >= 350) {
+    return 1.4;
+  }
+  if (diff >= 200) {
+    return 1.2;
+  }
+  return 1.0;
+}
+
+function getPersonalizedKFactor(player, baseKFactor, rating, opponentAvg) {
   const streakBonus = getStreakKBonus(player);
-  return baseKFactor * multiplier + streakBonus;
+  const upsetMultiplier = getUpsetMultiplier(rating, opponentAvg);
+  const k = (baseKFactor + streakBonus) * upsetMultiplier;
+  return Math.round(k);
 }
 
 function isValidTierRange(minTier, maxTier) {
@@ -1710,6 +1727,8 @@ function buildQueueEntry(member, playerRecord) {
   const games = typeof playerRecord.games_played === 'number' ? playerRecord.games_played : wins + losses;
   const winStreak = typeof playerRecord.win_streak === 'number' ? playerRecord.win_streak : 0;
   const loseStreak = typeof playerRecord.lose_streak === 'number' ? playerRecord.lose_streak : 0;
+  const shieldActive = Boolean(playerRecord.shield_active);
+  const shieldThreshold = typeof playerRecord.shield_threshold === 'number' ? playerRecord.shield_threshold : 0;
 
   return {
     discordId: member.id,
@@ -1722,6 +1741,8 @@ function buildQueueEntry(member, playerRecord) {
     games,
     winStreak,
     loseStreak,
+    shieldActive,
+    shieldThreshold,
     joinedAt: new Date()
   };
 }
@@ -4247,8 +4268,26 @@ async function applyMatchOutcome(state, outcome, userId) {
   for (const player of state.teams.blue) {
     const currentRating = normalizeRating(player.soloElo);
     const expected = calculateExpectedScore(currentRating, redAvg);
-    const personalizedKFactor = getPersonalizedKFactor(player, matchKFactor, currentRating);
-    const newRating = Math.max(0, Math.round(currentRating + personalizedKFactor * (blueScore - expected)));
+    const personalizedKFactor = getPersonalizedKFactor(player, matchKFactor, currentRating, redAvg);
+    let newRating = Math.max(0, Math.round(currentRating + personalizedKFactor * (blueScore - expected)));
+
+    const crossedThreshold = RANK_THRESHOLDS.find(
+      (threshold) => currentRating < threshold && newRating >= threshold
+    );
+    if (crossedThreshold) {
+      player.shieldActive = true;
+      player.shieldThreshold = crossedThreshold;
+      await sendLogMessage(`🛡️ Shield activé pour ${player.displayName} au seuil ${crossedThreshold} Elo`);
+    }
+
+    if (player.shieldActive && newRating < player.shieldThreshold) {
+      const shieldedRating = player.shieldThreshold;
+      await sendLogMessage(`🛡️ Shield utilisé pour ${player.displayName} : ${newRating} → ${shieldedRating}`);
+      newRating = shieldedRating;
+      player.shieldActive = false;
+      player.shieldThreshold = 0;
+    }
+
     const wins = player.wins + (blueScore === 1 ? 1 : 0);
     const losses = player.losses + (blueScore === 1 ? 0 : 1);
     const games = player.games + 1;
@@ -4262,7 +4301,9 @@ async function applyMatchOutcome(state, outcome, userId) {
       losses,
       games_played: games,
       win_streak: winStreak,
-      lose_streak: loseStreak
+      lose_streak: loseStreak,
+      shield_active: player.shieldActive,
+      shield_threshold: player.shieldThreshold
     });
     changes.push({
       player,
@@ -4282,8 +4323,26 @@ async function applyMatchOutcome(state, outcome, userId) {
   for (const player of state.teams.red) {
     const currentRating = normalizeRating(player.soloElo);
     const expected = calculateExpectedScore(currentRating, blueAvg);
-    const personalizedKFactor = getPersonalizedKFactor(player, matchKFactor, currentRating);
-    const newRating = Math.max(0, Math.round(currentRating + personalizedKFactor * (redScore - expected)));
+    const personalizedKFactor = getPersonalizedKFactor(player, matchKFactor, currentRating, blueAvg);
+    let newRating = Math.max(0, Math.round(currentRating + personalizedKFactor * (redScore - expected)));
+
+    const crossedThreshold = RANK_THRESHOLDS.find(
+      (threshold) => currentRating < threshold && newRating >= threshold
+    );
+    if (crossedThreshold) {
+      player.shieldActive = true;
+      player.shieldThreshold = crossedThreshold;
+      await sendLogMessage(`🛡️ Shield activé pour ${player.displayName} au seuil ${crossedThreshold} Elo`);
+    }
+
+    if (player.shieldActive && newRating < player.shieldThreshold) {
+      const shieldedRating = player.shieldThreshold;
+      await sendLogMessage(`🛡️ Shield utilisé pour ${player.displayName} : ${newRating} → ${shieldedRating}`);
+      newRating = shieldedRating;
+      player.shieldActive = false;
+      player.shieldThreshold = 0;
+    }
+
     const wins = player.wins + (redScore === 1 ? 1 : 0);
     const losses = player.losses + (redScore === 1 ? 0 : 1);
     const games = player.games + 1;
@@ -4297,7 +4356,9 @@ async function applyMatchOutcome(state, outcome, userId) {
       losses,
       games_played: games,
       win_streak: winStreak,
-      lose_streak: loseStreak
+      lose_streak: loseStreak,
+      shield_active: player.shieldActive,
+      shield_threshold: player.shieldThreshold
     });
     changes.push({
       player,
@@ -4315,20 +4376,26 @@ async function applyMatchOutcome(state, outcome, userId) {
   }
 
   for (const update of updates) {
-    const { error: playerError } = await supabase
-      .from('players')
+    try {
+      const { error: playerError } = await supabase
+        .from('players')
         .update({
           solo_elo: update.solo_elo,
           wins: update.wins,
           losses: update.losses,
           games_played: update.games_played,
           win_streak: update.win_streak,
-          lose_streak: update.lose_streak
+          lose_streak: update.lose_streak,
+          shield_active: update.shield_active,
+          shield_threshold: update.shield_threshold
         })
-      .eq('id', update.id);
+        .eq('id', update.id);
 
-    if (playerError) {
-      throw new Error(`Unable to update player ${update.id}: ${playerError.message}`);
+      if (playerError) {
+        throw new Error(playerError.message);
+      }
+    } catch (error) {
+      throw new Error(`Unable to update player ${update.id}: ${error.message}`);
     }
   }
 
