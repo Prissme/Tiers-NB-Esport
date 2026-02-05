@@ -404,6 +404,7 @@ let logChannel = null;
 let plQueueChannel = null;
 let tierSyncInterval = null;
 let botStarted = false;
+let supportsShieldColumns = true;
 
 const QUEUE_CONFIGS = [{ maxEloDifference: null }];
 const QUEUE_COUNT = QUEUE_CONFIGS.length;
@@ -1046,6 +1047,17 @@ function warn(...args) {
 
 function errorLog(...args) {
   console.error(LOG_PREFIX, ...args);
+}
+
+function isMissingShieldColumnError(message) {
+  if (typeof message !== 'string') {
+    return false;
+  }
+
+  return (
+    message.includes("Could not find the 'shield_active' column") ||
+    message.includes("Could not find the 'shield_threshold' column")
+  );
 }
 
 function pickRandomMaps(count) {
@@ -4377,21 +4389,49 @@ async function applyMatchOutcome(state, outcome, userId) {
 
   for (const update of updates) {
     try {
+      const payload = {
+        solo_elo: update.solo_elo,
+        wins: update.wins,
+        losses: update.losses,
+        games_played: update.games_played,
+        win_streak: update.win_streak,
+        lose_streak: update.lose_streak
+      };
+
+      if (supportsShieldColumns) {
+        payload.shield_active = update.shield_active;
+        payload.shield_threshold = update.shield_threshold;
+      }
+
       const { error: playerError } = await supabase
         .from('players')
-        .update({
-          solo_elo: update.solo_elo,
-          wins: update.wins,
-          losses: update.losses,
-          games_played: update.games_played,
-          win_streak: update.win_streak,
-          lose_streak: update.lose_streak,
-          shield_active: update.shield_active,
-          shield_threshold: update.shield_threshold
-        })
+        .update(payload)
         .eq('id', update.id);
 
       if (playerError) {
+        if (supportsShieldColumns && isMissingShieldColumnError(playerError.message)) {
+          supportsShieldColumns = false;
+          warn('Shield columns are missing in `players`; continuing without shield persistence.');
+
+          const { error: fallbackError } = await supabase
+            .from('players')
+            .update({
+              solo_elo: update.solo_elo,
+              wins: update.wins,
+              losses: update.losses,
+              games_played: update.games_played,
+              win_streak: update.win_streak,
+              lose_streak: update.lose_streak
+            })
+            .eq('id', update.id);
+
+          if (!fallbackError) {
+            continue;
+          }
+
+          throw new Error(fallbackError.message);
+        }
+
         throw new Error(playerError.message);
       }
     } catch (error) {
