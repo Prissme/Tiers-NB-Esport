@@ -17,6 +17,18 @@ def calculate_elo_change(player_elo: float, opponent_avg_elo: float, won: bool) 
     return int(change)
 
 
+def get_rank_for_elo(elo: int) -> Dict[str, object]:
+    rank = config.RANKS[0]
+    for candidate in config.RANKS:
+        if elo >= int(candidate["min_elo"]):
+            rank = candidate
+    return rank
+
+
+def get_rank_emoji(elo: int) -> str:
+    return str(get_rank_for_elo(elo).get("emoji", "🏷️"))
+
+
 def balance_teams(players: List[Player]) -> Tuple[List[int], List[int]]:
     """Équilibre les équipes par ELO alternant (serpent)."""
     sorted_players = sorted(players, key=lambda p: p.solo_elo, reverse=True)
@@ -26,13 +38,13 @@ def balance_teams(players: List[Player]) -> Tuple[List[int], List[int]]:
 
 
 def describe_team(title: str, team_players: List[Player]) -> List[str]:
-    """Formate description équipe avec moyenne ELO."""
+    """Formate description équipe avec emojis de rang au lieu de l'ELO."""
     if not team_players:
         return [f"**{title}**: Aucun joueur"]
-    average = sum(player.solo_elo for player in team_players) / len(team_players)
-    lines = [f"**{title}** — ELO moyen: {average:.0f}"]
+
+    lines = [f"**{title}**"]
     for player in sorted(team_players, key=lambda p: p.solo_elo, reverse=True):
-        lines.append(f"- {player.name} — {player.solo_elo} ELO")
+        lines.append(f"- {get_rank_emoji(player.solo_elo)} {player.name}")
     return lines
 
 
@@ -147,9 +159,5 @@ def finalize_match_result(
 
     description_lines: List[str] = [header, "", "Changements ELO:"]
     description_lines.extend(elo_summaries)
-    description_lines.append("")
-    description_lines.extend(describe_team("Équipe bleue", team1_players))
-    description_lines.extend([""])
-    description_lines.extend(describe_team("Équipe rouge", team2_players))
 
     return "\n".join(description_lines)
