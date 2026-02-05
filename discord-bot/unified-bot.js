@@ -93,9 +93,38 @@ const SILVER_EMOJI = '<:Silver:1439995612069101681>';
 const GOLD_EMOJI = '<:GoldPL:1468675832334520350>';
 const DIAMOND_EMOJI = '<:DiamondPL:1468679124536000603>';
 const MYTHIC_EMOJI = '<:MythicPL:1468678611153457357>';
+const LEGENDARY_EMOJI = '<:LegendaryPL:1469005421749731368>';
+const MASTER_EMOJI = '<:MastersPL:1469005501642833941>';
+const GRANDMASTER_EMOJI = '<:GrandMastersPL:1469006144352555093>';
+const VERDOYANT_EMOJI = '<:VerdoyantPL:1469007377234919454>';
 const WISHED_EMOJI = '<:Wished:1439415315720175636>';
 
+const VOLATILITY_MULTIPLIERS = [
+  { min: 2700, multiplier: 2.5 },
+  { min: 2400, multiplier: 2.2 },
+  { min: 2250, multiplier: 2.0 },
+  { min: 2100, multiplier: 1.8 },
+  { min: 1950, multiplier: 1.7 },
+  { min: 1850, multiplier: 1.6 },
+  { min: 1750, multiplier: 1.5 },
+  { min: 1675, multiplier: 1.4 },
+  { min: 1600, multiplier: 1.3 },
+  { min: 1525, multiplier: 1.2 },
+  { min: -Infinity, multiplier: 1.0 }
+];
+const MAX_STREAK_K_BONUS = 20;
+
 const ELO_RANKS = [
+  { min: 2700, name: 'Verdoyant', numeral: null, emoji: VERDOYANT_EMOJI },
+  { min: 2400, name: 'Grand Master', numeral: 'III', emoji: GRANDMASTER_EMOJI },
+  { min: 2250, name: 'Grand Master', numeral: 'II', emoji: GRANDMASTER_EMOJI },
+  { min: 2100, name: 'Grand Master', numeral: 'I', emoji: GRANDMASTER_EMOJI },
+  { min: 1950, name: 'Master', numeral: 'III', emoji: MASTER_EMOJI },
+  { min: 1850, name: 'Master', numeral: 'II', emoji: MASTER_EMOJI },
+  { min: 1750, name: 'Master', numeral: 'I', emoji: MASTER_EMOJI },
+  { min: 1675, name: 'Légendaire', numeral: 'III', emoji: LEGENDARY_EMOJI },
+  { min: 1600, name: 'Légendaire', numeral: 'II', emoji: LEGENDARY_EMOJI },
+  { min: 1525, name: 'Légendaire', numeral: 'I', emoji: LEGENDARY_EMOJI },
   { min: 1450, name: 'Mythique', numeral: 'III', emoji: MYTHIC_EMOJI },
   { min: 1400, name: 'Mythique', numeral: 'II', emoji: MYTHIC_EMOJI },
   { min: 1350, name: 'Mythique', numeral: 'I', emoji: MYTHIC_EMOJI },
@@ -1213,6 +1242,24 @@ function normalizeBestOfInput(value) {
 
 function getKFactorForBestOf() {
   return 30;
+}
+
+function getVolatilityMultiplierForRating(rating) {
+  const normalizedRating = normalizeRating(rating);
+  const entry = VOLATILITY_MULTIPLIERS.find((candidate) => normalizedRating >= candidate.min);
+  return entry ? entry.multiplier : 1;
+}
+
+function getStreakKBonus(player) {
+  const winStreak = Number.isFinite(player?.winStreak) ? player.winStreak : 0;
+  const loseStreak = Number.isFinite(player?.loseStreak) ? player.loseStreak : 0;
+  return Math.min(MAX_STREAK_K_BONUS, Math.max(0, winStreak, loseStreak));
+}
+
+function getPersonalizedKFactor(player, baseKFactor, rating) {
+  const multiplier = getVolatilityMultiplierForRating(rating);
+  const streakBonus = getStreakKBonus(player);
+  return baseKFactor * multiplier + streakBonus;
 }
 
 function isValidTierRange(minTier, maxTier) {
@@ -2626,12 +2673,12 @@ async function handleRanksCommand(message) {
         { rank: formatEloRankLabel(nextRank), remaining }
       )
     : localizeText({
-        fr: 'Tu es déjà au rang max (Mythique **III**).',
-        en: 'You are already at the top rank (Mythique **III**).'
+        fr: 'Tu es déjà au rang max (Verdoyant).',
+        en: 'You are already at the top rank (Verdoyant).'
       });
 
   const embed = new EmbedBuilder()
-    .setTitle(localizeText({ fr: 'Progression Elo — Mythique **III**', en: 'Elo progression — Mythique **III**' }))
+    .setTitle(localizeText({ fr: 'Progression Elo — Verdoyant', en: 'Elo progression — Verdoyant' }))
     .setDescription(progressionLines.join('\n'))
     .addFields(
       { name: localizeText({ fr: 'Ton Elo', en: 'Your Elo' }), value: `${Math.round(soloElo)}`, inline: true },
@@ -3749,7 +3796,7 @@ async function handleHelpCommand(message) {
           '`!cleanqueue` — [Admin] Clear the Power League queue',
           '`!achievements [@player]` — Display player achievements and peaks',
           '`!elo [@player]` — Display Elo stats',
-          '`!ranks` — Show your Elo progression up to Mythique III',
+          '`!ranks` — Show your Elo progression up to Verdoyant',
           '`!lb [count]` — Show the leaderboard (example: !lb 25)',
           '`!maps` — Show the current map rotation',
           '`!ping` — Mention the match notification role',
@@ -3772,7 +3819,7 @@ async function handleHelpCommand(message) {
           '`!cleanqueue` — [Admin] Vider la file PL',
           '`!achievements [@joueur]` — Afficher les succès et les peaks du joueur',
           '`!elo [@joueur]` — Afficher le classement Elo',
-          '`!ranks` — Voir ta progression Elo vers Mythique III',
+          '`!ranks` — Voir ta progression Elo vers Verdoyant',
           '`!lb [nombre]` — Afficher le top classement (ex: !lb 25)',
           '`!maps` — Afficher la rotation des maps',
           '`!ping` — Mentionner le rôle de notification des matchs',
@@ -4200,7 +4247,8 @@ async function applyMatchOutcome(state, outcome, userId) {
   for (const player of state.teams.blue) {
     const currentRating = normalizeRating(player.soloElo);
     const expected = calculateExpectedScore(currentRating, redAvg);
-    const newRating = Math.max(0, Math.round(currentRating + matchKFactor * (blueScore - expected)));
+    const personalizedKFactor = getPersonalizedKFactor(player, matchKFactor, currentRating);
+    const newRating = Math.max(0, Math.round(currentRating + personalizedKFactor * (blueScore - expected)));
     const wins = player.wins + (blueScore === 1 ? 1 : 0);
     const losses = player.losses + (blueScore === 1 ? 0 : 1);
     const games = player.games + 1;
@@ -4234,7 +4282,8 @@ async function applyMatchOutcome(state, outcome, userId) {
   for (const player of state.teams.red) {
     const currentRating = normalizeRating(player.soloElo);
     const expected = calculateExpectedScore(currentRating, blueAvg);
-    const newRating = Math.max(0, Math.round(currentRating + matchKFactor * (redScore - expected)));
+    const personalizedKFactor = getPersonalizedKFactor(player, matchKFactor, currentRating);
+    const newRating = Math.max(0, Math.round(currentRating + personalizedKFactor * (redScore - expected)));
     const wins = player.wins + (redScore === 1 ? 1 : 0);
     const losses = player.losses + (redScore === 1 ? 0 : 1);
     const games = player.games + 1;
