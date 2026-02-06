@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "../../../lib/supabaseClient";
 
 const rosterSlots = [
@@ -59,6 +59,7 @@ export default function TeamsPanel() {
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const logoInputRef = useRef<HTMLInputElement | null>(null);
 
   const selectedTeam = useMemo(
     () => teams.find((team) => team.id === selectedTeamId) ?? null,
@@ -158,6 +159,64 @@ export default function TeamsPanel() {
 
     setStatusMessage("Equipe mise à jour.");
     fetchTeams();
+  };
+
+  const handleLogoFile = async (file: File) => {
+    if (!file.type.startsWith("image/")) {
+      setErrorMessage("Le fichier doit être une image.");
+      return;
+    }
+
+    try {
+      const image = await new Promise<HTMLImageElement>((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => resolve(img);
+        img.onerror = () => reject(new Error("Impossible de charger l'image."));
+        img.src = URL.createObjectURL(file);
+      });
+
+      const maxSize = 256;
+      const scale = Math.min(1, maxSize / Math.max(image.width, image.height));
+      const width = Math.max(1, Math.round(image.width * scale));
+      const height = Math.max(1, Math.round(image.height * scale));
+
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+
+      const ctx = canvas.getContext("2d");
+      if (!ctx) {
+        throw new Error("Impossible de préparer le canvas.");
+      }
+
+      ctx.drawImage(image, 0, 0, width, height);
+      URL.revokeObjectURL(image.src);
+
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        canvas.toBlob(
+          (blob) => {
+            if (!blob) {
+              reject(new Error("Impossible de convertir l'image."));
+              return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = () => resolve(String(reader.result));
+            reader.onerror = () => reject(new Error("Impossible de lire l'image."));
+            reader.readAsDataURL(blob);
+          },
+          "image/png",
+          0.9
+        );
+      });
+
+      setTeamForm((prev) => ({ ...prev, logo_url: dataUrl }));
+      setStatusMessage("Logo importé. Sauvegarde requise.");
+      setErrorMessage(null);
+    } catch (error) {
+      console.error("logo import error", error);
+      setErrorMessage("Erreur lors de l'import du logo.");
+    }
   };
 
   const handleSaveMembers = async () => {
@@ -273,6 +332,42 @@ export default function TeamsPanel() {
                 className="surface-input"
               />
             </label>
+            <div className="space-y-2 text-sm text-white/70">
+              Logo fichier
+              <div className="flex flex-wrap items-center gap-3">
+                <input
+                  ref={logoInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={(event) => {
+                    const file = event.target.files?.[0];
+                    if (file) {
+                      void handleLogoFile(file);
+                    }
+                  }}
+                  className="hidden"
+                />
+                <button
+                  type="button"
+                  onClick={() => logoInputRef.current?.click()}
+                  className="surface-pill px-4 py-2 text-xs text-white/70"
+                >
+                  Choisir un logo
+                </button>
+                {teamForm.logo_url ? (
+                  <img
+                    src={teamForm.logo_url}
+                    alt="Prévisualisation du logo"
+                    className="h-12 w-12 rounded-full border border-white/10 object-cover"
+                  />
+                ) : (
+                  <span className="text-xs text-white/40">Aucun logo</span>
+                )}
+              </div>
+              <p className="text-xs text-white/40">
+                L'image est redimensionnée à 256px max pour rester légère.
+              </p>
+            </div>
           </div>
           <div className="flex justify-end">
             <button
