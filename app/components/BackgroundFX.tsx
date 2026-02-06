@@ -33,7 +33,7 @@ const glowParticles = [
 
 export default function BackgroundFX() {
   return (
-    <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
+    <div className="pointer-events-none absolute inset-0 z-0 overflow-hidden">
       <div className="absolute inset-0 bg-hero-gradient" />
       <div
         className="absolute inset-0 scale-105 bg-cover bg-center opacity-[0.5]"

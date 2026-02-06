@@ -42,7 +42,7 @@ export const metadata: Metadata = {
     url: "https://tiers-nb.koyeb.app/",
     images: [
       {
-        url: "/og-image.svg",
+        url: "/Montagne.png",
         width: 1200,
         height: 630,
         alt: "LFN — Ligue francophone",
@@ -54,7 +54,7 @@ export const metadata: Metadata = {
     title: "LFN — Ligue francophone",
     description:
       "LFN — Ligue francophone. Accès sur sélection, saisons encadrées, classement officiel.",
-    images: ["/og-image.svg"],
+    images: ["/Montagne.png"],
   },
 };
 
