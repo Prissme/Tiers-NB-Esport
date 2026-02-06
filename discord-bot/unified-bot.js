@@ -1127,6 +1127,14 @@ function formatEloRankLabel(rankInfo) {
   return `${emoji} ${name} **${numeral}**`.trim();
 }
 
+function formatEloRankEmoji(rankInfo) {
+  if (!rankInfo) {
+    return null;
+  }
+
+  return rankInfo.emoji || null;
+}
+
 function getNextEloRank(rankInfo) {
   if (!rankInfo || typeof rankInfo.index !== 'number') {
     return null;
@@ -1339,8 +1347,10 @@ function formatPlayerList(team) {
 
   return team
     .map(
-      (player, index) =>
-        `${index + 1}. <@${player.discordId}> (${Math.round(normalizeRating(player.soloElo))} Elo)`
+      (player, index) => {
+        const rankEmoji = formatEloRankEmoji(getEloRankByRating(player.soloElo));
+        return `${index + 1}. <@${player.discordId}>${rankEmoji ? ` ${rankEmoji}` : ''}`;
+      }
     )
     .join('\n');
 }
@@ -1498,7 +1508,7 @@ function buildPrivateMatchEmbed(state) {
 
   if (mapChoices.length) {
     const mapLines = mapChoices
-      .map((choice, index) => `${index + 1}. ${choice.emoji} ${choice.mode} — ${choice.map}`)
+      .map((choice, index) => `${index + 1}. ${choice.emoji} ${choice.mode} — **${choice.map}**`)
       .join('\n');
     embed.addFields({
       name: localizeText({ fr: 'Maps proposées', en: 'Suggested maps' }),
@@ -1548,24 +1558,11 @@ function buildMatchEmbed(state, resultSummary = null) {
 
   if (mapChoices.length) {
     const mapLines = mapChoices
-      .map((choice, index) => `${index + 1}. ${choice.emoji} ${choice.mode} — ${choice.map}`)
+      .map((choice, index) => `${index + 1}. ${choice.emoji} ${choice.mode} — **${choice.map}**`)
       .join('\n');
     embed.addFields({
       name: localizeText({ fr: 'Maps proposées', en: 'Suggested maps' }),
       value: mapLines
-    });
-  }
-
-  const bestOf = state.bestOf || DEFAULT_MATCH_BEST_OF;
-  const kFactor = state.kFactor || getKFactorForBestOf(bestOf);
-  if (bestOf) {
-    embed.addFields({
-      name: localizeText({ fr: 'Format', en: 'Format' }),
-      value: localizeText(
-        { fr: 'Bo{bestOf} — Facteur K {kFactor}', en: 'Bo{bestOf} — K-factor {kFactor}' },
-        { bestOf, kFactor }
-      ),
-      inline: true
     });
   }
 
@@ -2872,12 +2869,7 @@ async function handleLeaderboardCommand(message, args) {
 
     const topPlayers = allPlayers.slice(0, limit);
 
-    const lines = [
-      localizeText({
-        fr: '**🏆 Classement ELO — Top {count}**\n',
-        en: '**🏆 Elo leaderboard — Top {count}**\n'
-      }, { count: topPlayers.length })
-    ];
+    const lines = [];
 
     topPlayers.forEach((player, index) => {
       const rank = index + 1;
@@ -2885,7 +2877,7 @@ async function handleLeaderboardCommand(message, args) {
       const winStreak = typeof player.win_streak === 'number' ? player.win_streak : 0;
       const loseStreak = typeof player.lose_streak === 'number' ? player.lose_streak : 0;
       const streakInfo = describeStreak(winStreak, loseStreak, { short: true });
-      const wishedRank = formatEloRankLabel(getEloRankByRating(soloElo));
+      const wishedRank = formatEloRankEmoji(getEloRankByRating(soloElo));
       const displayName = wishedRank ? `${wishedRank} **${player.name}**` : `**${player.name}**`;
 
       lines.push(
@@ -2904,7 +2896,18 @@ async function handleLeaderboardCommand(message, args) {
       );
     });
 
-    await message.reply({ content: lines.join('\n') });
+    const embed = new EmbedBuilder()
+      .setTitle(
+        localizeText(
+          { fr: '🏆 Classement Elo — Top {count}', en: '🏆 Elo leaderboard — Top {count}' },
+          { count: topPlayers.length }
+        )
+      )
+      .setDescription(lines.join('\n'))
+      .setColor(0xf1c40f)
+      .setTimestamp(new Date());
+
+    await message.reply({ embeds: [embed] });
   } catch (error) {
     errorLog('Failed to fetch leaderboard:', error);
     await message.reply({
@@ -3817,49 +3820,37 @@ async function handleHelpCommand(message) {
   const commands =
     currentLanguage === LANGUAGE_EN
       ? [
-          '`!join [@leader]` — Join the matchmaking queue or a mentioned leader\'s room',
+          '`!join` — Join the matchmaking queue',
           ...(isSimpleLobbyEnabled()
             ? ['`!join` — Join the quick lobby (starts at 6 players, auto-splits teams)']
             : []),
           '`!leave` — Leave the queue',
-          '`!room` — View the custom room you joined',
-          '`!roomleave` — Leave your custom room',
           '`!queue` — Show the Power League queue with player ranks',
           '`!file` — Show the Power League queue with player ranks (FR alias)',
-          '`!cleanqueue` — [Admin] Clear the Power League queue',
-          '`!achievements [@player]` — Display player achievements and peaks',
           '`!elo [@player]` — Display Elo stats',
           '`!ranks` — Show your Elo progression up to Verdoyant',
           '`!lb [count]` — Show the leaderboard (example: !lb 25)',
           '`!maps` — Show the current map rotation',
-          '`!ping` — Mention the match notification role',
           '`!tiers` — Manually sync tier roles',
           '`!draft` — Start a draft vs AI (interactive interface)',
           '`!prisscupdel <team>` — [Admin] Delete a registered PrissCup team',
-          '`!english [off]` — Switch the bot language to English or back to French',
           '`!help` — Display this help'
         ]
       : [
-          '`!join [@chef]` — Rejoindre la file de matchmaking ou la room du joueur mentionné',
+          '`!join` — Rejoindre la file de matchmaking',
           ...(isSimpleLobbyEnabled()
             ? ['`!join` — Rejoindre le lobby rapide (démarre à 6 joueurs, équipes auto)']
             : []),
           '`!leave` — Quitter la file d\'attente',
-          '`!room` — Voir la room personnalisée que tu as rejointe',
-          '`!roomleave` — Quitter ta room personnalisée',
           '`!queue` — Voir la file PL avec le rang des joueurs',
           '`!file` — Voir la file PL avec le rang des joueurs',
-          '`!cleanqueue` — [Admin] Vider la file PL',
-          '`!achievements [@joueur]` — Afficher les succès et les peaks du joueur',
           '`!elo [@joueur]` — Afficher le classement Elo',
           '`!ranks` — Voir ta progression Elo vers Verdoyant',
           '`!lb [nombre]` — Afficher le top classement (ex: !lb 25)',
           '`!maps` — Afficher la rotation des maps',
-          '`!ping` — Mentionner le rôle de notification des matchs',
           '`!tiers` — Synchroniser manuellement les rôles de tier',
           '`!draft` — Lancer une draft vs IA (interface interactive)',
           '`!prisscupdel <equipe>` — [Admin] Supprimer une équipe inscrite à la PrissCup',
-          '`!english [off]` — Traduire le bot en anglais ou revenir en français',
           '`!help` — Afficher cette aide'
         ];
 
@@ -4129,11 +4120,7 @@ async function startMatch(participants, fallbackChannel, isPl = false) {
     throw new Error('No valid text channel available to announce the match.');
   }
 
-  const mentions = participants.map((player) => `<@${player.discordId}>`).join(' ');
-  const contentParts = [
-    localizeText({ fr: '🎮 **Match prêt !**', en: '🎮 **Match ready!**' }),
-    mentions
-  ];
+  const contentParts = [];
   if (PING_ROLE_ID) {
     contentParts.push(`<@&${PING_ROLE_ID}>`);
   }
@@ -5488,11 +5475,6 @@ async function handleMessage(message) {
 
   // === COMMANDES TEMPORAIREMENT DÉSACTIVÉES POUR SIMPLIFICATION ===
   const disabledCommands = new Set([
-    'room',
-    'roominfo',
-    'roomleave',
-    'joinroom',
-    'achievements',
     'maps',
     'teams'
   ]);
@@ -5514,22 +5496,12 @@ async function handleMessage(message) {
       case 'leave':
         await handleLeaveCommand(message, args);
         break;
-      case 'room':
-      case 'roominfo':
-        await handleRoomInfoCommand(message);
-        break;
-      case 'roomleave':
-        await handleRoomLeaveCommand(message);
-        break;
       case 'queue':
       case 'file':
         await handleQueueCommand(message, args);
         break;
       case 'cleanqueue':
         await handleCleanQueueCommand(message, args);
-        break;
-      case 'achievements':
-        await handleAchievementsCommand(message, args);
         break;
       case 'elo':
         await handleEloCommand(message, args);
@@ -5544,13 +5516,6 @@ async function handleMessage(message) {
       case 'maps':
         await handleMapsCommand(message, args);
         break;
-      case 'ping':
-        await handlePingCommand(message, args);
-        break;
-      case 'prisscup':
-      case 'prisscup3v3':
-        await handlePrissCup3v3Command(message, args);
-        break;
       case 'prisscupdel':
       case 'prisscupdelete':
         await handlePrisscupDeleteTeamCommand(message, args);
@@ -5560,9 +5525,6 @@ async function handleMessage(message) {
         break;
       case 'teams':
         await handleTeamsCommand(message, args);
-        break;
-      case 'english':
-        await handleEnglishCommand(message, args);
         break;
       case 'draft':
         await handleDraftCommand(message, args);
