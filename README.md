@@ -17,6 +17,17 @@ NODE_ENV=development npx next dev
 
 Accédez à `http://localhost:3000`.
 
+## Développement local avec Docker
+
+Si vous ne pouvez pas installer les dépendances en local, vous pouvez lancer un
+serveur de dev via Docker Compose :
+
+```bash
+docker compose -f docker-compose.dev.yml up --build
+```
+
+Le site sera disponible sur `http://localhost:3000`.
+
 ## Données de la ligue
 
 Source unique : `data/lfn.data.json`.
