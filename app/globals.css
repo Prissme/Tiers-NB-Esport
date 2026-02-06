@@ -117,7 +117,17 @@
   --secondary-opacity: 1;
   --dominant-border: rgba(201, 178, 106, 0.35);
   --site-background: url("/Montagne.png");
+  --ambience-image: var(--site-background);
   --hero-image: var(--site-background);
+}
+
+html {
+  background-color: var(--color-bg);
+  background-image: var(--site-background);
+  background-position: center;
+  background-size: cover;
+  background-repeat: no-repeat;
+  background-attachment: fixed;
 }
 
 body {
