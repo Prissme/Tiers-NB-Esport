@@ -24,6 +24,7 @@ export default function HeroCard({ locale }: { locale: Locale }) {
   const content = copy[locale];
   return (
     <section className="hero-ironhill dominant-hero">
+      <div className="hero-ironhill__layer hero-ironhill__bg" aria-hidden="true" />
       <div className="hero-ironhill__layer hero-ironhill__overlay" aria-hidden="true" />
       <div className="hero-ironhill__content hero-ironhill__content--center">
         <div className="space-y-5 text-center">

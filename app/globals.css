@@ -116,7 +116,8 @@
   --secondary-scale: 1;
   --secondary-opacity: 1;
   --dominant-border: rgba(201, 178, 106, 0.35);
-  --site-background: url("https://media.discordapp.net/attachments/1434252768633290952/1464700481107398800/gigapixel-9871a34b-c08e-47fe-a88f-3df3a66a4d28_1_1_1.png?ex=697dac5f&is=697c5adf&hm=f8b79f03af5bcd04c0f4cf38925b48fc88e091be73751e6db73275347833595a&=&format=webp&quality=lossless&width=771&height=514");
+  --site-background: url("/Montagne.png");
+  --ambience-image: var(--site-background);
   --hero-image: var(--site-background);
 }
 
