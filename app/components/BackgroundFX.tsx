@@ -36,10 +36,10 @@ export default function BackgroundFX() {
     <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
       <div className="absolute inset-0 bg-hero-gradient" />
       <div
-        className="absolute inset-0 scale-105 bg-cover bg-center opacity-[0.1] blur-[10px]"
+        className="absolute inset-0 scale-105 bg-cover bg-center opacity-[0.5]"
         style={{ backgroundImage: "var(--ambience-image)" }}
       />
-      <div className="absolute inset-0 bg-[#05070d]/70" />
+      <div className="absolute inset-0 bg-[#05070d]/35" />
       <div className="absolute inset-0 bg-vignette" />
       <div className="absolute inset-0 bg-noise opacity-70" />
       <div className="absolute left-1/2 top-[260px] h-[520px] w-[520px] -translate-x-1/2 rounded-full bg-halo blur-[120px]" />
