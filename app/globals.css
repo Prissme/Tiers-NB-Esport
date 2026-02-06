@@ -120,6 +120,15 @@
   --hero-image: var(--site-background);
 }
 
+html {
+  background-color: var(--color-bg);
+  background-image: var(--site-background);
+  background-position: center;
+  background-size: cover;
+  background-repeat: no-repeat;
+  background-attachment: fixed;
+}
+
 body {
   @apply antialiased;
   font-family: var(--font-sans), system-ui, sans-serif;
