@@ -69,8 +69,8 @@ function buildCommands(localizeText) {
     {
       name: 'predictions',
       description: localizeText({
-        fr: 'Créer des prédictions LFN pour quatre matchs',
-        en: 'Create LFN predictions for four matches'
+        fr: "Créer des prédictions LFN pour jusqu'à quatre matchs",
+        en: 'Create LFN predictions for up to four matches'
       }),
       default_member_permissions: PermissionsBitField.Flags.ManageGuild.toString(),
       dm_permission: false,
@@ -91,37 +91,37 @@ function buildCommands(localizeText) {
           name: 'match2_team1',
           description: localizeText({ fr: "Équipe 1 du match 2", en: 'Match 2 team 1' }),
           type: ApplicationCommandOptionType.String,
-          required: true
+          required: false
         },
         {
           name: 'match2_team2',
           description: localizeText({ fr: "Équipe 2 du match 2", en: 'Match 2 team 2' }),
           type: ApplicationCommandOptionType.String,
-          required: true
+          required: false
         },
         {
           name: 'match3_team1',
           description: localizeText({ fr: "Équipe 1 du match 3", en: 'Match 3 team 1' }),
           type: ApplicationCommandOptionType.String,
-          required: true
+          required: false
         },
         {
           name: 'match3_team2',
           description: localizeText({ fr: "Équipe 2 du match 3", en: 'Match 3 team 2' }),
           type: ApplicationCommandOptionType.String,
-          required: true
+          required: false
         },
         {
           name: 'match4_team1',
           description: localizeText({ fr: "Équipe 1 du match 4", en: 'Match 4 team 1' }),
           type: ApplicationCommandOptionType.String,
-          required: true
+          required: false
         },
         {
           name: 'match4_team2',
           description: localizeText({ fr: "Équipe 2 du match 4", en: 'Match 4 team 2' }),
           type: ApplicationCommandOptionType.String,
-          required: true
+          required: false
         },
         {
           name: 'date',
@@ -163,8 +163,8 @@ function buildCommands(localizeText) {
     {
       name: 'announce_predictions',
       description: localizeText({
-        fr: 'Annoncer les gagnants des quatre matchs',
-        en: 'Announce winners for the four matches'
+        fr: 'Annoncer les gagnants des matchs disponibles',
+        en: 'Announce winners for the available matches'
       }),
       default_member_permissions: PermissionsBitField.Flags.ManageGuild.toString(),
       dm_permission: false,
@@ -176,7 +176,7 @@ function buildCommands(localizeText) {
             en: `Match ${match} winner (team 1 or 2)`
           }),
           type: ApplicationCommandOptionType.Integer,
-          required: true,
+          required: match === 1,
           choices: [
             { name: localizeText({ fr: 'Équipe 1', en: 'Team 1' }), value: 1 },
             { name: localizeText({ fr: 'Équipe 2', en: 'Team 2' }), value: 2 }
@@ -202,7 +202,7 @@ async function registerCommands() {
   }
 }
 
-function buildVoteComponents(prediction, disabled = false) {
+function buildVoteComponents(prediction, disabled = false, showValidation = false) {
   const row = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId(`lfn_pred|${prediction.match_number}|team1`)
@@ -220,7 +220,7 @@ function buildVoteComponents(prediction, disabled = false) {
 
   const rows = [row];
 
-  if (prediction.match_number === 4) {
+  if (showValidation) {
     rows.push(
       new ActionRowBuilder().addComponents(
         new ButtonBuilder()
@@ -399,9 +399,15 @@ async function upsertVote(predictionId, userId, votedTeam) {
 async function updateMessage(interaction, prediction, isClosed = false) {
   const stats = await fetchVoteCounts(prediction.id);
   const embed = buildEmbed(prediction, stats, isClosed);
-  const components = buildVoteComponents(prediction, isClosed);
+  const lastMatchNumber = await fetchLastPredictionMatchNumber();
+  const components = buildVoteComponents(prediction, isClosed, prediction.match_number === lastMatchNumber);
 
   await interaction.message.edit({ embeds: [embed], components });
+}
+
+async function fetchLastPredictionMatchNumber() {
+  const predictions = await fetchPredictionsForGuild();
+  return predictions.at(-1)?.match_number ?? null;
 }
 
 function validateTeams(teams) {
@@ -428,12 +434,35 @@ async function handlePredictionsCommand(interaction) {
   const channelOption = interaction.options.getChannel('channel');
   const channel = channelOption?.isTextBased() ? channelOption : interaction.channel;
 
-  const matches = [1, 2, 3, 4].map((match) => ({
-    match_number: match,
-    team1_name: interaction.options.getString(`match${match}_team1`).trim(),
-    team2_name: interaction.options.getString(`match${match}_team2`).trim(),
-    match_date: date || null
-  }));
+  const matches = [];
+  for (const match of [1, 2, 3, 4]) {
+    const team1 = interaction.options.getString(`match${match}_team1`)?.trim();
+    const team2 = interaction.options.getString(`match${match}_team2`)?.trim();
+
+    if (!team1 && !team2) {
+      continue;
+    }
+
+    if (!team1 || !team2) {
+      await interaction.editReply({
+        content: context.localizeText(
+          {
+            fr: '⚠️ Tu dois renseigner les deux équipes pour le match {match}.',
+            en: '⚠️ You must provide both teams for match {match}.'
+          },
+          { match }
+        )
+      });
+      return true;
+    }
+
+    matches.push({
+      match_number: match,
+      team1_name: team1,
+      team2_name: team2,
+      match_date: date || null
+    });
+  }
 
   const allTeams = matches.flatMap((entry) => [entry.team1_name, entry.team2_name]);
 
@@ -459,11 +488,15 @@ async function handlePredictionsCommand(interaction) {
   }
 
   const createdMessages = [];
+  const lastMatchNumber = matches.at(-1)?.match_number ?? null;
 
   try {
     for (const prediction of matches) {
       const embed = buildEmbed({ ...prediction }, { team1: 0, team2: 0, total: 0 }, false);
-      const message = await channel.send({ embeds: [embed], components: buildVoteComponents(prediction) });
+      const message = await channel.send({
+        embeds: [embed],
+        components: buildVoteComponents(prediction, false, prediction.match_number === lastMatchNumber)
+      });
 
       const dbRecord = await upsertPredictionRecord({
         guild_id: context.guildId,
@@ -681,11 +714,11 @@ async function handleValidationInteraction(interaction) {
     }
 
     const predictions = await fetchPredictionsForGuild();
-    if (predictions.length < 4) {
+    if (!predictions.length) {
       await interaction.reply({
         content: context.localizeText({
-          fr: '❌ Impossible de valider : les 4 matchs ne sont pas disponibles.',
-          en: '❌ Unable to validate: the 4 matches are not available.'
+          fr: '❌ Impossible de valider : aucun match disponible.',
+          en: '❌ Unable to validate: no matches are available.'
         }),
         flags: MessageFlags.Ephemeral
       });
@@ -771,6 +804,7 @@ async function handleCloseCommand(interaction) {
   }
 
   try {
+    const lastMatchNumber = await fetchLastPredictionMatchNumber();
     const { data: predictions, error } = await query.order('match_number', { ascending: true });
     if (error) {
       throw error;
@@ -797,7 +831,10 @@ async function handleCloseCommand(interaction) {
         const message = await channel.messages.fetch(prediction.message_id);
         const stats = await fetchVoteCounts(prediction.id);
         const embed = buildEmbed(prediction, stats, true);
-        await message.edit({ embeds: [embed], components: buildVoteComponents(prediction, true) });
+        await message.edit({
+          embeds: [embed],
+          components: buildVoteComponents(prediction, true, prediction.match_number === lastMatchNumber)
+        });
       } catch (err) {
         context.warn('Unable to close prediction message:', err);
       }
@@ -843,19 +880,32 @@ async function handleAnnounceCommand(interaction) {
 
   try {
     const predictions = await fetchPredictionsForGuild();
-    if (predictions.length < 4) {
+    if (!predictions.length) {
       await interaction.editReply({
         content: context.localizeText({
-          fr: '❌ Impossible d’annoncer les gagnants : les 4 matchs ne sont pas disponibles.',
-          en: '❌ Unable to announce winners: the 4 matches are not available.'
+          fr: '❌ Impossible d’annoncer les gagnants : aucun match disponible.',
+          en: '❌ Unable to announce winners: no matches are available.'
         })
       });
       return true;
     }
 
     const winnersByMatch = new Map();
+    const lastMatchNumber = predictions.at(-1)?.match_number ?? null;
     for (const prediction of predictions) {
       const winnerChoice = interaction.options.getInteger(`match${prediction.match_number}_winner`);
+      if (!winnerChoice) {
+        await interaction.editReply({
+          content: context.localizeText(
+            {
+              fr: '⚠️ Tu dois fournir un gagnant pour le match {match}.',
+              en: '⚠️ You must provide a winner for match {match}.'
+            },
+            { match: prediction.match_number }
+          )
+        });
+        return true;
+      }
       const winnerKey = winnerChoice === 1 ? 'team1' : 'team2';
       winnersByMatch.set(prediction.match_number, winnerKey);
     }
@@ -872,7 +922,10 @@ async function handleAnnounceCommand(interaction) {
         const stats = await fetchVoteCounts(prediction.id);
         const winnerKey = winnersByMatch.get(prediction.match_number);
         const embed = buildEmbed(prediction, stats, true, winnerKey);
-        await message.edit({ embeds: [embed], components: buildVoteComponents(prediction, true) });
+        await message.edit({
+          embeds: [embed],
+          components: buildVoteComponents(prediction, true, prediction.match_number === lastMatchNumber)
+        });
       } catch (err) {
         context.warn('Unable to announce prediction winner:', err);
       }
@@ -884,8 +937,8 @@ async function handleAnnounceCommand(interaction) {
     await interaction.editReply({
       content: context.localizeText(
         {
-          fr: '🏆 Gagnants annoncés. {count} participant(s) ont 4 prédictions correctes.',
-          en: '🏆 Winners announced. {count} participant(s) have 4 correct predictions.'
+          fr: '🏆 Gagnants annoncés. {count} participant(s) ont toutes les bonnes prédictions.',
+          en: '🏆 Winners announced. {count} participant(s) have all predictions correct.'
         },
         { count: winners.length }
       )
