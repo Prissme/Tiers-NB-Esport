@@ -30,6 +30,8 @@ const TIER_DISTRIBUTION = [
   { tier: 'E', ratio: 0.555, minCount: 1 }
 ];
 
+let hasLoggedSupabaseMissing = false;
+
 function createSupabaseClient() {
   if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
     return null;
@@ -40,6 +42,16 @@ function createSupabaseClient() {
       persistSession: false
     }
   });
+}
+
+function logSupabaseMissing(context) {
+  if (hasLoggedSupabaseMissing) {
+    return;
+  }
+
+  const prefix = context ? `[${context}] ` : '';
+  console.error(`${prefix}Supabase credentials missing.`);
+  hasLoggedSupabaseMissing = true;
 }
 
 function sendJson(res, statusCode, payload) {
@@ -282,7 +294,7 @@ function applyValidPlayerFilters(query) {
 async function handleGetTop50(res) {
   const supabase = createSupabaseClient();
   if (!supabase) {
-    console.error('Supabase credentials missing.');
+    logSupabaseMissing();
     return sendJson(res, 500, { ok: false, error: 'server_misconfigured' });
   }
 
@@ -341,7 +353,7 @@ async function handleCheckAdmin(req, res) {
 
   const supabase = createSupabaseClient();
   if (!supabase) {
-    console.error('Supabase credentials missing.');
+    logSupabaseMissing();
     return sendJson(res, 500, { ok: false, error: 'server_misconfigured' });
   }
 
@@ -384,7 +396,7 @@ async function handleGetPlayers(req, res) {
 
   const supabase = createSupabaseClient();
   if (!supabase) {
-    console.error('Supabase credentials missing.');
+    logSupabaseMissing();
     return sendJson(res, 500, { ok: false, error: 'server_misconfigured' });
   }
 
@@ -469,7 +481,7 @@ async function handleSubmitMatch(req, res) {
 
   const supabase = createSupabaseClient();
   if (!supabase) {
-    console.error('Supabase credentials missing.');
+    logSupabaseMissing();
     return sendJson(res, 500, { ok: false, error: 'server_misconfigured' });
   }
 
@@ -595,7 +607,7 @@ async function handleAutoRegister(req, res) {
 
   const supabase = createSupabaseClient();
   if (!supabase) {
-    console.error('[autoRegister] Supabase credentials missing.');
+    logSupabaseMissing('autoRegister');
     return sendJson(res, 500, { ok: false, error: 'server_misconfigured' });
   }
 
@@ -739,7 +751,7 @@ async function handleCreatePlayer(req, res) {
 
   const supabase = createSupabaseClient();
   if (!supabase) {
-    console.error('Supabase credentials missing.');
+    logSupabaseMissing();
     return sendJson(res, 500, { ok: false, error: 'server_misconfigured' });
   }
 
@@ -828,7 +840,7 @@ async function handleResetAllMMR(req, res) {
 
   const supabase = createSupabaseClient();
   if (!supabase) {
-    console.error('[resetMMR] Supabase credentials missing.');
+    logSupabaseMissing('resetMMR');
     return sendJson(res, 500, { ok: false, error: 'server_misconfigured' });
   }
 
@@ -891,7 +903,7 @@ async function handleUpdatePlayerStats(req, res) {
 
   const supabase = createSupabaseClient();
   if (!supabase) {
-    console.error('[updatePlayerStats] Supabase credentials missing.');
+    logSupabaseMissing('updatePlayerStats');
     return sendJson(res, 500, { ok: false, error: 'server_misconfigured' });
   }
 
@@ -993,7 +1005,7 @@ async function handleGetPrisscupTeams(req, res) {
 
   const supabase = createSupabaseClient();
   if (!supabase) {
-    console.error('[getPrisscupTeams] Supabase credentials missing.');
+    logSupabaseMissing('getPrisscupTeams');
     return sendJson(res, 500, { ok: false, error: 'server_misconfigured' });
   }
 
@@ -1033,7 +1045,7 @@ async function handleDeletePrisscupTeam(req, res) {
 
   const supabase = createSupabaseClient();
   if (!supabase) {
-    console.error('[deletePrisscupTeam] Supabase credentials missing.');
+    logSupabaseMissing('deletePrisscupTeam');
     return sendJson(res, 500, { ok: false, error: 'server_misconfigured' });
   }
 
