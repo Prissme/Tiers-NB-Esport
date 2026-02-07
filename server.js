@@ -167,6 +167,12 @@ if (useStandalone) {
       });
 
       server.on('error', (err) => {
+        if (err && err.code === 'EADDRINUSE') {
+          errorLog(
+            `Le port ${port} est déjà utilisé. Fermez le processus existant ou définissez PORT=4000 npm run dev.`
+          );
+          process.exit(1);
+        }
         errorLog('Erreur serveur:', err);
       });
     })

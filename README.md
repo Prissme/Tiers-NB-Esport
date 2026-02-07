@@ -15,7 +15,11 @@ Le script `dev` lance Next.js **et** le bot Discord. Si vous souhaitez lancer un
 NODE_ENV=development npx next dev
 ```
 
-Accédez à `http://localhost:3000`.
+Accédez à `http://localhost:3000`. Si le port est déjà pris, utilisez par exemple :
+
+```bash
+PORT=4000 npm run dev
+```
 
 ## Développement local avec Docker
 
