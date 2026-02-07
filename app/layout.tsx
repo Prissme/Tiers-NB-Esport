@@ -21,7 +21,7 @@ const cormorant = Cormorant_Garamond({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://tiers-nb.koyeb.app"),
+  metadataBase: new URL("https://www.lfn-esports.fr"),
   title: {
     default: "LFN — Ligue francophone",
     template: "%s · LFN",
@@ -39,7 +39,7 @@ export const metadata: Metadata = {
     description:
       "LFN — Ligue francophone. Accès sur sélection, saisons encadrées, classement officiel.",
     type: "website",
-    url: "https://tiers-nb.koyeb.app/",
+    url: "https://www.lfn-esports.fr/",
     images: [
       {
         url: "/og-image.svg",
