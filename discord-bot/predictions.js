@@ -187,7 +187,7 @@ function buildCommands(localizeText) {
   ];
 }
 
-async function registerCommands() {
+async function registerCommands(additionalCommands = []) {
   if (!context?.client?.application) {
     return;
   }
@@ -195,7 +195,8 @@ async function registerCommands() {
   try {
     await verifyPredictionTables();
     const commands = buildCommands(context.localizeText);
-    await context.client.application.commands.set(commands, context.guildId);
+    const mergedCommands = [...commands, ...(additionalCommands || [])];
+    await context.client.application.commands.set(mergedCommands, context.guildId);
     context.log('Slash commands registered.');
   } catch (err) {
     context.error('Unable to register slash commands:', err);
