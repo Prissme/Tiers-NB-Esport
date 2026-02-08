@@ -526,13 +526,28 @@ export default function AdminPanel() {
       teamsQuery = teamsQuery.eq(TEAM_COLUMNS.isActive, true);
     }
 
-    const [{ data, error }, membersResponse] = await Promise.all([
-      teamsQuery,
-      supabase.from(TEAM_MEMBERS_TABLE).select("*"),
-    ]);
+    const { data, error } = await teamsQuery;
+    if (error) {
+      throw new Error(error.message);
+    }
 
-    if (error || membersResponse.error) {
-      throw new Error(error?.message || membersResponse.error?.message);
+    const teamsList = Array.isArray(data) ? data : [];
+    const teamIds = teamsList.map((row) => String(row[TEAM_COLUMNS.id] ?? "")).filter(Boolean);
+
+    let membersResponse: { data: unknown[] | null; error: { message: string } | null } = {
+      data: [],
+      error: null,
+    };
+    if (teamIds.length > 0) {
+      const response = await supabase
+        .from(TEAM_MEMBERS_TABLE)
+        .select("*")
+        .in(TEAM_MEMBER_COLUMNS.teamId, teamIds);
+      membersResponse = response as typeof membersResponse;
+    }
+
+    if (membersResponse.error) {
+      throw new Error(membersResponse.error.message);
     }
 
     const membersByTeam = new Map<string, ReturnType<typeof mapMemberRow>[]>();
@@ -544,7 +559,6 @@ export default function AdminPanel() {
       membersByTeam.get(mapped.teamId)?.push(mapped);
     });
 
-    const teamsList = Array.isArray(data) ? data : [];
     const normalizedTeams = teamsList.map((row) => {
       const mapped = mapTeamRow(row as Record<string, unknown>);
       const resolved = mapped;
@@ -593,14 +607,13 @@ export default function AdminPanel() {
     setErrorMessage(null);
 
     try {
-      const teamsList = await loadTeams();
+      const teamsPromise = loadTeams();
+      const matchesPromise = loadMatches();
+      const [teamsList] = await Promise.all([teamsPromise, matchesPromise]);
 
       if (teamsList.length === 0) {
         setMatches([]);
-        return;
       }
-
-      await loadMatches();
     } catch (error) {
       console.error("Admin load data error:", error);
       setErrorMessage(error instanceof Error ? error.message : "Erreur inconnue.");
