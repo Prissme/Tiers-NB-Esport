@@ -3,6 +3,7 @@
 require('../ensure-fetch');
 const {
   ActionRowBuilder,
+  ApplicationCommandOptionType,
   ButtonBuilder,
   ButtonStyle,
   ChannelType,
@@ -62,6 +63,7 @@ const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABA
 const MATCH_CHANNEL_ID = process.env.MATCH_CHANNEL_ID || '1434509931360419890';
 const LOG_CHANNEL_ID = process.env.LOG_CHANNEL_ID || '1237166689188053023';
 const PING_ROLE_ID = process.env.PING_ROLE_ID || '1437211411096010862';
+const UNKNOWN_PING_ROLE_NAME = process.env.UNKNOWN_PING_ROLE_NAME || 'inconnu';
 
 const ROLE_TIER_S = process.env.ROLE_TIER_S;
 const ROLE_TIER_A = process.env.ROLE_TIER_A;
@@ -1035,6 +1037,288 @@ function findActiveMatchByParticipant(userId) {
   }
 
   return null;
+}
+
+function buildAdminSlashCommands() {
+  return [
+    {
+      name: 'addelo',
+      description: localizeText({ fr: 'Ajouter de l’Elo à un joueur', en: 'Add Elo to a player' }),
+      default_member_permissions: PermissionsBitField.Flags.ManageGuild.toString(),
+      dm_permission: false,
+      options: [
+        {
+          name: 'player',
+          description: localizeText({ fr: 'Joueur ciblé', en: 'Target player' }),
+          type: ApplicationCommandOptionType.User,
+          required: true
+        },
+        {
+          name: 'amount',
+          description: localizeText({ fr: 'Nombre d’Elo à ajouter', en: 'Elo amount to add' }),
+          type: ApplicationCommandOptionType.Integer,
+          required: true,
+          min_value: 1,
+          max_value: 2000
+        }
+      ]
+    },
+    {
+      name: 'removeelo',
+      description: localizeText({ fr: 'Retirer de l’Elo à un joueur', en: 'Remove Elo from a player' }),
+      default_member_permissions: PermissionsBitField.Flags.ManageGuild.toString(),
+      dm_permission: false,
+      options: [
+        {
+          name: 'player',
+          description: localizeText({ fr: 'Joueur ciblé', en: 'Target player' }),
+          type: ApplicationCommandOptionType.User,
+          required: true
+        },
+        {
+          name: 'amount',
+          description: localizeText({ fr: 'Nombre d’Elo à retirer', en: 'Elo amount to remove' }),
+          type: ApplicationCommandOptionType.Integer,
+          required: true,
+          min_value: 1,
+          max_value: 2000
+        }
+      ]
+    },
+    {
+      name: 'cancelmatch',
+      description: localizeText({ fr: 'Annuler un match PL en cours', en: 'Cancel a running PL match' }),
+      default_member_permissions: PermissionsBitField.Flags.ManageGuild.toString(),
+      dm_permission: false,
+      options: [
+        {
+          name: 'match_id',
+          description: localizeText({ fr: 'Identifiant du match', en: 'Match ID' }),
+          type: ApplicationCommandOptionType.Integer,
+          required: true,
+          min_value: 1
+        }
+      ]
+    }
+  ];
+}
+
+function findRoleIdByName(guildContext, roleName) {
+  if (!guildContext?.roles?.cache || !roleName) {
+    return null;
+  }
+
+  const targetName = roleName.toLowerCase();
+  const role = guildContext.roles.cache.find((entry) => entry.name.toLowerCase() === targetName);
+  return role?.id || null;
+}
+
+async function updateMatchMessage(clientRef, matchState, summary) {
+  const channel = await clientRef.channels.fetch(matchState.channelId).catch(() => null);
+  if (!channel?.isTextBased()) {
+    return;
+  }
+
+  const message = await channel.messages.fetch(matchState.messageId).catch(() => null);
+  if (!message) {
+    return;
+  }
+
+  await message.edit({
+    embeds: [buildMatchEmbed(matchState, summary)],
+    components: [buildResultButtons(true)]
+  });
+}
+
+async function finalizeMatchOutcome(matchState, outcome, userId, clientRef) {
+  const summary = await applyMatchOutcome(matchState, outcome, userId);
+  if (!summary) {
+    return null;
+  }
+
+  matchState.resolved = true;
+  activeMatches.delete(matchState.matchId);
+
+  if (matchState.isPl) {
+    await handlePLMatchResolved(matchState.messageId);
+  }
+
+  await updateMatchMessage(clientRef, matchState, summary);
+  await cleanupMatchResources(matchState);
+  return summary;
+}
+
+async function handleAdminSlashCommand(interaction) {
+  if (!interaction.isChatInputCommand()) {
+    return false;
+  }
+
+  const command = interaction.commandName;
+  if (!['addelo', 'removeelo', 'cancelmatch'].includes(command)) {
+    return false;
+  }
+
+  const hasPermission = interaction.memberPermissions?.has(PermissionsBitField.Flags.ManageGuild);
+  if (!hasPermission) {
+    await interaction.reply({
+      content: localizeText({
+        fr: "❌ Vous n'avez pas la permission d'utiliser cette commande.",
+        en: "❌ You don't have permission to use this command."
+      }),
+      flags: MessageFlags.Ephemeral
+    });
+    return true;
+  }
+
+  if (command === 'cancelmatch') {
+    const matchId = interaction.options.getInteger('match_id', true);
+    const matchState = activeMatches.get(matchId);
+
+    if (!matchState) {
+      await interaction.reply({
+        content: localizeText({ fr: 'Match introuvable.', en: 'Match not found.' }),
+        flags: MessageFlags.Ephemeral
+      });
+      return true;
+    }
+
+    if (!matchState.isPl) {
+      await interaction.reply({
+        content: localizeText({
+          fr: 'Cette commande est réservée aux matchs PL.',
+          en: 'This command is reserved for PL matches.'
+        }),
+        flags: MessageFlags.Ephemeral
+      });
+      return true;
+    }
+
+    if (matchState.resolved) {
+      await interaction.reply({
+        content: localizeText({ fr: 'Ce match est déjà terminé.', en: 'This match is already completed.' }),
+        flags: MessageFlags.Ephemeral
+      });
+      return true;
+    }
+
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+
+    try {
+      const summary = await finalizeMatchOutcome(matchState, 'cancel', interaction.user.id, interaction.client);
+      if (!summary) {
+        await interaction.editReply({
+          content: localizeText({ fr: 'Le match est déjà annulé.', en: 'The match is already cancelled.' })
+        });
+        return true;
+      }
+
+      const guildContext = interaction.guild;
+      const roleId = findRoleIdByName(guildContext, UNKNOWN_PING_ROLE_NAME);
+      const roleMention = roleId ? `<@&${roleId}>` : null;
+      const notificationChannel = await interaction.client.channels.fetch(matchState.channelId).catch(() => null);
+
+      if (notificationChannel?.isTextBased()) {
+        await notificationChannel.send({
+          content: [
+            roleMention,
+            localizeText({
+              fr: `⚠️ Match PL #${matchState.matchId} annulé.`,
+              en: `⚠️ PL match #${matchState.matchId} cancelled.`
+            })
+          ]
+            .filter(Boolean)
+            .join(' '),
+          embeds: [buildMatchEmbed(matchState, summary)],
+          allowedMentions: roleId ? { roles: [roleId] } : undefined
+        });
+      }
+
+      await sendLogMessage(
+        [`⚠️ Match #${matchState.matchId} annulé (commande admin).`, summary.text].join('\n')
+      );
+
+      await interaction.editReply({
+        content: localizeText({ fr: 'Match PL annulé.', en: 'PL match cancelled.' })
+      });
+    } catch (err) {
+      errorLog('Failed to cancel match:', err);
+      await interaction.editReply({
+        content: localizeText({
+          fr: "Erreur lors de l'annulation du match.",
+          en: 'Error while cancelling the match.'
+        })
+      });
+    }
+
+    return true;
+  }
+
+  const targetUser = interaction.options.getUser('player', true);
+  const amount = interaction.options.getInteger('amount', true);
+  const delta = command === 'addelo' ? amount : -amount;
+
+  let displayName = targetUser.username;
+  if (interaction.guild) {
+    const member = await interaction.guild.members.fetch(targetUser.id).catch(() => null);
+    displayName = member?.displayName || displayName;
+  }
+
+  let player;
+  try {
+    player = await getOrCreatePlayer(targetUser.id, displayName);
+  } catch (err) {
+    errorLog('Failed to fetch player for Elo update:', err);
+    await interaction.reply({
+      content: localizeText({
+        fr: 'Impossible de récupérer le profil du joueur.',
+        en: 'Unable to retrieve the player profile.'
+      }),
+      flags: MessageFlags.Ephemeral
+    });
+    return true;
+  }
+
+  const currentElo = normalizeRating(player.solo_elo);
+  const nextElo = Math.max(0, currentElo + delta);
+
+  try {
+    const { error } = await supabase
+      .from('players')
+      .update({ solo_elo: nextElo })
+      .eq('id', player.id);
+
+    if (error) {
+      throw error;
+    }
+  } catch (err) {
+    errorLog('Failed to update player elo:', err);
+    await interaction.reply({
+      content: localizeText({
+        fr: "Erreur lors de la mise à jour de l'Elo.",
+        en: 'Error while updating Elo.'
+      }),
+      flags: MessageFlags.Ephemeral
+    });
+    return true;
+  }
+
+  const embed = new EmbedBuilder()
+    .setTitle(
+      command === 'addelo'
+        ? localizeText({ fr: 'Elo ajouté', en: 'Elo added' })
+        : localizeText({ fr: 'Elo retiré', en: 'Elo removed' })
+    )
+    .setDescription(`<@${targetUser.id}>`)
+    .addFields(
+      { name: localizeText({ fr: 'Ancien Elo', en: 'Previous Elo' }), value: `${Math.round(currentElo)}`, inline: true },
+      { name: localizeText({ fr: 'Nouveau Elo', en: 'New Elo' }), value: `${Math.round(nextElo)}`, inline: true },
+      { name: localizeText({ fr: 'Delta', en: 'Delta' }), value: `${delta}`, inline: true }
+    )
+    .setColor(command === 'addelo' ? 0x2ecc71 : 0xe74c3c)
+    .setTimestamp(new Date());
+
+  await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+  return true;
 }
 
 function log(...args) {
@@ -4132,6 +4416,7 @@ async function startMatch(participants, fallbackChannel, isPl = false) {
     teams,
     bestOf,
     kFactor,
+    isPl,
     createdAt: new Date(insertedMatch?.created_at || Date.now()),
     participants: new Set(participants.map((player) => player.discordId)),
     channelId: channel.id,
@@ -4477,6 +4762,10 @@ async function handleInteraction(interaction) {
   }
 
   if (await predictions.handleInteraction(interaction)) {
+    return;
+  }
+
+  if (await handleAdminSlashCommand(interaction)) {
     return;
   }
 
@@ -5438,7 +5727,7 @@ async function onReady(readyClient) {
     logChannel = null;
   }
 
-  await predictions.registerCommands();
+  await predictions.registerCommands(buildAdminSlashCommands());
 
   warn('Système de tiers désactivé : aucune synchronisation automatique ne sera lancée.');
 
