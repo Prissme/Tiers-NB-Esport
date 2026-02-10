@@ -33,6 +33,7 @@ const MATCH_SIZE = TEAM_SIZE * 2;
 const DEFAULT_ELO = 1000;
 const ELO_DIVISOR = 400;
 const TIER_SYNC_INTERVAL_MS = 10 * 60 * 1000; // 10 minutes
+const WORST_PLAYER_ROLE_SYNC_INTERVAL_MS = 10 * 60 * 1000;
 const MIN_VOTES_TO_RESOLVE = Math.max(
   1,
   Number.parseInt(process.env.MIN_VOTES_TO_RESOLVE || '4', 10)
@@ -64,6 +65,7 @@ const MATCH_CHANNEL_ID = process.env.MATCH_CHANNEL_ID || '1434509931360419890';
 const LOG_CHANNEL_ID = process.env.LOG_CHANNEL_ID || '1237166689188053023';
 const PING_ROLE_ID = process.env.PING_ROLE_ID || '1437211411096010862';
 const UNKNOWN_PING_ROLE_NAME = process.env.UNKNOWN_PING_ROLE_NAME || 'inconnu';
+const WORST_PLAYER_ROLE_NAME = process.env.WORST_PLAYER_ROLE_NAME || 'PIRE JOUEUR PL';
 
 const ROLE_TIER_S = process.env.ROLE_TIER_S;
 const ROLE_TIER_A = process.env.ROLE_TIER_A;
@@ -115,6 +117,7 @@ const VOLATILITY_MULTIPLIERS = [
   { min: -Infinity, multiplier: 1.0 }
 ];
 const MAX_STREAK_K_BONUS = 20;
+const MAX_WINSTREAK_ELO_BONUS = 10;
 const RANK_THRESHOLDS = [2400, 2100, 1800, 1500, 1200];
 
 const ELO_RANKS = [
@@ -405,6 +408,7 @@ let matchChannel = null;
 let logChannel = null;
 let plQueueChannel = null;
 let tierSyncInterval = null;
+let worstPlayerRoleInterval = null;
 let botStarted = false;
 let supportsShieldColumns = true;
 
@@ -1213,7 +1217,7 @@ async function handleAdminSlashCommand(interaction) {
       }
 
       const guildContext = interaction.guild;
-      const roleId = findRoleIdByName(guildContext, UNKNOWN_PING_ROLE_NAME);
+      const roleId = matchState.lobbyRoleId || findRoleIdByName(guildContext, UNKNOWN_PING_ROLE_NAME);
       const roleMention = roleId ? `<@&${roleId}>` : null;
       const notificationChannel = await interaction.client.channels.fetch(matchState.channelId).catch(() => null);
 
@@ -1965,6 +1969,87 @@ async function fetchPlayerByDiscordId(discordId) {
   }
 
   return data || null;
+}
+
+
+async function getLowestEloPlayer() {
+  const { data, error } = await supabase
+    .from('players')
+    .select('*')
+    .eq('active', true)
+    .order('solo_elo', { ascending: true })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`Unable to fetch lowest Elo player: ${error.message}`);
+  }
+
+  return data || null;
+}
+
+async function ensureWorstPlayerRole(guildContext) {
+  if (!guildContext?.roles) {
+    return null;
+  }
+
+  const roleByName = guildContext.roles.cache.find((entry) => entry.name === WORST_PLAYER_ROLE_NAME);
+  if (roleByName) {
+    return roleByName;
+  }
+
+  try {
+    return await guildContext.roles.create({
+      name: WORST_PLAYER_ROLE_NAME,
+      mentionable: true,
+      reason: 'Automatic role for lowest Elo player'
+    });
+  } catch (err) {
+    warn('Unable to create worst player role:', err?.message || err);
+    return null;
+  }
+}
+
+async function syncWorstPlayerRole(guildContext) {
+  if (!guildContext?.members || !guildContext.roles) {
+    return;
+  }
+
+  const role = await ensureWorstPlayerRole(guildContext);
+  if (!role) {
+    return;
+  }
+
+  let lowestPlayer;
+  try {
+    lowestPlayer = await getLowestEloPlayer();
+  } catch (err) {
+    warn('Unable to sync worst player role:', err?.message || err);
+    return;
+  }
+
+  if (!lowestPlayer?.discord_id) {
+    return;
+  }
+
+  const lowestDiscordId = String(lowestPlayer.discord_id);
+  const membersWithRole = await guildContext.members.fetch({ withPresences: false }).catch(() => null);
+  if (membersWithRole) {
+    for (const member of membersWithRole.values()) {
+      if (member.roles.cache.has(role.id) && member.id !== lowestDiscordId) {
+        await member.roles.remove(role, 'Role reassigned to current lowest Elo player').catch(() => null);
+      }
+    }
+  }
+
+  const targetMember = await guildContext.members.fetch(lowestDiscordId).catch(() => null);
+  if (!targetMember) {
+    return;
+  }
+
+  if (!targetMember.roles.cache.has(role.id)) {
+    await targetMember.roles.add(role, 'Assigned to current lowest Elo player').catch(() => null);
+  }
 }
 
 async function getOrCreatePlayer(discordId, displayName) {
@@ -2887,6 +2972,7 @@ async function handleEloCommand(message) {
   const loseStreak = typeof player.lose_streak === 'number' ? player.lose_streak : 0;
   const streakInfo = describeStreak(winStreak, loseStreak);
   const soloElo = normalizeRating(player.solo_elo);
+  const peakElo = normalizeRating(player.peak_elo ?? player.solo_elo);
   const { rank: siteRank, totalPlayers } = siteRanking;
   const wishedRankLabel =
     formatEloRankLabel(getEloRankByRating(soloElo)) ||
@@ -2910,6 +2996,11 @@ async function handleEloCommand(message) {
         inline: true
       },
       {
+        name: localizeText({ fr: 'Peak Elo', en: 'Peak Elo' }),
+        value: `${Math.round(peakElo)}`,
+        inline: true
+      },
+      {
         name: localizeText({ fr: 'Série en cours', en: 'Current streak' }),
         value: streakInfo.label,
         inline: true
@@ -2925,6 +3016,53 @@ async function handleEloCommand(message) {
     .setTimestamp(new Date());
 
   await message.reply({ embeds: [embed] });
+}
+
+
+async function handleLastCommand(message) {
+  await syncWorstPlayerRole(message.guild).catch(() => null);
+
+  let player;
+  try {
+    player = await getLowestEloPlayer();
+  } catch (err) {
+    errorLog('Failed to fetch lowest Elo player:', err);
+    await message.reply({
+      content: localizeText({
+        fr: 'Erreur lors de la récupération du dernier joueur.',
+        en: 'Error while fetching lowest Elo player.'
+      }),
+      allowedMentions: { repliedUser: false }
+    });
+    return;
+  }
+
+  if (!player?.discord_id) {
+    await message.reply({
+      content: localizeText({
+        fr: 'Aucun joueur actif trouvé.',
+        en: 'No active player found.'
+      }),
+      allowedMentions: { repliedUser: false }
+    });
+    return;
+  }
+
+  const elo = Math.round(normalizeRating(player.solo_elo));
+  await message.reply({
+    content: localizeText(
+      {
+        fr: '📉 Dernier joueur PL: <@{discordId}> avec **{elo} Elo**. Rôle **{roleName}** synchronisé toutes les 10 minutes.',
+        en: '📉 Lowest PL player: <@{discordId}> with **{elo} Elo**. **{roleName}** role is synced every 10 minutes.'
+      },
+      {
+        discordId: player.discord_id,
+        elo,
+        roleName: WORST_PLAYER_ROLE_NAME
+      }
+    ),
+    allowedMentions: { repliedUser: false, users: [player.discord_id] }
+  });
 }
 
 async function handleRanksCommand(message) {
@@ -4112,6 +4250,7 @@ async function handleHelpCommand(message) {
           '`!queue` — Show the Power League queue with player ranks',
           '`!file` — Show the Power League queue with player ranks (FR alias)',
           '`!elo [@player]` — Display Elo stats',
+          '`!last` — Show the current lowest Elo player',
           '`!ranks` — Show your Elo progression up to Verdoyant',
           '`!lb [count]` — Show the leaderboard (example: !lb 25)',
           '`!maps` — Show the current map rotation',
@@ -4129,6 +4268,7 @@ async function handleHelpCommand(message) {
           '`!queue` — Voir la file PL avec le rang des joueurs',
           '`!file` — Voir la file PL avec le rang des joueurs',
           '`!elo [@joueur]` — Afficher le classement Elo',
+          '`!last` / `!dernier` — Afficher le joueur avec le moins d\'Elo',
           '`!ranks` — Voir ta progression Elo vers Verdoyant',
           '`!lb [nombre]` — Afficher le top classement (ex: !lb 25)',
           '`!maps` — Afficher la rotation des maps',
@@ -4405,7 +4545,9 @@ async function startMatch(participants, fallbackChannel, isPl = false) {
   }
 
   const contentParts = [];
-  if (PING_ROLE_ID) {
+  if (lobbyRole?.id) {
+    contentParts.push(`<@&${lobbyRole.id}>`);
+  } else if (PING_ROLE_ID) {
     contentParts.push(`<@&${PING_ROLE_ID}>`);
   }
 
@@ -4554,6 +4696,10 @@ async function applyMatchOutcome(state, outcome, userId) {
     const expected = calculateExpectedScore(currentRating, redAvg);
     const personalizedKFactor = getPersonalizedKFactor(player, matchKFactor, currentRating, redAvg);
     let newRating = Math.max(0, Math.round(currentRating + personalizedKFactor * (blueScore - expected)));
+    const winStreakBonus = blueScore === 1 ? Math.min(MAX_WINSTREAK_ELO_BONUS, (player.winStreak || 0) + 1) : 0;
+    if (winStreakBonus > 0) {
+      newRating += winStreakBonus;
+    }
 
     const crossedThreshold = RANK_THRESHOLDS.find(
       (threshold) => currentRating < threshold && newRating >= threshold
@@ -4578,9 +4724,12 @@ async function applyMatchOutcome(state, outcome, userId) {
     const winStreak = blueScore === 1 ? (player.winStreak || 0) + 1 : 0;
     const loseStreak = blueScore === 1 ? 0 : (player.loseStreak || 0) + 1;
 
+    const peakElo = Math.max(normalizeRating(player.peakElo ?? currentRating), newRating);
+
     updates.push({
       id: player.playerId,
       solo_elo: newRating,
+      peak_elo: peakElo,
       wins,
       losses,
       games_played: games,
@@ -4597,6 +4746,7 @@ async function applyMatchOutcome(state, outcome, userId) {
     });
 
     player.soloElo = newRating;
+    player.peakElo = peakElo;
     player.wins = wins;
     player.losses = losses;
     player.games = games;
@@ -4609,6 +4759,10 @@ async function applyMatchOutcome(state, outcome, userId) {
     const expected = calculateExpectedScore(currentRating, blueAvg);
     const personalizedKFactor = getPersonalizedKFactor(player, matchKFactor, currentRating, blueAvg);
     let newRating = Math.max(0, Math.round(currentRating + personalizedKFactor * (redScore - expected)));
+    const winStreakBonus = redScore === 1 ? Math.min(MAX_WINSTREAK_ELO_BONUS, (player.winStreak || 0) + 1) : 0;
+    if (winStreakBonus > 0) {
+      newRating += winStreakBonus;
+    }
 
     const crossedThreshold = RANK_THRESHOLDS.find(
       (threshold) => currentRating < threshold && newRating >= threshold
@@ -4633,9 +4787,12 @@ async function applyMatchOutcome(state, outcome, userId) {
     const winStreak = redScore === 1 ? (player.winStreak || 0) + 1 : 0;
     const loseStreak = redScore === 1 ? 0 : (player.loseStreak || 0) + 1;
 
+    const peakElo = Math.max(normalizeRating(player.peakElo ?? currentRating), newRating);
+
     updates.push({
       id: player.playerId,
       solo_elo: newRating,
+      peak_elo: peakElo,
       wins,
       losses,
       games_played: games,
@@ -4652,6 +4809,7 @@ async function applyMatchOutcome(state, outcome, userId) {
     });
 
     player.soloElo = newRating;
+    player.peakElo = peakElo;
     player.wins = wins;
     player.losses = losses;
     player.games = games;
@@ -4663,6 +4821,7 @@ async function applyMatchOutcome(state, outcome, userId) {
     try {
       const payload = {
         solo_elo: update.solo_elo,
+        peak_elo: update.peak_elo,
         wins: update.wins,
         losses: update.losses,
         games_played: update.games_played,
@@ -4689,6 +4848,7 @@ async function applyMatchOutcome(state, outcome, userId) {
             .from('players')
             .update({
               solo_elo: update.solo_elo,
+              peak_elo: update.peak_elo,
               wins: update.wins,
               losses: update.losses,
               games_played: update.games_played,
@@ -5737,6 +5897,14 @@ async function onReady(readyClient) {
   //   syncTiersWithRoles().catch((err) => errorLog('Tier sync failed:', err));
   // }, TIER_SYNC_INTERVAL_MS);
 
+  await syncWorstPlayerRole(guild).catch((err) => warn('Initial worst player role sync failed:', err?.message || err));
+  if (worstPlayerRoleInterval) {
+    clearInterval(worstPlayerRoleInterval);
+  }
+  worstPlayerRoleInterval = setInterval(() => {
+    syncWorstPlayerRole(guild).catch((err) => warn('Worst player role sync failed:', err?.message || err));
+  }, WORST_PLAYER_ROLE_SYNC_INTERVAL_MS);
+
   await restorePLState();
   await processPLQueue();
 }
@@ -5794,6 +5962,10 @@ async function handleMessage(message) {
         break;
       case 'elo':
         await handleEloCommand(message, args);
+        break;
+      case 'last':
+      case 'dernier':
+        await handleLastCommand(message, args);
         break;
       case 'ranks':
         await handleRanksCommand(message, args);
