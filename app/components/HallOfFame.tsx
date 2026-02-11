@@ -8,21 +8,28 @@ const hallOfFameEntries = {
       winner: "T1",
       date: "26/12/2025",
       image:
-        "https://media.discordapp.net/attachments/1434252768633290952/1464746362250854531/ChatGPT_Image_24_janv._2026_23_18_25.png?ex=697dd71a&is=697c859a&hm=8a2f41d842ae9dc7351cecba513382189db2c00fed1b5586dc9c94769bbd4951&=&format=webp&quality=lossless&width=607&height=405",
+        "https://media.discordapp.net/attachments/1434252768633290952/1471236020816056491/ChatGPT_Image_25_janv._2026_09_16_59.png?ex=698e32d1&is=698ce151&hm=06a8105ed7871d19caf5ba485e86a85067bf13243b3c35f7f1b39ab25573341b&=&format=webp&quality=lossless&width=875&height=583",
     },
     {
       season: "Saison 2",
       winner: "BT",
       date: "03/01/2026",
       image:
-        "https://media.discordapp.net/attachments/1434252768633290952/1464746362666221598/ChatGPT_Image_24_janv._2026_23_18_22.png?ex=697dd71a&is=697c859a&hm=8289ef26e9764701ea81cc96c8e4437824efbbd5d8a68e239cc8dd66a81a1821&=&format=webp&quality=lossless&width=607&height=405",
+        "https://media.discordapp.net/attachments/1434252768633290952/1471236021394997473/ChatGPT_Image_24_janv._2026_23_18_22.png?ex=698e32d1&is=698ce151&hm=8e41f227fe338a6b79c2737461deb14bdf7db8f93ce99a8e19dd2e12b8ee04b1&=&format=webp&quality=lossless&width=875&height=583",
     },
     {
       season: "Saison 3",
       winner: "Brandon & Dylan",
       date: "17/01/2026",
       image:
-        "https://media.discordapp.net/attachments/1434252768633290952/1464746363072938118/ChatGPT_Image_24_janv._2026_23_18_19.png?ex=697dd71a&is=697c859a&hm=24cff247d8a418e3ac3af10c532f2483e60f7667611eddfb3f8b6d12a46f7bee&=&format=webp&quality=lossless&width=607&height=405",
+        "https://media.discordapp.net/attachments/1434252768633290952/1471236021877473433/ChatGPT_Image_24_janv._2026_23_18_19.png?ex=698e32d1&is=698ce151&hm=ad1edfe9a12501aa9af247accd00d9c1346c2f141f8b71d43a8949bd1f40b12b&=&format=webp&quality=lossless&width=875&height=583",
+    },
+    {
+      season: "Saison 4",
+      winner: "Brandon & Dylan",
+      date: "31/01/2026",
+      image:
+        "https://media.discordapp.net/attachments/1434252768633290952/1471236021877473433/ChatGPT_Image_24_janv._2026_23_18_19.png?ex=698e32d1&is=698ce151&hm=ad1edfe9a12501aa9af247accd00d9c1346c2f141f8b71d43a8949bd1f40b12b&=&format=webp&quality=lossless&width=875&height=583",
     },
   ],
   en: [
@@ -31,21 +38,28 @@ const hallOfFameEntries = {
       winner: "T1",
       date: "12/26/2025",
       image:
-        "https://media.discordapp.net/attachments/1434252768633290952/1464746362250854531/ChatGPT_Image_24_janv._2026_23_18_25.png?ex=697dd71a&is=697c859a&hm=8a2f41d842ae9dc7351cecba513382189db2c00fed1b5586dc9c94769bbd4951&=&format=webp&quality=lossless&width=607&height=405",
+        "https://media.discordapp.net/attachments/1434252768633290952/1471236020816056491/ChatGPT_Image_25_janv._2026_09_16_59.png?ex=698e32d1&is=698ce151&hm=06a8105ed7871d19caf5ba485e86a85067bf13243b3c35f7f1b39ab25573341b&=&format=webp&quality=lossless&width=875&height=583",
     },
     {
       season: "Season 2",
       winner: "BT",
       date: "01/03/2026",
       image:
-        "https://media.discordapp.net/attachments/1434252768633290952/1464746362666221598/ChatGPT_Image_24_janv._2026_23_18_22.png?ex=697dd71a&is=697c859a&hm=8289ef26e9764701ea81cc96c8e4437824efbbd5d8a68e239cc8dd66a81a1821&=&format=webp&quality=lossless&width=607&height=405",
+        "https://media.discordapp.net/attachments/1434252768633290952/1471236021394997473/ChatGPT_Image_24_janv._2026_23_18_22.png?ex=698e32d1&is=698ce151&hm=8e41f227fe338a6b79c2737461deb14bdf7db8f93ce99a8e19dd2e12b8ee04b1&=&format=webp&quality=lossless&width=875&height=583",
     },
     {
       season: "Season 3",
       winner: "Brandon & Dylan",
       date: "01/17/2026",
       image:
-        "https://media.discordapp.net/attachments/1434252768633290952/1464746363072938118/ChatGPT_Image_24_janv._2026_23_18_19.png?ex=697dd71a&is=697c859a&hm=24cff247d8a418e3ac3af10c532f2483e60f7667611eddfb3f8b6d12a46f7bee&=&format=webp&quality=lossless&width=607&height=405",
+        "https://media.discordapp.net/attachments/1434252768633290952/1471236021877473433/ChatGPT_Image_24_janv._2026_23_18_19.png?ex=698e32d1&is=698ce151&hm=ad1edfe9a12501aa9af247accd00d9c1346c2f141f8b71d43a8949bd1f40b12b&=&format=webp&quality=lossless&width=875&height=583",
+    },
+    {
+      season: "Season 4",
+      winner: "Brandon & Dylan",
+      date: "01/31/2026",
+      image:
+        "https://media.discordapp.net/attachments/1434252768633290952/1471236021877473433/ChatGPT_Image_24_janv._2026_23_18_19.png?ex=698e32d1&is=698ce151&hm=ad1edfe9a12501aa9af247accd00d9c1346c2f141f8b71d43a8949bd1f40b12b&=&format=webp&quality=lossless&width=875&height=583",
     },
   ],
 };
@@ -60,8 +74,8 @@ const copy = {
   fr: {
     title: "Hall of Fame",
     description:
-      "De la Saison 1 à la Saison 3, ils ont pris la lumière. La Saison 4 arrive, la place est encore à prendre.",
-    seasonFour: "Saison 4",
+      "De la Saison 1 à la Saison 4, ils ont pris la lumière. La Saison 5 arrive, la place est encore à prendre.",
+    seasonFour: "Saison 5",
     seasonFourTitle: "Peut-être toi, si t'en es capable",
     seasonFourDescription: "La place est libre. Écris la prochaine légende.",
     signup: "S'inscrire",
@@ -69,8 +83,8 @@ const copy = {
   en: {
     title: "Hall of Fame",
     description:
-      "From Season 1 to Season 3, they owned the spotlight. Season 4 is coming, the spot is still up for grabs.",
-    seasonFour: "Season 4",
+      "From Season 1 to Season 4, they owned the spotlight. Season 5 is coming, the spot is still up for grabs.",
+    seasonFour: "Season 5",
     seasonFourTitle: "Maybe you, if you can handle it",
     seasonFourDescription: "The spot is open. Write the next legend.",
     signup: "Sign up",
@@ -81,7 +95,13 @@ export default function HallOfFame({ locale }: { locale: Locale }) {
   const entries = hallOfFameEntries[locale];
   const content = copy[locale];
   return (
-    <section className="font-prata mt-16 overflow-hidden rounded-[16px] bg-[linear-gradient(135deg,_rgba(6,10,22,0.75),_rgba(9,14,30,0.75))] px-5 py-12 shadow-[0_0_60px_rgba(0,0,0,0.3)] sm:px-8 lg:px-12">
+    <section
+      className="font-prata mt-16 overflow-hidden rounded-[16px] bg-cover bg-center px-5 py-12 shadow-[0_0_60px_rgba(0,0,0,0.3)] sm:px-8 lg:px-12"
+      style={{
+        backgroundImage:
+          "linear-gradient(135deg, rgba(6,10,22,0.75), rgba(9,14,30,0.75)), url('https://media.discordapp.net/attachments/1434252768633290952/1471235398637326491/Montagne.png?ex=698e323d&is=698ce0bd&hm=c139a3af6d5e8a2303bec43210e9e7ef8cf28a853697c2dc1840fe81c8eee32a&=&format=webp&quality=lossless&width=875&height=583')",
+      }}
+    >
       <div className="mx-auto flex max-w-6xl flex-col gap-10">
         <div className="flex flex-col gap-4 text-center sm:text-left">
           <h2 className="font-sekuya text-2xl font-semibold text-white sm:text-3xl">
