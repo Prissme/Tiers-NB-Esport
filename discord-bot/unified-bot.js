@@ -149,6 +149,19 @@ const ELO_RANKS = [
   { min: -Infinity, name: 'Wished', numeral: null, emoji: WISHED_EMOJI }
 ];
 
+const ELO_MAJOR_RANK_ORDER = {
+  Wished: 0,
+  Bronze: 1,
+  Silver: 2,
+  Gold: 3,
+  Diamant: 4,
+  Mythique: 5,
+  'Légendaire': 6,
+  Master: 7,
+  'Grand Master': 8,
+  Verdoyant: 9
+};
+
 const PRISSCUP_RULES_EN = `📘 PRISS Cup – Rulebook (3v3 – 8 teams)
 
 🎮 Format
@@ -802,6 +815,12 @@ async function sendOrUpdateQueueMessage(guildContext, channel) {
 
 async function addPlayerToPLQueue(userId, guildContext) {
   await ensureRuntimePlQueueLoaded(guildContext.id);
+  await loadPendingRuntimeMatches(guildContext.id);
+
+  if (getPendingMatchForUser(userId)) {
+    return { added: false, blockedByPendingMatch: true };
+  }
+
   const result = await addToRuntimePlQueue(guildContext.id, userId);
   await sendOrUpdateQueueMessage(guildContext, plQueueChannel);
   return result;
@@ -1034,13 +1053,7 @@ function findRoomByMember(userId) {
 }
 
 function findActiveMatchByParticipant(userId) {
-  for (const matchState of activeMatches.values()) {
-    if (!matchState.resolved && matchState.participants?.has(userId)) {
-      return matchState;
-    }
-  }
-
-  return null;
+  return getPendingMatchForUser(userId);
 }
 
 function buildAdminSlashCommands() {
@@ -1435,6 +1448,34 @@ function getNextEloRank(rankInfo) {
   const nextRank = ELO_RANKS[rankInfo.index - 1];
   return nextRank ? { ...nextRank, index: rankInfo.index - 1 } : null;
 }
+
+
+function getEloMajorRankLevel(rating) {
+  const rankInfo = getEloRankByRating(rating);
+  return ELO_MAJOR_RANK_ORDER[rankInfo.name] ?? 0;
+}
+
+function getPendingMatchForUser(userId) {
+  for (const matchState of activeMatches.values()) {
+    if (!matchState.resolved && matchState.participants?.has(userId)) {
+      return matchState;
+    }
+  }
+
+  for (const record of runtimeActiveMatchesCache.values()) {
+    if (record?.status !== 'pending') {
+      continue;
+    }
+
+    const players = Array.isArray(record.players) ? record.players : [];
+    if (players.includes(userId)) {
+      return record;
+    }
+  }
+
+  return null;
+}
+
 
 async function getSiteRankingInfo(targetDiscordId) {
   try {
@@ -2504,9 +2545,11 @@ async function handlePLJoinCommand(message) {
   const joinResult = await addPlayerToPLQueue(message.author.id, message.guild);
   await processPLQueue();
 
-  const replyContent = joinResult.added
-    ? 'Tu as rejoint la file PL. (You joined the PL queue.)'
-    : 'Tu es déjà dans la file PL. (You are already in the PL queue.)';
+  const replyContent = joinResult.blockedByPendingMatch
+    ? 'Tu es déjà dans un match en attente. Attends sa validation avant de rejoindre la file. (You are already in a pending match. Wait for validation before joining the queue.)'
+    : joinResult.added
+      ? 'Tu as rejoint la file PL. (You joined the PL queue.)'
+      : 'Tu es déjà dans la file PL. (You are already in the PL queue.)';
 
   try {
     await message.author.send(replyContent);
@@ -2635,9 +2678,11 @@ async function handleJoinCommand(message, args) {
       const joinResult = await addPlayerToPLQueue(message.author.id, message.guild);
       await processPLQueue();
 
-      const replyContent = joinResult.added
-        ? 'Tu as rejoint la file PL. (You joined the PL queue.)'
-        : 'Tu es déjà dans la file PL. (You are already in the PL queue.)';
+      const replyContent = joinResult.blockedByPendingMatch
+        ? 'Tu es déjà dans un match en attente. Attends sa validation avant de rejoindre la file. (You are already in a pending match. Wait for validation before joining the queue.)'
+        : joinResult.added
+          ? 'Tu as rejoint la file PL. (You joined the PL queue.)'
+          : 'Tu es déjà dans la file PL. (You are already in the PL queue.)';
 
       await message.reply({ content: replyContent });
       return;
@@ -2972,7 +3017,6 @@ async function handleEloCommand(message) {
   const loseStreak = typeof player.lose_streak === 'number' ? player.lose_streak : 0;
   const streakInfo = describeStreak(winStreak, loseStreak);
   const soloElo = normalizeRating(player.solo_elo);
-  const peakElo = normalizeRating(player.peak_elo ?? player.solo_elo);
   const { rank: siteRank, totalPlayers } = siteRanking;
   const wishedRankLabel =
     formatEloRankLabel(getEloRankByRating(soloElo)) ||
@@ -2993,11 +3037,6 @@ async function handleEloCommand(message) {
       {
         name: localizeText({ fr: 'Rang', en: 'Rank' }),
         value: wishedRankLabel,
-        inline: true
-      },
-      {
-        name: localizeText({ fr: 'Peak Elo', en: 'Peak Elo' }),
-        value: `${Math.round(peakElo)}`,
         inline: true
       },
       {
@@ -3187,11 +3226,6 @@ async function handleAchievementsCommand(message) {
   const prissCup1v1Wins =
     typeof player.prisscup_1v1_wins === 'number' ? player.prisscup_1v1_wins : 0;
 
-  const peakElo = normalizeRating(player.peak_elo ?? player.solo_elo);
-  const peakRankLabel =
-    typeof player.peak_rank === 'number'
-      ? `#${player.peak_rank}`
-      : localizeText({ fr: 'Non enregistré', en: 'Not recorded' });
 
   const achievementFields = [
     {
@@ -3217,23 +3251,11 @@ async function handleAchievementsCommand(message) {
     });
   }
 
-  achievementFields.push(
-    {
-      name: localizeText({ fr: 'Peak Elo', en: 'Peak Elo' }),
-      value: `${Math.round(peakElo)}`,
-      inline: true
-    },
-    {
-      name: localizeText({ fr: 'Peak rang', en: 'Peak rank' }),
-      value: peakRankLabel,
-      inline: true
-    },
-    {
-      name: localizeText({ fr: 'Rang actuel', en: 'Current rank' }),
-      value: currentRankLabel,
-      inline: true
-    }
-  );
+  achievementFields.push({
+    name: localizeText({ fr: 'Rang actuel', en: 'Current rank' }),
+    value: currentRankLabel,
+    inline: true
+  });
 
   const embed = new EmbedBuilder()
     .setTitle(
@@ -4724,12 +4746,9 @@ async function applyMatchOutcome(state, outcome, userId) {
     const winStreak = blueScore === 1 ? (player.winStreak || 0) + 1 : 0;
     const loseStreak = blueScore === 1 ? 0 : (player.loseStreak || 0) + 1;
 
-    const peakElo = Math.max(normalizeRating(player.peakElo ?? currentRating), newRating);
-
     updates.push({
       id: player.playerId,
       solo_elo: newRating,
-      peak_elo: peakElo,
       wins,
       losses,
       games_played: games,
@@ -4746,7 +4765,6 @@ async function applyMatchOutcome(state, outcome, userId) {
     });
 
     player.soloElo = newRating;
-    player.peakElo = peakElo;
     player.wins = wins;
     player.losses = losses;
     player.games = games;
@@ -4787,12 +4805,9 @@ async function applyMatchOutcome(state, outcome, userId) {
     const winStreak = redScore === 1 ? (player.winStreak || 0) + 1 : 0;
     const loseStreak = redScore === 1 ? 0 : (player.loseStreak || 0) + 1;
 
-    const peakElo = Math.max(normalizeRating(player.peakElo ?? currentRating), newRating);
-
     updates.push({
       id: player.playerId,
       solo_elo: newRating,
-      peak_elo: peakElo,
       wins,
       losses,
       games_played: games,
@@ -4809,7 +4824,6 @@ async function applyMatchOutcome(state, outcome, userId) {
     });
 
     player.soloElo = newRating;
-    player.peakElo = peakElo;
     player.wins = wins;
     player.losses = losses;
     player.games = games;
@@ -4821,7 +4835,6 @@ async function applyMatchOutcome(state, outcome, userId) {
     try {
       const payload = {
         solo_elo: update.solo_elo,
-        peak_elo: update.peak_elo,
         wins: update.wins,
         losses: update.losses,
         games_played: update.games_played,
@@ -4848,7 +4861,6 @@ async function applyMatchOutcome(state, outcome, userId) {
             .from('players')
             .update({
               solo_elo: update.solo_elo,
-              peak_elo: update.peak_elo,
               wins: update.wins,
               losses: update.losses,
               games_played: update.games_played,
@@ -4979,9 +4991,18 @@ async function handleInteraction(interaction) {
 
       const joinResult = await addPlayerToPLQueue(interaction.user.id, interaction.guild);
       if (!joinResult.added) {
+        const response = joinResult.blockedByPendingMatch
+          ? localizeText({
+              fr: 'Tu es déjà dans un match en attente. Attends sa validation avant de rejoindre la file.',
+              en: 'You are already in a pending match. Wait for validation before joining the queue.'
+            })
+          : localizeText({
+              fr: 'Tu es déjà dans la file PL. (You are already in the PL queue.)',
+              en: 'You are already in the PL queue. (Tu es déjà dans la file PL.)'
+            });
+
         await interaction.reply({
-          content:
-            'Tu es déjà dans la file PL. (You are already in the PL queue.)',
+          content: response,
           flags: MessageFlags.Ephemeral
         });
         return;
@@ -5439,6 +5460,31 @@ async function handleInteraction(interaction) {
       await interaction.reply({
         content:
           'Chaque joueur doit être unique. Merci de choisir 2 mates différents. / Each player must be unique, please pick two different teammates.',
+        flags: MessageFlags.Ephemeral
+      });
+      return;
+    }
+
+    const participantProfiles = [];
+    for (const participantId of uniqueIds) {
+      const profile = await fetchPlayerByDiscordId(participantId).catch((err) => {
+        warn('Unable to load participant profile for PrissCup validation:', err?.message || err);
+        return null;
+      });
+
+      participantProfiles.push({
+        majorRankLevel: getEloMajorRankLevel(profile?.solo_elo)
+      });
+    }
+
+    const sortedByLevel = participantProfiles.slice().sort((a, b) => a.majorRankLevel - b.majorRankLevel);
+    const lowestRank = sortedByLevel[0];
+    const highestRank = sortedByLevel[sortedByLevel.length - 1];
+
+    if (lowestRank && highestRank && highestRank.majorRankLevel - lowestRank.majorRankLevel > 2) {
+      await interaction.reply({
+        content:
+          'Écart de rang trop élevé: maximum 2 rangs entre joueurs (ex: Wished↔Silver OK, Wished↔Gold interdit). / Rank gap too high: max 2 ranks between players (ex: Wished↔Silver allowed, Wished↔Gold blocked).',
         flags: MessageFlags.Ephemeral
       });
       return;
