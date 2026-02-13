@@ -30,8 +30,11 @@ export const metadata: Metadata = {
     "LFN — Ligue francophone. Accès sur sélection, saisons encadrées, classement officiel.",
   themeColor: "#E39F30",
   icons: {
-    icon: "/LogoLFN.webp",
-    shortcut: "/LogoLFN.webp",
+    icon: [
+      { url: "/favicon.svg", type: "image/svg+xml" },
+      { url: "/LogoLFN.webp", type: "image/webp" }
+    ],
+    shortcut: "/favicon.svg",
     apple: "/LogoLFN.webp",
   },
   openGraph: {

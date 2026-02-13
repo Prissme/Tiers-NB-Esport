@@ -41,6 +41,7 @@ const MIN_VOTES_TO_RESOLVE = Math.max(
 const MAP_CHOICES_COUNT = 1;
 const DODGE_VOTES_REQUIRED = 4;
 const DODGE_ELO_PENALTY = 30;
+const DODGE_QUEUE_LOCK_MS = 60 * 60 * 1000;
 const ROOM_TIER_ORDER = ['E', 'D', 'C', 'B', 'A', 'S'];
 const BEST_OF_VALUES = [1, 3, 5];
 const DEFAULT_MATCH_BEST_OF = normalizeBestOfInput(process.env.DEFAULT_MATCH_BEST_OF) || 1;
@@ -73,6 +74,19 @@ const ROLE_TIER_B = process.env.ROLE_TIER_B;
 const ROLE_TIER_C = process.env.ROLE_TIER_C;
 const ROLE_TIER_D = process.env.ROLE_TIER_D;
 const ROLE_TIER_E = process.env.ROLE_TIER_E;
+
+const ELO_RANK_ROLE_IDS = {
+  wished: '1471941253582032967',
+  bronze: '1471941528330178770',
+  argent: '1471942802362466445',
+  or: '1471941661465776292',
+  diamant: '1471942853851615243',
+  mythique: '1471942959741145088',
+  legendaire: '1471943001801621504',
+  master: '1471943041815154911',
+  grandmaster: '1471943169343094887',
+  verdoyant: '1471943202067058859'
+};
 
 const TIER_DISTRIBUTION = [
   { tier: 'S', ratio: 0.005, minCount: 1 },
@@ -433,6 +447,7 @@ const activeMatches = new Map();
 const pendingRoomForms = new Map();
 const customRooms = new Map();
 const pendingPrisscupTeams = new Map();
+const dodgeQueueLocks = new Map();
 
 // ===== PL Queue System START =====
 const DEFAULT_PL_DATA = {
@@ -816,6 +831,11 @@ async function sendOrUpdateQueueMessage(guildContext, channel) {
 async function addPlayerToPLQueue(userId, guildContext) {
   await ensureRuntimePlQueueLoaded(guildContext.id);
   await loadPendingRuntimeMatches(guildContext.id);
+
+  const lockRemainingMs = getQueueLockRemainingMs(userId);
+  if (lockRemainingMs > 0) {
+    return { added: false, blockedByDodgeLock: true, lockRemainingMs };
+  }
 
   if (getPendingMatchForUser(userId)) {
     return { added: false, blockedByPendingMatch: true };
@@ -1455,6 +1475,68 @@ function getEloMajorRankLevel(rating) {
   return ELO_MAJOR_RANK_ORDER[rankInfo.name] ?? 0;
 }
 
+function getRankRoleKeyByRating(rating) {
+  const normalized = normalizeRating(rating);
+
+  if (normalized >= 2700) return 'verdoyant';
+  if (normalized >= 2100) return 'grandmaster';
+  if (normalized >= 1750) return 'master';
+  if (normalized >= 1525) return 'legendaire';
+  if (normalized >= 1350) return 'mythique';
+  if (normalized >= 1220) return 'diamant';
+  if (normalized >= 1120) return 'or';
+  if (normalized >= 1050) return 'argent';
+  if (normalized >= 1010) return 'bronze';
+  return 'wished';
+}
+
+function getQueueLockRemainingMs(userId) {
+  const until = dodgeQueueLocks.get(userId);
+  if (!until) {
+    return 0;
+  }
+
+  const remaining = until - Date.now();
+  if (remaining <= 0) {
+    dodgeQueueLocks.delete(userId);
+    return 0;
+  }
+
+  return remaining;
+}
+
+function formatDurationMinutes(ms) {
+  const minutes = Math.max(1, Math.ceil(ms / 60000));
+  return `${minutes} min`;
+}
+
+async function syncMemberRankRole(guildContext, discordId, rating) {
+  if (!guildContext?.members || !discordId) {
+    return;
+  }
+
+  const roleIds = Object.values(ELO_RANK_ROLE_IDS).filter(Boolean);
+  if (!roleIds.length) {
+    return;
+  }
+
+  const member = await guildContext.members.fetch(discordId).catch(() => null);
+  if (!member?.roles?.cache) {
+    return;
+  }
+
+  const targetRoleId = ELO_RANK_ROLE_IDS[getRankRoleKeyByRating(rating)];
+  const rolesToRemove = roleIds.filter((roleId) => roleId !== targetRoleId && member.roles.cache.has(roleId));
+
+  if (rolesToRemove.length) {
+    await member.roles.remove(rolesToRemove, 'LFN rank role sync after match validation').catch(() => null);
+  }
+
+  if (targetRoleId && !member.roles.cache.has(targetRoleId)) {
+    await member.roles.add(targetRoleId, 'LFN rank role sync after match validation').catch(() => null);
+  }
+}
+
 function getPendingMatchForUser(userId) {
   for (const matchState of activeMatches.values()) {
     if (!matchState.resolved && matchState.participants?.has(userId)) {
@@ -1769,12 +1851,14 @@ async function applyDodgePenalty(targetPlayer) {
   }
 
   targetPlayer.soloElo = newRating;
+  const lockUntil = Date.now() + DODGE_QUEUE_LOCK_MS;
+  dodgeQueueLocks.set(targetPlayer.discordId, lockUntil);
 
   await sendLogMessage(
     localizeText(
       {
-        fr: '🚫 {name} perd {penalty} Elo ({count} votes dodge).',
-        en: '🚫 {name} loses {penalty} Elo ({count} dodge votes).'
+        fr: '🚫 {name} perd {penalty} Elo ({count} votes dodge) et ne peut plus jouer pendant 1h.',
+        en: '🚫 {name} loses {penalty} Elo ({count} dodge votes) and cannot play for 1 hour.'
       },
       {
         name: targetPlayer.displayName || `<@${targetPlayer.discordId}>`,
@@ -1784,7 +1868,7 @@ async function applyDodgePenalty(targetPlayer) {
     )
   );
 
-  return { success: true, newRating };
+  return { success: true, newRating, lockUntil };
 }
 
 async function refreshMatchMessage(matchState, client) {
@@ -2545,11 +2629,13 @@ async function handlePLJoinCommand(message) {
   const joinResult = await addPlayerToPLQueue(message.author.id, message.guild);
   await processPLQueue();
 
-  const replyContent = joinResult.blockedByPendingMatch
-    ? 'Tu es déjà dans un match en attente. Attends sa validation avant de rejoindre la file. (You are already in a pending match. Wait for validation before joining the queue.)'
-    : joinResult.added
-      ? 'Tu as rejoint la file PL. (You joined the PL queue.)'
-      : 'Tu es déjà dans la file PL. (You are already in the PL queue.)';
+  const replyContent = joinResult.blockedByDodgeLock
+    ? `Tu as 4 votes dodge: -30 Elo et verrouillage 1h. Réessaie dans ${formatDurationMinutes(joinResult.lockRemainingMs)}. (4 dodge votes: -30 Elo and 1h lock. Try again in ${formatDurationMinutes(joinResult.lockRemainingMs)}.)`
+    : joinResult.blockedByPendingMatch
+      ? 'Tu es déjà dans un match en attente. Attends sa validation avant de rejoindre la file. (You are already in a pending match. Wait for validation before joining the queue.)'
+      : joinResult.added
+        ? 'Tu as rejoint la file PL. (You joined the PL queue.)'
+        : 'Tu es déjà dans la file PL. (You are already in the PL queue.)';
 
   try {
     await message.author.send(replyContent);
@@ -2594,6 +2680,15 @@ async function handleSimpleLobbyJoin(message) {
 
   const queue = getSimpleLobbyQueue(message.guild.id);
   const memberId = message.author.id;
+  const lockRemainingMs = getQueueLockRemainingMs(memberId);
+
+  if (lockRemainingMs > 0) {
+    await message.reply({
+      content: `🚫 Tu as 4 votes dodge: -30 Elo et verrouillage 1h. Réessaie dans ${formatDurationMinutes(lockRemainingMs)}.`,
+      allowedMentions: { repliedUser: false }
+    });
+    return;
+  }
 
   if (queue.includes(memberId)) {
     await message.reply({
@@ -2678,11 +2773,13 @@ async function handleJoinCommand(message, args) {
       const joinResult = await addPlayerToPLQueue(message.author.id, message.guild);
       await processPLQueue();
 
-      const replyContent = joinResult.blockedByPendingMatch
-        ? 'Tu es déjà dans un match en attente. Attends sa validation avant de rejoindre la file. (You are already in a pending match. Wait for validation before joining the queue.)'
-        : joinResult.added
-          ? 'Tu as rejoint la file PL. (You joined the PL queue.)'
-          : 'Tu es déjà dans la file PL. (You are already in the PL queue.)';
+      const replyContent = joinResult.blockedByDodgeLock
+        ? `Tu as 4 votes dodge: -30 Elo et verrouillage 1h. Réessaie dans ${formatDurationMinutes(joinResult.lockRemainingMs)}. (4 dodge votes: -30 Elo and 1h lock. Try again in ${formatDurationMinutes(joinResult.lockRemainingMs)}.)`
+        : joinResult.blockedByPendingMatch
+          ? 'Tu es déjà dans un match en attente. Attends sa validation avant de rejoindre la file. (You are already in a pending match. Wait for validation before joining the queue.)'
+          : joinResult.added
+            ? 'Tu as rejoint la file PL. (You joined the PL queue.)'
+            : 'Tu es déjà dans la file PL. (You are already in the PL queue.)';
 
       await message.reply({ content: replyContent });
       return;
@@ -4341,8 +4438,18 @@ async function addMembersToThread(thread, participantIds) {
     return;
   }
 
+  await thread.join().catch(() => null);
+
   for (const discordId of participantIds) {
     await thread.members.add(discordId).catch(() => null);
+    await thread.permissionOverwrites
+      ?.edit(discordId, {
+        ViewChannel: true,
+        SendMessages: true,
+        SendMessagesInThreads: true,
+        ReadMessageHistory: true
+      })
+      .catch(() => null);
   }
 }
 
@@ -4893,6 +5000,12 @@ async function applyMatchOutcome(state, outcome, userId) {
     changes.map((change) => sendRankUpNotification(change.player, change.oldRating, change.newRating))
   );
 
+  if (guild) {
+    await Promise.all(
+      changes.map((change) => syncMemberRankRole(guild, change.player.discordId, change.newRating))
+    );
+  }
+
   const winnerLine = localizeText(
     {
       fr: 'Victoire {winner} (déclarée par <@{userId}>).',
@@ -4991,15 +5104,20 @@ async function handleInteraction(interaction) {
 
       const joinResult = await addPlayerToPLQueue(interaction.user.id, interaction.guild);
       if (!joinResult.added) {
-        const response = joinResult.blockedByPendingMatch
+        const response = joinResult.blockedByDodgeLock
           ? localizeText({
-              fr: 'Tu es déjà dans un match en attente. Attends sa validation avant de rejoindre la file.',
-              en: 'You are already in a pending match. Wait for validation before joining the queue.'
+              fr: `Tu as 4 votes dodge: -30 Elo et verrouillage 1h. Réessaie dans ${formatDurationMinutes(joinResult.lockRemainingMs)}.`,
+              en: `4 dodge votes: -30 Elo and 1h lock. Try again in ${formatDurationMinutes(joinResult.lockRemainingMs)}.`
             })
-          : localizeText({
-              fr: 'Tu es déjà dans la file PL. (You are already in the PL queue.)',
-              en: 'You are already in the PL queue. (Tu es déjà dans la file PL.)'
-            });
+          : joinResult.blockedByPendingMatch
+            ? localizeText({
+                fr: 'Tu es déjà dans un match en attente. Attends sa validation avant de rejoindre la file.',
+                en: 'You are already in a pending match. Wait for validation before joining the queue.'
+              })
+            : localizeText({
+                fr: 'Tu es déjà dans la file PL. (You are already in the PL queue.)',
+                en: 'You are already in the PL queue. (Tu es déjà dans la file PL.)'
+              });
 
         await interaction.reply({
           content: response,
@@ -5386,8 +5504,8 @@ async function handleInteraction(interaction) {
         if (result.success) {
           penaltyMessage = localizeText(
             {
-              fr: '{name} perd {penalty} Elo pour dodge.',
-              en: '{name} loses {penalty} Elo for dodging.'
+              fr: '{name} perd {penalty} Elo et prend un verrouillage de 1h pour dodge.',
+              en: '{name} loses {penalty} Elo and receives a 1h lock for dodging.'
             },
             {
               name: player?.displayName || `<@${targetId}>`,
