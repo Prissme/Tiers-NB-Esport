@@ -74,7 +74,7 @@ const CountdownBlock = ({
 
   return (
     <div className="space-y-2">
-      <p className="text-xs uppercase tracking-[0.4em] text-utility">{title}</p>
+      <p className="countdown-event-title text-xs uppercase text-utility">{title}</p>
       {dateLabel ? (
         <p className="text-[11px] uppercase tracking-[0.35em] text-slate-300">{dateLabel}</p>
       ) : null}

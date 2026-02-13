@@ -211,8 +211,14 @@ body::before {
   }
 
   .hero-ironhill__overlay {
-    background: transparent;
-    opacity: 0;
+    background: linear-gradient(180deg, rgba(5, 8, 11, 0.42) 0%, rgba(5, 8, 11, 0.62) 65%, rgba(5, 8, 11, 0.74) 100%);
+    opacity: 1;
+  }
+
+  .countdown-event-title {
+    font-family: "Sekuya", var(--font-serif), ui-serif, Georgia, serif;
+    letter-spacing: 0.48em;
+    text-shadow: 0 0 18px rgba(255, 255, 255, 0.25);
   }
 
   .hero-ironhill__bg {

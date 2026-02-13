@@ -20,15 +20,7 @@ export default function HomePage() {
   };
   const content = copy[locale];
   return (
-    <div
-      className="page-shell"
-      style={{
-        backgroundImage:
-          "linear-gradient(180deg, rgba(5, 8, 11, 0.45) 0%, rgba(5, 8, 11, 0.72) 100%), url('/Montagne.webp')",
-        backgroundSize: "cover",
-        backgroundPosition: "center",
-      }}
-    >
+    <div className="page-shell">
       <HeroCard locale={locale} />
       <div className="page-stack page-stack--tight">
         <section className="secondary-section social-proof-section">

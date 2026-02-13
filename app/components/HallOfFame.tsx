@@ -66,8 +66,7 @@ const hallOfFameEntries = {
 
 const INSCRIPTION_PATH = "/inscription";
 const HALL_EMBLEM_URL = "/Trophée.webp";
-const SIGNUP_EMBLEM_URL =
-  "https://cdn.discordapp.com/attachments/1434252768633290952/1466080774112542762/image-Photoroom_10.png";
+const SIGNUP_EMBLEM_URL = "/Discord.webp";
 
 const copy = {
   fr: {

@@ -31,6 +31,7 @@ export const metadata: Metadata = {
   themeColor: "#E39F30",
   icons: {
     icon: "/LogoLFN.webp",
+    shortcut: "/LogoLFN.webp",
     apple: "/LogoLFN.webp",
   },
   openGraph: {
