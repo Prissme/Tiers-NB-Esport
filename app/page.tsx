@@ -20,7 +20,15 @@ export default function HomePage() {
   };
   const content = copy[locale];
   return (
-    <div className="page-shell">
+    <div
+      className="page-shell"
+      style={{
+        backgroundImage:
+          "linear-gradient(180deg, rgba(5, 8, 11, 0.45) 0%, rgba(5, 8, 11, 0.72) 100%), url('/Montagne.png')",
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+      }}
+    >
       <HeroCard locale={locale} />
       <div className="page-stack page-stack--tight">
         <section className="secondary-section social-proof-section">
@@ -47,6 +55,16 @@ export default function HomePage() {
                 </p>
               </article>
             </div>
+          </div>
+        </section>
+        <section className="secondary-section">
+          <div className="surface-dominant rounded-[14px] px-6 py-8 text-center shadow-[0_20px_60px_rgba(4,10,30,0.45)] sm:px-10">
+            <p className="text-xs uppercase tracking-[0.35em] text-utility">LFN</p>
+            <p className="mx-auto mt-4 max-w-4xl text-sm leading-relaxed text-slate-200 sm:text-base">
+              {locale === "fr"
+                ? "La LFN est un projet e-sport ambitieux sur Null's Brawl, pensé pour faire vivre la compétition sur le jeu avec du haut niveau et des émotions à chaque saison."
+                : "LFN is an ambitious esports project on Null's Brawl, built to keep high-level competition alive with strong emotions every season."}
+            </p>
           </div>
         </section>
         <div className="silent-gap" aria-hidden="true" />

@@ -66,9 +66,9 @@ const hallOfFameEntries = {
 
 const INSCRIPTION_PATH = "/inscription";
 const HALL_EMBLEM_URL =
-  "https://media.discordapp.net/attachments/1434252768633290952/1466084863449763903/image-Photoroom_11.png?ex=697e186d&is=697cc6ed&hm=e30de7c3aabc5ab64e71deb5f0eccc4c3beff07ba08b585a6977e3d04389e176&=&format=webp&quality=lossless&width=220&height=219";
+  "https://cdn.discordapp.com/attachments/1434252768633290952/1466084863449763903/image-Photoroom_11.png";
 const SIGNUP_EMBLEM_URL =
-  "https://media.discordapp.net/attachments/1434252768633290952/1466080774112542762/image-Photoroom_10.png?ex=697e149f&is=697cc31f&hm=ac7bbb921eb8b3538106cccf9dadb1bdac9190853a30407559cf7e8eb53a80ff&=&format=webp&quality=lossless&width=236&height=236";
+  "https://cdn.discordapp.com/attachments/1434252768633290952/1466080774112542762/image-Photoroom_10.png";
 
 const copy = {
   fr: {
@@ -96,11 +96,7 @@ export default function HallOfFame({ locale }: { locale: Locale }) {
   const content = copy[locale];
   return (
     <section
-      className="font-prata mt-16 overflow-hidden rounded-[16px] bg-cover bg-center px-5 py-12 shadow-[0_0_60px_rgba(0,0,0,0.3)] sm:px-8 lg:px-12"
-      style={{
-        backgroundImage:
-          "linear-gradient(135deg, rgba(6,10,22,0.75), rgba(9,14,30,0.75)), url('https://media.discordapp.net/attachments/1434252768633290952/1471235398637326491/Montagne.png?ex=698e323d&is=698ce0bd&hm=c139a3af6d5e8a2303bec43210e9e7ef8cf28a853697c2dc1840fe81c8eee32a&=&format=webp&quality=lossless&width=875&height=583')",
-      }}
+      className="font-prata mt-16 overflow-hidden rounded-[16px] bg-[linear-gradient(135deg,rgba(6,10,22,0.75),rgba(9,14,30,0.75))] px-5 py-12 shadow-[0_0_60px_rgba(0,0,0,0.3)] sm:px-8 lg:px-12"
     >
       <div className="mx-auto flex max-w-6xl flex-col gap-10">
         <div className="flex flex-col gap-4 text-center sm:text-left">
