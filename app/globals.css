@@ -1,3 +1,5 @@
+@import url("https://fonts.googleapis.com/css2?family=Sekuya:wght@400;500;600;700&display=swap");
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -113,29 +115,19 @@
   --secondary-scale: 1;
   --secondary-opacity: 1;
   --dominant-border: rgba(201, 178, 106, 0.35);
-  --site-background: url("/Montagne.webp");
+  --site-background: none;
   --ambience-image: var(--site-background);
   --hero-image: var(--site-background);
 }
 
 html {
   background-color: var(--color-bg);
-  background-image: var(--site-background);
-  background-position: center;
-  background-size: cover;
-  background-repeat: no-repeat;
-  background-attachment: scroll;
 }
 
 body {
   @apply antialiased;
   font-family: var(--font-sans), system-ui, sans-serif;
   background-color: var(--color-bg);
-  background-image: var(--site-background);
-  background-position: center;
-  background-size: cover;
-  background-repeat: no-repeat;
-  background-attachment: scroll;
   color: var(--color-text);
 }
 
@@ -193,7 +185,8 @@ body::before {
   }
 
   .hero-ironhill {
-    @apply relative isolate flex min-h-[100vh] items-center overflow-hidden px-4 sm:px-6 lg:px-8;
+    @apply relative isolate flex min-h-[100vh] items-center px-4 sm:px-6 lg:px-8;
+    overflow: visible;
     background-color: transparent;
     padding-bottom: 14vh;
     padding-top: 20vh;
@@ -210,6 +203,7 @@ body::before {
   .hero-ironhill__overlay {
     background: linear-gradient(180deg, rgba(4, 7, 10, 0.5) 0%, rgba(4, 7, 10, 0.68) 60%, rgba(4, 7, 10, 0.8) 100%);
     opacity: 1;
+    pointer-events: none;
   }
 
   .countdown-event-title {
