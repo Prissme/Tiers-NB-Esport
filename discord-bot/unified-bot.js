@@ -887,6 +887,13 @@ async function handlePLMatchTimeout(messageId) {
   }
 
   const matchState = [...activeMatches.values()].find((state) => state.messageId === messageId);
+  const runtimeState =
+    !matchState && matchInfo?.players
+      ? {
+          threadId: matchInfo.players.threadId || null,
+          lobbyRoleId: matchInfo.players.lobbyRoleId || null
+        }
+      : null;
 
   if (channel?.isTextBased()) {
     await channel.send({
@@ -905,6 +912,8 @@ async function handlePLMatchTimeout(messageId) {
 
   if (matchState) {
     await cleanupMatchResources(matchState);
+  } else if (runtimeState?.threadId || runtimeState?.lobbyRoleId) {
+    await cleanupMatchResources(runtimeState);
   }
 
   await updateRuntimeActiveMatchStatus(messageId, 'timeout');
@@ -985,7 +994,13 @@ async function processPLQueue() {
         await saveRuntimeActiveMatch({
           message_id: state.messageId,
           guild_id: guild.id,
-          players: { ids: participantsIds },
+          players: {
+            ids: participantsIds,
+            matchId: state.matchId,
+            threadId: state.threadId,
+            lobbyRoleId: state.lobbyRoleId,
+            channelId: state.channelId
+          },
           is_pl: true,
           status: 'pending',
           created_at: new Date().toISOString(),
@@ -1582,13 +1597,45 @@ function getPendingMatchForUser(userId) {
       continue;
     }
 
-    const players = Array.isArray(record.players) ? record.players : [];
+    const players = Array.isArray(record.players)
+      ? record.players
+      : Array.isArray(record?.players?.ids)
+        ? record.players.ids
+        : [];
     if (players.includes(userId)) {
       return record;
     }
   }
 
   return null;
+}
+
+async function syncAllRankRoles(guildContext) {
+  if (!guildContext) {
+    return { synced: 0 };
+  }
+
+  const { data, error } = await supabase
+    .from('players')
+    .select('discord_id, solo_elo, active')
+    .not('discord_id', 'is', null)
+    .eq('active', true);
+
+  if (error) {
+    throw new Error(error.message || 'Unable to fetch players for rank sync');
+  }
+
+  let synced = 0;
+  for (const player of data || []) {
+    if (!player?.discord_id) {
+      continue;
+    }
+
+    await syncMemberRankRole(guildContext, player.discord_id, player.solo_elo);
+    synced += 1;
+  }
+
+  return { synced };
 }
 
 
