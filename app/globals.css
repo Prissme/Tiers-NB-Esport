@@ -208,7 +208,7 @@ body::before {
   }
 
   .hero-ironhill__overlay {
-    background: linear-gradient(180deg, rgba(5, 8, 11, 0.42) 0%, rgba(5, 8, 11, 0.62) 65%, rgba(5, 8, 11, 0.74) 100%);
+    background: linear-gradient(180deg, rgba(4, 7, 10, 0.5) 0%, rgba(4, 7, 10, 0.68) 60%, rgba(4, 7, 10, 0.8) 100%);
     opacity: 1;
   }
 
@@ -218,10 +218,19 @@ body::before {
     text-shadow: 0 0 18px rgba(255, 255, 255, 0.25);
   }
 
+  .countdown-event-title--gold {
+    color: #f1cb7a;
+    text-shadow: 0 0 16px rgba(243, 196, 96, 0.7), 0 0 34px rgba(196, 145, 45, 0.55);
+  }
+
   .hero-ironhill__bg {
     background-image: var(--hero-image);
-    background-size: cover;
-    background-position: center;
+    background-size: contain;
+    background-position: center top;
+    background-repeat: no-repeat;
+    background-attachment: fixed;
+    transform: translateZ(0);
+    will-change: transform;
   }
 
 
@@ -237,6 +246,11 @@ body::before {
     font-family: "Sekuya", var(--font-serif), ui-serif, Georgia, serif;
     @apply text-xs uppercase tracking-[0.6em] text-[color:var(--color-text)];
     font-weight: 600;
+  }
+
+  .hero-kicker--season {
+    color: #f2d184;
+    text-shadow: 0 0 18px rgba(245, 201, 102, 0.72), 0 0 34px rgba(196, 145, 45, 0.5);
   }
 
   .hero-title {
@@ -1226,6 +1240,11 @@ body::before {
   .hero-ironhill {
     min-height: 70vh;
     padding-top: 7rem;
+  }
+
+  .hero-ironhill__bg {
+    background-attachment: scroll;
+    background-size: cover;
   }
 
   .hero-title {
