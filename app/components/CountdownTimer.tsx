@@ -48,12 +48,10 @@ const useCountdown = (target: number) => {
 
 const CountdownBlock = ({
   title,
-  dateLabel,
   target,
   locale,
 }: {
   title: string;
-  dateLabel?: string;
   target: number;
   locale: Locale;
 }) => {
@@ -74,10 +72,7 @@ const CountdownBlock = ({
 
   return (
     <div className="space-y-2">
-      <p className="countdown-event-title text-xs uppercase text-utility">{title}</p>
-      {dateLabel ? (
-        <p className="font-sekuya text-[11px] uppercase tracking-[0.35em] text-slate-300">{dateLabel}</p>
-      ) : null}
+      <p className="countdown-event-title countdown-event-title--gold text-xs uppercase">{title}</p>
       <div className="flex flex-wrap justify-center gap-6">
         {items.map((item) => (
           <div key={item.label} className="text-center">
@@ -98,12 +93,11 @@ const CountdownBlock = ({
 
 export default function CountdownTimer({ locale }: { locale: Locale }) {
   return (
-    <div className="mt-6 space-y-6">
+    <div className="hero-countdown space-y-6">
       {TARGETS.map((target) => (
         <CountdownBlock
           key={target.label[locale]}
           title={target.label[locale]}
-          dateLabel={locale === "fr" ? "14 février • 20h" : "February 14 • 8:00 PM"}
           target={target.timestamp}
           locale={locale}
         />
