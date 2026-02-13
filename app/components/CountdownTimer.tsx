@@ -6,10 +6,10 @@ import type { Locale } from "../lib/i18n";
 const TARGETS = [
   {
     label: {
-      fr: "LFN Jour 3",
-      en: "LFN Day 3",
+      fr: "LFN SAISON 5",
+      en: "LFN SEASON 5",
     },
-    timestamp: new Date("2026-02-06T20:00:00+01:00").getTime(),
+    timestamp: new Date("2026-02-14T20:00:00+01:00").getTime(),
   },
 ] as const;
 
@@ -103,7 +103,7 @@ export default function CountdownTimer({ locale }: { locale: Locale }) {
         <CountdownBlock
           key={target.label[locale]}
           title={target.label[locale]}
-          dateLabel={target.dateLabel}
+          dateLabel={locale === "fr" ? "14 février • 20h" : "February 14 • 8:00 PM"}
           target={target.timestamp}
           locale={locale}
         />
