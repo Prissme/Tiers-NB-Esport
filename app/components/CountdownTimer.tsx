@@ -93,7 +93,7 @@ const CountdownBlock = ({
 
 export default function CountdownTimer({ locale }: { locale: Locale }) {
   return (
-    <div className="mt-6 space-y-6">
+    <div className="hero-countdown space-y-6">
       {TARGETS.map((target) => (
         <CountdownBlock
           key={target.label[locale]}

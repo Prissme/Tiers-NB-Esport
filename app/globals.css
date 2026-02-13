@@ -197,7 +197,9 @@ body::before {
   }
 
   .hero-ironhill__layer {
-    @apply absolute inset-0 -z-10;
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
   }
 
   .hero-ironhill__overlay {
@@ -230,6 +232,13 @@ body::before {
 
   .hero-ironhill__content {
     @apply relative z-10 mx-auto flex w-full max-w-5xl flex-col items-start gap-10 text-left;
+  }
+
+  .hero-countdown {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    margin-top: clamp(1rem, 2.5vw, 2rem);
   }
 
   .hero-ironhill__content--center {
