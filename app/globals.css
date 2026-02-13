@@ -1,3 +1,5 @@
+@import url("https://fonts.googleapis.com/css2?family=Sekuya:wght@400;500;600;700&display=swap");
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -113,29 +115,19 @@
   --secondary-scale: 1;
   --secondary-opacity: 1;
   --dominant-border: rgba(201, 178, 106, 0.35);
-  --site-background: url("/Montagne.webp");
+  --site-background: none;
   --ambience-image: var(--site-background);
   --hero-image: var(--site-background);
 }
 
 html {
   background-color: var(--color-bg);
-  background-image: var(--site-background);
-  background-position: center;
-  background-size: cover;
-  background-repeat: no-repeat;
-  background-attachment: scroll;
 }
 
 body {
   @apply antialiased;
   font-family: var(--font-sans), system-ui, sans-serif;
   background-color: var(--color-bg);
-  background-image: var(--site-background);
-  background-position: center;
-  background-size: cover;
-  background-repeat: no-repeat;
-  background-attachment: scroll;
   color: var(--color-text);
 }
 
@@ -193,7 +185,8 @@ body::before {
   }
 
   .hero-ironhill {
-    @apply relative isolate flex min-h-[100vh] items-center overflow-hidden px-4 sm:px-6 lg:px-8;
+    @apply relative isolate flex min-h-[100vh] items-center px-4 sm:px-6 lg:px-8;
+    overflow: visible;
     background-color: transparent;
     padding-bottom: 14vh;
     padding-top: 20vh;
@@ -208,8 +201,12 @@ body::before {
   }
 
   .hero-ironhill__overlay {
-    background: linear-gradient(180deg, rgba(5, 8, 11, 0.42) 0%, rgba(5, 8, 11, 0.62) 65%, rgba(5, 8, 11, 0.74) 100%);
+    position: fixed;
+    inset: 0;
+    z-index: -10;
+    background: linear-gradient(180deg, rgba(3, 5, 8, 0.58) 0%, rgba(3, 5, 8, 0.74) 60%, rgba(3, 5, 8, 0.86) 100%);
     opacity: 1;
+    pointer-events: none;
   }
 
   .countdown-event-title {
@@ -218,10 +215,23 @@ body::before {
     text-shadow: 0 0 18px rgba(255, 255, 255, 0.25);
   }
 
+  .countdown-event-title--gold {
+    color: #f1cb7a;
+    text-shadow: 0 0 16px rgba(243, 196, 96, 0.7), 0 0 34px rgba(196, 145, 45, 0.55);
+  }
+
   .hero-ironhill__bg {
-    background-image: var(--hero-image);
+    background-image: url("/Montagne.webp");
     background-size: cover;
-    background-position: center;
+    background-position: center top;
+    background-repeat: no-repeat;
+    position: fixed;
+    inset: 0;
+    min-height: 100vh;
+    transform: translateZ(0);
+    will-change: transform;
+    z-index: -20;
+    filter: brightness(0.45) saturate(0.85);
   }
 
 
@@ -237,6 +247,11 @@ body::before {
     font-family: "Sekuya", var(--font-serif), ui-serif, Georgia, serif;
     @apply text-xs uppercase tracking-[0.6em] text-[color:var(--color-text)];
     font-weight: 600;
+  }
+
+  .hero-kicker--season {
+    color: #f2d184;
+    text-shadow: 0 0 18px rgba(245, 201, 102, 0.72), 0 0 34px rgba(196, 145, 45, 0.5);
   }
 
   .hero-title {
@@ -1226,6 +1241,10 @@ body::before {
   .hero-ironhill {
     min-height: 70vh;
     padding-top: 7rem;
+  }
+
+  .hero-ironhill__bg {
+    background-position: center top;
   }
 
   .hero-title {

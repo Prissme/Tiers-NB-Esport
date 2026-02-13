@@ -6,6 +6,7 @@ import type { Locale } from "../lib/i18n";
 const copy = {
   fr: {
     title: "Atteignez le sommet",
+    season: "LFN SAISON 5",
     subtitle: "La Ligue Francophone dédiée à",
     highlight: "Null's Brawl",
     watch: "Regarder les matchs",
@@ -13,6 +14,7 @@ const copy = {
   },
   en: {
     title: "Reach the summit",
+    season: "LFN SEASON 5",
     subtitle: "The French-speaking league dedicated to",
     highlight: "Null's Brawl",
     watch: "Watch matches",
@@ -24,10 +26,11 @@ export default function HeroCard({ locale }: { locale: Locale }) {
   const content = copy[locale];
   return (
     <section className="hero-ironhill dominant-hero">
+      <div className="hero-ironhill__layer hero-ironhill__bg" aria-hidden="true" />
       <div className="hero-ironhill__layer hero-ironhill__overlay" aria-hidden="true" />
       <div className="hero-ironhill__content hero-ironhill__content--center">
         <div className="space-y-5 text-center">
-          <p className="hero-kicker">LFN</p>
+          <p className="hero-kicker hero-kicker--season">{content.season}</p>
           <h1 className="hero-title hero-title--summit">
             {content.title}
           </h1>
