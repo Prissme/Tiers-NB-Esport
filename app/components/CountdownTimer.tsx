@@ -76,7 +76,7 @@ const CountdownBlock = ({
     <div className="space-y-2">
       <p className="countdown-event-title text-xs uppercase text-utility">{title}</p>
       {dateLabel ? (
-        <p className="text-[11px] uppercase tracking-[0.35em] text-slate-300">{dateLabel}</p>
+        <p className="font-sekuya text-[11px] uppercase tracking-[0.35em] text-slate-300">{dateLabel}</p>
       ) : null}
       <div className="flex flex-wrap justify-center gap-6">
         {items.map((item) => (
@@ -86,7 +86,7 @@ const CountdownBlock = ({
                 {formatValue(item.value)}
               </span>
             </p>
-            <p className="text-[10px] uppercase tracking-[0.32em] text-[color:var(--color-text-faint)]">
+            <p className="font-sekuya text-[10px] uppercase tracking-[0.32em] text-[color:var(--color-text-faint)]">
               {item.label}
             </p>
           </div>

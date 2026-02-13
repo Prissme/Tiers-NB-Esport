@@ -1136,6 +1136,12 @@ function buildAdminSlashCommands() {
           min_value: 1
         }
       ]
+    },
+    {
+      name: 'sync',
+      description: localizeText({ fr: 'Synchroniser les rôles de rang PL', en: 'Synchronize PL rank roles' }),
+      default_member_permissions: PermissionsBitField.Flags.ManageGuild.toString(),
+      dm_permission: false
     }
   ];
 }
@@ -1191,7 +1197,7 @@ async function handleAdminSlashCommand(interaction) {
   }
 
   const command = interaction.commandName;
-  if (!['addelo', 'removeelo', 'cancelmatch'].includes(command)) {
+  if (!['addelo', 'removeelo', 'cancelmatch', 'sync'].includes(command)) {
     return false;
   }
 
@@ -1283,6 +1289,33 @@ async function handleAdminSlashCommand(interaction) {
         content: localizeText({
           fr: "Erreur lors de l'annulation du match.",
           en: 'Error while cancelling the match.'
+        })
+      });
+    }
+
+    return true;
+  }
+
+  if (command === 'sync') {
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+
+    try {
+      const result = await syncAllRankRoles(interaction.guild);
+      await interaction.editReply({
+        content: localizeText(
+          {
+            fr: '✅ Synchronisation des rôles de rang terminée ({synced} joueurs synchronisés).',
+            en: '✅ Rank role synchronization completed ({synced} players synced).'
+          },
+          { synced: result.synced }
+        )
+      });
+    } catch (err) {
+      errorLog('Failed to synchronize rank roles:', err);
+      await interaction.editReply({
+        content: localizeText({
+          fr: '❌ Erreur pendant la synchronisation des rôles de rang.',
+          en: '❌ Error while synchronizing rank roles.'
         })
       });
     }
