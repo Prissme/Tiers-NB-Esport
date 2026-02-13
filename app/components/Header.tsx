@@ -8,7 +8,7 @@ import LanguageSwitcher from "./LanguageSwitcher";
 import type { Locale } from "../lib/i18n";
 import ReloadingImage from "./ReloadingImage";
 
-const logoUrl = "/LacheTonGrab.png";
+const logoUrl = "/LogoLFN.webp";
 
 const INSCRIPTION_PATH = "/inscription";
 

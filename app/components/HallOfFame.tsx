@@ -8,28 +8,28 @@ const hallOfFameEntries = {
       winner: "T1",
       date: "26/12/2025",
       image:
-        "https://media.discordapp.net/attachments/1434252768633290952/1471236020816056491/ChatGPT_Image_25_janv._2026_09_16_59.png?ex=698e32d1&is=698ce151&hm=06a8105ed7871d19caf5ba485e86a85067bf13243b3c35f7f1b39ab25573341b&=&format=webp&quality=lossless&width=875&height=583",
+        "/WinnersV1.webp",
     },
     {
       season: "Saison 2",
       winner: "BT",
       date: "03/01/2026",
       image:
-        "https://media.discordapp.net/attachments/1434252768633290952/1471236021394997473/ChatGPT_Image_24_janv._2026_23_18_22.png?ex=698e32d1&is=698ce151&hm=8e41f227fe338a6b79c2737461deb14bdf7db8f93ce99a8e19dd2e12b8ee04b1&=&format=webp&quality=lossless&width=875&height=583",
+        "/WinnersV2.webp",
     },
     {
       season: "Saison 3",
       winner: "Brandon & Dylan",
       date: "17/01/2026",
       image:
-        "https://media.discordapp.net/attachments/1434252768633290952/1471236021877473433/ChatGPT_Image_24_janv._2026_23_18_19.png?ex=698e32d1&is=698ce151&hm=ad1edfe9a12501aa9af247accd00d9c1346c2f141f8b71d43a8949bd1f40b12b&=&format=webp&quality=lossless&width=875&height=583",
+        "/WinnersV3et4.webp",
     },
     {
       season: "Saison 4",
       winner: "Brandon & Dylan",
       date: "31/01/2026",
       image:
-        "https://media.discordapp.net/attachments/1434252768633290952/1471236021877473433/ChatGPT_Image_24_janv._2026_23_18_19.png?ex=698e32d1&is=698ce151&hm=ad1edfe9a12501aa9af247accd00d9c1346c2f141f8b71d43a8949bd1f40b12b&=&format=webp&quality=lossless&width=875&height=583",
+        "/WinnersV3et4.webp",
     },
   ],
   en: [
@@ -38,35 +38,34 @@ const hallOfFameEntries = {
       winner: "T1",
       date: "12/26/2025",
       image:
-        "https://media.discordapp.net/attachments/1434252768633290952/1471236020816056491/ChatGPT_Image_25_janv._2026_09_16_59.png?ex=698e32d1&is=698ce151&hm=06a8105ed7871d19caf5ba485e86a85067bf13243b3c35f7f1b39ab25573341b&=&format=webp&quality=lossless&width=875&height=583",
+        "/WinnersV1.webp",
     },
     {
       season: "Season 2",
       winner: "BT",
       date: "01/03/2026",
       image:
-        "https://media.discordapp.net/attachments/1434252768633290952/1471236021394997473/ChatGPT_Image_24_janv._2026_23_18_22.png?ex=698e32d1&is=698ce151&hm=8e41f227fe338a6b79c2737461deb14bdf7db8f93ce99a8e19dd2e12b8ee04b1&=&format=webp&quality=lossless&width=875&height=583",
+        "/WinnersV2.webp",
     },
     {
       season: "Season 3",
       winner: "Brandon & Dylan",
       date: "01/17/2026",
       image:
-        "https://media.discordapp.net/attachments/1434252768633290952/1471236021877473433/ChatGPT_Image_24_janv._2026_23_18_19.png?ex=698e32d1&is=698ce151&hm=ad1edfe9a12501aa9af247accd00d9c1346c2f141f8b71d43a8949bd1f40b12b&=&format=webp&quality=lossless&width=875&height=583",
+        "/WinnersV3et4.webp",
     },
     {
       season: "Season 4",
       winner: "Brandon & Dylan",
       date: "01/31/2026",
       image:
-        "https://media.discordapp.net/attachments/1434252768633290952/1471236021877473433/ChatGPT_Image_24_janv._2026_23_18_19.png?ex=698e32d1&is=698ce151&hm=ad1edfe9a12501aa9af247accd00d9c1346c2f141f8b71d43a8949bd1f40b12b&=&format=webp&quality=lossless&width=875&height=583",
+        "/WinnersV3et4.webp",
     },
   ],
 };
 
 const INSCRIPTION_PATH = "/inscription";
-const HALL_EMBLEM_URL =
-  "https://cdn.discordapp.com/attachments/1434252768633290952/1466084863449763903/image-Photoroom_11.png";
+const HALL_EMBLEM_URL = "/Trophée.webp";
 const SIGNUP_EMBLEM_URL =
   "https://cdn.discordapp.com/attachments/1434252768633290952/1466080774112542762/image-Photoroom_10.png";
 

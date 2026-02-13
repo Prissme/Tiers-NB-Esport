@@ -29,7 +29,7 @@ export default function Footer({ locale }: { locale: Locale }) {
           <div className="flex items-center gap-3 text-white">
             <span className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-2xl bg-white/5">
               <ReloadingImage
-                src="/LacheTonGrab.png"
+                src="/LogoLFN.webp"
                 alt={content.logoAlt}
                 className="h-full w-full object-contain"
                 loading="lazy"

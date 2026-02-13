@@ -24,7 +24,7 @@ export default function HomePage() {
       className="page-shell"
       style={{
         backgroundImage:
-          "linear-gradient(180deg, rgba(5, 8, 11, 0.45) 0%, rgba(5, 8, 11, 0.72) 100%), url('/Montagne.png')",
+          "linear-gradient(180deg, rgba(5, 8, 11, 0.45) 0%, rgba(5, 8, 11, 0.72) 100%), url('/Montagne.webp')",
         backgroundSize: "cover",
         backgroundPosition: "center",
       }}
