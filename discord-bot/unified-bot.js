@@ -1570,35 +1570,6 @@ async function syncMemberRankRole(guildContext, discordId, rating) {
   }
 }
 
-async function syncAllRankRoles(guildContext) {
-  if (!guildContext?.members) {
-    return { scanned: 0, synced: 0 };
-  }
-
-  const { data, error } = await supabase
-    .from('players')
-    .select('discord_id, solo_elo, active')
-    .not('discord_id', 'is', null);
-
-  if (error) {
-    throw new Error(`Unable to fetch players for rank sync: ${error.message}`);
-  }
-
-  const players = (data || []).filter((player) => player.active !== false);
-  let synced = 0;
-
-  for (const player of players) {
-    if (!player.discord_id) {
-      continue;
-    }
-
-    await syncMemberRankRole(guildContext, String(player.discord_id), normalizeRating(player.solo_elo));
-    synced += 1;
-  }
-
-  return { scanned: players.length, synced };
-}
-
 function getPendingMatchForUser(userId) {
   for (const matchState of activeMatches.values()) {
     if (!matchState.resolved && matchState.participants?.has(userId)) {
