@@ -1087,6 +1087,7 @@ export default function AdminPanel() {
           [TEAM_MEMBER_COLUMNS.mains]: member.mains ?? null,
           [TEAM_MEMBER_COLUMNS.description]: member.description ?? null,
           [TEAM_MEMBER_COLUMNS.elite]: member.elite ?? false,
+          [TEAM_MEMBER_COLUMNS.isActive]: true,
         }));
         const { error: rosterError } = await supabase
           .from(TEAM_MEMBERS_TABLE)
