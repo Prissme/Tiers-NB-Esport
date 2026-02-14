@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "../../../lib/supabaseClient";
+import { TEAM_MEMBER_COLUMNS, TEAM_MEMBERS_TABLE } from "../../../src/lib/supabase/config";
 
 const rosterSlots = [
   { role: "starter", slot: 1, label: "Titulaire 1" },
@@ -28,7 +29,7 @@ type TeamMember = {
   team_id: string;
   role: string;
   slot: number | null;
-  pseudo: string;
+  name: string;
   mains: string | null;
   description: string | null;
   elite: boolean | null;
@@ -39,7 +40,7 @@ const buildRosterTemplate = (teamId: string) =>
     team_id: teamId,
     role: slot.role,
     slot: slot.slot,
-    pseudo: "",
+    name: "",
     mains: "",
     description: "",
     elite: false,
@@ -85,9 +86,11 @@ export default function TeamsPanel() {
 
   const fetchMembers = async (teamId: string) => {
     const { data, error } = await supabase
-      .from("lfn_team_members")
-      .select("id,team_id,role,slot,pseudo,mains,description,elite")
-      .eq("team_id", teamId)
+      .from(TEAM_MEMBERS_TABLE)
+      .select(
+        `id,${TEAM_MEMBER_COLUMNS.teamId},${TEAM_MEMBER_COLUMNS.role},${TEAM_MEMBER_COLUMNS.slot},${TEAM_MEMBER_COLUMNS.name},${TEAM_MEMBER_COLUMNS.mains},${TEAM_MEMBER_COLUMNS.description},${TEAM_MEMBER_COLUMNS.elite},${TEAM_MEMBER_COLUMNS.isActive}`
+      )
+      .eq(TEAM_MEMBER_COLUMNS.teamId, teamId)
       .order("role", { ascending: true });
 
     if (error) {
@@ -98,15 +101,17 @@ export default function TeamsPanel() {
     const template = buildRosterTemplate(teamId);
     const merged = template.map((slot) => {
       const existing = (data ?? []).find(
-        (member) => member.role === slot.role && (member.slot ?? null) === (slot.slot ?? null)
+        (member) =>
+          String(member[TEAM_MEMBER_COLUMNS.role] ?? "") === slot.role &&
+          (Number(member[TEAM_MEMBER_COLUMNS.slot] ?? null) || null) === (slot.slot ?? null)
       );
       return {
         ...slot,
         ...existing,
-        pseudo: existing?.pseudo ?? "",
-        mains: existing?.mains ?? "",
-        description: existing?.description ?? "",
-        elite: existing?.elite ?? false,
+        name: String(existing?.[TEAM_MEMBER_COLUMNS.name] ?? ""),
+        mains: String(existing?.[TEAM_MEMBER_COLUMNS.mains] ?? ""),
+        description: String(existing?.[TEAM_MEMBER_COLUMNS.description] ?? ""),
+        elite: Boolean(existing?.[TEAM_MEMBER_COLUMNS.elite] ?? false),
       };
     });
 
@@ -228,16 +233,17 @@ export default function TeamsPanel() {
 
     const payload = members.map((member) => ({
       id: member.id,
-      team_id: selectedTeamId,
-      role: member.role,
-      slot: member.slot,
-      pseudo: member.pseudo,
-      mains: member.mains || null,
-      description: member.description || null,
-      elite: member.elite ?? false,
+      [TEAM_MEMBER_COLUMNS.teamId]: selectedTeamId,
+      [TEAM_MEMBER_COLUMNS.role]: member.role,
+      [TEAM_MEMBER_COLUMNS.slot]: member.slot,
+      [TEAM_MEMBER_COLUMNS.name]: member.name,
+      [TEAM_MEMBER_COLUMNS.mains]: member.mains || null,
+      [TEAM_MEMBER_COLUMNS.description]: member.description || null,
+      [TEAM_MEMBER_COLUMNS.elite]: member.elite ?? false,
+      [TEAM_MEMBER_COLUMNS.isActive]: true,
     }));
 
-    const { error } = await supabase.from("lfn_team_members").upsert(payload);
+    const { error } = await supabase.from(TEAM_MEMBERS_TABLE).upsert(payload);
 
     if (error) {
       setErrorMessage(error.message);
@@ -255,7 +261,7 @@ export default function TeamsPanel() {
     setStatusMessage(null);
     setErrorMessage(null);
 
-    const { error } = await supabase.from("lfn_team_members").delete().eq("team_id", selectedTeamId);
+    const { error } = await supabase.from(TEAM_MEMBERS_TABLE).delete().eq(TEAM_MEMBER_COLUMNS.teamId, selectedTeamId);
 
     if (error) {
       setErrorMessage(error.message);
@@ -421,11 +427,11 @@ export default function TeamsPanel() {
                   </td>
                   <td className="px-3 py-2">
                     <input
-                      value={member.pseudo}
+                      value={member.name}
                       onChange={(event) =>
                         setMembers((prev) => {
                           const updated = [...prev];
-                          updated[index] = { ...updated[index], pseudo: event.target.value };
+                          updated[index] = { ...updated[index], name: event.target.value };
                           return updated;
                         })
                       }
