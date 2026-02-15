@@ -40,6 +40,18 @@ def get_queue_for_elo(elo: int) -> List[int]:
     return solo_queue_2 if get_queue_number_for_elo(elo) == 2 else solo_queue_1
 
 
+def is_elo_compatible_for_queue(player_elo: int, queued_players: List[Player]) -> bool:
+    if not queued_players:
+        return True
+
+    queue_elos = [queued_player.solo_elo for queued_player in queued_players]
+    min_elo = min(queue_elos)
+    max_elo = max(queue_elos)
+    max_diff = config.QUEUE_MAX_ELO_DIFF
+
+    return abs(player_elo - min_elo) <= max_diff and abs(player_elo - max_elo) <= max_diff
+
+
 def format_player_winrate(player: Player) -> str:
     total = player.solo_wins + player.solo_losses
     if total <= 0:
@@ -430,6 +442,20 @@ async def join_queue(ctx: commands.Context):
         if user_id in solo_queue_1 or user_id in solo_queue_2:
             await ctx.reply("Tu es déjà dans une file d'attente.")
             return
+
+        queued_players = list(database.fetch_players(target_queue).values())
+        if not is_elo_compatible_for_queue(player.solo_elo, queued_players):
+            queue_elos = [queued_player.solo_elo for queued_player in queued_players]
+            min_elo = min(queue_elos)
+            max_elo = max(queue_elos)
+            max_diff = config.QUEUE_MAX_ELO_DIFF
+            await ctx.reply(
+                "⚠️ Écart ELO trop élevé pour cette file. "
+                f"Différence max autorisée: {max_diff}. "
+                f"ELO actuel de la file: {min_elo} à {max_elo}."
+            )
+            return
+
         target_queue.append(user_id)
         queue_size = len(target_queue)
 
