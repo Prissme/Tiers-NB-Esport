@@ -448,6 +448,8 @@ const pendingRoomForms = new Map();
 const customRooms = new Map();
 const pendingPrisscupTeams = new Map();
 const dodgeQueueLocks = new Map();
+const plQueueJoinLocks = new Set();
+const matchResolutionLocks = new Set();
 
 // ===== PL Queue System START =====
 const DEFAULT_PL_DATA = {
@@ -829,6 +831,14 @@ async function sendOrUpdateQueueMessage(guildContext, channel) {
 }
 
 async function addPlayerToPLQueue(userId, guildContext) {
+  const lockKey = `${guildContext.id}:${userId}`;
+  if (plQueueJoinLocks.has(lockKey)) {
+    return { added: false, reason: 'pending' };
+  }
+
+  plQueueJoinLocks.add(lockKey);
+
+  try {
   await ensureRuntimePlQueueLoaded(guildContext.id);
   await loadPendingRuntimeMatches(guildContext.id);
 
@@ -844,6 +854,9 @@ async function addPlayerToPLQueue(userId, guildContext) {
   const result = await addToRuntimePlQueue(guildContext.id, userId);
   await sendOrUpdateQueueMessage(guildContext, plQueueChannel);
   return result;
+  } finally {
+    plQueueJoinLocks.delete(lockKey);
+  }
 }
 
 async function removePlayerFromPLQueue(userId, guildContext) {
@@ -2707,15 +2720,19 @@ async function handlePLJoinCommand(message) {
   }
 
   const joinResult = await addPlayerToPLQueue(message.author.id, message.guild);
-  await processPLQueue();
+  if (joinResult.added) {
+    await processPLQueue();
+  }
 
   const replyContent = joinResult.blockedByDodgeLock
     ? `Tu as 4 votes dodge: -30 Elo et verrouillage 1h. Réessaie dans ${formatDurationMinutes(joinResult.lockRemainingMs)}. (4 dodge votes: -30 Elo and 1h lock. Try again in ${formatDurationMinutes(joinResult.lockRemainingMs)}.)`
     : joinResult.blockedByPendingMatch
       ? 'Tu es déjà dans un match en attente. Attends sa validation avant de rejoindre la file. (You are already in a pending match. Wait for validation before joining the queue.)'
-      : joinResult.added
-        ? 'Tu as rejoint la file PL. (You joined the PL queue.)'
-        : 'Tu es déjà dans la file PL. (You are already in the PL queue.)';
+      : joinResult.reason === 'pending'
+        ? 'Demande déjà en cours, attends 1-2 secondes avant de recliquer. (A request is already in progress, wait 1-2 seconds before trying again.)'
+        : joinResult.added
+          ? 'Tu as rejoint la file PL. (You joined the PL queue.)'
+          : 'Tu es déjà dans la file PL. (You are already in the PL queue.)';
 
   try {
     await message.author.send(replyContent);
@@ -2851,15 +2868,19 @@ async function handleJoinCommand(message, args) {
 
     if (plQueueChannel || message.channelId === PL_QUEUE_CHANNEL_ID) {
       const joinResult = await addPlayerToPLQueue(message.author.id, message.guild);
-      await processPLQueue();
+      if (joinResult.added) {
+        await processPLQueue();
+      }
 
       const replyContent = joinResult.blockedByDodgeLock
         ? `Tu as 4 votes dodge: -30 Elo et verrouillage 1h. Réessaie dans ${formatDurationMinutes(joinResult.lockRemainingMs)}. (4 dodge votes: -30 Elo and 1h lock. Try again in ${formatDurationMinutes(joinResult.lockRemainingMs)}.)`
         : joinResult.blockedByPendingMatch
           ? 'Tu es déjà dans un match en attente. Attends sa validation avant de rejoindre la file. (You are already in a pending match. Wait for validation before joining the queue.)'
-          : joinResult.added
-            ? 'Tu as rejoint la file PL. (You joined the PL queue.)'
-            : 'Tu es déjà dans la file PL. (You are already in the PL queue.)';
+          : joinResult.reason === 'pending'
+            ? 'Demande déjà en cours, attends 1-2 secondes avant de recliquer. (A request is already in progress, wait 1-2 seconds before trying again.)'
+            : joinResult.added
+              ? 'Tu as rejoint la file PL. (You joined the PL queue.)'
+              : 'Tu es déjà dans la file PL. (You are already in the PL queue.)';
 
       await message.reply({ content: replyContent });
       return;
@@ -5301,10 +5322,15 @@ async function handleInteraction(interaction) {
                 fr: 'Tu es déjà dans un match en attente. Attends sa validation avant de rejoindre la file.',
                 en: 'You are already in a pending match. Wait for validation before joining the queue.'
               })
-            : localizeText({
-                fr: 'Tu es déjà dans la file PL. (You are already in the PL queue.)',
-                en: 'You are already in the PL queue. (Tu es déjà dans la file PL.)'
-              });
+            : joinResult.reason === 'pending'
+              ? localizeText({
+                  fr: 'Demande déjà en cours, attends 1-2 secondes avant de recliquer.',
+                  en: 'A request is already in progress, wait 1-2 seconds before clicking again.'
+                })
+              : localizeText({
+                  fr: 'Tu es déjà dans la file PL. (You are already in the PL queue.)',
+                  en: 'You are already in the PL queue. (Tu es déjà dans la file PL.)'
+                });
 
         await interaction.reply({
           content: response,
@@ -5447,6 +5473,17 @@ async function handleInteraction(interaction) {
       return;
     }
 
+    if (matchResolutionLocks.has(matchState.messageId)) {
+      await interaction.reply({
+        content: localizeText({
+          fr: 'Le résultat est en cours de validation, réessayez dans quelques secondes.',
+          en: 'The result is currently being validated, please try again in a few seconds.'
+        }),
+        flags: MessageFlags.Ephemeral
+      });
+      return;
+    }
+
     const member = interaction.member;
     const isParticipant = matchState.participants.has(interaction.user.id);
     const isModerator = member?.permissions?.has(PermissionsBitField.Flags.ManageGuild);
@@ -5545,8 +5582,11 @@ async function handleInteraction(interaction) {
 
       await interaction.deferUpdate();
 
+      matchResolutionLocks.add(matchState.messageId);
+
       const summary = await applyMatchOutcome(matchState, outcome, interaction.user.id);
       if (!summary) {
+        matchResolutionLocks.delete(matchState.messageId);
         await interaction.followUp({
           content: localizeText({
             fr: 'Le résultat a déjà été enregistré.',
@@ -5574,7 +5614,11 @@ async function handleInteraction(interaction) {
       await sendLogMessage(
         [`✅ Match #${matchState.matchId} terminé (${mapLabel})`, summary.text].join('\n')
       );
+      matchResolutionLocks.delete(matchState.messageId);
     } catch (err) {
+      if (matchState?.messageId) {
+        matchResolutionLocks.delete(matchState.messageId);
+      }
       errorLog('Failed to process match result:', err);
       const errorResponse = {
         content: localizeText({
