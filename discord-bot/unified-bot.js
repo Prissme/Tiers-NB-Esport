@@ -841,6 +841,39 @@ async function addPlayerToPLQueue(userId, guildContext) {
     return { added: false, blockedByPendingMatch: true };
   }
 
+  const joiningMember = await guildContext.members.fetch(userId).catch(() => null);
+  const joiningPlayer = joiningMember
+    ? await getOrCreatePlayer(joiningMember.id, joiningMember.displayName || joiningMember.user?.username || joiningMember.id).catch(
+        () => null
+      )
+    : null;
+  const joiningRoleKey = getRankRoleKeyByRating(joiningPlayer?.solo_elo ?? BASE_ELO);
+
+  if (joiningRoleKey === 'diamant' || joiningRoleKey === 'wished') {
+    const queue = getPLQueue(guildContext.id);
+
+    for (const queuedUserId of queue) {
+      const queuedMember = await guildContext.members.fetch(queuedUserId).catch(() => null);
+      if (!queuedMember) {
+        continue;
+      }
+
+      const queuedPlayer = await getOrCreatePlayer(
+        queuedMember.id,
+        queuedMember.displayName || queuedMember.user?.username || queuedMember.id
+      ).catch(() => null);
+
+      const queuedRoleKey = getRankRoleKeyByRating(queuedPlayer?.solo_elo ?? BASE_ELO);
+      const isForbiddenMix =
+        (joiningRoleKey === 'diamant' && queuedRoleKey === 'wished') ||
+        (joiningRoleKey === 'wished' && queuedRoleKey === 'diamant');
+
+      if (isForbiddenMix) {
+        return { added: false, blockedByRankMix: true };
+      }
+    }
+  }
+
   const result = await addToRuntimePlQueue(guildContext.id, userId);
   await sendOrUpdateQueueMessage(guildContext, plQueueChannel);
   return result;
@@ -2713,6 +2746,8 @@ async function handlePLJoinCommand(message) {
     ? `Tu as 4 votes dodge: -30 Elo et verrouillage 1h. Réessaie dans ${formatDurationMinutes(joinResult.lockRemainingMs)}. (4 dodge votes: -30 Elo and 1h lock. Try again in ${formatDurationMinutes(joinResult.lockRemainingMs)}.)`
     : joinResult.blockedByPendingMatch
       ? 'Tu es déjà dans un match en attente. Attends sa validation avant de rejoindre la file. (You are already in a pending match. Wait for validation before joining the queue.)'
+      : joinResult.blockedByRankMix
+        ? 'Les joueurs Diamant ne peuvent pas queue avec les joueurs Wished. (Diamond players cannot queue with Wished players.)'
       : joinResult.added
         ? 'Tu as rejoint la file PL. (You joined the PL queue.)'
         : 'Tu es déjà dans la file PL. (You are already in the PL queue.)';
@@ -2857,6 +2892,8 @@ async function handleJoinCommand(message, args) {
         ? `Tu as 4 votes dodge: -30 Elo et verrouillage 1h. Réessaie dans ${formatDurationMinutes(joinResult.lockRemainingMs)}. (4 dodge votes: -30 Elo and 1h lock. Try again in ${formatDurationMinutes(joinResult.lockRemainingMs)}.)`
         : joinResult.blockedByPendingMatch
           ? 'Tu es déjà dans un match en attente. Attends sa validation avant de rejoindre la file. (You are already in a pending match. Wait for validation before joining the queue.)'
+          : joinResult.blockedByRankMix
+            ? 'Les joueurs Diamant ne peuvent pas queue avec les joueurs Wished. (Diamond players cannot queue with Wished players.)'
           : joinResult.added
             ? 'Tu as rejoint la file PL. (You joined the PL queue.)'
             : 'Tu es déjà dans la file PL. (You are already in the PL queue.)';
@@ -5301,10 +5338,15 @@ async function handleInteraction(interaction) {
                 fr: 'Tu es déjà dans un match en attente. Attends sa validation avant de rejoindre la file.',
                 en: 'You are already in a pending match. Wait for validation before joining the queue.'
               })
-            : localizeText({
-                fr: 'Tu es déjà dans la file PL. (You are already in the PL queue.)',
-                en: 'You are already in the PL queue. (Tu es déjà dans la file PL.)'
-              });
+            : joinResult.blockedByRankMix
+              ? localizeText({
+                  fr: 'Les joueurs Diamant ne peuvent pas queue avec les joueurs Wished.',
+                  en: 'Diamond players cannot queue with Wished players.'
+                })
+              : localizeText({
+                  fr: 'Tu es déjà dans la file PL. (You are already in the PL queue.)',
+                  en: 'You are already in the PL queue. (Tu es déjà dans la file PL.)'
+                });
 
         await interaction.reply({
           content: response,
