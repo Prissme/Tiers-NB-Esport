@@ -3348,25 +3348,105 @@ async function handleRanksCommand(message) {
         en: '🏆 You are already at the top rank (Verdoyant).'
       });
 
-  const embed = new EmbedBuilder()
-    .setTitle(localizeText({ fr: 'Progression Elo — Verdoyant', en: 'Elo progression — Verdoyant' }))
-    .setDescription(goalLine)
-    .addFields(
-      { name: localizeText({ fr: 'Ton Elo', en: 'Your Elo' }), value: `**${Math.round(soloElo)}**`, inline: true },
-      {
-        name: localizeText({ fr: 'Rang actuel', en: 'Current rank' }),
-        value: formatEloRankLabel(currentRank),
-        inline: true
-      },
-      {
-        name: localizeText({ fr: 'Paliers Elo', en: 'Elo milestones' }),
-        value: progressionLines.join('\n')
-      }
-    )
-    .setColor(0x9b59b6)
-    .setTimestamp(new Date());
+  const PAGE_SIZE = 8;
+  const rankPages = [];
+  for (let index = 0; index < progressionLines.length; index += PAGE_SIZE) {
+    rankPages.push(progressionLines.slice(index, index + PAGE_SIZE));
+  }
 
-  await message.reply({ embeds: [embed], allowedMentions: { repliedUser: false } });
+  const buildRanksEmbed = (pageIndex) => {
+    const page = rankPages[pageIndex] || [];
+    const pageLabel = localizeText(
+      {
+        fr: 'Page {current}/{total}',
+        en: 'Page {current}/{total}'
+      },
+      { current: pageIndex + 1, total: rankPages.length }
+    );
+
+    return new EmbedBuilder()
+      .setTitle(localizeText({ fr: 'Progression Elo — Verdoyant', en: 'Elo progression — Verdoyant' }))
+      .setDescription(goalLine)
+      .addFields(
+        {
+          name: localizeText({ fr: 'Ton Elo', en: 'Your Elo' }),
+          value: `**${Math.round(soloElo)}**`,
+          inline: true
+        },
+        {
+          name: localizeText({ fr: 'Rang actuel', en: 'Current rank' }),
+          value: formatEloRankLabel(currentRank),
+          inline: true
+        },
+        {
+          name: localizeText({ fr: 'Paliers Elo', en: 'Elo milestones' }),
+          value: page.join('\n') || '—'
+        }
+      )
+      .setFooter({ text: pageLabel })
+      .setColor(0x9b59b6)
+      .setTimestamp(new Date());
+  };
+
+  let currentPage = 0;
+  const needsPagination = rankPages.length > 1;
+
+  const buildNavigationRow = () =>
+    new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId('ranks_prev')
+        .setLabel('◀')
+        .setStyle(ButtonStyle.Secondary)
+        .setDisabled(currentPage === 0),
+      new ButtonBuilder()
+        .setCustomId('ranks_next')
+        .setLabel('▶')
+        .setStyle(ButtonStyle.Secondary)
+        .setDisabled(currentPage >= rankPages.length - 1)
+    );
+
+  const sentMessage = await message.reply({
+    embeds: [buildRanksEmbed(currentPage)],
+    components: needsPagination ? [buildNavigationRow()] : [],
+    allowedMentions: { repliedUser: false }
+  });
+
+  if (!needsPagination) {
+    return;
+  }
+
+  const collector = sentMessage.createMessageComponentCollector({
+    filter: (interaction) =>
+      interaction.isButton() &&
+      ['ranks_prev', 'ranks_next'].includes(interaction.customId) &&
+      interaction.user.id === message.author.id,
+    time: 120000
+  });
+
+  collector.on('collect', async (interaction) => {
+    if (interaction.customId === 'ranks_prev' && currentPage > 0) {
+      currentPage -= 1;
+    }
+
+    if (interaction.customId === 'ranks_next' && currentPage < rankPages.length - 1) {
+      currentPage += 1;
+    }
+
+    await interaction.update({
+      embeds: [buildRanksEmbed(currentPage)],
+      components: [buildNavigationRow()]
+    });
+  });
+
+  collector.on('end', async () => {
+    try {
+      await sentMessage.edit({
+        components: []
+      });
+    } catch (err) {
+      warn('Unable to clear ranks pagination controls:', err?.message || err);
+    }
+  });
 }
 
 async function handleAchievementsCommand(message) {
