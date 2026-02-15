@@ -159,7 +159,7 @@ const ELO_RANKS = [
   { min: 1050, name: 'Silver', numeral: 'I', emoji: SILVER_EMOJI },
   { min: 1030, name: 'Bronze', numeral: 'III', emoji: BRONZE_EMOJI },
   { min: 1020, name: 'Bronze', numeral: 'II', emoji: BRONZE_EMOJI },
-  { min: 1010, name: 'Bronze', numeral: 'I', emoji: BRONZE_EMOJI },
+  { min: 1000, name: 'Bronze', numeral: 'I', emoji: BRONZE_EMOJI },
   { min: -Infinity, name: 'Wished', numeral: null, emoji: WISHED_EMOJI }
 ];
 
@@ -1534,7 +1534,7 @@ function getRankRoleKeyByRating(rating) {
   if (normalized >= 1220) return 'diamant';
   if (normalized >= 1120) return 'or';
   if (normalized >= 1050) return 'argent';
-  if (normalized >= 1010) return 'bronze';
+  if (normalized >= 1000) return 'bronze';
   return 'wished';
 }
 
@@ -1753,7 +1753,7 @@ function normalizeBestOfInput(value) {
 }
 
 function getKFactorForBestOf() {
-  return 30;
+  return 40;
 }
 
 function getVolatilityMultiplierForRating(rating) {
@@ -3319,43 +3319,49 @@ async function handleRanksCommand(message) {
     .reverse()
     .map((rank) => {
       const rankLabel = formatEloRankLabel(rank);
+      const reached = soloElo >= rank.min;
+      const marker = reached ? '✅' : '⬜';
+
       if (rank.min === -Infinity) {
-        return localizeText(
+        return `${marker} ${localizeText(
           { fr: '{rank} — < 1000 Elo', en: '{rank} — < 1000 Elo' },
           { rank: rankLabel }
-        );
+        )}`;
       }
 
-      return localizeText({ fr: '{rank} — {min} Elo', en: '{rank} — {min} Elo' }, {
+      return `${marker} ${localizeText({ fr: '{rank} — {min} Elo', en: '{rank} — {min} Elo' }, {
         rank: rankLabel,
         min: rank.min
-      });
+      })}`;
     });
 
   const goalLine = nextRank
     ? localizeText(
         {
-          fr: 'Prochain palier : {rank} ({remaining} Elo restants)',
-          en: 'Next milestone: {rank} ({remaining} Elo to go)'
+          fr: '🎯 Prochain palier : {rank} ({remaining} Elo restants)',
+          en: '🎯 Next milestone: {rank} ({remaining} Elo to go)'
         },
         { rank: formatEloRankLabel(nextRank), remaining }
       )
     : localizeText({
-        fr: 'Tu es déjà au rang max (Verdoyant).',
-        en: 'You are already at the top rank (Verdoyant).'
+        fr: '🏆 Tu es déjà au rang max (Verdoyant).',
+        en: '🏆 You are already at the top rank (Verdoyant).'
       });
 
   const embed = new EmbedBuilder()
     .setTitle(localizeText({ fr: 'Progression Elo — Verdoyant', en: 'Elo progression — Verdoyant' }))
-    .setDescription(progressionLines.join('\n'))
+    .setDescription(goalLine)
     .addFields(
-      { name: localizeText({ fr: 'Ton Elo', en: 'Your Elo' }), value: `${Math.round(soloElo)}`, inline: true },
+      { name: localizeText({ fr: 'Ton Elo', en: 'Your Elo' }), value: `**${Math.round(soloElo)}**`, inline: true },
       {
         name: localizeText({ fr: 'Rang actuel', en: 'Current rank' }),
         value: formatEloRankLabel(currentRank),
         inline: true
       },
-      { name: localizeText({ fr: 'Objectif', en: 'Goal' }), value: goalLine }
+      {
+        name: localizeText({ fr: 'Paliers Elo', en: 'Elo milestones' }),
+        value: progressionLines.join('\n')
+      }
     )
     .setColor(0x9b59b6)
     .setTimestamp(new Date());
@@ -4533,6 +4539,26 @@ async function addMembersToThread(thread, participantIds) {
   }
 }
 
+
+async function ensureLobbyRoleThreadPermissions(channel, lobbyRole) {
+  if (!channel?.permissionOverwrites || !lobbyRole?.id) {
+    return;
+  }
+
+  await channel.permissionOverwrites
+    .edit(lobbyRole.id, {
+      ViewChannel: true,
+      SendMessages: true,
+      SendMessagesInThreads: true,
+      ReadMessageHistory: true,
+      CreatePublicThreads: true,
+      CreatePrivateThreads: true
+    }, { reason: 'Allow match participants to speak in match thread' })
+    .catch((err) => {
+      warn('Unable to grant thread permissions to lobby role:', err?.message || err);
+    });
+}
+
 async function createMatchThread(channel, matchId, lobbyRole, participantIds) {
   if (!channel?.threads?.create) {
     return null;
@@ -4792,6 +4818,7 @@ async function startMatch(participants, fallbackChannel, isPl = false) {
 
   const sentMessage = await channel.send(messagePayload);
   state.messageId = sentMessage.id;
+  await ensureLobbyRoleThreadPermissions(channel, lobbyRole);
   const matchThread = await createMatchThread(channel, state.matchId, lobbyRole, participantIds);
   if (matchThread) {
     state.threadId = matchThread.id;
@@ -5679,10 +5706,10 @@ async function handleInteraction(interaction) {
     const lowestRank = sortedByLevel[0];
     const highestRank = sortedByLevel[sortedByLevel.length - 1];
 
-    if (lowestRank && highestRank && highestRank.majorRankLevel - lowestRank.majorRankLevel > 2) {
+    if (lowestRank && highestRank && highestRank.majorRankLevel - lowestRank.majorRankLevel > 3) {
       await interaction.reply({
         content:
-          'Écart de rang trop élevé: maximum 2 rangs entre joueurs (ex: Wished↔Silver OK, Wished↔Gold interdit). / Rank gap too high: max 2 ranks between players (ex: Wished↔Silver allowed, Wished↔Gold blocked).',
+          'Écart de rang trop élevé: maximum 3 rangs entre joueurs (ex: Mythique↔Silver autorisé, Mythique↔Bronze interdit). / Rank gap too high: max 3 ranks between players (ex: Mythic↔Silver allowed, Mythic↔Bronze blocked).',
         flags: MessageFlags.Ephemeral
       });
       return;
