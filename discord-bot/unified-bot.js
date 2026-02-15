@@ -67,6 +67,7 @@ const LOG_CHANNEL_ID = process.env.LOG_CHANNEL_ID || '1237166689188053023';
 const PING_ROLE_ID = process.env.PING_ROLE_ID || '1437211411096010862';
 const UNKNOWN_PING_ROLE_NAME = process.env.UNKNOWN_PING_ROLE_NAME || 'inconnu';
 const WORST_PLAYER_ROLE_NAME = process.env.WORST_PLAYER_ROLE_NAME || 'PIRE JOUEUR PL';
+const PL_ADMIN_ROLE_ID = process.env.PL_ADMIN_ROLE_ID || '1470549482432102511';
 
 const ROLE_TIER_S = process.env.ROLE_TIER_S;
 const ROLE_TIER_A = process.env.ROLE_TIER_A;
@@ -448,6 +449,9 @@ const pendingRoomForms = new Map();
 const customRooms = new Map();
 const pendingPrisscupTeams = new Map();
 const dodgeQueueLocks = new Map();
+const plJoinBanLocks = new Map();
+const plQueueJoinLocks = new Set();
+const matchResolutionLocks = new Set();
 
 // ===== PL Queue System START =====
 const DEFAULT_PL_DATA = {
@@ -829,12 +833,25 @@ async function sendOrUpdateQueueMessage(guildContext, channel) {
 }
 
 async function addPlayerToPLQueue(userId, guildContext) {
+  const lockKey = `${guildContext.id}:${userId}`;
+  if (plQueueJoinLocks.has(lockKey)) {
+    return { added: false, reason: 'pending' };
+  }
+
+  plQueueJoinLocks.add(lockKey);
+
+  try {
   await ensureRuntimePlQueueLoaded(guildContext.id);
   await loadPendingRuntimeMatches(guildContext.id);
 
   const lockRemainingMs = getQueueLockRemainingMs(userId);
   if (lockRemainingMs > 0) {
     return { added: false, blockedByDodgeLock: true, lockRemainingMs };
+  }
+
+  const banRemainingMs = getPLBanRemainingMs(userId);
+  if (banRemainingMs > 0) {
+    return { added: false, blockedByPLBan: true, banRemainingMs };
   }
 
   if (getPendingMatchForUser(userId)) {
@@ -844,6 +861,9 @@ async function addPlayerToPLQueue(userId, guildContext) {
   const result = await addToRuntimePlQueue(guildContext.id, userId);
   await sendOrUpdateQueueMessage(guildContext, plQueueChannel);
   return result;
+  } finally {
+    plQueueJoinLocks.delete(lockKey);
+  }
 }
 
 async function removePlayerFromPLQueue(userId, guildContext) {
@@ -1096,7 +1116,6 @@ function buildAdminSlashCommands() {
     {
       name: 'addelo',
       description: localizeText({ fr: 'Ajouter de l’Elo à un joueur', en: 'Add Elo to a player' }),
-      default_member_permissions: PermissionsBitField.Flags.ManageGuild.toString(),
       dm_permission: false,
       options: [
         {
@@ -1118,7 +1137,6 @@ function buildAdminSlashCommands() {
     {
       name: 'removeelo',
       description: localizeText({ fr: 'Retirer de l’Elo à un joueur', en: 'Remove Elo from a player' }),
-      default_member_permissions: PermissionsBitField.Flags.ManageGuild.toString(),
       dm_permission: false,
       options: [
         {
@@ -1138,9 +1156,69 @@ function buildAdminSlashCommands() {
       ]
     },
     {
+      name: 'setws',
+      description: localizeText({ fr: 'Définir la winstreak d’un joueur', en: 'Set a player win streak' }),
+      dm_permission: false,
+      options: [
+        {
+          name: 'player',
+          description: localizeText({ fr: 'Joueur ciblé', en: 'Target player' }),
+          type: ApplicationCommandOptionType.User,
+          required: true
+        },
+        {
+          name: 'value',
+          description: localizeText({ fr: 'Valeur de winstreak', en: 'Win streak value' }),
+          type: ApplicationCommandOptionType.Integer,
+          required: true,
+          min_value: 0,
+          max_value: 200
+        }
+      ]
+    },
+    {
+      name: 'setls',
+      description: localizeText({ fr: 'Définir la losestreak d’un joueur', en: 'Set a player lose streak' }),
+      dm_permission: false,
+      options: [
+        {
+          name: 'player',
+          description: localizeText({ fr: 'Joueur ciblé', en: 'Target player' }),
+          type: ApplicationCommandOptionType.User,
+          required: true
+        },
+        {
+          name: 'value',
+          description: localizeText({ fr: 'Valeur de losestreak', en: 'Lose streak value' }),
+          type: ApplicationCommandOptionType.Integer,
+          required: true,
+          min_value: 0,
+          max_value: 200
+        }
+      ]
+    },
+    {
+      name: 'banpl',
+      description: localizeText({ fr: 'Empêcher un joueur d’utiliser !join', en: 'Ban a player from !join' }),
+      dm_permission: false,
+      options: [
+        {
+          name: 'player',
+          description: localizeText({ fr: 'Joueur ciblé', en: 'Target player' }),
+          type: ApplicationCommandOptionType.User,
+          required: true
+        },
+        {
+          name: 'duration',
+          description: localizeText({ fr: 'Durée (ex: 30m, 2h, 1d)', en: 'Duration (e.g. 30m, 2h, 1d)' }),
+          type: ApplicationCommandOptionType.String,
+          required: true
+        }
+      ]
+    },
+    {
       name: 'cancelmatch',
       description: localizeText({ fr: 'Annuler un match PL en cours', en: 'Cancel a running PL match' }),
-      default_member_permissions: PermissionsBitField.Flags.ManageGuild.toString(),
       dm_permission: false,
       options: [
         {
@@ -1155,7 +1233,6 @@ function buildAdminSlashCommands() {
     {
       name: 'sync',
       description: localizeText({ fr: 'Synchroniser les rôles de rang PL', en: 'Synchronize PL rank roles' }),
-      default_member_permissions: PermissionsBitField.Flags.ManageGuild.toString(),
       dm_permission: false
     }
   ];
@@ -1212,11 +1289,11 @@ async function handleAdminSlashCommand(interaction) {
   }
 
   const command = interaction.commandName;
-  if (!['addelo', 'removeelo', 'cancelmatch', 'sync'].includes(command)) {
+  if (!['addelo', 'removeelo', 'setws', 'setls', 'banpl', 'cancelmatch', 'sync'].includes(command)) {
     return false;
   }
 
-  const hasPermission = interaction.memberPermissions?.has(PermissionsBitField.Flags.ManageGuild);
+  const hasPermission = hasPLAdminAccess(interaction);
   if (!hasPermission) {
     await interaction.reply({
       content: localizeText({
@@ -1338,9 +1415,40 @@ async function handleAdminSlashCommand(interaction) {
     return true;
   }
 
+  if (command === 'banpl') {
+    const targetUser = interaction.options.getUser('player', true);
+    const durationInput = interaction.options.getString('duration', true);
+    const durationMs = parseDurationToMs(durationInput);
+
+    if (!durationMs) {
+      await interaction.reply({
+        content: localizeText({
+          fr: 'Durée invalide. Utilisez un format comme `30m`, `2h`, `1d`.',
+          en: 'Invalid duration. Use a format like `30m`, `2h`, `1d`.'
+        }),
+        flags: MessageFlags.Ephemeral
+      });
+      return true;
+    }
+
+    const until = Date.now() + durationMs;
+    plJoinBanLocks.set(targetUser.id, until);
+
+    await interaction.reply({
+      content: localizeText(
+        {
+          fr: '🚫 <@{userId}> ne peut plus utiliser `!join` pendant {duration}.',
+          en: '🚫 <@{userId}> can no longer use `!join` for {duration}.'
+        },
+        { userId: targetUser.id, duration: formatDurationMinutes(durationMs) }
+      ),
+      flags: MessageFlags.Ephemeral
+    });
+
+    return true;
+  }
+
   const targetUser = interaction.options.getUser('player', true);
-  const amount = interaction.options.getInteger('amount', true);
-  const delta = command === 'addelo' ? amount : -amount;
 
   let displayName = targetUser.username;
   if (interaction.guild) {
@@ -1352,7 +1460,7 @@ async function handleAdminSlashCommand(interaction) {
   try {
     player = await getOrCreatePlayer(targetUser.id, displayName);
   } catch (err) {
-    errorLog('Failed to fetch player for Elo update:', err);
+    errorLog('Failed to fetch player for admin update:', err);
     await interaction.reply({
       content: localizeText({
         fr: 'Impossible de récupérer le profil du joueur.',
@@ -1363,6 +1471,51 @@ async function handleAdminSlashCommand(interaction) {
     return true;
   }
 
+  if (command === 'setws' || command === 'setls') {
+    const value = interaction.options.getInteger('value', true);
+    const payload =
+      command === 'setws'
+        ? { win_streak: value, lose_streak: 0 }
+        : { win_streak: 0, lose_streak: value };
+
+    try {
+      const { error } = await supabase.from('players').update(payload).eq('id', player.id);
+      if (error) {
+        throw error;
+      }
+    } catch (err) {
+      errorLog('Failed to update streak:', err);
+      await interaction.reply({
+        content: localizeText({
+          fr: 'Erreur lors de la mise à jour de la série.',
+          en: 'Error while updating streak.'
+        }),
+        flags: MessageFlags.Ephemeral
+      });
+      return true;
+    }
+
+    const isWin = command === 'setws';
+    await interaction.reply({
+      content: localizeText(
+        {
+          fr: isWin
+            ? '✅ Winstreak de <@{userId}> définie à **{value}**.'
+            : '✅ Losestreak de <@{userId}> définie à **{value}**.',
+          en: isWin
+            ? '✅ <@{userId}> win streak set to **{value}**.'
+            : '✅ <@{userId}> lose streak set to **{value}**.'
+        },
+        { userId: targetUser.id, value }
+      ),
+      flags: MessageFlags.Ephemeral
+    });
+
+    return true;
+  }
+
+  const amount = interaction.options.getInteger('amount', true);
+  const delta = command === 'addelo' ? amount : -amount;
   const currentElo = normalizeRating(player.solo_elo);
   const nextElo = Math.max(0, currentElo + delta);
 
@@ -1551,6 +1704,56 @@ function getQueueLockRemainingMs(userId) {
   }
 
   return remaining;
+}
+
+function getPLBanRemainingMs(userId) {
+  const until = plJoinBanLocks.get(userId);
+  if (!until) {
+    return 0;
+  }
+
+  const remaining = until - Date.now();
+  if (remaining <= 0) {
+    plJoinBanLocks.delete(userId);
+    return 0;
+  }
+
+  return remaining;
+}
+
+function parseDurationToMs(value) {
+  if (typeof value !== 'string') {
+    return null;
+  }
+
+  const trimmed = value.trim().toLowerCase();
+  const match = trimmed.match(/^(\d+)\s*(m|min|h|d|j)?$/i);
+  if (!match) {
+    return null;
+  }
+
+  const amount = Number.parseInt(match[1], 10);
+  if (!Number.isFinite(amount) || amount <= 0) {
+    return null;
+  }
+
+  const unit = (match[2] || 'm').toLowerCase();
+  if (unit === 'h') {
+    return amount * 60 * 60 * 1000;
+  }
+  if (unit === 'd' || unit === 'j') {
+    return amount * 24 * 60 * 60 * 1000;
+  }
+
+  return amount * 60 * 1000;
+}
+
+function hasPLAdminAccess(interaction) {
+  if (interaction.memberPermissions?.has(PermissionsBitField.Flags.ManageGuild)) {
+    return true;
+  }
+
+  return Boolean(interaction.member?.roles?.cache?.has(PL_ADMIN_ROLE_ID));
 }
 
 function formatDurationMinutes(ms) {
@@ -2707,15 +2910,21 @@ async function handlePLJoinCommand(message) {
   }
 
   const joinResult = await addPlayerToPLQueue(message.author.id, message.guild);
-  await processPLQueue();
+  if (joinResult.added) {
+    await processPLQueue();
+  }
 
   const replyContent = joinResult.blockedByDodgeLock
     ? `Tu as 4 votes dodge: -30 Elo et verrouillage 1h. Réessaie dans ${formatDurationMinutes(joinResult.lockRemainingMs)}. (4 dodge votes: -30 Elo and 1h lock. Try again in ${formatDurationMinutes(joinResult.lockRemainingMs)}.)`
     : joinResult.blockedByPendingMatch
       ? 'Tu es déjà dans un match en attente. Attends sa validation avant de rejoindre la file. (You are already in a pending match. Wait for validation before joining the queue.)'
-      : joinResult.added
-        ? 'Tu as rejoint la file PL. (You joined the PL queue.)'
-        : 'Tu es déjà dans la file PL. (You are already in the PL queue.)';
+      : joinResult.blockedByPLBan
+        ? `🚫 Tu es banni de !join pendant encore ${formatDurationMinutes(joinResult.banRemainingMs)}. (You are banned from !join for ${formatDurationMinutes(joinResult.banRemainingMs)}.)`
+        : joinResult.reason === 'pending'
+        ? 'Demande déjà en cours, attends 1-2 secondes avant de recliquer. (A request is already in progress, wait 1-2 seconds before trying again.)'
+        : joinResult.added
+          ? 'Tu as rejoint la file PL. (You joined the PL queue.)'
+          : 'Tu es déjà dans la file PL. (You are already in the PL queue.)';
 
   try {
     await message.author.send(replyContent);
@@ -2851,15 +3060,21 @@ async function handleJoinCommand(message, args) {
 
     if (plQueueChannel || message.channelId === PL_QUEUE_CHANNEL_ID) {
       const joinResult = await addPlayerToPLQueue(message.author.id, message.guild);
-      await processPLQueue();
+      if (joinResult.added) {
+        await processPLQueue();
+      }
 
       const replyContent = joinResult.blockedByDodgeLock
         ? `Tu as 4 votes dodge: -30 Elo et verrouillage 1h. Réessaie dans ${formatDurationMinutes(joinResult.lockRemainingMs)}. (4 dodge votes: -30 Elo and 1h lock. Try again in ${formatDurationMinutes(joinResult.lockRemainingMs)}.)`
         : joinResult.blockedByPendingMatch
           ? 'Tu es déjà dans un match en attente. Attends sa validation avant de rejoindre la file. (You are already in a pending match. Wait for validation before joining the queue.)'
-          : joinResult.added
-            ? 'Tu as rejoint la file PL. (You joined the PL queue.)'
-            : 'Tu es déjà dans la file PL. (You are already in the PL queue.)';
+          : joinResult.blockedByPLBan
+            ? `🚫 Tu es banni de !join pendant encore ${formatDurationMinutes(joinResult.banRemainingMs)}. (You are banned from !join for ${formatDurationMinutes(joinResult.banRemainingMs)}.)`
+            : joinResult.reason === 'pending'
+            ? 'Demande déjà en cours, attends 1-2 secondes avant de recliquer. (A request is already in progress, wait 1-2 seconds before trying again.)'
+            : joinResult.added
+              ? 'Tu as rejoint la file PL. (You joined the PL queue.)'
+              : 'Tu es déjà dans la file PL. (You are already in the PL queue.)';
 
       await message.reply({ content: replyContent });
       return;
@@ -4542,7 +4757,7 @@ async function handleHelpCommand(message) {
           '`!tiers` — Manually sync tier roles',
           '`!draft` — Start a draft vs AI (interactive interface)',
           '`!prisscupdel <team>` — [Admin] Delete a registered PrissCup team',
-          '`!help` — Display this help'
+          '`!aide` — Display this help'
         ]
       : [
           '`!join` — Rejoindre la file de matchmaking',
@@ -4560,7 +4775,7 @@ async function handleHelpCommand(message) {
           '`!tiers` — Synchroniser manuellement les rôles de tier',
           '`!draft` — Lancer une draft vs IA (interface interactive)',
           '`!prisscupdel <equipe>` — [Admin] Supprimer une équipe inscrite à la PrissCup',
-          '`!help` — Afficher cette aide'
+          '`!aide` — Afficher cette aide'
         ];
 
   await message.reply({
@@ -5301,10 +5516,20 @@ async function handleInteraction(interaction) {
                 fr: 'Tu es déjà dans un match en attente. Attends sa validation avant de rejoindre la file.',
                 en: 'You are already in a pending match. Wait for validation before joining the queue.'
               })
-            : localizeText({
-                fr: 'Tu es déjà dans la file PL. (You are already in the PL queue.)',
-                en: 'You are already in the PL queue. (Tu es déjà dans la file PL.)'
-              });
+            : joinResult.blockedByPLBan
+              ? localizeText({
+                  fr: `🚫 Tu es banni de !join pendant encore ${formatDurationMinutes(joinResult.banRemainingMs)}.`,
+                  en: `🚫 You are banned from !join for ${formatDurationMinutes(joinResult.banRemainingMs)}.`
+                })
+              : joinResult.reason === 'pending'
+              ? localizeText({
+                  fr: 'Demande déjà en cours, attends 1-2 secondes avant de recliquer.',
+                  en: 'A request is already in progress, wait 1-2 seconds before clicking again.'
+                })
+              : localizeText({
+                  fr: 'Tu es déjà dans la file PL. (You are already in the PL queue.)',
+                  en: 'You are already in the PL queue. (Tu es déjà dans la file PL.)'
+                });
 
         await interaction.reply({
           content: response,
@@ -5447,6 +5672,17 @@ async function handleInteraction(interaction) {
       return;
     }
 
+    if (matchResolutionLocks.has(matchState.messageId)) {
+      await interaction.reply({
+        content: localizeText({
+          fr: 'Le résultat est en cours de validation, réessayez dans quelques secondes.',
+          en: 'The result is currently being validated, please try again in a few seconds.'
+        }),
+        flags: MessageFlags.Ephemeral
+      });
+      return;
+    }
+
     const member = interaction.member;
     const isParticipant = matchState.participants.has(interaction.user.id);
     const isModerator = member?.permissions?.has(PermissionsBitField.Flags.ManageGuild);
@@ -5545,8 +5781,11 @@ async function handleInteraction(interaction) {
 
       await interaction.deferUpdate();
 
+      matchResolutionLocks.add(matchState.messageId);
+
       const summary = await applyMatchOutcome(matchState, outcome, interaction.user.id);
       if (!summary) {
+        matchResolutionLocks.delete(matchState.messageId);
         await interaction.followUp({
           content: localizeText({
             fr: 'Le résultat a déjà été enregistré.',
@@ -5574,7 +5813,11 @@ async function handleInteraction(interaction) {
       await sendLogMessage(
         [`✅ Match #${matchState.matchId} terminé (${mapLabel})`, summary.text].join('\n')
       );
+      matchResolutionLocks.delete(matchState.messageId);
     } catch (err) {
+      if (matchState?.messageId) {
+        matchResolutionLocks.delete(matchState.messageId);
+      }
       errorLog('Failed to process match result:', err);
       const errorResponse = {
         content: localizeText({
@@ -6341,6 +6584,7 @@ async function handleMessage(message) {
       case 'draft':
         await handleDraftCommand(message, args);
         break;
+      case 'aide':
       case 'help':
         await handleHelpCommand(message, args);
         break;
