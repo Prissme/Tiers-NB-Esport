@@ -47,6 +47,7 @@ const ROOM_TIER_ORDER = ['E', 'D', 'C', 'B', 'A', 'S'];
 const BEST_OF_VALUES = [1, 3, 5];
 const DEFAULT_MATCH_BEST_OF = normalizeBestOfInput(process.env.DEFAULT_MATCH_BEST_OF) || 1;
 const MAX_QUEUE_ELO_DIFFERENCE = 175;
+const MAX_MATCHMAKING_MAJOR_RANK_GAP = 2;
 const PL_QUEUE_CHANNEL_ID = '1442580781527732334';
 const PL_MATCH_TIMEOUT_MS = 20 * 60 * 1000;
 const SIMPLE_LOBBY_CHANNEL_ID = process.env.SIMPLE_LOBBY_CHANNEL_ID;
@@ -841,6 +842,19 @@ async function sendOrUpdateQueueMessage(guildContext, channel) {
   return queueMessage;
 }
 
+async function getMajorRankLevelForUserInGuild(guildContext, userId) {
+  let profile = await fetchPlayerByDiscordId(userId).catch(() => null);
+
+  if (!profile && guildContext) {
+    const member = await guildContext.members.fetch(userId).catch(() => null);
+    if (member) {
+      profile = await getOrCreatePlayer(userId, member.displayName || member.user.username).catch(() => null);
+    }
+  }
+
+  return getEloMajorRankLevel(profile?.solo_elo);
+}
+
 async function addPlayerToPLQueue(userId, guildContext) {
   const lockKey = `${guildContext.id}:${userId}`;
   if (plQueueJoinLocks.has(lockKey)) {
@@ -850,26 +864,38 @@ async function addPlayerToPLQueue(userId, guildContext) {
   plQueueJoinLocks.add(lockKey);
 
   try {
-  await ensureRuntimePlQueueLoaded(guildContext.id);
-  await loadPendingRuntimeMatches(guildContext.id);
+    await ensureRuntimePlQueueLoaded(guildContext.id);
+    await loadPendingRuntimeMatches(guildContext.id);
 
-  const lockRemainingMs = getQueueLockRemainingMs(userId);
-  if (lockRemainingMs > 0) {
-    return { added: false, blockedByDodgeLock: true, lockRemainingMs };
-  }
+    const lockRemainingMs = getQueueLockRemainingMs(userId);
+    if (lockRemainingMs > 0) {
+      return { added: false, blockedByDodgeLock: true, lockRemainingMs };
+    }
 
-  const banRemainingMs = getPLBanRemainingMs(userId);
-  if (banRemainingMs > 0) {
-    return { added: false, blockedByPLBan: true, banRemainingMs };
-  }
+    const banRemainingMs = getPLBanRemainingMs(userId);
+    if (banRemainingMs > 0) {
+      return { added: false, blockedByPLBan: true, banRemainingMs };
+    }
 
-  if (getPendingMatchForUser(userId)) {
-    return { added: false, blockedByPendingMatch: true };
-  }
+    if (getPendingMatchForUser(userId)) {
+      return { added: false, blockedByPendingMatch: true };
+    }
 
-  const result = await addToRuntimePlQueue(guildContext.id, userId);
-  await sendOrUpdateQueueMessage(guildContext, plQueueChannel);
-  return result;
+    const queueIds = getPLQueue(guildContext.id);
+    if (queueIds.length) {
+      const allIds = [...queueIds, userId];
+      const levels = await Promise.all(allIds.map((id) => getMajorRankLevelForUserInGuild(guildContext, id)));
+      const minLevel = Math.min(...levels);
+      const maxLevel = Math.max(...levels);
+
+      if (maxLevel - minLevel > MAX_MATCHMAKING_MAJOR_RANK_GAP) {
+        return { added: false, blockedByRankGap: true };
+      }
+    }
+
+    const result = await addToRuntimePlQueue(guildContext.id, userId);
+    await sendOrUpdateQueueMessage(guildContext, plQueueChannel);
+    return result;
   } finally {
     plQueueJoinLocks.delete(lockKey);
   }
@@ -2537,6 +2563,27 @@ function computeQueueEloRange(entries) {
   return { min, max, diff: max - min };
 }
 
+function computeQueueMajorRankRange(entries) {
+  if (!entries?.length) {
+    return { min: null, max: null, diff: 0 };
+  }
+
+  let min = Infinity;
+  let max = -Infinity;
+
+  for (const entry of entries) {
+    const level = getEloMajorRankLevel(entry?.soloElo);
+    if (level < min) {
+      min = level;
+    }
+    if (level > max) {
+      max = level;
+    }
+  }
+
+  return { min, max, diff: max - min };
+}
+
 function computeQueueAverageElo(entries) {
   if (!entries?.length) {
     return null;
@@ -2901,9 +2948,11 @@ async function handlePLJoinCommand(message) {
     ? `Tu as 4 votes dodge: -30 Elo et verrouillage 1h. Réessaie dans ${formatDurationMinutes(joinResult.lockRemainingMs)}. (4 dodge votes: -30 Elo and 1h lock. Try again in ${formatDurationMinutes(joinResult.lockRemainingMs)}.)`
     : joinResult.blockedByPendingMatch
       ? 'Tu es déjà dans un match en attente. Attends sa validation avant de rejoindre la file. (You are already in a pending match. Wait for validation before joining the queue.)'
-      : joinResult.blockedByPLBan
-        ? `🚫 Tu es banni de !join pendant encore ${formatDurationMinutes(joinResult.banRemainingMs)}. (You are banned from !join for ${formatDurationMinutes(joinResult.banRemainingMs)}.)`
-        : joinResult.reason === 'pending'
+    : joinResult.blockedByPLBan
+      ? `🚫 Tu es banni de !join pendant encore ${formatDurationMinutes(joinResult.banRemainingMs)}. (You are banned from !join for ${formatDurationMinutes(joinResult.banRemainingMs)}.)`
+      : joinResult.blockedByRankGap
+        ? '❌ Écart de rang trop élevé: maximum 2 rangs entre joueurs (ex: Wished↔Silver autorisé, Wished↔Gold interdit, Bronze↔Diamant interdit). (Rank gap too high: max 2 ranks between players, Wished↔Gold and Bronze↔Diamond are blocked.)'
+      : joinResult.reason === 'pending'
         ? 'Demande déjà en cours, attends 1-2 secondes avant de recliquer. (A request is already in progress, wait 1-2 seconds before trying again.)'
         : joinResult.added
           ? 'Tu as rejoint la file PL. (You joined the PL queue.)'
@@ -3051,9 +3100,11 @@ async function handleJoinCommand(message, args) {
         ? `Tu as 4 votes dodge: -30 Elo et verrouillage 1h. Réessaie dans ${formatDurationMinutes(joinResult.lockRemainingMs)}. (4 dodge votes: -30 Elo and 1h lock. Try again in ${formatDurationMinutes(joinResult.lockRemainingMs)}.)`
         : joinResult.blockedByPendingMatch
           ? 'Tu es déjà dans un match en attente. Attends sa validation avant de rejoindre la file. (You are already in a pending match. Wait for validation before joining the queue.)'
-          : joinResult.blockedByPLBan
-            ? `🚫 Tu es banni de !join pendant encore ${formatDurationMinutes(joinResult.banRemainingMs)}. (You are banned from !join for ${formatDurationMinutes(joinResult.banRemainingMs)}.)`
-            : joinResult.reason === 'pending'
+        : joinResult.blockedByPLBan
+          ? `🚫 Tu es banni de !join pendant encore ${formatDurationMinutes(joinResult.banRemainingMs)}. (You are banned from !join for ${formatDurationMinutes(joinResult.banRemainingMs)}.)`
+          : joinResult.blockedByRankGap
+            ? '❌ Écart de rang trop élevé: maximum 2 rangs entre joueurs (ex: Wished↔Silver autorisé, Wished↔Gold interdit, Bronze↔Diamant interdit). (Rank gap too high: max 2 ranks between players, Wished↔Gold and Bronze↔Diamond are blocked.)'
+          : joinResult.reason === 'pending'
             ? 'Demande déjà en cours, attends 1-2 secondes avant de recliquer. (A request is already in progress, wait 1-2 seconds before trying again.)'
             : joinResult.added
               ? 'Tu as rejoint la file PL. (You joined the PL queue.)'
@@ -3175,6 +3226,7 @@ async function handleJoinCommand(message, args) {
   const targetQueue = matchQueues[targetQueueIndex];
   const targetQueueConfig = QUEUE_CONFIGS[targetQueueIndex];
   const eloRange = computeQueueEloRange([...targetQueue, entry]);
+  const rankRange = computeQueueMajorRankRange([...targetQueue, entry]);
 
   if (targetQueueConfig.maxEloDifference != null && eloRange.diff >= targetQueueConfig.maxEloDifference) {
     await message.reply({
@@ -3188,6 +3240,16 @@ async function handleJoinCommand(message, args) {
           }).`
         }
       )
+    });
+    return;
+  }
+
+  if (rankRange.diff > MAX_MATCHMAKING_MAJOR_RANK_GAP) {
+    await message.reply({
+      content: localizeText({
+        fr: `❌ Écart de rang trop élevé: maximum ${MAX_MATCHMAKING_MAJOR_RANK_GAP} rangs entre joueurs (ex: Wished↔Silver autorisé, Wished↔Gold interdit, Bronze↔Diamant interdit).`,
+        en: `❌ Rank gap too high: max ${MAX_MATCHMAKING_MAJOR_RANK_GAP} ranks between players (ex: Wished↔Silver allowed, Wished↔Gold blocked, Bronze↔Diamond blocked).`
+      })
     });
     return;
   }
@@ -5506,6 +5568,11 @@ async function handleInteraction(interaction) {
                   fr: `🚫 Tu es banni de !join pendant encore ${formatDurationMinutes(joinResult.banRemainingMs)}.`,
                   en: `🚫 You are banned from !join for ${formatDurationMinutes(joinResult.banRemainingMs)}.`
                 })
+              : joinResult.blockedByRankGap
+                ? localizeText({
+                    fr: '❌ Écart de rang trop élevé: maximum 2 rangs entre joueurs (ex: Wished↔Silver autorisé, Wished↔Gold interdit, Bronze↔Diamant interdit).',
+                    en: '❌ Rank gap too high: max 2 ranks between players (ex: Wished↔Silver allowed, Wished↔Gold blocked, Bronze↔Diamond blocked).'
+                  })
               : joinResult.reason === 'pending'
               ? localizeText({
                   fr: 'Demande déjà en cours, attends 1-2 secondes avant de recliquer.',
