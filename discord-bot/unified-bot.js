@@ -5571,6 +5571,11 @@ async function handleInteraction(interaction) {
                   fr: `🚫 Tu es banni de !join pendant encore ${formatDurationMinutes(joinResult.banRemainingMs)}.`,
                   en: `🚫 You are banned from !join for ${formatDurationMinutes(joinResult.banRemainingMs)}.`
                 })
+              : joinResult.blockedByRankGap
+                ? localizeText({
+                    fr: '❌ Écart de rang trop élevé: maximum 2 rangs entre joueurs (ex: Wished↔Silver autorisé, Wished↔Gold interdit, Bronze↔Diamant interdit).',
+                    en: '❌ Rank gap too high: max 2 ranks between players (ex: Wished↔Silver allowed, Wished↔Gold blocked, Bronze↔Diamond blocked).'
+                  })
               : joinResult.reason === 'pending'
               ? localizeText({
                   fr: 'Demande déjà en cours, attends 1-2 secondes avant de recliquer.',
