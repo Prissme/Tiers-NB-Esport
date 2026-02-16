@@ -844,19 +844,9 @@ async function sendOrUpdateQueueMessage(guildContext, channel) {
     'ℹ️ `!join 2` pour rejoindre la file fallback.'
   ].join('\n');
 
-  const descriptionEn = [
-    `🔁 Queue 1 (main): **${primaryQueue.length}/${MATCH_SIZE}** players`,
-    primaryDetails.en,
-    '',
-    `⚡ Queue 2 (fallback): **${secondaryQueue.length}/${MATCH_SIZE}** players`,
-    secondaryDetails.en,
-    '',
-    'ℹ️ Use `!join 2` to join the fallback queue.'
-  ].join('\n');
-
   const embed = new EmbedBuilder()
     .setTitle('Power League')
-    .setDescription(`${descriptionFr}\n\n${descriptionEn}`)
+    .setDescription(descriptionFr)
     .setColor(0x3498db)
     .setTimestamp(new Date());
 
@@ -3530,19 +3520,9 @@ async function handleQueueCommand(message) {
     '',
     'ℹ️ `!join 2` pour rejoindre la file fallback.'
   ].join('\n');
-  const descriptionEn = [
-    `🔁 Queue 1 (main): **${primaryQueue.length}/${MATCH_SIZE}** players`,
-    primaryDetails.en,
-    '',
-    `⚡ Queue 2 (fallback): **${secondaryQueue.length}/${MATCH_SIZE}** players`,
-    secondaryDetails.en,
-    '',
-    'ℹ️ Use `!join 2` to join the fallback queue.'
-  ].join('\n');
-
   const embed = new EmbedBuilder()
     .setTitle('Power League')
-    .setDescription(`${descriptionFr}\n\n${descriptionEn}`)
+    .setDescription(descriptionFr)
     .setColor(0x3498db)
     .setTimestamp(new Date());
 
