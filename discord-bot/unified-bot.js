@@ -929,6 +929,14 @@ function buildRankGapErrorEmbed() {
   return new EmbedBuilder().setColor(0xef4444).setDescription('Écart de rang trop élevé');
 }
 
+async function addWhiteCheckmarkReaction(message) {
+  if (!message?.react) {
+    return;
+  }
+
+  await message.react('✅').catch(() => null);
+}
+
 function buildPLJoinReplyContent(joinResult) {
   if (joinResult.blockedByDodgeLock) {
     return `Tu as 4 votes dodge: -30 Elo et verrouillage 1h. Réessaie dans ${formatDurationMinutes(joinResult.lockRemainingMs)}. (4 dodge votes: -30 Elo and 1h lock. Try again in ${formatDurationMinutes(joinResult.lockRemainingMs)}.)`;
@@ -3250,6 +3258,8 @@ async function handleJoinCommand(message, args) {
       const replyContent = buildPLJoinReplyContent(joinResult);
       if (joinResult.blockedByRankGap) {
         await message.reply({ embeds: [buildRankGapErrorEmbed()] });
+      } else if (joinResult.added) {
+        await addWhiteCheckmarkReaction(message);
       } else {
         await message.reply({ content: replyContent });
       }
@@ -3457,7 +3467,11 @@ async function handleLeaveCommand(message) {
           : 'Tu as quitté la file PL. (You left the PL queue.)'
         : "Tu n'es pas dans la file PL. (You are not in the PL queue.)";
 
-      await message.reply({ content: replyContent });
+      if (leaveResult.removed) {
+        await addWhiteCheckmarkReaction(message);
+      } else {
+        await message.reply({ content: replyContent });
+      }
       return;
     }
   }
