@@ -47,7 +47,7 @@ const ROOM_TIER_ORDER = ['E', 'D', 'C', 'B', 'A', 'S'];
 const BEST_OF_VALUES = [1, 3, 5];
 const DEFAULT_MATCH_BEST_OF = normalizeBestOfInput(process.env.DEFAULT_MATCH_BEST_OF) || 1;
 const MAX_QUEUE_ELO_DIFFERENCE = 175;
-const MAX_MATCHMAKING_MAJOR_RANK_GAP = 2;
+const MAX_MATCHMAKING_MAJOR_RANK_GAP = 3;
 const PL_QUEUE_CHANNEL_ID = '1442580781527732334';
 const PL_MATCH_TIMEOUT_MS = 20 * 60 * 1000;
 const SIMPLE_LOBBY_CHANNEL_ID = process.env.SIMPLE_LOBBY_CHANNEL_ID;
@@ -853,6 +853,10 @@ async function getMajorRankLevelForUserInGuild(guildContext, userId) {
   }
 
   return getEloMajorRankLevel(profile?.solo_elo);
+}
+
+function buildRankGapErrorEmbed() {
+  return new EmbedBuilder().setColor(0xef4444).setDescription('Écart de rang trop élevé');
 }
 
 async function addPlayerToPLQueue(userId, guildContext) {
@@ -2950,8 +2954,6 @@ async function handlePLJoinCommand(message) {
       ? 'Tu es déjà dans un match en attente. Attends sa validation avant de rejoindre la file. (You are already in a pending match. Wait for validation before joining the queue.)'
     : joinResult.blockedByPLBan
       ? `🚫 Tu es banni de !join pendant encore ${formatDurationMinutes(joinResult.banRemainingMs)}. (You are banned from !join for ${formatDurationMinutes(joinResult.banRemainingMs)}.)`
-      : joinResult.blockedByRankGap
-        ? '❌ Écart de rang trop élevé: maximum 2 rangs entre joueurs (ex: Wished↔Silver autorisé, Wished↔Gold interdit, Bronze↔Diamant interdit). (Rank gap too high: max 2 ranks between players, Wished↔Gold and Bronze↔Diamond are blocked.)'
       : joinResult.reason === 'pending'
         ? 'Demande déjà en cours, attends 1-2 secondes avant de recliquer. (A request is already in progress, wait 1-2 seconds before trying again.)'
         : joinResult.added
@@ -2959,7 +2961,11 @@ async function handlePLJoinCommand(message) {
           : 'Tu es déjà dans la file PL. (You are already in the PL queue.)';
 
   try {
-    await message.author.send(replyContent);
+    if (joinResult.blockedByRankGap) {
+      await message.author.send({ embeds: [buildRankGapErrorEmbed()] });
+    } else {
+      await message.author.send(replyContent);
+    }
   } catch (err) {
     warn('Unable to send PL join DM:', err?.message || err);
   }
@@ -3102,15 +3108,17 @@ async function handleJoinCommand(message, args) {
           ? 'Tu es déjà dans un match en attente. Attends sa validation avant de rejoindre la file. (You are already in a pending match. Wait for validation before joining the queue.)'
         : joinResult.blockedByPLBan
           ? `🚫 Tu es banni de !join pendant encore ${formatDurationMinutes(joinResult.banRemainingMs)}. (You are banned from !join for ${formatDurationMinutes(joinResult.banRemainingMs)}.)`
-          : joinResult.blockedByRankGap
-            ? '❌ Écart de rang trop élevé: maximum 2 rangs entre joueurs (ex: Wished↔Silver autorisé, Wished↔Gold interdit, Bronze↔Diamant interdit). (Rank gap too high: max 2 ranks between players, Wished↔Gold and Bronze↔Diamond are blocked.)'
           : joinResult.reason === 'pending'
             ? 'Demande déjà en cours, attends 1-2 secondes avant de recliquer. (A request is already in progress, wait 1-2 seconds before trying again.)'
             : joinResult.added
               ? 'Tu as rejoint la file PL. (You joined the PL queue.)'
               : 'Tu es déjà dans la file PL. (You are already in the PL queue.)';
 
-      await message.reply({ content: replyContent });
+      if (joinResult.blockedByRankGap) {
+        await message.reply({ embeds: [buildRankGapErrorEmbed()] });
+      } else {
+        await message.reply({ content: replyContent });
+      }
       return;
     }
   }
@@ -3245,12 +3253,7 @@ async function handleJoinCommand(message, args) {
   }
 
   if (rankRange.diff > MAX_MATCHMAKING_MAJOR_RANK_GAP) {
-    await message.reply({
-      content: localizeText({
-        fr: `❌ Écart de rang trop élevé: maximum ${MAX_MATCHMAKING_MAJOR_RANK_GAP} rangs entre joueurs (ex: Wished↔Silver autorisé, Wished↔Gold interdit, Bronze↔Diamant interdit).`,
-        en: `❌ Rank gap too high: max ${MAX_MATCHMAKING_MAJOR_RANK_GAP} ranks between players (ex: Wished↔Silver allowed, Wished↔Gold blocked, Bronze↔Diamond blocked).`
-      })
-    });
+    await message.reply({ embeds: [buildRankGapErrorEmbed()] });
     return;
   }
 
@@ -5583,10 +5586,17 @@ async function handleInteraction(interaction) {
                   en: 'You are already in the PL queue. (Tu es déjà dans la file PL.)'
                 });
 
-        await interaction.reply({
-          content: response,
-          flags: MessageFlags.Ephemeral
-        });
+        if (joinResult.blockedByRankGap) {
+          await interaction.reply({
+            embeds: [buildRankGapErrorEmbed()],
+            flags: MessageFlags.Ephemeral
+          });
+        } else {
+          await interaction.reply({
+            content: response,
+            flags: MessageFlags.Ephemeral
+          });
+        }
         return;
       }
 
