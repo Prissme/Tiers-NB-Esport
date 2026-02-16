@@ -5745,22 +5745,19 @@ async function handleInteraction(interaction) {
       return;
     }
 
-    const member = interaction.member;
     const isParticipant = matchState.participants.has(interaction.user.id);
-    const isModerator = member?.permissions?.has(PermissionsBitField.Flags.ManageGuild);
+    const hasPLAdminRole = hasPLAdminAccess(interaction);
 
-    if (!isParticipant && !isModerator) {
+    if (!isParticipant && !hasPLAdminRole) {
       await interaction.reply({
         content: localizeText({
-          fr: 'Seuls les joueurs du match peuvent voter.',
-          en: 'Only match participants can vote.'
+          fr: 'Seuls les joueurs du match et les admins PL peuvent voter.',
+          en: 'Only match participants and PL admins can vote.'
         }),
         flags: MessageFlags.Ephemeral
       });
       return;
     }
-
-    const isModeratorOverride = isModerator && !isParticipant;
 
     try {
       if (outcome === 'dodge') {
@@ -5811,7 +5808,7 @@ async function handleInteraction(interaction) {
 
       const votesRequired = getVotesRequired(matchState);
       const hasReachedThreshold = voteCounts[outcome] >= votesRequired;
-      const shouldResolve = isModeratorOverride || hasReachedThreshold;
+      const shouldResolve = hasPLAdminRole || hasReachedThreshold;
 
       if (!shouldResolve) {
         await interaction.update({
