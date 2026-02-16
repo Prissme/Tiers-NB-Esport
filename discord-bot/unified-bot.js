@@ -1265,10 +1265,14 @@ async function updateMatchMessage(clientRef, matchState, summary) {
   });
 }
 
-async function finalizeMatchOutcome(matchState, outcome, userId, clientRef) {
+async function finalizeMatchOutcome(matchState, outcome, userId, clientRef, options = {}) {
   const summary = await applyMatchOutcome(matchState, outcome, userId);
   if (!summary) {
     return null;
+  }
+
+  if (typeof options.summaryText === 'string' && options.summaryText.trim()) {
+    summary.text = options.summaryText;
   }
 
   matchState.resolved = true;
@@ -2229,11 +2233,14 @@ function buildPrivateMatchEmbed(state) {
 }
 
 function buildMatchEmbed(state, resultSummary = null) {
-  const { primaryMap, mapChoices = [], teams, createdAt, votes } = state;
+  const { matchId, primaryMap, mapChoices = [], teams, createdAt, votes } = state;
   const votesRequired = getVotesRequired(state);
-  const title = primaryMap
+  const mapTitle = primaryMap
     ? `${primaryMap.emoji} ${primaryMap.mode} — ${primaryMap.map}`
     : localizeText({ fr: 'Match en attente', en: 'Match pending' });
+  const title = matchId
+    ? localizeText({ fr: 'Match #{matchId} — {mapTitle}', en: 'Match #{matchId} — {mapTitle}' }, { matchId, mapTitle })
+    : mapTitle;
 
   const embed = new EmbedBuilder()
     .setTitle(title)
@@ -5925,8 +5932,9 @@ async function handleInteraction(interaction) {
     const player = findPlayerInTeams(matchState.teams, targetId);
     const remaining = Math.max(0, DODGE_VOTES_REQUIRED - voteCount);
     let penaltyMessage = '';
+    const reachedThreshold = voteCount >= DODGE_VOTES_REQUIRED;
 
-    if (voteCount >= DODGE_VOTES_REQUIRED && !matchState.penalizedDodges.has(targetId)) {
+    if (reachedThreshold && !matchState.penalizedDodges.has(targetId)) {
       try {
         const result = await applyDodgePenalty(player);
         matchState.penalizedDodges.add(targetId);
@@ -5957,7 +5965,33 @@ async function handleInteraction(interaction) {
       }
     }
 
-    await refreshMatchMessage(matchState, interaction.client);
+    let autoCancelled = false;
+
+    if (reachedThreshold && !matchState.resolved) {
+      const summaryText = localizeText(
+        {
+          fr: 'Match annulé automatiquement suite à 4 votes dodge contre {name}. Aucun changement de score Elo.',
+          en: 'Match automatically cancelled after 4 dodge votes against {name}. No Elo changes applied.'
+        },
+        {
+          name: player?.displayName || `<@${targetId}>`
+        }
+      );
+
+      const summary = await finalizeMatchOutcome(
+        matchState,
+        'cancel',
+        interaction.user.id,
+        interaction.client,
+        { summaryText }
+      );
+
+      autoCancelled = Boolean(summary);
+    }
+
+    if (!autoCancelled) {
+      await refreshMatchMessage(matchState, interaction.client);
+    }
 
     const voteLine = localizeText(
       {
@@ -5974,6 +6008,18 @@ async function handleInteraction(interaction) {
     const followupLines = [voteLine];
     if (penaltyMessage) {
       followupLines.push(penaltyMessage);
+    }
+
+    if (autoCancelled) {
+      followupLines.push(
+        localizeText(
+          {
+            fr: '⚪ Match #{matchId} annulé automatiquement (4/4 votes dodge).',
+            en: '⚪ Match #{matchId} automatically cancelled (4/4 dodge votes).'
+          },
+          { matchId: matchState.matchId }
+        )
+      );
     } else if (remaining > 0) {
       followupLines.push(
         localizeText(
