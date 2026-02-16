@@ -472,6 +472,7 @@ let plData = { ...DEFAULT_PL_DATA };
 
 // === RUNTIME PL QUEUE (Supabase) ===
 const plQueueCache = new Map();
+const plSecondaryQueueCache = new Map();
 // Table runtime_pl_queue expected columns:
 // guild_id (text), user_id (text), joined_at (timestamptz)
 
@@ -509,6 +510,17 @@ function getPLQueue(guildId) {
   return plQueueCache.get(guildId);
 }
 
+function getSecondaryPLQueue(guildId) {
+  if (!plSecondaryQueueCache.has(guildId)) {
+    plSecondaryQueueCache.set(guildId, []);
+  }
+  return plSecondaryQueueCache.get(guildId);
+}
+
+function getPLQueueByIndex(guildId, queueIndex = 1) {
+  return queueIndex === 2 ? getSecondaryPLQueue(guildId) : getPLQueue(guildId);
+}
+
 async function ensureRuntimePlQueueLoaded(guildId) {
   if (!guildId) {
     return [];
@@ -522,8 +534,33 @@ async function ensureRuntimePlQueueLoaded(guildId) {
 }
 
 function isInPLQueue(guildId, userId) {
-  const queue = getPLQueue(guildId);
-  return queue.includes(userId);
+  const primaryQueue = getPLQueue(guildId);
+  const secondaryQueue = getSecondaryPLQueue(guildId);
+  return primaryQueue.includes(userId) || secondaryQueue.includes(userId);
+}
+
+function addToSecondaryPlQueue(guildId, userId) {
+  const queue = getSecondaryPLQueue(guildId);
+  if (queue.includes(userId)) {
+    return { added: false, reason: 'already' };
+  }
+
+  queue.push(userId);
+  plSecondaryQueueCache.set(guildId, queue);
+  return { added: true, queueIndex: 2 };
+}
+
+function removeFromSecondaryPlQueue(guildId, userId) {
+  const queue = getSecondaryPLQueue(guildId);
+  const index = queue.indexOf(userId);
+
+  if (index === -1) {
+    return { removed: false };
+  }
+
+  queue.splice(index, 1);
+  plSecondaryQueueCache.set(guildId, queue);
+  return { removed: true, queueIndex: 2 };
 }
 
 async function loadRuntimePlQueue(guildId) {
@@ -615,6 +652,7 @@ async function clearRuntimePlQueue(guildId) {
   }
 
   plQueueCache.set(guildId, []);
+  plSecondaryQueueCache.set(guildId, []);
   return true;
 }
 
@@ -733,6 +771,7 @@ async function loadPendingRuntimeMatches(guildId) {
 async function formatPLQueueDetails(queue) {
   let rankingByDiscordId = new Map();
   let totalPlayers = null;
+  let playersByDiscordId = new Map();
 
   try {
     const rankingInfo = await getSiteRankingMap();
@@ -742,7 +781,18 @@ async function formatPLQueueDetails(queue) {
     warn('Unable to load PL rankings:', err?.message || err);
   }
 
+  if (queue.length) {
+    try {
+      playersByDiscordId = await performanceStores.playerStore.getPlayersByDiscordIds(queue.map((id) => id.toString()));
+    } catch (err) {
+      warn('Unable to load player profiles for PL queue:', err?.message || err);
+    }
+  }
+
   const formatLine = (id, index, language) => {
+    const profile = playersByDiscordId.get(id?.toString());
+    const eloRankInfo = getEloRankByRating(profile?.solo_elo);
+    const eloRankLabel = formatEloRankLabel(eloRankInfo) || (language === LANGUAGE_EN ? 'Unranked' : 'Non classé');
     const rankInfo = rankingByDiscordId.get(id?.toString());
     const rankLabel = rankInfo
       ? language === LANGUAGE_EN
@@ -752,7 +802,7 @@ async function formatPLQueueDetails(queue) {
         ? 'Unranked'
         : 'Non classé';
 
-    return `${index + 1}. <@${id}> — ${rankLabel}`;
+    return `${index + 1}. <@${id}> — ${eloRankLabel} • ${rankLabel}`;
   };
 
   const buildList = (language) => {
@@ -779,10 +829,30 @@ async function sendOrUpdateQueueMessage(guildContext, channel) {
     return null;
   }
 
-  const queue = getPLQueue(guildContext.id);
-  const queueDetails = await formatPLQueueDetails(queue);
-  const descriptionFr = `🔁 File PL : **${queue.length}/6** joueurs\n${queueDetails.fr}`;
-  const descriptionEn = `🔁 PL Queue : **${queue.length}/6** players\n${queueDetails.en}`;
+  const primaryQueue = getPLQueueByIndex(guildContext.id, 1);
+  const secondaryQueue = getPLQueueByIndex(guildContext.id, 2);
+  const primaryDetails = await formatPLQueueDetails(primaryQueue);
+  const secondaryDetails = await formatPLQueueDetails(secondaryQueue);
+
+  const descriptionFr = [
+    `🔁 File 1 (principale) : **${primaryQueue.length}/${MATCH_SIZE}** joueurs`,
+    primaryDetails.fr,
+    '',
+    `⚡ File 2 (fallback) : **${secondaryQueue.length}/${MATCH_SIZE}** joueurs`,
+    secondaryDetails.fr,
+    '',
+    'ℹ️ `!join 2` pour rejoindre la file fallback.'
+  ].join('\n');
+
+  const descriptionEn = [
+    `🔁 Queue 1 (main): **${primaryQueue.length}/${MATCH_SIZE}** players`,
+    primaryDetails.en,
+    '',
+    `⚡ Queue 2 (fallback): **${secondaryQueue.length}/${MATCH_SIZE}** players`,
+    secondaryDetails.en,
+    '',
+    'ℹ️ Use `!join 2` to join the fallback queue.'
+  ].join('\n');
 
   const embed = new EmbedBuilder()
     .setTitle('Power League')
@@ -859,10 +929,41 @@ function buildRankGapErrorEmbed() {
   return new EmbedBuilder().setColor(0xef4444).setDescription('Écart de rang trop élevé');
 }
 
-async function addPlayerToPLQueue(userId, guildContext) {
-  const lockKey = `${guildContext.id}:${userId}`;
+function buildPLJoinReplyContent(joinResult) {
+  if (joinResult.blockedByDodgeLock) {
+    return `Tu as 4 votes dodge: -30 Elo et verrouillage 1h. Réessaie dans ${formatDurationMinutes(joinResult.lockRemainingMs)}. (4 dodge votes: -30 Elo and 1h lock. Try again in ${formatDurationMinutes(joinResult.lockRemainingMs)}.)`;
+  }
+
+  if (joinResult.blockedByPendingMatch) {
+    return 'Tu es déjà dans un match en attente. Attends sa validation avant de rejoindre la file. (You are already in a pending match. Wait for validation before joining the queue.)';
+  }
+
+  if (joinResult.blockedByPLBan) {
+    return `🚫 Tu es banni de !join pendant encore ${formatDurationMinutes(joinResult.banRemainingMs)}. (You are banned from !join for ${formatDurationMinutes(joinResult.banRemainingMs)}.)`;
+  }
+
+  if (joinResult.reason === 'pending') {
+    return 'Demande déjà en cours, attends 1-2 secondes avant de recliquer. (A request is already in progress, wait 1-2 seconds before trying again.)';
+  }
+
+  if (joinResult.fallbackToQueue2) {
+    return '⚡ Écart de rang sur la file 1: tu as été ajouté automatiquement en file 2. (Rank gap in queue 1: you were automatically moved to queue 2.)';
+  }
+
+  if (joinResult.added) {
+    return joinResult.queueIndex === 2
+      ? '✅ Tu as rejoint la file 2. (You joined queue 2.)'
+      : '✅ Tu as rejoint la file PL. (You joined the PL queue.)';
+  }
+
+  return 'Tu es déjà dans une file PL. (You are already in a PL queue.)';
+}
+
+async function addPlayerToPLQueue(userId, guildContext, options = {}) {
+  const queueIndex = options.queueIndex === 2 ? 2 : 1;
+  const lockKey = `${guildContext.id}:${userId}:q${queueIndex}`;
   if (plQueueJoinLocks.has(lockKey)) {
-    return { added: false, reason: 'pending' };
+    return { added: false, reason: 'pending', queueIndex };
   }
 
   plQueueJoinLocks.add(lockKey);
@@ -873,41 +974,73 @@ async function addPlayerToPLQueue(userId, guildContext) {
 
     const lockRemainingMs = getQueueLockRemainingMs(userId);
     if (lockRemainingMs > 0) {
-      return { added: false, blockedByDodgeLock: true, lockRemainingMs };
+      return { added: false, blockedByDodgeLock: true, lockRemainingMs, queueIndex };
     }
 
     const banRemainingMs = getPLBanRemainingMs(userId);
     if (banRemainingMs > 0) {
-      return { added: false, blockedByPLBan: true, banRemainingMs };
+      return { added: false, blockedByPLBan: true, banRemainingMs, queueIndex };
     }
 
     if (getPendingMatchForUser(userId)) {
-      return { added: false, blockedByPendingMatch: true };
+      return { added: false, blockedByPendingMatch: true, queueIndex };
     }
 
-    const queueIds = getPLQueue(guildContext.id);
-    if (queueIds.length) {
-      const allIds = [...queueIds, userId];
-      const levels = await Promise.all(allIds.map((id) => getMajorRankLevelForUserInGuild(guildContext, id)));
-      const minLevel = Math.min(...levels);
-      const maxLevel = Math.max(...levels);
+    if (isInPLQueue(guildContext.id, userId)) {
+      return { added: false, reason: 'already', queueIndex };
+    }
 
-      if (maxLevel - minLevel > MAX_MATCHMAKING_MAJOR_RANK_GAP) {
-        return { added: false, blockedByRankGap: true };
+    if (queueIndex === 1) {
+      const queueIds = getPLQueue(guildContext.id);
+      if (queueIds.length) {
+        const allIds = [...queueIds, userId];
+        const levels = await Promise.all(allIds.map((id) => getMajorRankLevelForUserInGuild(guildContext, id)));
+        const minLevel = Math.min(...levels);
+        const maxLevel = Math.max(...levels);
+
+        if (maxLevel - minLevel > MAX_MATCHMAKING_MAJOR_RANK_GAP) {
+          const fallbackResult = await addPlayerToPLQueue(userId, guildContext, { queueIndex: 2 });
+          return {
+            ...fallbackResult,
+            fallbackToQueue2: Boolean(fallbackResult.added),
+            blockedByRankGap: !fallbackResult.added
+          };
+        }
       }
+
+      const result = await addToRuntimePlQueue(guildContext.id, userId);
+      await sendOrUpdateQueueMessage(guildContext, plQueueChannel);
+      return { ...result, queueIndex: 1 };
     }
 
-    const result = await addToRuntimePlQueue(guildContext.id, userId);
+    const result = addToSecondaryPlQueue(guildContext.id, userId);
     await sendOrUpdateQueueMessage(guildContext, plQueueChannel);
-    return result;
+    return { ...result, queueIndex: 2 };
   } finally {
     plQueueJoinLocks.delete(lockKey);
   }
 }
 
-async function removePlayerFromPLQueue(userId, guildContext) {
+async function removePlayerFromPLQueue(userId, guildContext, options = {}) {
+  const requestedQueueIndex = options.queueIndex === 2 ? 2 : options.queueIndex === 1 ? 1 : null;
+
   await ensureRuntimePlQueueLoaded(guildContext.id);
-  const result = await removeFromRuntimePlQueue(guildContext.id, userId);
+
+  let result = { removed: false };
+  if (requestedQueueIndex == null || requestedQueueIndex === 1) {
+    result = await removeFromRuntimePlQueue(guildContext.id, userId);
+    if (result.removed) {
+      result.queueIndex = 1;
+    }
+  }
+
+  if (!result.removed && (requestedQueueIndex == null || requestedQueueIndex === 2)) {
+    const secondaryResult = removeFromSecondaryPlQueue(guildContext.id, userId);
+    if (secondaryResult.removed) {
+      result = secondaryResult;
+    }
+  }
+
   await sendOrUpdateQueueMessage(guildContext, plQueueChannel);
   return result;
 }
@@ -1047,31 +1180,28 @@ async function buildParticipantsForPLQueue(participantsIds = []) {
   return participants;
 }
 
-async function processPLQueue() {
-  if (!guild) {
-    return;
-  }
-
-  const channel = await ensurePLQueueChannel(guild);
-  if (!channel?.isTextBased()) {
-    return;
-  }
-  plQueueChannel = channel;
-
-  const queue = getPLQueue(guild.id);
+async function processSinglePLQueue(queueIndex, sourceLabel = 'main') {
+  const queue = getPLQueueByIndex(guild.id, queueIndex);
 
   while (queue.length >= MATCH_SIZE) {
     const participantsIds = queue.splice(0, MATCH_SIZE);
     const participants = await buildParticipantsForPLQueue(participantsIds);
 
     if (participants.length < MATCH_SIZE) {
-      await requeueRuntimePlPlayers(guild.id, participantsIds);
+      if (queueIndex === 1) {
+        await requeueRuntimePlPlayers(guild.id, participantsIds);
+      } else {
+        queue.unshift(...participantsIds);
+      }
       await sendOrUpdateQueueMessage(guild, plQueueChannel);
       break;
     }
 
     try {
-      await removePlayersFromRuntimePlQueue(guild.id, participantsIds);
+      if (queueIndex === 1) {
+        await removePlayersFromRuntimePlQueue(guild.id, participantsIds);
+      }
+
       const state = await startMatch(participants, matchChannel || plQueueChannel, true);
       if (state?.messageId) {
         const timeoutAt = new Date(Date.now() + PL_MATCH_TIMEOUT_MS).toISOString();
@@ -1080,6 +1210,8 @@ async function processPLQueue() {
           guild_id: guild.id,
           players: {
             ids: participantsIds,
+            queueIndex,
+            sourceLabel,
             matchId: state.matchId,
             threadId: state.threadId,
             lobbyRoleId: state.lobbyRoleId,
@@ -1093,12 +1225,31 @@ async function processPLQueue() {
         schedulePLTimeout(state.messageId, PL_MATCH_TIMEOUT_MS);
       }
     } catch (err) {
-      errorLog('Failed to create PL match:', err);
-      await requeueRuntimePlPlayers(guild.id, participantsIds);
+      errorLog(`Failed to create PL match from queue ${queueIndex}:`, err);
+      if (queueIndex === 1) {
+        await requeueRuntimePlPlayers(guild.id, participantsIds);
+      } else {
+        queue.unshift(...participantsIds);
+      }
       await sendOrUpdateQueueMessage(guild, plQueueChannel);
       break;
     }
   }
+}
+
+async function processPLQueue() {
+  if (!guild) {
+    return;
+  }
+
+  const channel = await ensurePLQueueChannel(guild);
+  if (!channel?.isTextBased()) {
+    return;
+  }
+  plQueueChannel = channel;
+
+  await processSinglePLQueue(1, 'primary');
+  await processSinglePLQueue(2, 'fallback');
 
   await sendOrUpdateQueueMessage(guild, plQueueChannel);
 }
@@ -2943,22 +3094,13 @@ async function handlePLJoinCommand(message) {
     return;
   }
 
-  const joinResult = await addPlayerToPLQueue(message.author.id, message.guild);
+  const requestedQueue = message.content.trim().split(/\s+/)[1] === '2' ? 2 : 1;
+  const joinResult = await addPlayerToPLQueue(message.author.id, message.guild, { queueIndex: requestedQueue });
   if (joinResult.added) {
     await processPLQueue();
   }
 
-  const replyContent = joinResult.blockedByDodgeLock
-    ? `Tu as 4 votes dodge: -30 Elo et verrouillage 1h. Réessaie dans ${formatDurationMinutes(joinResult.lockRemainingMs)}. (4 dodge votes: -30 Elo and 1h lock. Try again in ${formatDurationMinutes(joinResult.lockRemainingMs)}.)`
-    : joinResult.blockedByPendingMatch
-      ? 'Tu es déjà dans un match en attente. Attends sa validation avant de rejoindre la file. (You are already in a pending match. Wait for validation before joining the queue.)'
-    : joinResult.blockedByPLBan
-      ? `🚫 Tu es banni de !join pendant encore ${formatDurationMinutes(joinResult.banRemainingMs)}. (You are banned from !join for ${formatDurationMinutes(joinResult.banRemainingMs)}.)`
-      : joinResult.reason === 'pending'
-        ? 'Demande déjà en cours, attends 1-2 secondes avant de recliquer. (A request is already in progress, wait 1-2 seconds before trying again.)'
-        : joinResult.added
-          ? 'Tu as rejoint la file PL. (You joined the PL queue.)'
-          : 'Tu es déjà dans la file PL. (You are already in the PL queue.)';
+  const replyContent = buildPLJoinReplyContent(joinResult);
 
   try {
     if (joinResult.blockedByRankGap) {
@@ -2982,7 +3124,9 @@ async function handlePLLeaveCommand(message) {
 
   const leaveResult = await removePlayerFromPLQueue(message.author.id, message.guild);
   const replyContent = leaveResult.removed
-    ? 'Tu as quitté la file PL. (You left the PL queue.)'
+    ? leaveResult.queueIndex === 2
+      ? 'Tu as quitté la file 2. (You left queue 2.)'
+      : 'Tu as quitté la file PL. (You left the PL queue.)'
     : "Tu n'es pas dans la file PL. (You are not in the PL queue.)";
 
   try {
@@ -3097,23 +3241,13 @@ async function handleJoinCommand(message, args) {
     }
 
     if (plQueueChannel || message.channelId === PL_QUEUE_CHANNEL_ID) {
-      const joinResult = await addPlayerToPLQueue(message.author.id, message.guild);
+      const requestedQueue = args[0] === '2' ? 2 : 1;
+      const joinResult = await addPlayerToPLQueue(message.author.id, message.guild, { queueIndex: requestedQueue });
       if (joinResult.added) {
         await processPLQueue();
       }
 
-      const replyContent = joinResult.blockedByDodgeLock
-        ? `Tu as 4 votes dodge: -30 Elo et verrouillage 1h. Réessaie dans ${formatDurationMinutes(joinResult.lockRemainingMs)}. (4 dodge votes: -30 Elo and 1h lock. Try again in ${formatDurationMinutes(joinResult.lockRemainingMs)}.)`
-        : joinResult.blockedByPendingMatch
-          ? 'Tu es déjà dans un match en attente. Attends sa validation avant de rejoindre la file. (You are already in a pending match. Wait for validation before joining the queue.)'
-        : joinResult.blockedByPLBan
-          ? `🚫 Tu es banni de !join pendant encore ${formatDurationMinutes(joinResult.banRemainingMs)}. (You are banned from !join for ${formatDurationMinutes(joinResult.banRemainingMs)}.)`
-          : joinResult.reason === 'pending'
-            ? 'Demande déjà en cours, attends 1-2 secondes avant de recliquer. (A request is already in progress, wait 1-2 seconds before trying again.)'
-            : joinResult.added
-              ? 'Tu as rejoint la file PL. (You joined the PL queue.)'
-              : 'Tu es déjà dans la file PL. (You are already in the PL queue.)';
-
+      const replyContent = buildPLJoinReplyContent(joinResult);
       if (joinResult.blockedByRankGap) {
         await message.reply({ embeds: [buildRankGapErrorEmbed()] });
       } else {
@@ -3318,7 +3452,9 @@ async function handleLeaveCommand(message) {
       const leaveResult = await removePlayerFromPLQueue(memberId, message.guild);
 
       const replyContent = leaveResult.removed
-        ? 'Tu as quitté la file PL. (You left the PL queue.)'
+        ? leaveResult.queueIndex === 2
+          ? 'Tu as quitté la file 2. (You left queue 2.)'
+          : 'Tu as quitté la file PL. (You left the PL queue.)'
         : "Tu n'es pas dans la file PL. (You are not in the PL queue.)";
 
       await message.reply({ content: replyContent });
@@ -3365,12 +3501,30 @@ async function handleQueueCommand(message) {
   }
 
   await ensureRuntimePlQueueLoaded(message.guild.id);
-  const queue = getPLQueue(message.guild.id);
+  const primaryQueue = getPLQueueByIndex(message.guild.id, 1);
+  const secondaryQueue = getPLQueueByIndex(message.guild.id, 2);
   await sendOrUpdateQueueMessage(message.guild, plQueueChannel);
 
-  const queueDetails = await formatPLQueueDetails(queue);
-  const descriptionFr = `🔁 File PL : **${queue.length}/${MATCH_SIZE}** joueurs\n${queueDetails.fr}`;
-  const descriptionEn = `🔁 PL Queue : **${queue.length}/${MATCH_SIZE}** players\n${queueDetails.en}`;
+  const primaryDetails = await formatPLQueueDetails(primaryQueue);
+  const secondaryDetails = await formatPLQueueDetails(secondaryQueue);
+  const descriptionFr = [
+    `🔁 File 1 (principale) : **${primaryQueue.length}/${MATCH_SIZE}** joueurs`,
+    primaryDetails.fr,
+    '',
+    `⚡ File 2 (fallback) : **${secondaryQueue.length}/${MATCH_SIZE}** joueurs`,
+    secondaryDetails.fr,
+    '',
+    'ℹ️ `!join 2` pour rejoindre la file fallback.'
+  ].join('\n');
+  const descriptionEn = [
+    `🔁 Queue 1 (main): **${primaryQueue.length}/${MATCH_SIZE}** players`,
+    primaryDetails.en,
+    '',
+    `⚡ Queue 2 (fallback): **${secondaryQueue.length}/${MATCH_SIZE}** players`,
+    secondaryDetails.en,
+    '',
+    'ℹ️ Use `!join 2` to join the fallback queue.'
+  ].join('\n');
 
   const embed = new EmbedBuilder()
     .setTitle('Power League')
@@ -5554,55 +5708,21 @@ async function handleInteraction(interaction) {
         return;
       }
 
-      const joinResult = await addPlayerToPLQueue(interaction.user.id, interaction.guild);
-      if (!joinResult.added) {
-        const response = joinResult.blockedByDodgeLock
-          ? localizeText({
-              fr: `Tu as 4 votes dodge: -30 Elo et verrouillage 1h. Réessaie dans ${formatDurationMinutes(joinResult.lockRemainingMs)}.`,
-              en: `4 dodge votes: -30 Elo and 1h lock. Try again in ${formatDurationMinutes(joinResult.lockRemainingMs)}.`
-            })
-          : joinResult.blockedByPendingMatch
-            ? localizeText({
-                fr: 'Tu es déjà dans un match en attente. Attends sa validation avant de rejoindre la file.',
-                en: 'You are already in a pending match. Wait for validation before joining the queue.'
-              })
-            : joinResult.blockedByPLBan
-              ? localizeText({
-                  fr: `🚫 Tu es banni de !join pendant encore ${formatDurationMinutes(joinResult.banRemainingMs)}.`,
-                  en: `🚫 You are banned from !join for ${formatDurationMinutes(joinResult.banRemainingMs)}.`
-                })
-              : joinResult.blockedByRankGap
-                ? localizeText({
-                    fr: '❌ Écart de rang trop élevé: maximum 2 rangs entre joueurs (ex: Wished↔Silver autorisé, Wished↔Gold interdit, Bronze↔Diamant interdit).',
-                    en: '❌ Rank gap too high: max 2 ranks between players (ex: Wished↔Silver allowed, Wished↔Gold blocked, Bronze↔Diamond blocked).'
-                  })
-              : joinResult.reason === 'pending'
-              ? localizeText({
-                  fr: 'Demande déjà en cours, attends 1-2 secondes avant de recliquer.',
-                  en: 'A request is already in progress, wait 1-2 seconds before clicking again.'
-                })
-              : localizeText({
-                  fr: 'Tu es déjà dans la file PL. (You are already in the PL queue.)',
-                  en: 'You are already in the PL queue. (Tu es déjà dans la file PL.)'
-                });
+      const joinResult = await addPlayerToPLQueue(interaction.user.id, interaction.guild, { queueIndex: 1 });
+      if (joinResult.added) {
+        await processPLQueue();
+      }
 
-        if (joinResult.blockedByRankGap) {
-          await interaction.reply({
-            embeds: [buildRankGapErrorEmbed()],
-            flags: MessageFlags.Ephemeral
-          });
-        } else {
-          await interaction.reply({
-            content: response,
-            flags: MessageFlags.Ephemeral
-          });
-        }
+      if (joinResult.blockedByRankGap) {
+        await interaction.reply({
+          embeds: [buildRankGapErrorEmbed()],
+          flags: MessageFlags.Ephemeral
+        });
         return;
       }
 
-      await processPLQueue();
       await interaction.reply({
-        content: 'Tu as rejoint la file PL. (You joined the PL queue.)',
+        content: buildPLJoinReplyContent(joinResult),
         flags: MessageFlags.Ephemeral
       });
       return;
@@ -5623,7 +5743,9 @@ async function handleInteraction(interaction) {
       }
 
       await interaction.reply({
-        content: 'Tu as quitté la file PL. (You left the PL queue.)',
+        content: leaveResult.queueIndex === 2
+          ? 'Tu as quitté la file 2. (You left queue 2.)'
+          : 'Tu as quitté la file PL. (You left the PL queue.)',
         flags: MessageFlags.Ephemeral
       });
       return;
