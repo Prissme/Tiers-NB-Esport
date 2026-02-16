@@ -23,6 +23,7 @@ const {
 const { createClient } = require('@supabase/supabase-js');
 const predictions = require('./predictions');
 const draft = require('./draft');
+const { createPerformanceStores } = require('./performance-store');
 const fs = require('fs/promises');
 const path = require('path');
 
@@ -376,6 +377,14 @@ if (!SUPABASE_URL || !SUPABASE_KEY) {
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
   auth: { persistSession: false }
+});
+const performanceStores = createPerformanceStores({
+  supabase,
+  logger: {
+    info: (...args) => log(...args),
+    warn: (...args) => warn(...args),
+    error: (...args) => errorLog(...args)
+  }
 });
 
 function createSupabaseClient() {
@@ -960,6 +969,54 @@ async function handlePLMatchResolved(messageId) {
   }
 }
 
+async function buildParticipantsForPLQueue(participantsIds = []) {
+  if (!guild || !participantsIds.length) {
+    return [];
+  }
+
+  const participants = [];
+  const membersById = await performanceStores.memberStore.fetchMembers(guild, participantsIds);
+
+  const missingMemberIds = participantsIds.filter((id) => !membersById.get(id));
+  for (const missingId of missingMemberIds) {
+    warn(`Unable to fetch member ${missingId} for PL match.`);
+  }
+
+  const members = participantsIds
+    .map((id) => membersById.get(id))
+    .filter(Boolean);
+
+  const playerProfilesById = await performanceStores.playerStore.getPlayersByDiscordIds(
+    members.map((member) => member.id)
+  );
+
+  for (const member of members) {
+    const cachedProfile = playerProfilesById.get(member.id);
+
+    let profile = cachedProfile;
+    if (!profile) {
+      try {
+        profile = await getOrCreatePlayer(member.id, member.displayName || member.user.username);
+      } catch (err) {
+        warn('Unable to create missing player record for PL queue:', err?.message || err);
+        continue;
+      }
+    }
+
+    if (!profile) {
+      continue;
+    }
+
+    if ((member.displayName || member.user.username) !== profile.name) {
+      profile = await getOrCreatePlayer(member.id, member.displayName || member.user.username);
+    }
+
+    participants.push(buildQueueEntry(member, profile));
+  }
+
+  return participants;
+}
+
 async function processPLQueue() {
   if (!guild) {
     return;
@@ -975,30 +1032,7 @@ async function processPLQueue() {
 
   while (queue.length >= MATCH_SIZE) {
     const participantsIds = queue.splice(0, MATCH_SIZE);
-    const participants = [];
-
-    for (const playerId of participantsIds) {
-      let member = null;
-      try {
-        member = await guild.members.fetch(playerId);
-      } catch (err) {
-        warn(`Unable to fetch member ${playerId} for PL match:`, err?.message || err);
-      }
-
-      if (!member) {
-        continue;
-      }
-
-      let playerRecord = null;
-      try {
-        playerRecord = await getOrCreatePlayer(member.id, member.displayName || member.user.username);
-      } catch (err) {
-        warn('Unable to fetch player record for PL queue:', err?.message || err);
-        continue;
-      }
-
-      participants.push(buildQueueEntry(member, playerRecord));
-    }
+    const participants = await buildParticipantsForPLQueue(participantsIds);
 
     if (participants.length < MATCH_SIZE) {
       await requeueRuntimePlPlayers(guild.id, participantsIds);
@@ -1487,6 +1521,8 @@ async function handleAdminSlashCommand(interaction) {
       if (error) {
         throw error;
       }
+
+      performanceStores.playerStore.invalidatePlayer(targetUser.id);
     } catch (err) {
       errorLog('Failed to update streak:', err);
       await interaction.reply({
@@ -1532,6 +1568,8 @@ async function handleAdminSlashCommand(interaction) {
     if (error) {
       throw error;
     }
+
+    performanceStores.playerStore.invalidatePlayer(targetUser.id);
   } catch (err) {
     errorLog('Failed to update player elo:', err);
     await interaction.reply({
@@ -1775,7 +1813,7 @@ async function syncMemberRankRole(guildContext, discordId, rating) {
     return;
   }
 
-  const member = await guildContext.members.fetch(discordId).catch(() => null);
+  const member = await performanceStores.memberStore.fetchMember(guildContext, discordId);
   if (!member?.roles?.cache) {
     return;
   }
@@ -1822,23 +1860,15 @@ async function syncAllRankRoles(guildContext) {
     return { synced: 0 };
   }
 
-  const { data, error } = await supabase
-    .from('players')
-    .select('discord_id, solo_elo, active')
-    .not('discord_id', 'is', null)
-    .eq('active', true);
-
-  if (error) {
-    throw new Error(error.message || 'Unable to fetch players for rank sync');
-  }
+  const snapshot = await performanceStores.playerStore.getRankingSnapshot({ includeInactive: false, forceRefresh: true });
 
   let synced = 0;
-  for (const player of data || []) {
+  for (const player of snapshot.rankedPlayers) {
     if (!player?.discord_id) {
       continue;
     }
 
-    await syncMemberRankRole(guildContext, player.discord_id, player.solo_elo);
+    await syncMemberRankRole(guildContext, player.discord_id, player.weightedScore);
     synced += 1;
   }
 
@@ -1848,31 +1878,11 @@ async function syncAllRankRoles(guildContext) {
 
 async function getSiteRankingInfo(targetDiscordId) {
   try {
-    const { data, error } = await supabase
-      .from('players')
-      .select('discord_id, solo_elo')
-      .eq('active', true)
-      .not('discord_id', 'is', null);
-
-    if (error) {
-      throw error;
-    }
-
     const targetIdText = targetDiscordId?.toString();
 
-    const rankedPlayers = (data || [])
-      .map((entry) => {
-        const soloElo = normalizeRating(entry.solo_elo);
-
-        return {
-          discord_id: entry.discord_id,
-          weightedScore: soloElo
-        };
-      })
-      .sort((a, b) => b.weightedScore - a.weightedScore);
-
-    const totalPlayers = rankedPlayers.length;
-    const playerIndex = rankedPlayers.findIndex((entry) => entry.discord_id?.toString() === targetIdText);
+    const snapshot = await performanceStores.playerStore.getRankingSnapshot({ includeInactive: false });
+    const totalPlayers = snapshot.totalPlayers;
+    const playerIndex = snapshot.rankedPlayers.findIndex((entry) => entry.discord_id?.toString() === targetIdText);
     const rank = playerIndex === -1 ? null : playerIndex + 1;
 
     return { rank, totalPlayers };
@@ -1883,42 +1893,11 @@ async function getSiteRankingInfo(targetDiscordId) {
 }
 
 async function getSiteRankingMap() {
-  const { data, error } = await supabase
-    .from('players')
-    .select('discord_id, solo_elo, active')
-    .not('discord_id', 'is', null);
-
-  if (error) {
-    throw error;
-  }
-
-  const players = data || [];
-  const activePlayers = players.filter((player) => player.active !== false);
-  const rankedPlayers = (activePlayers.length ? activePlayers : players)
-    .map((entry) => {
-      const soloElo = normalizeRating(entry.solo_elo);
-
-      return {
-        discord_id: entry.discord_id,
-        weightedScore: soloElo
-      };
-    })
-    .sort((a, b) => b.weightedScore - a.weightedScore);
-
-  const totalPlayers = rankedPlayers.length;
-  const rankingByDiscordId = new Map();
-
-  rankedPlayers.forEach((player, index) => {
-    if (!player.discord_id) {
-      return;
-    }
-
-    rankingByDiscordId.set(player.discord_id.toString(), {
-      rank: index + 1
-    });
-  });
-
-  return { rankingByDiscordId, totalPlayers };
+  const snapshot = await performanceStores.playerStore.getRankingSnapshot({ includeInactive: false });
+  return {
+    rankingByDiscordId: snapshot.rankingByDiscordId,
+    totalPlayers: snapshot.totalPlayers
+  };
 }
 
 function normalizeTierInput(value) {
@@ -2138,6 +2117,7 @@ async function applyDodgePenalty(targetPlayer) {
   }
 
   targetPlayer.soloElo = newRating;
+  performanceStores.playerStore.invalidatePlayer(targetPlayer.discordId);
   const lockUntil = Date.now() + DODGE_QUEUE_LOCK_MS;
   dodgeQueueLocks.set(targetPlayer.discordId, lockUntil);
 
@@ -2372,35 +2352,23 @@ function calculateExpectedScore(rating, opponentRating) {
   return 1 / (1 + Math.pow(10, (opponentRating - rating) / ELO_DIVISOR));
 }
 
-async function fetchPlayerByDiscordId(discordId) {
-  const { data, error } = await supabase
-    .from('players')
-    .select('*')
-    .eq('discord_id', discordId)
-    .maybeSingle();
-
-  if (error) {
-    throw new Error(`Supabase error while fetching player ${discordId}: ${error.message}`);
-  }
-
-  return data || null;
+async function fetchPlayerByDiscordId(discordId, options = {}) {
+  return performanceStores.playerStore.getPlayerByDiscordId(discordId, options);
 }
 
 
 async function getLowestEloPlayer() {
-  const { data, error } = await supabase
-    .from('players')
-    .select('*')
-    .eq('active', true)
-    .order('solo_elo', { ascending: true })
-    .limit(1)
-    .maybeSingle();
-
-  if (error) {
-    throw new Error(`Unable to fetch lowest Elo player: ${error.message}`);
+  const snapshot = await performanceStores.playerStore.getRankingSnapshot({ includeInactive: false });
+  if (!snapshot.rankedPlayers.length) {
+    return null;
   }
 
-  return data || null;
+  const lowest = snapshot.rankedPlayers[snapshot.rankedPlayers.length - 1];
+  if (!lowest?.discord_id) {
+    return null;
+  }
+
+  return fetchPlayerByDiscordId(lowest.discord_id);
 }
 
 async function ensureWorstPlayerRole(guildContext) {
@@ -2457,7 +2425,7 @@ async function syncWorstPlayerRole(guildContext) {
     }
   }
 
-  const targetMember = await guildContext.members.fetch(lowestDiscordId).catch(() => null);
+  const targetMember = await performanceStores.memberStore.fetchMember(guildContext, lowestDiscordId);
   if (!targetMember) {
     return;
   }
@@ -2481,6 +2449,13 @@ async function getOrCreatePlayer(discordId, displayName) {
 
       if (updateError) {
         warn(`Unable to sync display name for player ${discordId}:`, updateError.message);
+      } else {
+        performanceStores.playerStore.cachePlayer({
+          ...existing,
+          name: displayName,
+          mmr,
+          solo_elo: soloElo
+        });
       }
     }
 
@@ -2510,6 +2485,7 @@ async function getOrCreatePlayer(discordId, displayName) {
     throw new Error(`Unable to create player ${discordId}: ${error.message}`);
   }
 
+  performanceStores.playerStore.cachePlayer(inserted);
   log(`Created new player entry for ${discordId}.`);
   return inserted;
 }
@@ -5398,6 +5374,8 @@ async function applyMatchOutcome(state, outcome, userId) {
       throw new Error(`Unable to update player ${update.id}: ${error.message}`);
     }
   }
+
+  performanceStores.playerStore.invalidatePlayers(changes.map((entry) => entry?.player?.discordId).filter(Boolean));
 
   await updateMatchRecord(state.matchId, {
     status: 'completed',
