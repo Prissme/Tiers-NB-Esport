@@ -4955,49 +4955,20 @@ async function handleDraftFreeInput(message) {
 }
 
 async function handleHelpCommand(message) {
-  const commands =
-    currentLanguage === LANGUAGE_EN
-      ? [
-          '`!join` — Join the matchmaking queue',
-          ...(isSimpleLobbyEnabled()
-            ? ['`!join` — Join the quick lobby (starts at 6 players, auto-splits teams)']
-            : []),
-          '`!leave` — Leave the queue',
-          '`!queue` — Show the Power League queue with player ranks',
-          '`!file` — Show the Power League queue with player ranks (FR alias)',
-          '`!elo [@player]` — Display Elo stats',
-          '`!last` — Show the current lowest Elo player',
-          '`!ranks` — Show your Elo progression up to Verdoyant',
-          '`!lb [count]` — Show the leaderboard (example: !lb 25)',
-          '`!maps` — Show the current map rotation',
-          '`!tiers` — Manually sync tier roles',
-          '`!draft` — Start a draft vs AI (interactive interface)',
-          '`!prisscupdel <team>` — [Admin] Delete a registered PrissCup team',
-          '`!aide` — Display this help'
-        ]
-      : [
-          '`!join` — Rejoindre la file de matchmaking',
-          ...(isSimpleLobbyEnabled()
-            ? ['`!join` — Rejoindre le lobby rapide (démarre à 6 joueurs, équipes auto)']
-            : []),
-          '`!leave` — Quitter la file d\'attente',
-          '`!queue` — Voir la file PL avec le rang des joueurs',
-          '`!file` — Voir la file PL avec le rang des joueurs',
-          '`!elo [@joueur]` — Afficher le classement Elo',
-          '`!last` / `!dernier` — Afficher le joueur avec le moins d\'Elo',
-          '`!ranks` — Voir ta progression Elo vers Verdoyant',
-          '`!lb [nombre]` — Afficher le top classement (ex: !lb 25)',
-          '`!maps` — Afficher la rotation des maps',
-          '`!tiers` — Synchroniser manuellement les rôles de tier',
-          '`!draft` — Lancer une draft vs IA (interface interactive)',
-          '`!prisscupdel <equipe>` — [Admin] Supprimer une équipe inscrite à la PrissCup',
-          '`!aide` — Afficher cette aide'
-        ];
+  const commands = [
+    '`!join` — Rejoindre la file de matchmaking',
+    '`!leave` — Quitter la file d\'attente',
+    '`!queue` — Voir la file PL avec le rang des joueurs',
+    '`!elo [@joueur]` — Afficher le classement Elo',
+    '`!ranks` — Voir ta progression Elo vers Verdoyant',
+    '`!last` — Afficher le joueur avec le moins d\'Elo',
+    '`!maps` — Afficher la rotation des maps'
+  ];
 
   await message.reply({
     embeds: [
       new EmbedBuilder()
-        .setTitle(localizeText({ fr: 'Commandes du bot', en: 'Bot commands' }))
+        .setTitle('Commandes du bot')
         .setDescription(commands.join('\n'))
         .setColor(0x00b894)
     ]
