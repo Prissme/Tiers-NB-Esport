@@ -70,6 +70,8 @@ const PING_ROLE_ID = process.env.PING_ROLE_ID || '1437211411096010862';
 const UNKNOWN_PING_ROLE_NAME = process.env.UNKNOWN_PING_ROLE_NAME || 'inconnu';
 const WORST_PLAYER_ROLE_NAME = process.env.WORST_PLAYER_ROLE_NAME || 'PIRE JOUEUR PL';
 const PL_ADMIN_ROLE_ID = process.env.PL_ADMIN_ROLE_ID || '1470549482432102511';
+const SECONDARY_PL_ADMIN_ROLE_ID = '1472652444331671593';
+const PL_PLAYER_ROLE_ID = '1469030334510137398';
 
 const ROLE_TIER_S = process.env.ROLE_TIER_S;
 const ROLE_TIER_A = process.env.ROLE_TIER_A;
@@ -1447,6 +1449,32 @@ function buildAdminSlashCommands() {
       name: 'sync',
       description: localizeText({ fr: 'Synchroniser les rôles de rang PL', en: 'Synchronize PL rank roles' }),
       dm_permission: false
+    },
+    {
+      name: 'addplayer',
+      description: localizeText({ fr: 'Ajouter le rôle joueur PL', en: 'Add PL player role' }),
+      dm_permission: false,
+      options: [
+        {
+          name: 'player',
+          description: localizeText({ fr: 'Joueur ciblé', en: 'Target player' }),
+          type: ApplicationCommandOptionType.User,
+          required: true
+        }
+      ]
+    },
+    {
+      name: 'removeplayer',
+      description: localizeText({ fr: 'Retirer le rôle joueur PL', en: 'Remove PL player role' }),
+      dm_permission: false,
+      options: [
+        {
+          name: 'player',
+          description: localizeText({ fr: 'Joueur ciblé', en: 'Target player' }),
+          type: ApplicationCommandOptionType.User,
+          required: true
+        }
+      ]
     }
   ];
 }
@@ -1506,7 +1534,7 @@ async function handleAdminSlashCommand(interaction) {
   }
 
   const command = interaction.commandName;
-  if (!['addelo', 'removeelo', 'setws', 'setls', 'banpl', 'cancelmatch', 'sync'].includes(command)) {
+  if (!['addelo', 'removeelo', 'setws', 'setls', 'banpl', 'cancelmatch', 'sync', 'addplayer', 'removeplayer'].includes(command)) {
     return false;
   }
 
@@ -1661,6 +1689,90 @@ async function handleAdminSlashCommand(interaction) {
       ),
       flags: MessageFlags.Ephemeral
     });
+
+    return true;
+  }
+
+  if (command === 'addplayer' || command === 'removeplayer') {
+    if (!interaction.guild) {
+      await interaction.reply({
+        content: localizeText({
+          fr: 'Cette commande doit être utilisée dans le serveur.',
+          en: 'This command must be used in the server.'
+        }),
+        flags: MessageFlags.Ephemeral
+      });
+      return true;
+    }
+
+    const targetUser = interaction.options.getUser('player', true);
+    const member = await interaction.guild.members.fetch(targetUser.id).catch(() => null);
+
+    if (!member) {
+      await interaction.reply({
+        content: localizeText({ fr: 'Joueur introuvable sur le serveur.', en: 'Player not found in this server.' }),
+        flags: MessageFlags.Ephemeral
+      });
+      return true;
+    }
+
+    const shouldAdd = command === 'addplayer';
+    const hasRole = member.roles.cache.has(PL_PLAYER_ROLE_ID);
+
+    if (shouldAdd && hasRole) {
+      await interaction.reply({
+        content: localizeText({
+          fr: 'Ce joueur possède déjà le rôle joueur PL.',
+          en: 'This player already has the PL player role.'
+        }),
+        flags: MessageFlags.Ephemeral
+      });
+      return true;
+    }
+
+    if (!shouldAdd && !hasRole) {
+      await interaction.reply({
+        content: localizeText({
+          fr: 'Ce joueur ne possède pas le rôle joueur PL.',
+          en: 'This player does not have the PL player role.'
+        }),
+        flags: MessageFlags.Ephemeral
+      });
+      return true;
+    }
+
+    try {
+      if (shouldAdd) {
+        await member.roles.add(PL_PLAYER_ROLE_ID, 'Commande /addplayer');
+      } else {
+        await member.roles.remove(PL_PLAYER_ROLE_ID, 'Commande /removeplayer');
+      }
+
+      await interaction.reply({
+        content: localizeText(
+          shouldAdd
+            ? {
+                fr: '✅ Rôle joueur PL ajouté à <@{userId}>.',
+                en: '✅ PL player role added to <@{userId}>.'
+              }
+            : {
+                fr: '✅ Rôle joueur PL retiré à <@{userId}>.',
+                en: '✅ PL player role removed from <@{userId}>.'
+              },
+          { userId: targetUser.id }
+        ),
+        flags: MessageFlags.Ephemeral
+      });
+    } catch (err) {
+      errorLog(`Failed to ${shouldAdd ? 'add' : 'remove'} PL player role:`, err);
+      await interaction.reply({
+        content: localizeText({
+          fr: `❌ Impossible de ${shouldAdd ? 'donner' : 'retirer'} le rôle joueur PL.`,
+          en: `❌ Unable to ${shouldAdd ? 'grant' : 'remove'} the PL player role.`
+        }),
+        flags: MessageFlags.Ephemeral
+      });
+    }
 
     return true;
   }
@@ -1974,7 +2086,12 @@ function hasPLAdminAccess(interaction) {
     return true;
   }
 
-  return Boolean(interaction.member?.roles?.cache?.has(PL_ADMIN_ROLE_ID));
+  const roleCache = interaction.member?.roles?.cache;
+  if (!roleCache) {
+    return false;
+  }
+
+  return roleCache.has(PL_ADMIN_ROLE_ID) || roleCache.has(SECONDARY_PL_ADMIN_ROLE_ID);
 }
 
 function formatDurationMinutes(ms) {
