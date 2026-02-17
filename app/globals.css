@@ -115,7 +115,7 @@
   --secondary-scale: 1;
   --secondary-opacity: 1;
   --dominant-border: rgba(201, 178, 106, 0.35);
-  --site-background: none;
+  --site-background: url("/Montagne.webp");
   --ambience-image: var(--site-background);
   --hero-image: var(--site-background);
 }
