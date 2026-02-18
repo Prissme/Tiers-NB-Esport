@@ -1524,7 +1524,7 @@ async function finalizeMatchOutcome(matchState, outcome, userId, clientRef, opti
   }
 
   await updateMatchMessage(clientRef, matchState, summary);
-  await cleanupMatchResources(matchState);
+  runInBackground('Match resource cleanup', () => cleanupMatchResources(matchState));
   return summary;
 }
 
@@ -5461,6 +5461,14 @@ async function updateMatchRecord(matchId, payload) {
   }
 }
 
+function runInBackground(taskName, task) {
+  Promise.resolve()
+    .then(task)
+    .catch((error) => {
+      errorLog(`${taskName} failed:`, error);
+    });
+}
+
 async function applyMatchOutcome(state, outcome, userId) {
   if (state.resolved) {
     return null;
@@ -5505,6 +5513,7 @@ async function applyMatchOutcome(state, outcome, userId) {
 
   const updates = [];
   const changes = [];
+  const shieldLogLines = [];
 
   for (const player of state.teams.blue) {
     const currentRating = normalizeRating(player.soloElo);
@@ -5522,12 +5531,12 @@ async function applyMatchOutcome(state, outcome, userId) {
     if (crossedThreshold) {
       player.shieldActive = true;
       player.shieldThreshold = crossedThreshold;
-      await sendLogMessage(`🛡️ Shield activé pour ${player.displayName} au seuil ${crossedThreshold} Elo`);
+      shieldLogLines.push(`🛡️ Shield activé pour ${player.displayName} au seuil ${crossedThreshold} Elo`);
     }
 
     if (player.shieldActive && newRating < player.shieldThreshold) {
       const shieldedRating = player.shieldThreshold;
-      await sendLogMessage(`🛡️ Shield utilisé pour ${player.displayName} : ${newRating} → ${shieldedRating}`);
+      shieldLogLines.push(`🛡️ Shield utilisé pour ${player.displayName} : ${newRating} → ${shieldedRating}`);
       newRating = shieldedRating;
       player.shieldActive = false;
       player.shieldThreshold = 0;
@@ -5581,12 +5590,12 @@ async function applyMatchOutcome(state, outcome, userId) {
     if (crossedThreshold) {
       player.shieldActive = true;
       player.shieldThreshold = crossedThreshold;
-      await sendLogMessage(`🛡️ Shield activé pour ${player.displayName} au seuil ${crossedThreshold} Elo`);
+      shieldLogLines.push(`🛡️ Shield activé pour ${player.displayName} au seuil ${crossedThreshold} Elo`);
     }
 
     if (player.shieldActive && newRating < player.shieldThreshold) {
       const shieldedRating = player.shieldThreshold;
-      await sendLogMessage(`🛡️ Shield utilisé pour ${player.displayName} : ${newRating} → ${shieldedRating}`);
+      shieldLogLines.push(`🛡️ Shield utilisé pour ${player.displayName} : ${newRating} → ${shieldedRating}`);
       newRating = shieldedRating;
       player.shieldActive = false;
       player.shieldThreshold = 0;
@@ -5684,14 +5693,22 @@ async function applyMatchOutcome(state, outcome, userId) {
     completed_at: new Date().toISOString()
   });
 
-  await Promise.all(
-    changes.map((change) => sendRankUpNotification(change.player, change.oldRating, change.newRating))
-  );
+  if (shieldLogLines.length > 0) {
+    runInBackground('Shield logging', () => sendLogMessage(shieldLogLines.join('\n')));
+  }
+
+  runInBackground('Rank-up notifications', async () => {
+    await Promise.all(
+      changes.map((change) => sendRankUpNotification(change.player, change.oldRating, change.newRating))
+    );
+  });
 
   if (guild) {
-    await Promise.all(
-      changes.map((change) => syncMemberRankRole(guild, change.player.discordId, change.newRating))
-    );
+    runInBackground('Rank role synchronization', async () => {
+      await Promise.all(
+        changes.map((change) => syncMemberRankRole(guild, change.player.discordId, change.newRating))
+      );
+    });
   }
 
   const winnerLine = localizeText(
@@ -6068,7 +6085,7 @@ async function handleInteraction(interaction) {
         components: [buildResultButtons(true)]
       });
 
-      await cleanupMatchResources(matchState);
+      runInBackground('Match resource cleanup', () => cleanupMatchResources(matchState));
 
       const mapLabel = matchState.primaryMap
         ? `${matchState.primaryMap.emoji} ${matchState.primaryMap.mode}`
