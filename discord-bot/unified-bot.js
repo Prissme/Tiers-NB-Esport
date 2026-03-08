@@ -2235,7 +2235,7 @@ function normalizeBestOfInput(value) {
 }
 
 function getKFactorForBestOf() {
-  return 40;
+  return 80;
 }
 
 function getVolatilityMultiplierForRating(rating) {
