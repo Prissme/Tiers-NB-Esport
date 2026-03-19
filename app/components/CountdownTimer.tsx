@@ -9,7 +9,7 @@ const TARGETS = [
       fr: "LFN SAISON 5",
       en: "LFN SEASON 5",
     },
-    timestamp: new Date("2026-02-14T20:00:00+01:00").getTime(),
+    timestamp: new Date("2026-04-01T18:00:00+02:00").getTime(),
   },
 ] as const;
 

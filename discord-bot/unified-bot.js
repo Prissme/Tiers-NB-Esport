@@ -120,6 +120,15 @@ const PUBLIC_TIER_ROLE_LOOKUP = [
   { roleId: '1482720488529727498', tier: 'Tier E', emoji: '<:TierE:1482723920309260439>' }
 ];
 
+const PUBLIC_TIER_COLORS = {
+  'Tier S': 0xf1c40f,
+  'Tier A': 0xe67e22,
+  'Tier B': 0x9b59b6,
+  'Tier C': 0x3498db,
+  'Tier D': 0x2ecc71,
+  'Tier E': 0x95a5a6
+};
+
 const BRONZE_EMOJI = '<:Bronze:1439605520729116702>';
 const SILVER_EMOJI = '<:Silver:1439995612069101681>';
 const GOLD_EMOJI = '<:GoldPL:1468675832334520350>';
@@ -4685,8 +4694,32 @@ async function handleTierCommand(message) {
     return;
   }
 
+  const tierRole = await message.guild.roles.fetch(detectedTier.roleId).catch(() => null);
+  const sameTierCount = tierRole?.members?.size || 0;
+
   await message.reply({
-    content: `${detectedTier.tier} ${detectedTier.emoji}`
+    embeds: [
+      new EmbedBuilder()
+        .setColor(PUBLIC_TIER_COLORS[detectedTier.tier] || 0x00b894)
+        .setTitle(`${detectedTier.emoji}  ${detectedTier.tier.toUpperCase()}`)
+        .setDescription(`**${sameTierCount}** personne(s) ont le même tier que toi.`)
+        .setThumbnail(message.author.displayAvatarURL({ extension: 'png', size: 256 }))
+    ]
+  });
+}
+
+async function handleLfnCommand(message) {
+  await message.reply({
+    embeds: [
+      new EmbedBuilder()
+        .setColor(0xe39f30)
+        .setTitle('LFN Esports — Ligue francophone')
+        .setDescription(
+          'La LFN est une compétition Brawl Stars francophone organisée sur plusieurs saisons, avec classement, matchs et suivi des équipes.'
+        )
+        .addFields({ name: 'Site officiel', value: 'https://www.lfn-esports.fr/' })
+        .setURL('https://www.lfn-esports.fr/')
+    ]
   });
 }
 
@@ -5084,6 +5117,7 @@ async function handleHelpCommand(message) {
     '`!leave` — Quitter la file d\'attente',
     '`!queue` — Voir la file PL avec le rang des joueurs',
     '`!tier` — Voir ton tier selon tes rôles Discord',
+    '`!lfn` — Présentation de la compétition + lien du site',
     '`!elo [@joueur]` — Afficher le classement Elo',
     '`!ranks` — Voir ta progression Elo vers Verdoyant',
     '`!last` — Afficher le joueur avec le moins d\'Elo',
@@ -6926,7 +6960,11 @@ async function handleMessage(message) {
         await handleTierSyncCommand(message, args);
         break;
       case 'tier':
+      case 'ier':
         await handleTierCommand(message, args);
+        break;
+      case 'lfn':
+        await handleLfnCommand(message, args);
         break;
       case 'teams':
         await handleTeamsCommand(message, args);
