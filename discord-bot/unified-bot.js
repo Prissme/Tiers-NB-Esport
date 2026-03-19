@@ -111,6 +111,15 @@ const TIER_EMOJIS = {
   E: '<:tiere:1382755993695555626>'
 };
 
+const PUBLIC_TIER_ROLE_LOOKUP = [
+  { roleId: '1482720508813512814', tier: 'Tier S', emoji: '<:TierS:1482724565657321594>' },
+  { roleId: '1482720488529727498', tier: 'Tier A', emoji: '<:TierA:1482724563874877592>' },
+  { roleId: '1482720438751723621', tier: 'Tier B', emoji: '<:TierB:1482724560993259651>' },
+  { roleId: '1482720402428924047', tier: 'Tier C', emoji: '<:TierC:1482724558015299706>' },
+  { roleId: '1482720374713094164', tier: 'Tier D', emoji: '<:TierD:1482724568387817484>' },
+  { roleId: '1482720488529727498', tier: 'Tier E', emoji: '<:TierE:1482723920309260439>' }
+];
+
 const BRONZE_EMOJI = '<:Bronze:1439605520729116702>';
 const SILVER_EMOJI = '<:Silver:1439995612069101681>';
 const GOLD_EMOJI = '<:GoldPL:1468675832334520350>';
@@ -4663,6 +4672,24 @@ async function handleTierSyncCommand(message) {
   }
 }
 
+async function handleTierCommand(message) {
+  const roleCache = message.member?.roles?.cache;
+  if (!roleCache) {
+    await message.reply({ content: 'No-Tier' });
+    return;
+  }
+
+  const detectedTier = PUBLIC_TIER_ROLE_LOOKUP.find(({ roleId }) => roleCache.has(roleId));
+  if (!detectedTier) {
+    await message.reply({ content: 'No-Tier' });
+    return;
+  }
+
+  await message.reply({
+    content: `${detectedTier.tier} ${detectedTier.emoji}`
+  });
+}
+
 async function handleEnglishCommand(message, args) {
   const option = (args[0] || '').toLowerCase();
 
@@ -5056,6 +5083,7 @@ async function handleHelpCommand(message) {
     '`!join` — Rejoindre la file de matchmaking',
     '`!leave` — Quitter la file d\'attente',
     '`!queue` — Voir la file PL avec le rang des joueurs',
+    '`!tier` — Voir ton tier selon tes rôles Discord',
     '`!elo [@joueur]` — Afficher le classement Elo',
     '`!ranks` — Voir ta progression Elo vers Verdoyant',
     '`!last` — Afficher le joueur avec le moins d\'Elo',
@@ -6896,6 +6924,9 @@ async function handleMessage(message) {
         break;
       case 'tiers':
         await handleTierSyncCommand(message, args);
+        break;
+      case 'tier':
+        await handleTierCommand(message, args);
         break;
       case 'teams':
         await handleTeamsCommand(message, args);
