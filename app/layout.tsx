@@ -45,7 +45,7 @@ export const metadata: Metadata = {
     url: "https://www.lfn-esports.fr/",
     images: [
       {
-        url: "/og-image.svg",
+        url: "/Montagne.webp",
         width: 1200,
         height: 630,
         alt: "LFN — Ligue francophone",
@@ -57,7 +57,7 @@ export const metadata: Metadata = {
     title: "LFN — Ligue francophone",
     description:
       "LFN — Ligue francophone. Accès sur sélection, saisons encadrées, classement officiel.",
-    images: ["/og-image.svg"],
+    images: ["/Montagne.webp"],
   },
 };
 
