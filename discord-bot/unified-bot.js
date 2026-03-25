@@ -44,8 +44,8 @@ const DODGE_VOTES_REQUIRED = 4;
 const DODGE_ELO_PENALTY = 30;
 const DODGE_QUEUE_LOCK_MS = 60 * 60 * 1000;
 const ROOM_TIER_ORDER = ['E', 'D', 'C', 'B', 'A', 'S'];
-const BEST_OF_VALUES = [1, 3, 5];
-const DEFAULT_MATCH_BEST_OF = normalizeBestOfInput(process.env.DEFAULT_MATCH_BEST_OF) || 1;
+const BEST_OF_VALUES = [3];
+const DEFAULT_MATCH_BEST_OF = normalizeBestOfInput(process.env.DEFAULT_MATCH_BEST_OF) || 3;
 const MAX_QUEUE_ELO_DIFFERENCE = 175;
 const MAX_MATCHMAKING_MAJOR_RANK_GAP = 3;
 const PL_QUEUE_CHANNEL_ID = '1442580781527732334';
@@ -5972,8 +5972,8 @@ async function handleInteraction(interaction) {
 
       const bestOfInput = new TextInputBuilder()
         .setCustomId('bestOf')
-        .setLabel(localizeText({ fr: 'Format (bo1/bo3/bo5)', en: 'Format (bo1/bo3/bo5)' }))
-        .setPlaceholder(localizeText({ fr: 'Exemple : bo3', en: 'Example: bo3' }))
+        .setLabel(localizeText({ fr: 'Format (bo3 uniquement)', en: 'Format (bo3 only)' }))
+        .setPlaceholder(localizeText({ fr: 'bo3', en: 'bo3' }))
         .setMaxLength(3)
         .setRequired(true)
         .setStyle(TextInputStyle.Short);
@@ -6595,8 +6595,8 @@ async function handleInteraction(interaction) {
       pendingRoomForms.delete(requestId);
       await interaction.reply({
         content: localizeText({
-          fr: 'Le format doit être bo1, bo3 ou bo5.',
-          en: 'The format must be bo1, bo3, or bo5.'
+          fr: 'Le format doit être bo3.',
+          en: 'The format must be bo3.'
         }),
         flags: MessageFlags.Ephemeral
       });
@@ -6906,10 +6906,7 @@ async function handleMessage(message) {
   const command = commandName.toLowerCase();
 
   // === COMMANDES TEMPORAIREMENT DÉSACTIVÉES POUR SIMPLIFICATION ===
-  const disabledCommands = new Set([
-    'maps',
-    'teams'
-  ]);
+  const disabledCommands = new Set(['teams']);
 
   if (disabledCommands.has(command)) {
     await message.reply({
