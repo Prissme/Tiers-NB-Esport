@@ -4,127 +4,82 @@ import { getLocale } from "../lib/i18n";
 
 export const metadata: Metadata = {
   title: "Règlement",
-  description: "Règlement officiel de la ligue LFN.",
+  description: "Rulebook officiel du système de tiers Prissme TV.",
 };
 
 const rulesSections = {
   fr: [
     {
-      title: "Comportement",
+      title: "1. Objectif du système",
       items: [
-        "Respect obligatoire entre joueurs.",
-        "Interdit : trash-talk excessif, insultes, propos haineux.",
-        "Autorisés : pouces rouges et emotes toxiques, sans messages insultants.",
+        "Le système de tiers Prissme TV structure la scène compétitive Null's Brawl.",
+        "Le classement repose sur la performance, la régularité et la difficulté des résultats.",
       ],
     },
     {
-      title: "Équipes & Roster",
+      title: "2. Structure des tiers",
       items: [
-        "3 titulaires, jusqu’à 2 remplaçants (SUB).",
-        "Roster annoncé avant le début de la ligue.",
+        "No Tier, Tier E, Tier D, Tier C, Tier B, Tier A, Tier S.",
+        "Tout nouveau joueur commence en No Tier.",
       ],
     },
     {
-      title: "Coachs & Managers",
+      title: "3. Accès au système",
       items: [
-        "Coachs et managers ne jouent pas.",
-        "Pas de double rôle coach/joueur, sauf exception.",
-        "Exception possible en dernier recours, avec accord de l’organisation.",
+        "Entrée après 3 victoires validées OU une demi-finale minimum en tournoi.",
+        "Le joueur validé entre en Tier E avec 0 point.",
       ],
     },
     {
-      title: "Changements & Remplacements",
+      title: "4–6. Points & victoires",
       items: [
-        "Max 2 changements.",
-        "Remplacements uniquement parmi les SUB.",
-        "Pas de remplacement en cours de match.",
+        "Même tier: +1 point.",
+        "Tier supérieur: +3 points.",
+        "Tier inférieur: 0 point.",
       ],
     },
     {
-      title: "Déroulement des matchs",
+      title: "7. Système 3v3 (niveau équipe)",
       items: [
-        "Matchs en modes 3c3 officiels.",
-        "Maps et modes communiqués à l’avance.",
-        "Retard important = sanction. 15 min : point adverse, +5 min : 2-0, +5 min : 3-0.",
+        "No Tier=0, E=1, D=2, C=3, B=4, A=5, S=6.",
+        "Niveau équipe = moyenne des 3 joueurs arrondie à l'inférieur.",
       ],
     },
     {
-      title: "Bugs & Litiges",
+      title: "8–9. Compétitions et LFN",
       items: [
-        "Bug/déconnexion justifiée : match rejoué (2 dodges = 1 point adverse).",
-        "Tout abus sera sanctionné.",
-        "Décisions des organisateurs définitives.",
+        "Tournoi 8 équipes: demi +1, finale +2, victoire +3.",
+        "Tournoi 16 équipes: quart +1, demi +2, finale +3, victoire +4.",
+        "LFN: quart +3, demi +5, finale +7, victoire +10.",
       ],
     },
     {
-      title: "Rename",
-      items: ["Initiales du pseudo obligatoires dans le nom (sinon -1 point)."],
+      title: "10–11. Descente & inactivité",
+      items: [
+        "3 défaites de suite: -2 points. 5 défaites de suite: -5 points.",
+        "Inactivité: 7j -2, 14j -5, 21j -10.",
+        "Si un joueur passe sous le seuil du tier: descente automatique.",
+      ],
     },
     {
-      title: "Acceptation du règlement",
+      title: "12–15. Tier S, anti-abus et philosophie",
       items: [
-        "Participation = acceptation du règlement.",
-        "L’organisation peut modifier le règlement si nécessaire.",
+        "Tier S réservé au top 3 global (perte automatique en sortie du top 3).",
+        "Le système anti-abus limite le farm de joueurs faibles et de petits tournois.",
+        "Valeurs clés: mérite, régularité, difficulté.",
+        "Participer implique l'acceptation du règlement officiel Prissme TV.",
       ],
     },
   ],
   en: [
     {
-      title: "Behavior",
+      title: "Official Prissme TV Rulebook",
       items: [
-        "Mandatory respect between players.",
-        "Forbidden: excessive trash talk, insults, hateful speech.",
-        "Allowed: red thumbs and toxic emotes, without insulting messages.",
-      ],
-    },
-    {
-      title: "Teams & Roster",
-      items: [
-        "3 starters, up to 2 substitutes (SUB).",
-        "Roster announced before the league starts.",
-      ],
-    },
-    {
-      title: "Coaches & Managers",
-      items: [
-        "Coaches and managers do not play.",
-        "No double coach/player role, except by exception.",
-        "Exception possible as a last resort, with organizer approval.",
-      ],
-    },
-    {
-      title: "Changes & Substitutions",
-      items: [
-        "Max 2 changes.",
-        "Substitutions only among SUB.",
-        "No substitution during a match.",
-      ],
-    },
-    {
-      title: "Match flow",
-      items: [
-        "Matches in official 3v3 modes.",
-        "Maps and modes communicated in advance.",
-        "Significant delay = penalty. 15 min: opponent point, +5 min: 2-0, +5 min: 3-0.",
-      ],
-    },
-    {
-      title: "Bugs & Disputes",
-      items: [
-        "Justified bug/disconnect: match replayed (2 dodges = 1 opponent point).",
-        "Any abuse will be sanctioned.",
-        "Organizers' decisions are final.",
-      ],
-    },
-    {
-      title: "Rename",
-      items: ["Nickname initials required in the name (otherwise -1 point)."],
-    },
-    {
-      title: "Rule acceptance",
-      items: [
-        "Participation = acceptance of the rules.",
-        "The organization may modify the rules if necessary.",
+        "7 tiers: No Tier, E, D, C, B, A, S.",
+        "Access: 3 validated wins or at least a tournament semifinal.",
+        "Points from wins and tournaments define each tier.",
+        "Tier S is reserved for global top 3 players.",
+        "Inactivity and losing streaks remove points.",
       ],
     },
   ],
@@ -135,15 +90,16 @@ export default function ReglementPage() {
   const content = {
     fr: {
       kicker: "Règlement",
-      title: "Règlement LFN",
-      description: "Règles officielles de la ligue.",
+      title: "Rulebook officiel — Système de tiers Prissme TV",
+      description: "Version officielle appliquée à la compétition LFN sur Null's Brawl.",
     },
     en: {
       kicker: "Rules",
-      title: "LFN Rules",
-      description: "Official league rules.",
+      title: "Official Rulebook — Prissme TV Tier System",
+      description: "Official version used for LFN competition on Null's Brawl.",
     },
   }[locale];
+
   return (
     <div className="page-stack">
       <section className="surface-dominant dominant-section">
@@ -157,13 +113,8 @@ export default function ReglementPage() {
           <div className="signal-divider" />
           <div className="grid gap-6 lg:grid-cols-2">
             {rulesSections[locale].map((section) => (
-              <div
-                key={section.title}
-                className="surface-flat space-y-3"
-              >
-                <p className="text-xs uppercase tracking-[0.35em] text-utility">
-                  {section.title}
-                </p>
+              <div key={section.title} className="surface-flat space-y-3">
+                <p className="text-xs uppercase tracking-[0.35em] text-utility">{section.title}</p>
                 <ul className="space-y-2 text-sm text-white">
                   {section.items.map((item) => (
                     <li key={item} className="flex gap-2">

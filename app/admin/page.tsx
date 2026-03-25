@@ -12,6 +12,7 @@ const tabs = [
   { id: "resultats", label: "Résultats" },
   { id: "teams", label: "Teams" },
   { id: "classement", label: "Classement" },
+  { id: "joueurs", label: "Joueurs" },
 ];
 
 type Team = {
@@ -24,6 +25,14 @@ type Season = {
   id: string;
   name?: string | null;
   label?: string | null;
+};
+
+type TierPlayer = {
+  id: string;
+  name: string;
+  tier: string;
+  mmr: number;
+  points: number;
 };
 
 const getMatchDate = (match: MatchRecord) => match.scheduled_at ?? match.start_time ?? match.played_at;
@@ -42,6 +51,8 @@ export default function AdminPage() {
   const [teams, setTeams] = useState<Team[]>([]);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [tierPlayers, setTierPlayers] = useState<TierPlayer[]>([]);
+  const [updatingPlayerId, setUpdatingPlayerId] = useState<string | null>(null);
 
   const fetchAllMatches = async (seasonOverride?: string | null) => {
     let query = supabase
@@ -83,6 +94,40 @@ export default function AdminPage() {
     }
   };
 
+
+
+  const fetchTierPlayers = async () => {
+    try {
+      const response = await fetch("/api/site/player-standings", { cache: "no-store" });
+      const payload = (await response.json()) as { players?: TierPlayer[] };
+      setTierPlayers(payload.players ?? []);
+    } catch (error) {
+      console.error("Unable to load tier players", error);
+      setTierPlayers([]);
+    }
+  };
+
+  const updatePlayerPoints = async (playerId: string, points: number) => {
+    setUpdatingPlayerId(playerId);
+    try {
+      const response = await fetch("/api/admin/player-standings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ playerId, points }),
+      });
+      if (!response.ok) {
+        const payload = (await response.json()) as { error?: string };
+        setErrorMessage(payload.error ?? "Impossible de mettre à jour les points.");
+        return;
+      }
+      await fetchTierPlayers();
+    } catch (error) {
+      console.error("Unable to update player points", error);
+      setErrorMessage("Impossible de mettre à jour les points.");
+    } finally {
+      setUpdatingPlayerId(null);
+    }
+  };
   const checkAdmin = async () => {
     try {
       const response = await fetch("/api/admin/session", { cache: "no-store" });
@@ -101,6 +146,7 @@ export default function AdminPage() {
     checkAdmin();
     fetchSeasons();
     fetchTeams();
+    fetchTierPlayers();
   }, []);
 
   useEffect(() => {
@@ -372,6 +418,78 @@ export default function AdminPage() {
                     <td className="px-3 py-2">{team.diff}</td>
                   </tr>
                 ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
+
+
+      {activeTab === "joueurs" && (
+        <section className="secondary-section surface-card--soft">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs uppercase tracking-[0.3em] text-utility">Joueurs</p>
+              <h3 className="text-lg font-semibold text-white">Classement joueurs (tiers Prissme TV)</h3>
+            </div>
+          </div>
+          <div className="mt-4 overflow-x-auto">
+            <table className="surface-table text-sm text-white/80">
+              <thead className="surface-table__header text-xs uppercase text-white/40">
+                <tr>
+                  <th className="px-3 py-2 text-left">#</th>
+                  <th className="px-3 py-2 text-left">Pseudo</th>
+                  <th className="px-3 py-2 text-left">Tier</th>
+                  <th className="px-3 py-2 text-left">MMR</th>
+                  <th className="px-3 py-2 text-left">Points</th>
+                </tr>
+              </thead>
+              <tbody>
+                {tierPlayers.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="px-3 py-4 text-center text-white/40">
+                      Aucun joueur avec tier actif.
+                    </td>
+                  </tr>
+                ) : (
+                  tierPlayers.map((player, index) => (
+                    <tr key={player.id} className="surface-table__row">
+                      <td className="px-3 py-2">{index + 1}</td>
+                      <td className="px-3 py-2">{player.name}</td>
+                      <td className="px-3 py-2">{player.tier}</td>
+                      <td className="px-3 py-2">{player.mmr}</td>
+                      <td className="px-3 py-2">
+                        <form
+                          className="flex items-center gap-2"
+                          onSubmit={(event) => {
+                            event.preventDefault();
+                            const formData = new FormData(event.currentTarget);
+                            const value = Number(formData.get("points"));
+                            if (!Number.isInteger(value)) {
+                              setErrorMessage("Les points doivent être un nombre entier.");
+                              return;
+                            }
+                            updatePlayerPoints(player.id, value);
+                          }}
+                        >
+                          <input
+                            type="number"
+                            name="points"
+                            defaultValue={player.points}
+                            className="w-24 rounded-md border border-white/15 bg-black/30 px-2 py-1 text-white"
+                          />
+                          <button
+                            type="submit"
+                            disabled={updatingPlayerId === player.id}
+                            className="surface-pill surface-pill--active px-3 py-1 text-xs font-semibold text-black disabled:opacity-50"
+                          >
+                            {updatingPlayerId === player.id ? "..." : "Sauver"}
+                          </button>
+                        </form>
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
