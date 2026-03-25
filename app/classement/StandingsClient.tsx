@@ -8,6 +8,16 @@ import { teams as fallbackTeams } from "../../src/data";
 import type { Locale } from "../lib/i18n";
 import ReloadingImage from "../components/ReloadingImage";
 
+
+
+type PlayerStanding = {
+  id: string;
+  name: string;
+  tier: string;
+  points: number;
+  mmr: number;
+};
+
 const mapFallbackTeams = (): SiteTeam[] =>
   fallbackTeams.map((team) => ({
     id: team.id,
@@ -56,6 +66,12 @@ const copy = {
     bronze: "Bronze",
     points: "Points",
     pointsShort: "pts",
+    playersKicker: "Joueurs",
+    playersTitle: "Top joueurs (tiers Prissme TV)",
+    playersDescription: "Classement des joueurs avec rôle de tier.",
+    playerName: "Pseudo",
+    playerTier: "Tier",
+    emptyPlayers: "Aucun joueur tier enregistré.",
   },
   en: {
     info: "Information",
@@ -73,6 +89,12 @@ const copy = {
     bronze: "Bronze",
     points: "Points",
     pointsShort: "pts",
+    playersKicker: "Players",
+    playersTitle: "Top players (Prissme TV tiers)",
+    playersDescription: "Ranking of players with a tier role.",
+    playerName: "Nickname",
+    playerTier: "Tier",
+    emptyPlayers: "No tier players found.",
   },
 };
 
@@ -83,6 +105,7 @@ export default function StandingsClient({ locale }: { locale: Locale }) {
   const [loading, setLoading] = useState(true);
   const [source, setSource] = useState<"supabase" | "fallback">("supabase");
   const [activeDivision, setActiveDivision] = useState<string | null>(null);
+  const [playerStandings, setPlayerStandings] = useState<PlayerStanding[]>([]);
 
   const teamFallbackStandings = useMemo<SiteStandingsRow[]>(() => {
     return teams.map((team) => ({
@@ -112,23 +135,27 @@ export default function StandingsClient({ locale }: { locale: Locale }) {
         const seasonId = seasonPayload.season?.id;
         const query = seasonId ? `?season=${seasonId}` : "";
 
-        const [standingsResponse, teamsResponse] = await Promise.all([
+        const [standingsResponse, teamsResponse, playerStandingsResponse] = await Promise.all([
           fetch(`/api/site/standings${query}`, { cache: "no-store" }),
           fetch(`/api/site/teams${query}`, { cache: "no-store" }),
+          fetch("/api/site/player-standings", { cache: "no-store" }),
         ]);
         const standingsPayload = (await standingsResponse.json()) as {
           standings?: SiteStandingsRow[];
         };
         const teamsPayload = (await teamsResponse.json()) as { teams?: SiteTeam[] };
+        const playersPayload = (await playerStandingsResponse.json()) as { players?: PlayerStanding[] };
         if (mounted) {
           const nextStandings = standingsPayload.standings ?? [];
           const nextTeams = teamsPayload.teams ?? [];
           if (nextStandings.length === 0 && nextTeams.length === 0) {
             setTeams(mapFallbackTeams());
             setSource("fallback");
+            setPlayerStandings(playersPayload.players ?? []);
           } else {
             setStandings(nextStandings);
             setTeams(nextTeams.length ? nextTeams : mapFallbackTeams());
+            setPlayerStandings(playersPayload.players ?? []);
           }
         }
       } catch (error) {
@@ -136,6 +163,7 @@ export default function StandingsClient({ locale }: { locale: Locale }) {
         if (mounted) {
           setTeams(mapFallbackTeams());
           setSource("fallback");
+          setPlayerStandings([]);
         }
       } finally {
         if (mounted) {
@@ -366,6 +394,48 @@ export default function StandingsClient({ locale }: { locale: Locale }) {
           );
         }
       )}
+
+      <div className="signal-divider" />
+      <div className="space-y-4">
+        <SectionHeader
+          kicker={content.playersKicker}
+          title={content.playersTitle}
+          description={content.playersDescription}
+          tone="dominant"
+        />
+        <div className="overflow-x-auto rounded-xl border border-white/10">
+          <table className="surface-table min-w-full text-sm text-white/80">
+            <thead className="surface-table__header text-xs uppercase text-white/40">
+              <tr>
+                <th className="px-3 py-2 text-left">#</th>
+                <th className="px-3 py-2 text-left">{content.playerName}</th>
+                <th className="px-3 py-2 text-left">{content.playerTier}</th>
+                <th className="px-3 py-2 text-left">MMR</th>
+                <th className="px-3 py-2 text-left">{content.points}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {playerStandings.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="px-3 py-4 text-center text-white/40">
+                    {content.emptyPlayers}
+                  </td>
+                </tr>
+              ) : (
+                playerStandings.slice(0, 50).map((player, index) => (
+                  <tr key={player.id} className="surface-table__row">
+                    <td className="px-3 py-2">{index + 1}</td>
+                    <td className="px-3 py-2 text-white/90">{player.name}</td>
+                    <td className="px-3 py-2">{player.tier}</td>
+                    <td className="px-3 py-2">{player.mmr}</td>
+                    <td className="px-3 py-2 font-semibold">{player.points}</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
     </section>
   );
 }
