@@ -25,23 +25,32 @@ const toNumber = (value: unknown) => {
   return Number.isNaN(parsed) ? null : parsed;
 };
 
+const getSeasonStartTs = (row: Record<string, unknown>) => {
+  const startValue = row.starts_at ?? row.start_date ?? row.created_at ?? null;
+  if (!startValue) return 0;
+  const ts = Date.parse(String(startValue));
+  return Number.isNaN(ts) ? 0 : ts;
+};
+
 const getCurrentSeasonId = async (
   supabase: ReturnType<typeof withSchema>
 ): Promise<string | null> => {
   const { data, error } = await supabase
     .from("lfn_seasons")
-    .select("id,status,starts_at")
-    .order("starts_at", { ascending: true });
+    .select("*");
 
   if (error) {
     console.warn("/api/site/standings seasons error", error);
     return null;
   }
 
-  const seasons = (data ?? []).map((row) => ({
-    id: String(row.id ?? ""),
-    status: row.status ? String(row.status) : "upcoming",
-  }));
+  const seasons = (data ?? [])
+    .map((row) => row as Record<string, unknown>)
+    .sort((a, b) => getSeasonStartTs(a) - getSeasonStartTs(b))
+    .map((row) => ({
+      id: String(row.id ?? ""),
+      status: row.status ? String(row.status) : "upcoming",
+    }));
   const active = seasons.find((season) => season.status === "active");
   const upcoming = seasons.filter((season) => season.status === "upcoming");
   return active?.id ?? upcoming[0]?.id ?? seasons[0]?.id ?? null;
