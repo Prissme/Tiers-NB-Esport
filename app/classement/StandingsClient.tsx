@@ -27,21 +27,17 @@ const tierImageByName: Record<string, string> = {
   "Tier E": "/TierE.webp",
 };
 
-const tierGlowByName: Record<string, string> = {
-  "Tier S": "from-fuchsia-300/40 via-indigo-300/10 to-transparent",
-  "Tier A": "from-amber-300/40 via-amber-100/10 to-transparent",
-  "Tier B": "from-sky-300/40 via-sky-100/10 to-transparent",
-  "Tier C": "from-emerald-300/35 via-emerald-100/10 to-transparent",
-  "Tier D": "from-orange-300/35 via-orange-100/10 to-transparent",
-  "Tier E": "from-slate-300/35 via-slate-100/10 to-transparent",
-};
-
 const toFlag = (countryCode?: string) => {
   const normalized = String(countryCode ?? "FR").trim().toUpperCase();
   if (!/^[A-Z]{2}$/.test(normalized)) return "🏳️";
   return String.fromCodePoint(
     ...Array.from(normalized).map((char) => 127397 + char.charCodeAt(0))
   );
+};
+
+const getDisplayedTier = (player: PlayerStanding) => {
+  if (player.points <= 0) return "No tier";
+  return player.tier;
 };
 
 const mapFallbackTeams = (): SiteTeam[] =>
@@ -93,7 +89,7 @@ const copy = {
     points: "Points",
     pointsShort: "pts",
     playersKicker: "Joueurs",
-    playersTitle: "Top joueurs (tiers Prissme TV)",
+    playersTitle: "Top joueurs",
     playersDescription: "Classement des joueurs avec rôle de tier.",
     playerName: "Pseudo",
     playerTier: "Tier",
@@ -116,7 +112,7 @@ const copy = {
     points: "Points",
     pointsShort: "pts",
     playersKicker: "Players",
-    playersTitle: "Top players (Prissme TV tiers)",
+    playersTitle: "Top players",
     playersDescription: "Ranking of players with a tier role.",
     playerName: "Nickname",
     playerTier: "Tier",
@@ -284,6 +280,122 @@ export default function StandingsClient({ locale }: { locale: Locale }) {
 
   return (
     <section className="section-card dominant-section space-y-10 border-0 bg-white/[0.03]">
+      <div className="space-y-4">
+        <SectionHeader
+          kicker={content.playersKicker}
+          title={content.playersTitle}
+          description={content.playersDescription}
+          tone="dominant"
+        />
+        <div className="grid items-end gap-4 md:grid-cols-3">
+          {[1, 0, 2].map((podiumIndex) => {
+            const player = topPlayers[podiumIndex];
+            if (!player) return <div key={`featured-empty-${podiumIndex}`} />;
+            const tierLabel = getDisplayedTier(player);
+            const tierImage = tierImageByName[player.tier] ?? "/TierE.webp";
+            const glow =
+              podiumIndex === 0
+                ? "from-amber-300/45 via-amber-100/20 to-transparent"
+                : podiumIndex === 1
+                  ? "from-slate-300/45 via-slate-100/20 to-transparent"
+                  : "from-amber-700/45 via-amber-900/20 to-transparent";
+            const rankBadgeStyle =
+              podiumIndex === 0
+                ? "bg-amber-300 text-black"
+                : podiumIndex === 1
+                  ? "bg-slate-200 text-slate-900"
+                  : "bg-amber-800 text-amber-100";
+            const heightClass =
+              podiumIndex === 0
+                ? "min-h-[260px] md:min-h-[320px]"
+                : podiumIndex === 1
+                  ? "min-h-[220px] md:min-h-[280px]"
+                  : "min-h-[200px] md:min-h-[250px]";
+            return (
+              <div
+                key={`featured-${player.id}`}
+                className={`relative flex flex-col justify-end overflow-hidden rounded-[18px] border border-white/10 bg-gradient-to-br ${glow} ${heightClass} p-6 shadow-[0_25px_60px_-40px_rgba(0,0,0,0.9)]`}
+              >
+                <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.2),transparent_60%)]" />
+                <div className="absolute inset-x-0 bottom-0 h-10 bg-white/10" />
+                <div className="relative z-10 space-y-4 pb-5 text-center">
+                  <div
+                    className={`mx-auto inline-flex items-center justify-center rounded-full px-4 py-1 text-[10px] uppercase tracking-[0.35em] ${rankBadgeStyle}`}
+                  >
+                    #{podiumIndex + 1}
+                  </div>
+                  <div className="mx-auto">
+                    <p className="text-lg font-semibold text-white">{player.name}</p>
+                    <p className="text-sm text-white/70">
+                      {toFlag(player.countryCode)} {player.countryCode ?? "FR"}
+                    </p>
+                  </div>
+                  <div className="mx-auto flex flex-col items-center gap-2">
+                    <ReloadingImage
+                      src={tierImage}
+                      alt={tierLabel}
+                      className="h-20 w-20 object-contain drop-shadow-[0_12px_20px_rgba(0,0,0,0.4)]"
+                      loading="lazy"
+                    />
+                    <span className="text-xs uppercase tracking-[0.2em] text-white/70">
+                      {tierLabel}
+                    </span>
+                    <p className="text-sm font-semibold text-white/90">
+                      {player.points} {content.pointsShort}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        <div className="overflow-x-auto rounded-xl border border-white/10 bg-black/20">
+          <table className="surface-table min-w-full text-sm text-white/80">
+            <thead className="surface-table__header text-xs uppercase text-white/40">
+              <tr>
+                <th className="px-3 py-2 text-left">#</th>
+                <th className="px-3 py-2 text-left">{content.playerName}</th>
+                <th className="px-3 py-2 text-left">Pays</th>
+                <th className="px-3 py-2 text-left">{content.playerTier}</th>
+                <th className="px-3 py-2 text-left">{content.points}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {topPlayers.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="px-3 py-4 text-center text-white/40">
+                    {content.emptyPlayers}
+                  </td>
+                </tr>
+              ) : (
+                topPlayers.map((player, index) => (
+                  <tr key={player.id} className="surface-table__row">
+                    <td className="px-3 py-2">{index + 1}</td>
+                    <td className="px-3 py-2 text-white/90">{player.name}</td>
+                    <td className="px-3 py-2">
+                      {toFlag(player.countryCode)} {player.countryCode ?? "FR"}
+                    </td>
+                    <td className="px-3 py-2">
+                      <div className="flex items-center gap-2">
+                        <ReloadingImage
+                          src={tierImageByName[player.tier] ?? "/TierE.webp"}
+                          alt={getDisplayedTier(player)}
+                          className="h-8 w-8 object-contain"
+                          loading="lazy"
+                        />
+                        <span>{getDisplayedTier(player)}</span>
+                      </div>
+                    </td>
+                    <td className="px-3 py-2 font-semibold">{player.points}</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div className="signal-divider" />
       <SectionHeader
         kicker={content.standingsKicker}
         title={content.standingsTitle}
@@ -442,95 +554,6 @@ export default function StandingsClient({ locale }: { locale: Locale }) {
           );
         }
       )}
-
-      <div className="signal-divider" />
-      <div className="space-y-4">
-        <SectionHeader
-          kicker={content.playersKicker}
-          title={content.playersTitle}
-          description={content.playersDescription}
-          tone="dominant"
-        />
-        <div className="grid gap-4 md:grid-cols-3">
-          {topPlayers.slice(0, 3).map((player, index) => {
-            const tierImage = tierImageByName[player.tier] ?? "/TierE.webp";
-            const glow = tierGlowByName[player.tier] ?? tierGlowByName["Tier E"];
-            return (
-              <div
-                key={`featured-${player.id}`}
-                className={`relative overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br ${glow} p-5`}
-              >
-                <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.2),transparent_60%)]" />
-                <div className="relative z-10 flex items-center justify-between gap-3">
-                  <div>
-                    <p className="text-xs uppercase tracking-[0.3em] text-white/60">#{index + 1}</p>
-                    <p className="mt-2 text-lg font-semibold text-white">{player.name}</p>
-                    <p className="text-sm text-white/70">
-                      {toFlag(player.countryCode)} {player.countryCode ?? "FR"}
-                    </p>
-                    <p className="mt-2 text-sm font-semibold text-white/90">
-                      {player.points} {content.pointsShort}
-                    </p>
-                  </div>
-                  <div className="flex flex-col items-center gap-2">
-                    <ReloadingImage
-                      src={tierImage}
-                      alt={player.tier}
-                      className="h-20 w-20 object-contain drop-shadow-[0_12px_20px_rgba(0,0,0,0.4)]"
-                      loading="lazy"
-                    />
-                    <span className="text-xs uppercase tracking-[0.2em] text-white/70">{player.tier}</span>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-        <div className="overflow-x-auto rounded-xl border border-white/10 bg-black/20">
-          <table className="surface-table min-w-full text-sm text-white/80">
-            <thead className="surface-table__header text-xs uppercase text-white/40">
-              <tr>
-                <th className="px-3 py-2 text-left">#</th>
-                <th className="px-3 py-2 text-left">{content.playerName}</th>
-                <th className="px-3 py-2 text-left">Pays</th>
-                <th className="px-3 py-2 text-left">{content.playerTier}</th>
-                <th className="px-3 py-2 text-left">{content.points}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {topPlayers.length === 0 ? (
-                <tr>
-                  <td colSpan={5} className="px-3 py-4 text-center text-white/40">
-                    {content.emptyPlayers}
-                  </td>
-                </tr>
-              ) : (
-                topPlayers.map((player, index) => (
-                  <tr key={player.id} className="surface-table__row">
-                    <td className="px-3 py-2">{index + 1}</td>
-                    <td className="px-3 py-2 text-white/90">{player.name}</td>
-                    <td className="px-3 py-2">
-                      {toFlag(player.countryCode)} {player.countryCode ?? "FR"}
-                    </td>
-                    <td className="px-3 py-2">
-                      <div className="flex items-center gap-2">
-                        <ReloadingImage
-                          src={tierImageByName[player.tier] ?? "/TierE.webp"}
-                          alt={player.tier}
-                          className="h-8 w-8 object-contain"
-                          loading="lazy"
-                        />
-                        <span>{player.tier}</span>
-                      </div>
-                    </td>
-                    <td className="px-3 py-2 font-semibold">{player.points}</td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
     </section>
   );
 }

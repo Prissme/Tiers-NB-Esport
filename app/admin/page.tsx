@@ -44,6 +44,8 @@ const countryOptions = [
   { code: "PT", label: "🇵🇹 Portugal" },
   { code: "DE", label: "🇩🇪 Allemagne" },
   { code: "IT", label: "🇮🇹 Italie" },
+  { code: "ES", label: "🇪🇸 Espagne" },
+  { code: "TR", label: "🇹🇷 Turquie" },
   { code: "CA", label: "🇨🇦 Canada" },
   { code: "MA", label: "🇲🇦 Maroc" },
   { code: "DZ", label: "🇩🇿 Algérie" },
