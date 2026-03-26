@@ -137,7 +137,7 @@ export default function AdminPage() {
       const response = await fetch("/api/admin/player-standings", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ playerId, points }),
+        body: JSON.stringify({ playerId, points, seasonId }),
       });
       if (!response.ok) {
         const payload = (await response.json()) as { error?: string };
@@ -164,7 +164,7 @@ export default function AdminPage() {
       const response = await fetch("/api/admin/player-standings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({ ...payload, seasonId }),
       });
       if (!response.ok) {
         const body = (await response.json()) as { error?: string };
