@@ -1,5 +1,5 @@
 import "./globals.css";
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Cormorant_Garamond, Inter } from "next/font/google";
 import Footer from "./components/Footer";
 import Header from "./components/Header";
@@ -28,7 +28,6 @@ export const metadata: Metadata = {
   },
   description:
     "LFN — Ligue francophone. Accès sur sélection, saisons encadrées, classement officiel.",
-  themeColor: "#E39F30",
   icons: {
     icon: [
       { url: "/favicon.svg", type: "image/svg+xml" },
@@ -59,6 +58,10 @@ export const metadata: Metadata = {
       "LFN — Ligue francophone. Accès sur sélection, saisons encadrées, classement officiel.",
     images: ["/Montagne.webp"],
   },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#E39F30",
 };
 
 export default function RootLayout({

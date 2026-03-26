@@ -15,6 +15,7 @@ const nextConfig = {
         }
       : undefined,
   images: {
+    unoptimized: true,
     formats: ['image/avif', 'image/webp'],
     minimumCacheTTL: 60,
     remotePatterns: [

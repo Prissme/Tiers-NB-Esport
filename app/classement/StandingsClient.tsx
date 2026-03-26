@@ -16,6 +16,15 @@ type PlayerStanding = {
   tier: string;
   points: number;
   mmr: number;
+  countryCode?: string;
+};
+
+const toFlag = (countryCode?: string) => {
+  const normalized = String(countryCode ?? "FR").trim().toUpperCase();
+  if (!/^[A-Z]{2}$/.test(normalized)) return "🏳️";
+  return String.fromCodePoint(
+    ...Array.from(normalized).map((char) => 127397 + char.charCodeAt(0))
+  );
 };
 
 const mapFallbackTeams = (): SiteTeam[] =>
@@ -409,6 +418,7 @@ export default function StandingsClient({ locale }: { locale: Locale }) {
               <tr>
                 <th className="px-3 py-2 text-left">#</th>
                 <th className="px-3 py-2 text-left">{content.playerName}</th>
+                <th className="px-3 py-2 text-left">Pays</th>
                 <th className="px-3 py-2 text-left">{content.playerTier}</th>
                 <th className="px-3 py-2 text-left">MMR</th>
                 <th className="px-3 py-2 text-left">{content.points}</th>
@@ -417,7 +427,7 @@ export default function StandingsClient({ locale }: { locale: Locale }) {
             <tbody>
               {playerStandings.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-3 py-4 text-center text-white/40">
+                  <td colSpan={6} className="px-3 py-4 text-center text-white/40">
                     {content.emptyPlayers}
                   </td>
                 </tr>
@@ -426,6 +436,9 @@ export default function StandingsClient({ locale }: { locale: Locale }) {
                   <tr key={player.id} className="surface-table__row">
                     <td className="px-3 py-2">{index + 1}</td>
                     <td className="px-3 py-2 text-white/90">{player.name}</td>
+                    <td className="px-3 py-2">
+                      {toFlag(player.countryCode)} {player.countryCode ?? "FR"}
+                    </td>
                     <td className="px-3 py-2">{player.tier}</td>
                     <td className="px-3 py-2">{player.mmr}</td>
                     <td className="px-3 py-2 font-semibold">{player.points}</td>
