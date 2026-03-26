@@ -181,8 +181,10 @@ export default function StandingsClient({ locale }: { locale: Locale }) {
     };
 
     load();
+    const refreshInterval = window.setInterval(load, 15000);
     return () => {
       mounted = false;
+      window.clearInterval(refreshInterval);
     };
   }, []);
 
