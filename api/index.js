@@ -710,38 +710,37 @@ async function handleAutoRegister(req, res) {
 
   const defaultPayload = buildDefaultPlayerPayload(discordId, displayName);
 
-  let insertResult = await supabase
+  const upsertResult = await supabase
     .from('players')
-    .insert(defaultPayload)
+    .upsert(defaultPayload, { onConflict: 'discord_id', ignoreDuplicates: true })
     .select('id,name,mmr,solo_elo,weight,wins,losses,win_streak,lose_streak,games_played,active,discord_id')
-    .single();
+    .maybeSingle();
 
-  if (insertResult.error) {
-    if (insertResult.error.code === '23505') {
-      console.warn('[autoRegister] Player already exists (race condition).', insertResult.error.message);
-      try {
-        const { data, error } = await supabase
-          .from('players')
-          .select('id,name,mmr,solo_elo,weight,wins,losses,win_streak,lose_streak,games_played,active,discord_id')
-          .eq('discord_id', discordId)
-          .maybeSingle();
-
-        if (error) {
-          throw error;
-        }
-
-        return sendJson(res, 200, { ok: true, alreadyExists: true, player: data || null });
-      } catch (lookupError) {
-        console.error('[autoRegister] Failed to fetch player after duplicate error.', lookupError);
-        return sendJson(res, 200, { ok: true, alreadyExists: true });
-      }
-    }
-
-    console.error('[autoRegister] Failed to create player.', insertResult.error);
+  if (upsertResult.error) {
+    console.error('[autoRegister] Failed to create player with upsert.', upsertResult.error);
     return sendJson(res, 500, { ok: false, error: 'insert_failed' });
   }
 
-  return sendJson(res, 200, { ok: true, player: insertResult.data });
+  if (upsertResult.data) {
+    return sendJson(res, 200, { ok: true, player: upsertResult.data });
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from('players')
+      .select('id,name,mmr,solo_elo,weight,wins,losses,win_streak,lose_streak,games_played,active,discord_id')
+      .eq('discord_id', discordId)
+      .maybeSingle();
+
+    if (error) {
+      throw error;
+    }
+
+    return sendJson(res, 200, { ok: true, alreadyExists: true, player: data || null });
+  } catch (lookupError) {
+    console.error('[autoRegister] Failed to fetch player after upsert duplicate.', lookupError);
+    return sendJson(res, 200, { ok: true, alreadyExists: true });
+  }
 }
 
 async function handleCreatePlayer(req, res) {
