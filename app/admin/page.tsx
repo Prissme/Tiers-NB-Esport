@@ -208,6 +208,14 @@ export default function AdminPage() {
     fetchSeasons();
     fetchTeams();
     fetchTierPlayers();
+
+    const refreshInterval = window.setInterval(() => {
+      fetchTierPlayers();
+    }, 10000);
+
+    return () => {
+      window.clearInterval(refreshInterval);
+    };
   }, []);
 
   useEffect(() => {

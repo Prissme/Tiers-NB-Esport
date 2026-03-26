@@ -13,6 +13,7 @@ type PlayerPointsRow = {
   player_id: string;
   points: number | null;
   tier: string | null;
+  season_id: string | null;
 };
 
 type PlayerProfileRow = {
@@ -32,6 +33,23 @@ export async function GET() {
       "Tier D": 2,
       "Tier E": 1,
     };
+    const { data: activeSeason, error: activeSeasonError } = await supabase
+      .from("lfn_seasons")
+      .select("id")
+      .eq("status", "active")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (activeSeasonError) {
+      return NextResponse.json({ error: activeSeasonError.message }, { status: 500 });
+    }
+
+    const pointsQuery = supabase.from("lfn_player_tier_points").select("player_id,points,tier,season_id");
+    if (activeSeason?.id) {
+      pointsQuery.eq("season_id", activeSeason.id);
+    }
+
     const [
       { data: players, error: playersError },
       { data: pointsRows, error: pointsError },
@@ -43,7 +61,7 @@ export async function GET() {
           .select("id,name,discord_id,active")
           .eq("active", true)
           .order("name", { ascending: true }),
-        supabase.from("lfn_player_tier_points").select("player_id,points,tier"),
+        pointsQuery,
         supabase.from("lfn_player_profiles").select("player_id,country_code"),
       ]);
 
