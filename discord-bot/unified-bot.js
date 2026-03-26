@@ -39,7 +39,7 @@ const MIN_VOTES_TO_RESOLVE = Math.max(
   1,
   Number.parseInt(process.env.MIN_VOTES_TO_RESOLVE || '4', 10)
 );
-const MAP_CHOICES_COUNT = 1;
+const MAP_CHOICES_COUNT = 3;
 const DODGE_VOTES_REQUIRED = 4;
 const DODGE_ELO_PENALTY = 30;
 const DODGE_QUEUE_LOCK_MS = 60 * 60 * 1000;
@@ -49,7 +49,7 @@ const DEFAULT_MATCH_BEST_OF = normalizeBestOfInput(process.env.DEFAULT_MATCH_BES
 const MAX_QUEUE_ELO_DIFFERENCE = 175;
 const MAX_MATCHMAKING_MAJOR_RANK_GAP = 3;
 const PL_QUEUE_CHANNEL_ID = '1442580781527732334';
-const PL_MATCH_TIMEOUT_MS = 20 * 60 * 1000;
+const PL_MATCH_TIMEOUT_MS = 60 * 60 * 1000;
 const SIMPLE_LOBBY_CHANNEL_ID = process.env.SIMPLE_LOBBY_CHANNEL_ID;
 const SIMPLE_LOBBY_SIZE = Number.parseInt(process.env.SIMPLE_LOBBY_SIZE || '6', 10);
 const SIMPLE_LOBBY_TEAM_SIZE = Number.parseInt(process.env.SIMPLE_LOBBY_TEAM_SIZE || '3', 10);
@@ -1108,7 +1108,7 @@ async function handlePLMatchTimeout(messageId) {
   if (channel?.isTextBased()) {
     await channel.send({
       content:
-        '⏰ Match annulé (20 minutes écoulées, aucun résultat). Joueurs retirés du match.\n⏰ Match cancelled (20 minutes passed, no result). Players removed from the match.'
+        '⏰ Match annulé (1 heure écoulée, aucun résultat). Joueurs retirés du match.\n⏰ Match cancelled (1 hour passed, no result). Players removed from the match.'
     });
   }
 
@@ -1222,7 +1222,8 @@ async function processSinglePLQueue(queueIndex, sourceLabel = 'main') {
 
       const state = await startMatch(participants, matchChannel || plQueueChannel, true);
       if (state?.messageId) {
-        const timeoutAt = new Date(Date.now() + PL_MATCH_TIMEOUT_MS).toISOString();
+        const timeoutAt = state.timeoutAt || new Date(Date.now() + PL_MATCH_TIMEOUT_MS).toISOString();
+        const timeoutDelay = Math.max(1, new Date(timeoutAt).getTime() - Date.now());
         await saveRuntimeActiveMatch({
           message_id: state.messageId,
           guild_id: guild.id,
@@ -1240,7 +1241,7 @@ async function processSinglePLQueue(queueIndex, sourceLabel = 'main') {
           created_at: new Date().toISOString(),
           timeout_at: timeoutAt
         });
-        schedulePLTimeout(state.messageId, PL_MATCH_TIMEOUT_MS);
+        schedulePLTimeout(state.messageId, timeoutDelay);
       }
     } catch (err) {
       errorLog(`Failed to create PL match from queue ${queueIndex}:`, err);
@@ -2117,6 +2118,16 @@ function formatDurationMinutes(ms) {
   return `${minutes} min`;
 }
 
+function formatDiscordTimestamp(dateInput, style = 'R') {
+  const date = dateInput instanceof Date ? dateInput : new Date(dateInput);
+  const ms = date.getTime();
+  if (!Number.isFinite(ms)) {
+    return null;
+  }
+
+  return `<t:${Math.floor(ms / 1000)}:${style}>`;
+}
+
 async function syncMemberRankRole(guildContext, discordId, rating) {
   if (!guildContext?.members || !discordId) {
     return;
@@ -2527,7 +2538,7 @@ function buildPrivateMatchEmbed(state) {
 }
 
 function buildMatchEmbed(state, resultSummary = null) {
-  const { matchId, primaryMap, mapChoices = [], teams, createdAt, votes } = state;
+  const { matchId, primaryMap, mapChoices = [], teams, createdAt, votes, timeoutAt } = state;
   const votesRequired = getVotesRequired(state);
   const mapTitle = primaryMap
     ? `${primaryMap.emoji} ${primaryMap.mode} — ${primaryMap.map}`
@@ -2561,6 +2572,26 @@ function buildMatchEmbed(state, resultSummary = null) {
       name: localizeText({ fr: 'Maps proposées', en: 'Suggested maps' }),
       value: mapLines
     });
+  }
+
+  if (timeoutAt) {
+    const cancelRelativeTime = formatDiscordTimestamp(timeoutAt, 'R');
+    const cancelAbsoluteTime = formatDiscordTimestamp(timeoutAt, 'F');
+    if (cancelRelativeTime) {
+      embed.addFields({
+        name: localizeText({ fr: 'Annulation automatique', en: 'Automatic cancellation' }),
+        value: localizeText(
+          {
+            fr: 'Le match sera annulé {relative} ({absolute}) sans résultat.',
+            en: 'The match will be cancelled {relative} ({absolute}) if no result is submitted.'
+          },
+          {
+            relative: cancelRelativeTime,
+            absolute: cancelAbsoluteTime || cancelRelativeTime
+          }
+        )
+      });
+    }
   }
 
   const dodgeVoteEntries = formatDodgeVoteLines(state);
@@ -5436,6 +5467,7 @@ async function startMatch(participants, fallbackChannel, isPl = false) {
     kFactor,
     isPl,
     createdAt: new Date(insertedMatch?.created_at || Date.now()),
+    timeoutAt: isPl ? new Date(Date.now() + PL_MATCH_TIMEOUT_MS).toISOString() : null,
     participants: new Set(participants.map((player) => player.discordId)),
     channelId: channel.id,
     messageId: null,
