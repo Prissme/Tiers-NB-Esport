@@ -21,9 +21,11 @@ type PlayerProfileRow = {
   country_code: string | null;
 };
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     const supabase = withSchema(createServerClient());
+    const { searchParams } = new URL(request.url);
+    const requestedSeasonId = searchParams.get("season")?.trim() ?? "";
     const tierOptions = new Set(["Tier S", "Tier A", "Tier B", "Tier C", "Tier D", "Tier E"]);
     const tierRank: Record<string, number> = {
       "Tier S": 6,
@@ -45,8 +47,12 @@ export async function GET() {
       return NextResponse.json({ error: activeSeasonError.message }, { status: 500 });
     }
 
-    const pointsQuery = supabase.from("lfn_player_tier_points").select("player_id,points,tier,season_id");
-    if (activeSeason?.id) {
+    const pointsQuery = supabase
+      .from("lfn_player_tier_points")
+      .select("player_id,points,tier,season_id");
+    if (requestedSeasonId) {
+      pointsQuery.eq("season_id", requestedSeasonId);
+    } else if (activeSeason?.id) {
       pointsQuery.eq("season_id", activeSeason.id);
     }
 

@@ -18,6 +18,24 @@ type PlayerStanding = {
   countryCode?: string;
 };
 
+const tierImageByName: Record<string, string> = {
+  "Tier S": "/TierS.webp",
+  "Tier A": "/TierA.webp",
+  "Tier B": "/TierB.webp",
+  "Tier C": "/TierC.webp",
+  "Tier D": "/TierD.webp",
+  "Tier E": "/TierE.webp",
+};
+
+const tierGlowByName: Record<string, string> = {
+  "Tier S": "from-fuchsia-300/40 via-indigo-300/10 to-transparent",
+  "Tier A": "from-amber-300/40 via-amber-100/10 to-transparent",
+  "Tier B": "from-sky-300/40 via-sky-100/10 to-transparent",
+  "Tier C": "from-emerald-300/35 via-emerald-100/10 to-transparent",
+  "Tier D": "from-orange-300/35 via-orange-100/10 to-transparent",
+  "Tier E": "from-slate-300/35 via-slate-100/10 to-transparent",
+};
+
 const toFlag = (countryCode?: string) => {
   const normalized = String(countryCode ?? "FR").trim().toUpperCase();
   if (!/^[A-Z]{2}$/.test(normalized)) return "🏳️";
@@ -218,6 +236,8 @@ export default function StandingsClient({ locale }: { locale: Locale }) {
     }
   }, [availableDivisions, activeDivision]);
 
+  const topPlayers = useMemo(() => playerStandings.slice(0, 50), [playerStandings]);
+
   if (loading) {
     return (
       <section className="section-card dominant-section space-y-6">
@@ -413,7 +433,42 @@ export default function StandingsClient({ locale }: { locale: Locale }) {
           description={content.playersDescription}
           tone="dominant"
         />
-        <div className="overflow-x-auto rounded-xl border border-white/10">
+        <div className="grid gap-4 md:grid-cols-3">
+          {topPlayers.slice(0, 3).map((player, index) => {
+            const tierImage = tierImageByName[player.tier] ?? "/TierE.webp";
+            const glow = tierGlowByName[player.tier] ?? tierGlowByName["Tier E"];
+            return (
+              <div
+                key={`featured-${player.id}`}
+                className={`relative overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br ${glow} p-5`}
+              >
+                <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.2),transparent_60%)]" />
+                <div className="relative z-10 flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.3em] text-white/60">#{index + 1}</p>
+                    <p className="mt-2 text-lg font-semibold text-white">{player.name}</p>
+                    <p className="text-sm text-white/70">
+                      {toFlag(player.countryCode)} {player.countryCode ?? "FR"}
+                    </p>
+                    <p className="mt-2 text-sm font-semibold text-white/90">
+                      {player.points} {content.pointsShort}
+                    </p>
+                  </div>
+                  <div className="flex flex-col items-center gap-2">
+                    <ReloadingImage
+                      src={tierImage}
+                      alt={player.tier}
+                      className="h-20 w-20 object-contain drop-shadow-[0_12px_20px_rgba(0,0,0,0.4)]"
+                      loading="lazy"
+                    />
+                    <span className="text-xs uppercase tracking-[0.2em] text-white/70">{player.tier}</span>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        <div className="overflow-x-auto rounded-xl border border-white/10 bg-black/20">
           <table className="surface-table min-w-full text-sm text-white/80">
             <thead className="surface-table__header text-xs uppercase text-white/40">
               <tr>
@@ -425,21 +480,31 @@ export default function StandingsClient({ locale }: { locale: Locale }) {
               </tr>
             </thead>
             <tbody>
-              {playerStandings.length === 0 ? (
+              {topPlayers.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="px-3 py-4 text-center text-white/40">
                     {content.emptyPlayers}
                   </td>
                 </tr>
               ) : (
-                playerStandings.slice(0, 50).map((player, index) => (
+                topPlayers.map((player, index) => (
                   <tr key={player.id} className="surface-table__row">
                     <td className="px-3 py-2">{index + 1}</td>
                     <td className="px-3 py-2 text-white/90">{player.name}</td>
                     <td className="px-3 py-2">
                       {toFlag(player.countryCode)} {player.countryCode ?? "FR"}
                     </td>
-                    <td className="px-3 py-2">{player.tier}</td>
+                    <td className="px-3 py-2">
+                      <div className="flex items-center gap-2">
+                        <ReloadingImage
+                          src={tierImageByName[player.tier] ?? "/TierE.webp"}
+                          alt={player.tier}
+                          className="h-8 w-8 object-contain"
+                          loading="lazy"
+                        />
+                        <span>{player.tier}</span>
+                      </div>
+                    </td>
                     <td className="px-3 py-2 font-semibold">{player.points}</td>
                   </tr>
                 ))
