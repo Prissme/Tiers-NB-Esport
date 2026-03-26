@@ -15,7 +15,6 @@ type PlayerStanding = {
   name: string;
   tier: string;
   points: number;
-  mmr: number;
   countryCode?: string;
 };
 
@@ -420,14 +419,13 @@ export default function StandingsClient({ locale }: { locale: Locale }) {
                 <th className="px-3 py-2 text-left">{content.playerName}</th>
                 <th className="px-3 py-2 text-left">Pays</th>
                 <th className="px-3 py-2 text-left">{content.playerTier}</th>
-                <th className="px-3 py-2 text-left">MMR</th>
                 <th className="px-3 py-2 text-left">{content.points}</th>
               </tr>
             </thead>
             <tbody>
               {playerStandings.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-3 py-4 text-center text-white/40">
+                  <td colSpan={5} className="px-3 py-4 text-center text-white/40">
                     {content.emptyPlayers}
                   </td>
                 </tr>
@@ -440,7 +438,6 @@ export default function StandingsClient({ locale }: { locale: Locale }) {
                       {toFlag(player.countryCode)} {player.countryCode ?? "FR"}
                     </td>
                     <td className="px-3 py-2">{player.tier}</td>
-                    <td className="px-3 py-2">{player.mmr}</td>
                     <td className="px-3 py-2 font-semibold">{player.points}</td>
                   </tr>
                 ))

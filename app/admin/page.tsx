@@ -31,7 +31,6 @@ type TierPlayer = {
   id: string;
   name: string;
   tier: string;
-  mmr: number;
   points: number;
   countryCode?: string;
 };
@@ -42,6 +41,9 @@ const countryOptions = [
   { code: "FR", label: "🇫🇷 France" },
   { code: "BE", label: "🇧🇪 Belgique" },
   { code: "CH", label: "🇨🇭 Suisse" },
+  { code: "PT", label: "🇵🇹 Portugal" },
+  { code: "DE", label: "🇩🇪 Allemagne" },
+  { code: "IT", label: "🇮🇹 Italie" },
   { code: "CA", label: "🇨🇦 Canada" },
   { code: "MA", label: "🇲🇦 Maroc" },
   { code: "DZ", label: "🇩🇿 Algérie" },
@@ -131,23 +133,29 @@ export default function AdminPage() {
     }
   };
 
-  const updatePlayerPoints = async (playerId: string, points: number) => {
+  const updateTierPlayer = async (payload: {
+    playerId: string;
+    points: number;
+    tier: string;
+    countryCode: string;
+  }) => {
+    const { playerId } = payload;
     setUpdatingPlayerId(playerId);
     try {
       const response = await fetch("/api/admin/player-standings", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ playerId, points, seasonId }),
+        body: JSON.stringify({ ...payload, seasonId }),
       });
       if (!response.ok) {
         const payload = (await response.json()) as { error?: string };
-        setErrorMessage(payload.error ?? "Impossible de mettre à jour les points.");
+        setErrorMessage(payload.error ?? "Impossible de mettre à jour le joueur.");
         return;
       }
       await fetchTierPlayers();
     } catch (error) {
-      console.error("Unable to update player points", error);
-      setErrorMessage("Impossible de mettre à jour les points.");
+      console.error("Unable to update tier player", error);
+      setErrorMessage("Impossible de mettre à jour le joueur.");
     } finally {
       setUpdatingPlayerId(null);
     }
@@ -563,14 +571,13 @@ export default function AdminPage() {
                   <th className="px-3 py-2 text-left">Pseudo</th>
                   <th className="px-3 py-2 text-left">Pays</th>
                   <th className="px-3 py-2 text-left">Tier</th>
-                  <th className="px-3 py-2 text-left">MMR</th>
-                  <th className="px-3 py-2 text-left">Points</th>
+                  <th className="px-3 py-2 text-left">Édition</th>
                 </tr>
               </thead>
               <tbody>
                 {tierPlayers.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="px-3 py-4 text-center text-white/40">
+                    <td colSpan={5} className="px-3 py-4 text-center text-white/40">
                       Aucun joueur avec tier actif.
                     </td>
                   </tr>
@@ -583,7 +590,6 @@ export default function AdminPage() {
                         {toFlag(player.countryCode)} {player.countryCode ?? "FR"}
                       </td>
                       <td className="px-3 py-2">{player.tier}</td>
-                      <td className="px-3 py-2">{player.mmr}</td>
                       <td className="px-3 py-2">
                         <form
                           className="flex items-center gap-2"
@@ -591,13 +597,41 @@ export default function AdminPage() {
                             event.preventDefault();
                             const formData = new FormData(event.currentTarget);
                             const value = Number(formData.get("points"));
+                            const tier = String(formData.get("tier") ?? "");
+                            const countryCode = String(formData.get("countryCode") ?? "FR").toUpperCase();
                             if (!Number.isInteger(value)) {
                               setErrorMessage("Les points doivent être un nombre entier.");
                               return;
                             }
-                            updatePlayerPoints(player.id, value);
+                            if (!tierOptions.includes(tier as (typeof tierOptions)[number])) {
+                              setErrorMessage("Tier invalide.");
+                              return;
+                            }
+                            updateTierPlayer({ playerId: player.id, points: value, tier, countryCode });
                           }}
                         >
+                          <select
+                            name="countryCode"
+                            defaultValue={player.countryCode ?? "FR"}
+                            className="rounded-md border border-white/15 bg-black/30 px-2 py-1 text-white"
+                          >
+                            {countryOptions.map((country) => (
+                              <option key={country.code} value={country.code}>
+                                {country.label}
+                              </option>
+                            ))}
+                          </select>
+                          <select
+                            name="tier"
+                            defaultValue={player.tier}
+                            className="rounded-md border border-white/15 bg-black/30 px-2 py-1 text-white"
+                          >
+                            {tierOptions.map((tier) => (
+                              <option key={tier} value={tier}>
+                                {tier}
+                              </option>
+                            ))}
+                          </select>
                           <input
                             type="number"
                             name="points"

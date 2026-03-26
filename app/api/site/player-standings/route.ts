@@ -1,19 +1,18 @@
 import { NextResponse } from "next/server";
 import { createServerClient } from "../../../../src/lib/supabase/server";
 import { withSchema } from "../../../../src/lib/supabase/schema";
-import { getRulebookTierFromMmr, getSeedPointsForTier } from "../../../lib/tier-system";
 
 type PlayerRow = {
   id: string;
   name: string | null;
   discord_id: string | null;
-  mmr: number | null;
   active: boolean | null;
 };
 
 type PlayerPointsRow = {
   player_id: string;
   points: number | null;
+  tier: string | null;
 };
 
 type PlayerProfileRow = {
@@ -24,6 +23,15 @@ type PlayerProfileRow = {
 export async function GET() {
   try {
     const supabase = withSchema(createServerClient());
+    const tierOptions = new Set(["Tier S", "Tier A", "Tier B", "Tier C", "Tier D", "Tier E"]);
+    const tierRank: Record<string, number> = {
+      "Tier S": 6,
+      "Tier A": 5,
+      "Tier B": 4,
+      "Tier C": 3,
+      "Tier D": 2,
+      "Tier E": 1,
+    };
     const [
       { data: players, error: playersError },
       { data: pointsRows, error: pointsError },
@@ -32,10 +40,10 @@ export async function GET() {
       await Promise.all([
         supabase
           .from("players")
-          .select("id,name,discord_id,mmr,active")
+          .select("id,name,discord_id,active")
           .eq("active", true)
-          .order("mmr", { ascending: false }),
-        supabase.from("lfn_player_tier_points").select("player_id,points"),
+          .order("name", { ascending: true }),
+        supabase.from("lfn_player_tier_points").select("player_id,points,tier"),
         supabase.from("lfn_player_profiles").select("player_id,country_code"),
       ]);
 
@@ -53,9 +61,12 @@ export async function GET() {
       );
     }
 
-    const pointsByPlayerId = new Map<string, number>();
+    const pointsByPlayerId = new Map<string, { points: number; tier: string }>();
     (pointsRows as PlayerPointsRow[] | null)?.forEach((row) => {
-      pointsByPlayerId.set(row.player_id, row.points ?? 0);
+      pointsByPlayerId.set(row.player_id, {
+        points: row.points ?? 0,
+        tier: row.tier ?? "Tier E",
+      });
     });
     const countryByPlayerId = new Map<string, string>();
     if (!isMissingProfileTable) {
@@ -66,22 +77,26 @@ export async function GET() {
 
     const rankedPlayers = ((players as PlayerRow[] | null) ?? [])
       .map((player) => {
-        const tier = getRulebookTierFromMmr(player.mmr ?? 0);
-        const seededPoints = getSeedPointsForTier(tier);
-        const points = pointsByPlayerId.get(player.id) ?? seededPoints;
+        const playerPoints = pointsByPlayerId.get(player.id);
+        const tier = playerPoints?.tier ?? "Tier E";
+        const points = playerPoints?.points ?? 0;
 
         return {
           id: player.id,
           name: player.name || "Joueur",
           discordId: player.discord_id,
-          mmr: player.mmr ?? 0,
           tier,
           points,
           countryCode: countryByPlayerId.get(player.id) ?? "FR",
         };
       })
-      .filter((player) => player.tier !== "No Tier")
-      .sort((a, b) => b.points - a.points || b.mmr - a.mmr || a.name.localeCompare(b.name, "fr"));
+      .filter((player) => tierOptions.has(player.tier))
+      .sort(
+        (a, b) =>
+          b.points - a.points ||
+          (tierRank[b.tier] ?? 0) - (tierRank[a.tier] ?? 0) ||
+          a.name.localeCompare(b.name, "fr")
+      );
 
     return NextResponse.json({ players: rankedPlayers });
   } catch (error) {
