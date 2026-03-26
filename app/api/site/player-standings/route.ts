@@ -16,10 +16,19 @@ type PlayerPointsRow = {
   points: number | null;
 };
 
+type PlayerProfileRow = {
+  player_id: string;
+  country_code: string | null;
+};
+
 export async function GET() {
   try {
     const supabase = withSchema(createServerClient());
-    const [{ data: players, error: playersError }, { data: pointsRows, error: pointsError }] =
+    const [
+      { data: players, error: playersError },
+      { data: pointsRows, error: pointsError },
+      { data: profileRows, error: profileError },
+    ] =
       await Promise.all([
         supabase
           .from("players")
@@ -27,11 +36,19 @@ export async function GET() {
           .eq("active", true)
           .order("mmr", { ascending: false }),
         supabase.from("lfn_player_tier_points").select("player_id,points"),
+        supabase.from("lfn_player_profiles").select("player_id,country_code"),
       ]);
 
-    if (playersError || pointsError) {
+    const isMissingProfileTable = profileError?.code === "42P01";
+    if (playersError || pointsError || (profileError && !isMissingProfileTable)) {
       return NextResponse.json(
-        { error: playersError?.message ?? pointsError?.message ?? "Unable to load player standings." },
+        {
+          error:
+            playersError?.message ??
+            pointsError?.message ??
+            profileError?.message ??
+            "Unable to load player standings.",
+        },
         { status: 500 }
       );
     }
@@ -40,6 +57,12 @@ export async function GET() {
     (pointsRows as PlayerPointsRow[] | null)?.forEach((row) => {
       pointsByPlayerId.set(row.player_id, row.points ?? 0);
     });
+    const countryByPlayerId = new Map<string, string>();
+    if (!isMissingProfileTable) {
+      (profileRows as PlayerProfileRow[] | null)?.forEach((row) => {
+        countryByPlayerId.set(row.player_id, (row.country_code ?? "FR").toUpperCase());
+      });
+    }
 
     const rankedPlayers = ((players as PlayerRow[] | null) ?? [])
       .map((player) => {
@@ -54,6 +77,7 @@ export async function GET() {
           mmr: player.mmr ?? 0,
           tier,
           points,
+          countryCode: countryByPlayerId.get(player.id) ?? "FR",
         };
       })
       .filter((player) => player.tier !== "No Tier")

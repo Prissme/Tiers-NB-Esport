@@ -221,8 +221,8 @@ body::before {
 
   .hero-ironhill__bg {
     background-image: var(--hero-image);
-    background-size: contain;
-    background-position: center top;
+    background-size: cover;
+    background-position: center center;
     background-repeat: no-repeat;
     background-attachment: fixed;
     transform: translateZ(0);

@@ -33,6 +33,29 @@ type TierPlayer = {
   tier: string;
   mmr: number;
   points: number;
+  countryCode?: string;
+};
+
+const tierOptions = ["Tier S", "Tier A", "Tier B", "Tier C", "Tier D", "Tier E"] as const;
+
+const countryOptions = [
+  { code: "FR", label: "🇫🇷 France" },
+  { code: "BE", label: "🇧🇪 Belgique" },
+  { code: "CH", label: "🇨🇭 Suisse" },
+  { code: "CA", label: "🇨🇦 Canada" },
+  { code: "MA", label: "🇲🇦 Maroc" },
+  { code: "DZ", label: "🇩🇿 Algérie" },
+  { code: "TN", label: "🇹🇳 Tunisie" },
+  { code: "SN", label: "🇸🇳 Sénégal" },
+  { code: "CM", label: "🇨🇲 Cameroun" },
+] as const;
+
+const toFlag = (countryCode?: string) => {
+  const normalized = String(countryCode ?? "FR").trim().toUpperCase();
+  if (!/^[A-Z]{2}$/.test(normalized)) return "🏳️";
+  return String.fromCodePoint(
+    ...Array.from(normalized).map((char) => 127397 + char.charCodeAt(0))
+  );
 };
 
 const getMatchDate = (match: MatchRecord) => match.scheduled_at ?? match.start_time ?? match.played_at;
@@ -53,6 +76,7 @@ export default function AdminPage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [tierPlayers, setTierPlayers] = useState<TierPlayer[]>([]);
   const [updatingPlayerId, setUpdatingPlayerId] = useState<string | null>(null);
+  const [creatingPlayer, setCreatingPlayer] = useState(false);
 
   const fetchAllMatches = async (seasonOverride?: string | null) => {
     let query = supabase
@@ -126,6 +150,35 @@ export default function AdminPage() {
       setErrorMessage("Impossible de mettre à jour les points.");
     } finally {
       setUpdatingPlayerId(null);
+    }
+  };
+
+  const createTierPlayer = async (payload: {
+    name: string;
+    tier: string;
+    points: number;
+    countryCode: string;
+  }) => {
+    setCreatingPlayer(true);
+    try {
+      const response = await fetch("/api/admin/player-standings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!response.ok) {
+        const body = (await response.json()) as { error?: string };
+        setErrorMessage(body.error ?? "Impossible d'ajouter le joueur.");
+        return false;
+      }
+      await fetchTierPlayers();
+      return true;
+    } catch (error) {
+      console.error("Unable to create tier player", error);
+      setErrorMessage("Impossible d'ajouter le joueur.");
+      return false;
+    } finally {
+      setCreatingPlayer(false);
     }
   };
   const checkAdmin = async () => {
@@ -434,11 +487,81 @@ export default function AdminPage() {
             </div>
           </div>
           <div className="mt-4 overflow-x-auto">
+            <form
+              className="mb-4 grid gap-3 rounded-xl border border-white/10 bg-black/20 p-4 md:grid-cols-[1.5fr_1fr_1fr_1fr_auto]"
+              onSubmit={async (event) => {
+                event.preventDefault();
+                const formData = new FormData(event.currentTarget);
+                const name = String(formData.get("name") ?? "").trim();
+                const tier = String(formData.get("tier") ?? "");
+                const points = Number(formData.get("points"));
+                const countryCode = String(formData.get("countryCode") ?? "FR").toUpperCase();
+
+                if (!name) {
+                  setErrorMessage("Le pseudo est obligatoire.");
+                  return;
+                }
+                if (!Number.isInteger(points)) {
+                  setErrorMessage("Les points doivent être un nombre entier.");
+                  return;
+                }
+
+                const ok = await createTierPlayer({ name, tier, points, countryCode });
+                if (ok) {
+                  setErrorMessage(null);
+                  event.currentTarget.reset();
+                }
+              }}
+            >
+              <input
+                name="name"
+                placeholder="Pseudo du joueur"
+                className="rounded-md border border-white/15 bg-black/30 px-3 py-2 text-white"
+                required
+              />
+              <select
+                name="tier"
+                className="rounded-md border border-white/15 bg-black/30 px-3 py-2 text-white"
+                defaultValue="Tier E"
+              >
+                {tierOptions.map((tier) => (
+                  <option key={tier} value={tier}>
+                    {tier}
+                  </option>
+                ))}
+              </select>
+              <input
+                type="number"
+                name="points"
+                defaultValue={0}
+                className="rounded-md border border-white/15 bg-black/30 px-3 py-2 text-white"
+                required
+              />
+              <select
+                name="countryCode"
+                className="rounded-md border border-white/15 bg-black/30 px-3 py-2 text-white"
+                defaultValue="FR"
+              >
+                {countryOptions.map((country) => (
+                  <option key={country.code} value={country.code}>
+                    {country.label}
+                  </option>
+                ))}
+              </select>
+              <button
+                type="submit"
+                disabled={creatingPlayer}
+                className="surface-pill surface-pill--active px-4 py-2 text-sm font-semibold text-black disabled:opacity-50"
+              >
+                {creatingPlayer ? "Ajout..." : "Ajouter joueur"}
+              </button>
+            </form>
             <table className="surface-table text-sm text-white/80">
               <thead className="surface-table__header text-xs uppercase text-white/40">
                 <tr>
                   <th className="px-3 py-2 text-left">#</th>
                   <th className="px-3 py-2 text-left">Pseudo</th>
+                  <th className="px-3 py-2 text-left">Pays</th>
                   <th className="px-3 py-2 text-left">Tier</th>
                   <th className="px-3 py-2 text-left">MMR</th>
                   <th className="px-3 py-2 text-left">Points</th>
@@ -447,7 +570,7 @@ export default function AdminPage() {
               <tbody>
                 {tierPlayers.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="px-3 py-4 text-center text-white/40">
+                    <td colSpan={6} className="px-3 py-4 text-center text-white/40">
                       Aucun joueur avec tier actif.
                     </td>
                   </tr>
@@ -456,6 +579,9 @@ export default function AdminPage() {
                     <tr key={player.id} className="surface-table__row">
                       <td className="px-3 py-2">{index + 1}</td>
                       <td className="px-3 py-2">{player.name}</td>
+                      <td className="px-3 py-2">
+                        {toFlag(player.countryCode)} {player.countryCode ?? "FR"}
+                      </td>
                       <td className="px-3 py-2">{player.tier}</td>
                       <td className="px-3 py-2">{player.mmr}</td>
                       <td className="px-3 py-2">
