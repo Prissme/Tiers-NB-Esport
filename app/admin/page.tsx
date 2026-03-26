@@ -79,6 +79,7 @@ export default function AdminPage() {
   const [tierPlayers, setTierPlayers] = useState<TierPlayer[]>([]);
   const [updatingPlayerId, setUpdatingPlayerId] = useState<string | null>(null);
   const [creatingPlayer, setCreatingPlayer] = useState(false);
+  const [playerSearch, setPlayerSearch] = useState("");
 
   const fetchAllMatches = async (seasonOverride?: string | null) => {
     let query = supabase
@@ -110,21 +111,32 @@ export default function AdminPage() {
   };
 
   const fetchSeasons = async () => {
-    const { data, error } = await supabase.from("lfn_seasons").select("id,name,label");
+    const { data, error } = await supabase
+      .from("lfn_seasons")
+      .select("id,name,label,status,created_at")
+      .order("created_at", { ascending: false });
     if (error) {
       return;
     }
-    setSeasons((data ?? []) as Season[]);
-    if (data?.[0]) {
-      setSeasonId((current) => current ?? data[0].id);
+    const seasonList = (data ?? []) as Array<Season & { status?: string | null }>;
+    setSeasons(seasonList);
+    const activeSeason = seasonList.find((season) => season.status === "active");
+    if (activeSeason?.id) {
+      setSeasonId((current) => current ?? activeSeason.id);
+      return;
+    }
+    if (seasonList[0]) {
+      setSeasonId((current) => current ?? seasonList[0].id);
     }
   };
 
 
 
-  const fetchTierPlayers = async () => {
+  const fetchTierPlayers = async (seasonOverride?: string | null) => {
     try {
-      const response = await fetch("/api/site/player-standings", { cache: "no-store" });
+      const effectiveSeason = seasonOverride ?? seasonId;
+      const query = effectiveSeason ? `?season=${encodeURIComponent(effectiveSeason)}` : "";
+      const response = await fetch(`/api/site/player-standings${query}`, { cache: "no-store" });
       const payload = (await response.json()) as { players?: TierPlayer[] };
       setTierPlayers(payload.players ?? []);
     } catch (error) {
@@ -152,7 +164,7 @@ export default function AdminPage() {
         setErrorMessage(payload.error ?? "Impossible de mettre à jour le joueur.");
         return;
       }
-      await fetchTierPlayers();
+      await fetchTierPlayers(seasonId);
     } catch (error) {
       console.error("Unable to update tier player", error);
       setErrorMessage("Impossible de mettre à jour le joueur.");
@@ -179,7 +191,7 @@ export default function AdminPage() {
         setErrorMessage(body.error ?? "Impossible d'ajouter le joueur.");
         return false;
       }
-      await fetchTierPlayers();
+      await fetchTierPlayers(seasonId);
       return true;
     } catch (error) {
       console.error("Unable to create tier player", error);
@@ -207,19 +219,24 @@ export default function AdminPage() {
     checkAdmin();
     fetchSeasons();
     fetchTeams();
-    fetchTierPlayers();
+  }, []);
 
+  useEffect(() => {
+    fetchAllMatches(seasonId);
+  }, [seasonId]);
+
+  useEffect(() => {
+    fetchTierPlayers(seasonId);
+  }, [seasonId]);
+
+  useEffect(() => {
     const refreshInterval = window.setInterval(() => {
-      fetchTierPlayers();
+      fetchTierPlayers(seasonId);
     }, 10000);
 
     return () => {
       window.clearInterval(refreshInterval);
     };
-  }, []);
-
-  useEffect(() => {
-    fetchAllMatches(seasonId);
   }, [seasonId]);
 
   const scheduleDays = useMemo(() => {
@@ -272,6 +289,22 @@ export default function AdminPage() {
       return b.diff - a.diff;
     });
   }, [matches, teams]);
+
+  const filteredTierPlayers = useMemo(() => {
+    const query = playerSearch.trim().toLowerCase();
+    if (!query) {
+      return tierPlayers;
+    }
+    return tierPlayers.filter((player) => {
+      return (
+        player.name.toLowerCase().includes(query) ||
+        player.tier.toLowerCase().includes(query) ||
+        String(player.countryCode ?? "FR")
+          .toLowerCase()
+          .includes(query)
+      );
+    });
+  }, [playerSearch, tierPlayers]);
 
   const handleValidateResult = async (match: MatchRecord) => {
     const { error } = await supabase
@@ -572,6 +605,15 @@ export default function AdminPage() {
                 {creatingPlayer ? "Ajout..." : "Ajouter joueur"}
               </button>
             </form>
+            <div className="mb-4">
+              <input
+                type="search"
+                value={playerSearch}
+                onChange={(event) => setPlayerSearch(event.target.value)}
+                placeholder="Rechercher un joueur, un tier ou un pays (ex: Tier A, FR...)"
+                className="w-full rounded-md border border-white/15 bg-black/30 px-3 py-2 text-white placeholder:text-white/40"
+              />
+            </div>
             <table className="surface-table text-sm text-white/80">
               <thead className="surface-table__header text-xs uppercase text-white/40">
                 <tr>
@@ -583,14 +625,16 @@ export default function AdminPage() {
                 </tr>
               </thead>
               <tbody>
-                {tierPlayers.length === 0 ? (
+                {filteredTierPlayers.length === 0 ? (
                   <tr>
                     <td colSpan={5} className="px-3 py-4 text-center text-white/40">
-                      Aucun joueur avec tier actif.
+                      {tierPlayers.length === 0
+                        ? "Aucun joueur avec tier actif."
+                        : "Aucun joueur ne correspond à la recherche."}
                     </td>
                   </tr>
                 ) : (
-                  tierPlayers.map((player, index) => (
+                  filteredTierPlayers.map((player, index) => (
                     <tr key={player.id} className="surface-table__row">
                       <td className="px-3 py-2">{index + 1}</td>
                       <td className="px-3 py-2">{player.name}</td>
