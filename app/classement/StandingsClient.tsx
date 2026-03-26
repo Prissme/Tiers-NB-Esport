@@ -161,19 +161,37 @@ export default function StandingsClient({ locale }: { locale: Locale }) {
         const seasonId = seasonPayload.season?.id;
         const query = seasonId ? `?season=${seasonId}` : "";
 
-        const [standingsResponse, teamsResponse, playerStandingsResponse] = await Promise.all([
-          fetch(`/api/site/standings${query}`, { cache: "no-store" }),
-          fetch(`/api/site/teams${query}`, { cache: "no-store" }),
-          fetch("/api/site/player-standings", { cache: "no-store" }),
-        ]);
-        const standingsPayload = (await standingsResponse.json()) as {
-          standings?: SiteStandingsRow[];
+        const fetchStandingsAndTeams = async (suffix: string) => {
+          const [standingsResponse, teamsResponse] = await Promise.all([
+            fetch(`/api/site/standings${suffix}`, { cache: "no-store" }),
+            fetch(`/api/site/teams${suffix}`, { cache: "no-store" }),
+          ]);
+          const standingsPayload = (await standingsResponse.json()) as {
+            standings?: SiteStandingsRow[];
+          };
+          const teamsPayload = (await teamsResponse.json()) as { teams?: SiteTeam[] };
+          return {
+            standings: standingsPayload.standings ?? [],
+            teams: teamsPayload.teams ?? [],
+          };
         };
-        const teamsPayload = (await teamsResponse.json()) as { teams?: SiteTeam[] };
-        const playersPayload = (await playerStandingsResponse.json()) as { players?: PlayerStanding[] };
+
+        const [{ standings: seasonStandings, teams: seasonTeams }, playerStandingsResponse] =
+          await Promise.all([
+            fetchStandingsAndTeams(query),
+            fetch("/api/site/player-standings", { cache: "no-store" }),
+          ]);
+        const playersPayload = (await playerStandingsResponse.json()) as {
+          players?: PlayerStanding[];
+        };
+
+        const shouldRetryWithoutSeason =
+          Boolean(query) && seasonStandings.length === 0 && seasonTeams.length === 0;
+        const { standings: nextStandings, teams: nextTeams } = shouldRetryWithoutSeason
+          ? await fetchStandingsAndTeams("")
+          : { standings: seasonStandings, teams: seasonTeams };
+
         if (mounted) {
-          const nextStandings = standingsPayload.standings ?? [];
-          const nextTeams = teamsPayload.teams ?? [];
           if (nextStandings.length === 0 && nextTeams.length === 0) {
             setTeams(mapFallbackTeams());
             setSource("fallback");
