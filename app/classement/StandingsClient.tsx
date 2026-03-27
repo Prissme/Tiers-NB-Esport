@@ -17,6 +17,7 @@ type PlayerStanding = {
   points: number;
   countryCode?: string;
   description?: string;
+  inactivityPenalty?: number;
 };
 
 const tierImageByName: Record<string, string> = {
@@ -26,6 +27,12 @@ const tierImageByName: Record<string, string> = {
   "Tier C": "/TierC.webp",
   "Tier D": "/TierD.webp",
   "Tier E": "/TierE.webp",
+};
+
+const trophyImageByRank: Record<number, string> = {
+  1: "/GoldTrophy.webp",
+  2: "/SilverTrophy.webp",
+  3: "/BronzeTrophy.webp",
 };
 
 const getCountryCode = (countryCode?: string) => {
@@ -96,6 +103,10 @@ const copy = {
     country: "Pays",
     playersCount: "Joueurs",
     emptyPlayers: "Aucun joueur tier enregistré.",
+    filterCountry: "Pays",
+    filterTier: "Tier",
+    allCountries: "Tous les pays",
+    allTiers: "Tous les tiers",
     playerDescriptionFallback: "Aucune description pour ce joueur.",
     close: "Fermer",
   },
@@ -125,6 +136,10 @@ const copy = {
     country: "Country",
     playersCount: "Players",
     emptyPlayers: "No tier players found.",
+    filterCountry: "Country",
+    filterTier: "Tier",
+    allCountries: "All countries",
+    allTiers: "All tiers",
     playerDescriptionFallback: "No description available for this player.",
     close: "Close",
   },
@@ -139,6 +154,8 @@ export default function StandingsClient({ locale }: { locale: Locale }) {
   const [activeDivision, setActiveDivision] = useState<string | null>(null);
   const [playerStandings, setPlayerStandings] = useState<PlayerStanding[]>([]);
   const [selectedPlayer, setSelectedPlayer] = useState<PlayerStanding | null>(null);
+  const [selectedCountry, setSelectedCountry] = useState("ALL");
+  const [selectedTier, setSelectedTier] = useState("ALL");
 
   const teamFallbackStandings = useMemo<SiteStandingsRow[]>(() => {
     return teams.map((team) => ({
@@ -261,10 +278,29 @@ export default function StandingsClient({ locale }: { locale: Locale }) {
     }
   }, [availableDivisions, activeDivision]);
 
-  const topPlayers = useMemo(() => playerStandings.slice(0, 50), [playerStandings]);
+  const availableCountries = useMemo(() => {
+    const values = new Set(playerStandings.map((player) => getCountryCode(player.countryCode)));
+    return [...values].sort((a, b) => a.localeCompare(b));
+  }, [playerStandings]);
+  const availableTiers = useMemo(() => {
+    const values = new Set(playerStandings.map((player) => player.tier));
+    const order = ["Tier S", "Tier A", "Tier B", "Tier C", "Tier D", "Tier E"];
+    return [...values].sort((a, b) => order.indexOf(a) - order.indexOf(b));
+  }, [playerStandings]);
+  const filteredPlayers = useMemo(
+    () =>
+      playerStandings.filter((player) => {
+        const countryOk =
+          selectedCountry === "ALL" || getCountryCode(player.countryCode) === selectedCountry;
+        const tierOk = selectedTier === "ALL" || player.tier === selectedTier;
+        return countryOk && tierOk;
+      }),
+    [playerStandings, selectedCountry, selectedTier]
+  );
+  const topPlayers = useMemo(() => filteredPlayers.slice(0, 50), [filteredPlayers]);
   const countryLeaderboard = useMemo(() => {
     const byCountry = new Map<string, { code: string; points: number; players: number }>();
-    for (const player of playerStandings) {
+    for (const player of filteredPlayers) {
       const code = getCountryCode(player.countryCode);
       const current = byCountry.get(code) ?? { code, points: 0, players: 0 };
       current.points += player.points;
@@ -274,7 +310,7 @@ export default function StandingsClient({ locale }: { locale: Locale }) {
     return [...byCountry.values()]
       .sort((a, b) => b.points - a.points || b.players - a.players || a.code.localeCompare(b.code))
       .slice(0, 15);
-  }, [playerStandings]);
+  }, [filteredPlayers]);
 
   if (loading) {
     return (
@@ -347,7 +383,12 @@ export default function StandingsClient({ locale }: { locale: Locale }) {
                   <div
                     className={`mx-auto inline-flex items-center justify-center rounded-full px-4 py-1 text-[10px] uppercase tracking-[0.35em] ${rankBadgeStyle}`}
                   >
-                    #{podiumIndex + 1}
+                    <img
+                      src={trophyImageByRank[podiumIndex + 1]}
+                      alt={`Top ${podiumIndex + 1}`}
+                      className="h-5 w-5"
+                      loading="lazy"
+                    />
                   </div>
                   <div className="mx-auto">
                     <p className="text-lg font-semibold text-white">{player.name}</p>
@@ -381,6 +422,36 @@ export default function StandingsClient({ locale }: { locale: Locale }) {
           })}
         </div>
         <div className="overflow-x-auto rounded-xl border border-white/10 bg-black/20">
+          <div className="flex flex-wrap gap-2 border-b border-white/10 p-3">
+            <select
+              className="rounded-md border border-white/20 bg-black/30 px-2 py-1 text-xs text-white"
+              value={selectedCountry}
+              onChange={(event) => setSelectedCountry(event.target.value)}
+            >
+              <option value="ALL">
+                {content.filterCountry}: {content.allCountries}
+              </option>
+              {availableCountries.map((country) => (
+                <option key={country} value={country}>
+                  {content.filterCountry}: {country}
+                </option>
+              ))}
+            </select>
+            <select
+              className="rounded-md border border-white/20 bg-black/30 px-2 py-1 text-xs text-white"
+              value={selectedTier}
+              onChange={(event) => setSelectedTier(event.target.value)}
+            >
+              <option value="ALL">
+                {content.filterTier}: {content.allTiers}
+              </option>
+              {availableTiers.map((tier) => (
+                <option key={tier} value={tier}>
+                  {content.filterTier}: {tier}
+                </option>
+              ))}
+            </select>
+          </div>
           <table className="surface-table min-w-full text-sm text-white/80">
             <thead className="surface-table__header text-xs uppercase text-white/40">
               <tr>
@@ -537,8 +608,6 @@ export default function StandingsClient({ locale }: { locale: Locale }) {
                         : index === 1
                           ? "bg-slate-200 text-slate-900"
                           : "bg-amber-800 text-amber-100";
-                    const place =
-                      index === 0 ? content.gold : index === 1 ? content.silver : content.bronze;
                     const heightClass =
                       index === 0
                         ? "min-h-[240px] md:min-h-[300px]"
@@ -556,7 +625,12 @@ export default function StandingsClient({ locale }: { locale: Locale }) {
                           <div
                             className={`mx-auto inline-flex items-center justify-center rounded-full px-4 py-1 text-[10px] uppercase tracking-[0.35em] ${badge}`}
                           >
-                            {"<a:trophy:1393336054567665897>"} {place}
+                            <img
+                              src={trophyImageByRank[index + 1]}
+                              alt={`Top ${index + 1}`}
+                              className="h-5 w-5"
+                              loading="lazy"
+                            />
                           </div>
                           <div className="mx-auto flex h-20 w-20 items-center justify-center overflow-hidden rounded-2xl bg-white/10">
                             {logoUrl ? (
