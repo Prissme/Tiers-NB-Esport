@@ -19,6 +19,7 @@ type PlayerPointsRow = {
 type PlayerProfileRow = {
   player_id: string;
   country_code: string | null;
+  description: string | null;
 };
 
 export async function GET(request: Request) {
@@ -68,7 +69,7 @@ export async function GET(request: Request) {
           .eq("active", true)
           .order("name", { ascending: true }),
         pointsQuery,
-        supabase.from("lfn_player_profiles").select("player_id,country_code"),
+        supabase.from("lfn_player_profiles").select("player_id,country_code,description"),
       ]);
 
     const isMissingProfileTable = profileError?.code === "42P01";
@@ -93,9 +94,11 @@ export async function GET(request: Request) {
       });
     });
     const countryByPlayerId = new Map<string, string>();
+    const descriptionByPlayerId = new Map<string, string>();
     if (!isMissingProfileTable) {
       (profileRows as PlayerProfileRow[] | null)?.forEach((row) => {
         countryByPlayerId.set(row.player_id, (row.country_code ?? "FR").toUpperCase());
+        descriptionByPlayerId.set(row.player_id, (row.description ?? "").trim());
       });
     }
 
@@ -112,6 +115,7 @@ export async function GET(request: Request) {
           tier,
           points,
           countryCode: countryByPlayerId.get(player.id) ?? "FR",
+          description: descriptionByPlayerId.get(player.id) ?? "",
         };
       })
       .filter((player) => tierOptions.has(player.tier) && player.points > 0)

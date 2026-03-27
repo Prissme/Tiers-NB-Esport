@@ -21,12 +21,14 @@ export async function PATCH(request: Request) {
       points?: number;
       tier?: string;
       countryCode?: string;
+      description?: string;
       seasonId?: string;
     };
     const playerId = String(body.playerId ?? "").trim();
     const points = Number(body.points);
     const tier = String(body.tier ?? "").trim();
     const countryCode = String(body.countryCode ?? "FR").trim().toUpperCase();
+    const description = String(body.description ?? "").trim();
     const requestedSeasonId = String(body.seasonId ?? "").trim();
 
     if (
@@ -86,6 +88,7 @@ export async function PATCH(request: Request) {
         {
           player_id: playerId,
           country_code: countryCode,
+          description,
           updated_at: new Date().toISOString(),
         },
         { onConflict: "player_id" }
@@ -126,6 +129,7 @@ export async function POST(request: Request) {
       tier?: string;
       points?: number;
       countryCode?: string;
+      description?: string;
       seasonId?: string;
     };
 
@@ -133,6 +137,7 @@ export async function POST(request: Request) {
     const tier = String(body.tier ?? "").trim();
     const points = Number(body.points);
     const countryCode = String(body.countryCode ?? "FR").trim().toUpperCase();
+    const description = String(body.description ?? "").trim();
     const requestedSeasonId = String(body.seasonId ?? "").trim();
 
     if (
@@ -204,6 +209,7 @@ export async function POST(request: Request) {
         {
           player_id: createdPlayer.id,
           country_code: countryCode,
+          description,
           updated_at: new Date().toISOString(),
         },
         { onConflict: "player_id" }

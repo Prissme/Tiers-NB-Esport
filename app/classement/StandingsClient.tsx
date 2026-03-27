@@ -16,6 +16,7 @@ type PlayerStanding = {
   tier: string;
   points: number;
   countryCode?: string;
+  description?: string;
 };
 
 const tierImageByName: Record<string, string> = {
@@ -95,6 +96,8 @@ const copy = {
     country: "Pays",
     playersCount: "Joueurs",
     emptyPlayers: "Aucun joueur tier enregistré.",
+    playerDescriptionFallback: "Aucune description pour ce joueur.",
+    close: "Fermer",
   },
   en: {
     info: "Information",
@@ -122,6 +125,8 @@ const copy = {
     country: "Country",
     playersCount: "Players",
     emptyPlayers: "No tier players found.",
+    playerDescriptionFallback: "No description available for this player.",
+    close: "Close",
   },
 };
 
@@ -133,6 +138,7 @@ export default function StandingsClient({ locale }: { locale: Locale }) {
   const [source, setSource] = useState<"supabase" | "fallback">("supabase");
   const [activeDivision, setActiveDivision] = useState<string | null>(null);
   const [playerStandings, setPlayerStandings] = useState<PlayerStanding[]>([]);
+  const [selectedPlayer, setSelectedPlayer] = useState<PlayerStanding | null>(null);
 
   const teamFallbackStandings = useMemo<SiteStandingsRow[]>(() => {
     return teams.map((team) => ({
@@ -332,6 +338,7 @@ export default function StandingsClient({ locale }: { locale: Locale }) {
             return (
               <div
                 key={`featured-${player.id}`}
+                onClick={() => setSelectedPlayer(player)}
                 className={`relative flex flex-col justify-end overflow-hidden rounded-[18px] border border-white/10 bg-gradient-to-br ${glow} ${heightClass} p-6 shadow-[0_25px_60px_-40px_rgba(0,0,0,0.9)]`}
               >
                 <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.2),transparent_60%)]" />
@@ -393,7 +400,11 @@ export default function StandingsClient({ locale }: { locale: Locale }) {
                 </tr>
               ) : (
                 topPlayers.map((player, index) => (
-                  <tr key={player.id} className="surface-table__row">
+                  <tr
+                    key={player.id}
+                    className="surface-table__row cursor-pointer"
+                    onClick={() => setSelectedPlayer(player)}
+                  >
                     <td className="px-3 py-2">{index + 1}</td>
                     <td className="px-3 py-2 text-white/90">{player.name}</td>
                     <td className="px-3 py-2">
@@ -624,6 +635,34 @@ export default function StandingsClient({ locale }: { locale: Locale }) {
           );
         }
       )}
+      {selectedPlayer ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+          onClick={() => setSelectedPlayer(null)}
+        >
+          <div
+            className="w-full max-w-xl rounded-xl border border-white/20 bg-[#101820] p-5 text-white"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <h3 className="text-lg font-semibold">{selectedPlayer.name}</h3>
+              <button
+                type="button"
+                className="rounded-md border border-white/20 px-2 py-1 text-xs text-white/80"
+                onClick={() => setSelectedPlayer(null)}
+              >
+                {content.close}
+              </button>
+            </div>
+            <p className="mb-2 text-sm text-white/70">
+              {getDisplayedTier(selectedPlayer)} • {selectedPlayer.points} {content.pointsShort}
+            </p>
+            <p className="whitespace-pre-wrap text-sm text-white/90">
+              {selectedPlayer.description?.trim() || content.playerDescriptionFallback}
+            </p>
+          </div>
+        </div>
+      ) : null}
     </section>
   );
 }
