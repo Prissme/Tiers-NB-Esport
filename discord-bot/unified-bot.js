@@ -63,6 +63,8 @@ const DISCORD_BOT_TOKEN = process.env.DISCORD_BOT_TOKEN;
 const DISCORD_GUILD_ID = process.env.DISCORD_GUILD_ID;
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY;
+const SITE_BASE_URL = (process.env.SITE_BASE_URL || 'https://www.lfn-esports.fr').replace(/\/+$/, '');
+const TROPHY_EMOJI = '<a:trophy:1393336054567665897>';
 
 const MATCH_CHANNEL_ID = process.env.MATCH_CHANNEL_ID || '1434509931360419890';
 const LOG_CHANNEL_ID = process.env.LOG_CHANNEL_ID || '1237166689188053023';
@@ -2225,6 +2227,24 @@ async function getSiteRankingMap() {
   };
 }
 
+function toCountryFlag(countryCode) {
+  const normalized = String(countryCode || 'FR').trim().toUpperCase();
+  if (!/^[A-Z]{2}$/.test(normalized)) {
+    return '🏳️';
+  }
+  return String.fromCodePoint(...Array.from(normalized).map((char) => 127397 + char.charCodeAt(0)));
+}
+
+async function fetchSiteTierLeaderboard() {
+  const response = await fetch(`${SITE_BASE_URL}/api/site/player-standings`, { method: 'GET' });
+  if (!response.ok) {
+    throw new Error(`Site standings request failed (${response.status})`);
+  }
+  const payload = await response.json();
+  const players = Array.isArray(payload?.players) ? payload.players : [];
+  return players.filter((player) => Number(player?.points || 0) > 0);
+}
+
 function normalizeTierInput(value) {
   if (!value) {
     return null;
@@ -4113,35 +4133,9 @@ async function handleAchievementsCommand(message) {
 }
 
 async function handleLeaderboardCommand(message, args) {
-  const supabaseClient = createSupabaseClient();
-  if (!supabaseClient) {
-    await message.reply({
-      content: localizeText({
-        fr: 'Configuration Supabase manquante.',
-        en: 'Supabase configuration is missing.'
-      })
-    });
-    return;
-  }
-
-  let limit = 10;
-  if (args[0]) {
-    const parsed = parseInt(args[0], 10);
-    if (!Number.isNaN(parsed) && parsed > 0) {
-      limit = Math.min(parsed, 25);
-    }
-  }
-
   try {
-    const { data: allPlayers, error } = await supabaseClient
-      .from('players')
-      .select('discord_id, name, solo_elo, wins, losses, win_streak, lose_streak, games_played')
-      .eq('active', true)
-      .order('solo_elo', { ascending: false });
-
-    if (error) throw error;
-
-    if (!allPlayers || allPlayers.length === 0) {
+    const allPlayers = await fetchSiteTierLeaderboard();
+    if (!allPlayers.length) {
       await message.reply({
         content: localizeText({
           fr: 'Aucun joueur classé pour le moment.',
@@ -4151,49 +4145,108 @@ async function handleLeaderboardCommand(message, args) {
       return;
     }
 
-    const topPlayers = allPlayers.slice(0, limit);
+    let requestedLimit = allPlayers.length;
+    if (args[0]) {
+      const parsed = parseInt(args[0], 10);
+      if (!Number.isNaN(parsed) && parsed > 0) {
+        requestedLimit = Math.min(parsed, allPlayers.length);
+      }
+    }
 
-    const lines = [];
+    const players = allPlayers.slice(0, requestedLimit);
+    const pageSize = 10;
+    const pages = [];
+    for (let index = 0; index < players.length; index += pageSize) {
+      pages.push(players.slice(index, index + pageSize));
+    }
 
-    topPlayers.forEach((player, index) => {
-      const rank = index + 1;
-      const soloElo = normalizeRating(player.solo_elo);
-      const winStreak = typeof player.win_streak === 'number' ? player.win_streak : 0;
-      const loseStreak = typeof player.lose_streak === 'number' ? player.lose_streak : 0;
-      const streakInfo = describeStreak(winStreak, loseStreak, { short: true });
-      const wishedRank = formatEloRankEmoji(getEloRankByRating(soloElo));
-      const displayName = wishedRank ? `${wishedRank} **${player.name}**` : `**${player.name}**`;
+    const buildEmbed = (pageIndex) => {
+      const page = pages[pageIndex] || [];
+      const lines = page.map((player, index) => {
+        const globalRank = pageIndex * pageSize + index + 1;
+        const trophy = globalRank <= 3 ? `${TROPHY_EMOJI} ` : '';
+        const countryFlag = toCountryFlag(player.countryCode);
+        return `**#${globalRank}** ${trophy}**${player.name}** • ${countryFlag} ${String(
+          player.countryCode || 'FR'
+        ).toUpperCase()} • ${player.tier} • **${Math.round(Number(player.points || 0))} pts**`;
+      });
 
-      lines.push(
-        localizeText(
-          {
-            fr: '{rank}. {name} — {elo} Elo — {streak}',
-            en: '{rank}. {name} — {elo} Elo — {streak}'
-          },
-          {
-            rank: `**${rank}**`,
-            name: displayName,
-            elo: Math.round(soloElo),
-            streak: streakInfo.label
-          }
+      return new EmbedBuilder()
+        .setTitle(
+          localizeText(
+            { fr: `${TROPHY_EMOJI} Classement Tier — Top {count}`, en: `${TROPHY_EMOJI} Tier leaderboard — Top {count}` },
+            { count: players.length }
+          )
         )
+        .setDescription(lines.join('\n'))
+        .setColor(0xf1c40f)
+        .setFooter({
+          text: localizeText(
+            { fr: 'Page {current}/{total}', en: 'Page {current}/{total}' },
+            { current: pageIndex + 1, total: pages.length }
+          )
+        })
+        .setTimestamp(new Date());
+    };
+
+    let currentPage = 0;
+    const needsPagination = pages.length > 1;
+    const buildNavigationRow = () =>
+      new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId('tierleaderboard_prev')
+          .setLabel('◀')
+          .setStyle(ButtonStyle.Secondary)
+          .setDisabled(currentPage === 0),
+        new ButtonBuilder()
+          .setCustomId('tierleaderboard_next')
+          .setLabel('▶')
+          .setStyle(ButtonStyle.Secondary)
+          .setDisabled(currentPage >= pages.length - 1)
       );
+
+    const sentMessage = await message.reply({
+      embeds: [buildEmbed(currentPage)],
+      components: needsPagination ? [buildNavigationRow()] : [],
+      allowedMentions: { repliedUser: false }
     });
 
-    const embed = new EmbedBuilder()
-      .setTitle(
-        localizeText(
-          { fr: '🏆 Classement Elo — Top {count}', en: '🏆 Elo leaderboard — Top {count}' },
-          { count: topPlayers.length }
-        )
-      )
-      .setDescription(lines.join('\n'))
-      .setColor(0xf1c40f)
-      .setTimestamp(new Date());
+    if (!needsPagination) {
+      return;
+    }
 
-    await message.reply({ embeds: [embed] });
+    const collector = sentMessage.createMessageComponentCollector({
+      filter: (interaction) =>
+        interaction.isButton() &&
+        ['tierleaderboard_prev', 'tierleaderboard_next'].includes(interaction.customId) &&
+        interaction.user.id === message.author.id,
+      time: 120000
+    });
+
+    collector.on('collect', async (interaction) => {
+      if (interaction.customId === 'tierleaderboard_prev' && currentPage > 0) {
+        currentPage -= 1;
+      }
+
+      if (interaction.customId === 'tierleaderboard_next' && currentPage < pages.length - 1) {
+        currentPage += 1;
+      }
+
+      await interaction.update({
+        embeds: [buildEmbed(currentPage)],
+        components: [buildNavigationRow()]
+      });
+    });
+
+    collector.on('end', async () => {
+      try {
+        await sentMessage.edit({ components: [] });
+      } catch (err) {
+        warn('Unable to clear tier leaderboard pagination controls:', err?.message || err);
+      }
+    });
   } catch (error) {
-    errorLog('Failed to fetch leaderboard:', error);
+    errorLog('Failed to fetch tier leaderboard:', error);
     await message.reply({
       content: localizeText({
         fr: 'Erreur lors de la récupération du classement.',
@@ -4727,13 +4780,19 @@ async function handleTierCommand(message) {
 
   const tierRole = await message.guild.roles.fetch(detectedTier.roleId).catch(() => null);
   const sameTierCount = tierRole?.members?.size || 0;
+  const siteRanking = await getSiteRankingInfo(message.author.id);
+  const rankLabel = siteRanking.rank
+    ? `#${siteRanking.rank}${siteRanking.totalPlayers ? `/${siteRanking.totalPlayers}` : ''}`
+    : localizeText({ fr: 'Non classé', en: 'Unranked' });
 
   await message.reply({
     embeds: [
       new EmbedBuilder()
         .setColor(PUBLIC_TIER_COLORS[detectedTier.tier] || 0x00b894)
-        .setTitle(`${detectedTier.emoji}  ${detectedTier.tier.toUpperCase()}`)
-        .setDescription(`**${sameTierCount}** personne(s) ont le même tier que toi.`)
+        .setTitle(`${TROPHY_EMOJI}  ${detectedTier.tier.toUpperCase()}`)
+        .setDescription(
+          `**${sameTierCount}** personne(s) ont le même tier que toi.\nClassement global: **${rankLabel}**`
+        )
         .setThumbnail(message.author.displayAvatarURL({ extension: 'png', size: 256 }))
     ]
   });
@@ -5148,6 +5207,7 @@ async function handleHelpCommand(message) {
     '`!leave` — Quitter la file d\'attente',
     '`!queue` — Voir la file PL avec le rang des joueurs',
     '`!tier` — Voir ton tier selon tes rôles Discord',
+    '`!tierleaderboard [nombre]` — Voir le classement tiers du site (avec pagination)',
     '`!lfn` — Présentation de la compétition + lien du site',
     '`!elo [@joueur]` — Afficher le classement Elo',
     '`!ranks` — Voir ta progression Elo vers Verdoyant',
@@ -6976,6 +7036,7 @@ async function handleMessage(message) {
         break;
       case 'lb':
       case 'leaderboard':
+      case 'tierleaderboard':
         await handleLeaderboardCommand(message, args);
         break;
       case 'maps':

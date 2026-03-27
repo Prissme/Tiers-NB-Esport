@@ -27,12 +27,9 @@ const tierImageByName: Record<string, string> = {
   "Tier E": "/TierE.webp",
 };
 
-const toFlag = (countryCode?: string) => {
+const getCountryCode = (countryCode?: string) => {
   const normalized = String(countryCode ?? "FR").trim().toUpperCase();
-  if (!/^[A-Z]{2}$/.test(normalized)) return "🏳️";
-  return String.fromCodePoint(
-    ...Array.from(normalized).map((char) => 127397 + char.charCodeAt(0))
-  );
+  return /^[A-Z]{2}$/.test(normalized) ? normalized : "UN";
 };
 
 const getDisplayedTier = (player: PlayerStanding) => {
@@ -93,6 +90,10 @@ const copy = {
     playersDescription: "Classement des joueurs avec rôle de tier.",
     playerName: "Pseudo",
     playerTier: "Tier",
+    countryRankingTitle: "Classement par pays",
+    countryRankingDescription: "Somme des points des joueurs actifs par pays.",
+    country: "Pays",
+    playersCount: "Joueurs",
     emptyPlayers: "Aucun joueur tier enregistré.",
   },
   en: {
@@ -116,6 +117,10 @@ const copy = {
     playersDescription: "Ranking of players with a tier role.",
     playerName: "Nickname",
     playerTier: "Tier",
+    countryRankingTitle: "Country leaderboard",
+    countryRankingDescription: "Total points of active players by country.",
+    country: "Country",
+    playersCount: "Players",
     emptyPlayers: "No tier players found.",
   },
 };
@@ -251,6 +256,19 @@ export default function StandingsClient({ locale }: { locale: Locale }) {
   }, [availableDivisions, activeDivision]);
 
   const topPlayers = useMemo(() => playerStandings.slice(0, 50), [playerStandings]);
+  const countryLeaderboard = useMemo(() => {
+    const byCountry = new Map<string, { code: string; points: number; players: number }>();
+    for (const player of playerStandings) {
+      const code = getCountryCode(player.countryCode);
+      const current = byCountry.get(code) ?? { code, points: 0, players: 0 };
+      current.points += player.points;
+      current.players += 1;
+      byCountry.set(code, current);
+    }
+    return [...byCountry.values()]
+      .sort((a, b) => b.points - a.points || b.players - a.players || a.code.localeCompare(b.code))
+      .slice(0, 15);
+  }, [playerStandings]);
 
   if (loading) {
     return (
@@ -327,7 +345,13 @@ export default function StandingsClient({ locale }: { locale: Locale }) {
                   <div className="mx-auto">
                     <p className="text-lg font-semibold text-white">{player.name}</p>
                     <p className="text-sm text-white/70">
-                      {toFlag(player.countryCode)} {player.countryCode ?? "FR"}
+                      <img
+                        src={`https://flagcdn.com/w40/${getCountryCode(player.countryCode).toLowerCase()}.png`}
+                        alt={getCountryCode(player.countryCode)}
+                        className="mr-2 inline-block h-4 w-6 rounded-sm object-cover align-middle"
+                        loading="lazy"
+                      />
+                      {getCountryCode(player.countryCode)}
                     </p>
                   </div>
                   <div className="mx-auto flex flex-col items-center gap-2">
@@ -373,7 +397,15 @@ export default function StandingsClient({ locale }: { locale: Locale }) {
                     <td className="px-3 py-2">{index + 1}</td>
                     <td className="px-3 py-2 text-white/90">{player.name}</td>
                     <td className="px-3 py-2">
-                      {toFlag(player.countryCode)} {player.countryCode ?? "FR"}
+                      <div className="flex items-center gap-2">
+                        <img
+                          src={`https://flagcdn.com/w40/${getCountryCode(player.countryCode).toLowerCase()}.png`}
+                          alt={getCountryCode(player.countryCode)}
+                          className="h-4 w-6 rounded-sm object-cover"
+                          loading="lazy"
+                        />
+                        <span>{getCountryCode(player.countryCode)}</span>
+                      </div>
                     </td>
                     <td className="px-3 py-2">
                       <div className="flex items-center gap-2">
@@ -393,6 +425,44 @@ export default function StandingsClient({ locale }: { locale: Locale }) {
             </tbody>
           </table>
         </div>
+        {countryLeaderboard.length > 0 ? (
+          <div className="overflow-x-auto rounded-xl border border-white/10 bg-black/20">
+            <div className="border-b border-white/10 px-4 py-3">
+              <p className="text-sm font-semibold text-white">{content.countryRankingTitle}</p>
+              <p className="text-xs text-white/60">{content.countryRankingDescription}</p>
+            </div>
+            <table className="surface-table min-w-full text-sm text-white/80">
+              <thead className="surface-table__header text-xs uppercase text-white/40">
+                <tr>
+                  <th className="px-3 py-2 text-left">#</th>
+                  <th className="px-3 py-2 text-left">{content.country}</th>
+                  <th className="px-3 py-2 text-left">{content.playersCount}</th>
+                  <th className="px-3 py-2 text-left">{content.points}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {countryLeaderboard.map((country, index) => (
+                  <tr key={country.code} className="surface-table__row">
+                    <td className="px-3 py-2">{index + 1}</td>
+                    <td className="px-3 py-2">
+                      <div className="flex items-center gap-2">
+                        <img
+                          src={`https://flagcdn.com/w40/${country.code.toLowerCase()}.png`}
+                          alt={country.code}
+                          className="h-4 w-6 rounded-sm object-cover"
+                          loading="lazy"
+                        />
+                        <span>{country.code}</span>
+                      </div>
+                    </td>
+                    <td className="px-3 py-2">{country.players}</td>
+                    <td className="px-3 py-2 font-semibold">{country.points}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : null}
       </div>
 
       <div className="signal-divider" />
@@ -463,7 +533,7 @@ export default function StandingsClient({ locale }: { locale: Locale }) {
                         ? "min-h-[240px] md:min-h-[300px]"
                         : index === 1
                           ? "min-h-[210px] md:min-h-[260px]"
-                          : "min-h-[190px] md:min-h-[230px]";
+                          : "min-h-[185px] md:min-h-[240px]";
                     return (
                       <div
                         key={row.teamId}
@@ -475,7 +545,7 @@ export default function StandingsClient({ locale }: { locale: Locale }) {
                           <div
                             className={`mx-auto inline-flex items-center justify-center rounded-full px-4 py-1 text-[10px] uppercase tracking-[0.35em] ${badge}`}
                           >
-                            {place}
+                            {"<a:trophy:1393336054567665897>"} {place}
                           </div>
                           <div className="mx-auto flex h-20 w-20 items-center justify-center overflow-hidden rounded-2xl bg-white/10">
                             {logoUrl ? (

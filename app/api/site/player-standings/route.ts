@@ -114,7 +114,7 @@ export async function GET(request: Request) {
           countryCode: countryByPlayerId.get(player.id) ?? "FR",
         };
       })
-      .filter((player) => tierOptions.has(player.tier))
+      .filter((player) => tierOptions.has(player.tier) && player.points > 0)
       .sort(
         (a, b) =>
           b.points - a.points ||
