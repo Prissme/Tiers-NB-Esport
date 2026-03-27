@@ -2245,6 +2245,15 @@ async function fetchSiteTierLeaderboard() {
   return players.filter((player) => Number(player?.points || 0) > 0);
 }
 
+async function fetchSiteTierPlayerByDiscordId(discordId) {
+  if (!discordId) {
+    return null;
+  }
+
+  const players = await fetchSiteTierLeaderboard();
+  return players.find((player) => String(player?.discordId || '') === String(discordId)) || null;
+}
+
 async function fetchPLLeaderboard(limit = 50) {
   const safeLimit = Math.max(1, Math.min(Number(limit) || 50, 100));
   const { data, error } = await supabase
@@ -4853,13 +4862,6 @@ async function fetchPlayerTierDescription(playerId) {
 async function handleTierCommand(message) {
   const mention = message.mentions.users.first();
   const targetUser = mention || message.author;
-  const member =
-    (mention ? await message.guild?.members.fetch(targetUser.id).catch(() => null) : message.member) || null;
-  const roleCache = member?.roles?.cache;
-  if (!roleCache) {
-    await message.reply({ content: 'No-Tier' });
-    return;
-  }
 
   let description = '';
   const playerProfile = await fetchPlayerByDiscordId(targetUser.id).catch(() => null);
@@ -4867,26 +4869,29 @@ async function handleTierCommand(message) {
     description = await fetchPlayerTierDescription(playerProfile.id).catch(() => '');
   }
 
-  const detectedTier = PUBLIC_TIER_ROLE_LOOKUP.find(({ roleId }) => roleCache.has(roleId));
-  if (!detectedTier) {
+  const siteTierPlayer = await fetchSiteTierPlayerByDiscordId(targetUser.id).catch(() => null);
+  if (!siteTierPlayer) {
     await message.reply({ content: 'No-Tier' });
     return;
   }
 
-  const tierRole = await message.guild.roles.fetch(detectedTier.roleId).catch(() => null);
-  const sameTierCount = tierRole?.members?.size || 0;
-  const siteRanking = await getSiteRankingInfo(targetUser.id);
-  const rankLabel = siteRanking.rank
-    ? `#${siteRanking.rank}${siteRanking.totalPlayers ? `/${siteRanking.totalPlayers}` : ''}`
+  const siteRankMap = await getSiteRankingMap().catch(() => ({ rankingByDiscordId: new Map(), totalPlayers: null }));
+  const playerRank = siteRankMap.rankingByDiscordId?.get(String(targetUser.id)) || null;
+  const rankLabel = playerRank
+    ? `#${playerRank}${siteRankMap.totalPlayers ? `/${siteRankMap.totalPlayers}` : ''}`
     : localizeText({ fr: 'Non classé', en: 'Unranked' });
+  const sameTierCount = (await fetchSiteTierLeaderboard().catch(() => []))
+    .filter((player) => player?.tier === siteTierPlayer.tier).length;
 
   await message.reply({
     embeds: [
       new EmbedBuilder()
-        .setColor(PUBLIC_TIER_COLORS[detectedTier.tier] || 0x00b894)
-        .setTitle(`${TROPHY_EMOJI}  ${detectedTier.tier.toUpperCase()}`)
+        .setColor(PUBLIC_TIER_COLORS[siteTierPlayer.tier] || 0x00b894)
+        .setTitle(`${TROPHY_EMOJI}  ${String(siteTierPlayer.tier || 'No Tier').toUpperCase()}`)
         .setDescription(
-          `**${sameTierCount}** personne(s) ont le même tier.\nClassement global: **${rankLabel}**${
+          `**${sameTierCount}** personne(s) ont le même tier.\nClassement global: **${rankLabel}**\nPoints: **${Math.round(
+            Number(siteTierPlayer.points || 0)
+          )}**${
             description ? `\n\n📝 ${description}` : ''
           }`
         )
