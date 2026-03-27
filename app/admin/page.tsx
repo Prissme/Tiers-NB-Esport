@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import MatchesTable, { type MatchRecord } from "./components/MatchesTable";
 import TeamsPanel from "./components/TeamsPanel";
@@ -33,6 +33,7 @@ type TierPlayer = {
   tier: string;
   points: number;
   countryCode?: string;
+  description?: string;
 };
 
 const tierOptions = ["Tier S", "Tier A", "Tier B", "Tier C", "Tier D", "Tier E"] as const;
@@ -85,6 +86,7 @@ export default function AdminPage() {
   const [updatingPlayerId, setUpdatingPlayerId] = useState<string | null>(null);
   const [creatingPlayer, setCreatingPlayer] = useState(false);
   const [playerSearch, setPlayerSearch] = useState("");
+  const [expandedPlayerId, setExpandedPlayerId] = useState<string | null>(null);
 
   const fetchAllMatches = async (seasonOverride?: string | null) => {
     let query = supabase
@@ -155,6 +157,7 @@ export default function AdminPage() {
     points: number;
     tier: string;
     countryCode: string;
+    description: string;
   }) => {
     const { playerId } = payload;
     setUpdatingPlayerId(playerId);
@@ -183,6 +186,7 @@ export default function AdminPage() {
     tier: string;
     points: number;
     countryCode: string;
+    description?: string;
   }) => {
     setCreatingPlayer(true);
     try {
@@ -550,6 +554,7 @@ export default function AdminPage() {
                 const tier = String(formData.get("tier") ?? "");
                 const points = Number(formData.get("points"));
                 const countryCode = String(formData.get("countryCode") ?? "FR").toUpperCase();
+                const description = String(formData.get("description") ?? "").trim();
 
                 if (!name) {
                   setErrorMessage("Le pseudo est obligatoire.");
@@ -560,7 +565,7 @@ export default function AdminPage() {
                   return;
                 }
 
-                const ok = await createTierPlayer({ name, tier, points, countryCode });
+                const ok = await createTierPlayer({ name, tier, points, countryCode, description });
                 if (ok) {
                   setErrorMessage(null);
                   event.currentTarget.reset();
@@ -609,6 +614,12 @@ export default function AdminPage() {
               >
                 {creatingPlayer ? "Ajout..." : "Ajouter joueur"}
               </button>
+              <textarea
+                name="description"
+                placeholder="Description du joueur (optionnel)"
+                className="rounded-md border border-white/15 bg-black/30 px-3 py-2 text-white md:col-span-5"
+                rows={2}
+              />
             </form>
             <div className="mb-4">
               <input
@@ -639,73 +650,108 @@ export default function AdminPage() {
                     </td>
                   </tr>
                 ) : (
-                  filteredTierPlayers.map((player, index) => (
-                    <tr key={player.id} className="surface-table__row">
-                      <td className="px-3 py-2">{index + 1}</td>
-                      <td className="px-3 py-2">{player.name}</td>
-                      <td className="px-3 py-2">
-                        {toFlag(player.countryCode)} {player.countryCode ?? "FR"}
-                      </td>
-                      <td className="px-3 py-2">{player.tier}</td>
-                      <td className="px-3 py-2">
-                        <form
-                          className="flex items-center gap-2"
-                          onSubmit={(event) => {
-                            event.preventDefault();
-                            const formData = new FormData(event.currentTarget);
-                            const value = Number(formData.get("points"));
-                            const tier = String(formData.get("tier") ?? "");
-                            const countryCode = String(formData.get("countryCode") ?? "FR").toUpperCase();
-                            if (!Number.isInteger(value)) {
-                              setErrorMessage("Les points doivent être un nombre entier.");
-                              return;
-                            }
-                            if (!tierOptions.includes(tier as (typeof tierOptions)[number])) {
-                              setErrorMessage("Tier invalide.");
-                              return;
-                            }
-                            updateTierPlayer({ playerId: player.id, points: value, tier, countryCode });
-                          }}
+                  filteredTierPlayers.map((player, index) => {
+                    const isExpanded = expandedPlayerId === player.id;
+                    return (
+                      <Fragment key={player.id}>
+                        <tr
+                          className="surface-table__row cursor-pointer"
+                          onClick={() =>
+                            setExpandedPlayerId((current) => (current === player.id ? null : player.id))
+                          }
                         >
-                          <select
-                            name="countryCode"
-                            defaultValue={player.countryCode ?? "FR"}
-                            className="rounded-md border border-white/15 bg-black/30 px-2 py-1 text-white"
-                          >
-                            {countryOptions.map((country) => (
-                              <option key={country.code} value={country.code}>
-                                {country.label}
-                              </option>
-                            ))}
-                          </select>
-                          <select
-                            name="tier"
-                            defaultValue={player.tier}
-                            className="rounded-md border border-white/15 bg-black/30 px-2 py-1 text-white"
-                          >
-                            {tierOptions.map((tier) => (
-                              <option key={tier} value={tier}>
-                                {tier}
-                              </option>
-                            ))}
-                          </select>
-                          <input
-                            type="number"
-                            name="points"
-                            defaultValue={player.points}
-                            className="w-24 rounded-md border border-white/15 bg-black/30 px-2 py-1 text-white"
-                          />
-                          <button
-                            type="submit"
-                            disabled={updatingPlayerId === player.id}
-                            className="surface-pill surface-pill--active px-3 py-1 text-xs font-semibold text-black disabled:opacity-50"
-                          >
-                            {updatingPlayerId === player.id ? "..." : "Sauver"}
-                          </button>
-                        </form>
-                      </td>
-                    </tr>
-                  ))
+                          <td className="px-3 py-2">{index + 1}</td>
+                          <td className="px-3 py-2">{player.name}</td>
+                          <td className="px-3 py-2">
+                            {toFlag(player.countryCode)} {player.countryCode ?? "FR"}
+                          </td>
+                          <td className="px-3 py-2">{player.tier}</td>
+                          <td className="px-3 py-2 text-xs text-white/60">
+                            {isExpanded ? "Masquer édition" : "Cliquer pour éditer"}
+                          </td>
+                        </tr>
+                        {isExpanded ? (
+                          <tr className="surface-table__row bg-white/5">
+                            <td colSpan={5} className="px-3 py-3">
+                              <form
+                                className="flex flex-col gap-2"
+                                onSubmit={(event) => {
+                                  event.preventDefault();
+                                  const formData = new FormData(event.currentTarget);
+                                  const value = Number(formData.get("points"));
+                                  const tier = String(formData.get("tier") ?? "");
+                                  const countryCode = String(
+                                    formData.get("countryCode") ?? "FR"
+                                  ).toUpperCase();
+                                  const description = String(formData.get("description") ?? "").trim();
+                                  if (!Number.isInteger(value)) {
+                                    setErrorMessage("Les points doivent être un nombre entier.");
+                                    return;
+                                  }
+                                  if (!tierOptions.includes(tier as (typeof tierOptions)[number])) {
+                                    setErrorMessage("Tier invalide.");
+                                    return;
+                                  }
+                                  updateTierPlayer({
+                                    playerId: player.id,
+                                    points: value,
+                                    tier,
+                                    countryCode,
+                                    description,
+                                  });
+                                }}
+                              >
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <select
+                                    name="countryCode"
+                                    defaultValue={player.countryCode ?? "FR"}
+                                    className="rounded-md border border-white/15 bg-black/30 px-2 py-1 text-white"
+                                  >
+                                    {countryOptions.map((country) => (
+                                      <option key={country.code} value={country.code}>
+                                        {country.label}
+                                      </option>
+                                    ))}
+                                  </select>
+                                  <select
+                                    name="tier"
+                                    defaultValue={player.tier}
+                                    className="rounded-md border border-white/15 bg-black/30 px-2 py-1 text-white"
+                                  >
+                                    {tierOptions.map((tier) => (
+                                      <option key={tier} value={tier}>
+                                        {tier}
+                                      </option>
+                                    ))}
+                                  </select>
+                                  <input
+                                    type="number"
+                                    name="points"
+                                    defaultValue={player.points}
+                                    className="w-24 rounded-md border border-white/15 bg-black/30 px-2 py-1 text-white"
+                                  />
+                                  <button
+                                    type="submit"
+                                    disabled={updatingPlayerId === player.id}
+                                    className="surface-pill surface-pill--active px-3 py-1 text-xs font-semibold text-black disabled:opacity-50"
+                                  >
+                                    {updatingPlayerId === player.id ? "..." : "Sauver"}
+                                  </button>
+                                </div>
+                                <textarea
+                                  name="description"
+                                  defaultValue={player.description ?? ""}
+                                  rows={3}
+                                  placeholder="Description affichée sur /classement et avec !tier"
+                                  className="rounded-md border border-white/15 bg-black/30 px-2 py-1 text-white"
+                                />
+                              </form>
+                            </td>
+                          </tr>
+                        ) : null}
+                      </Fragment>
+                    );
+                  })
                 )}
               </tbody>
             </table>

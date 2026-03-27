@@ -2245,6 +2245,23 @@ async function fetchSiteTierLeaderboard() {
   return players.filter((player) => Number(player?.points || 0) > 0);
 }
 
+async function fetchPLLeaderboard(limit = 50) {
+  const safeLimit = Math.max(1, Math.min(Number(limit) || 50, 100));
+  const { data, error } = await supabase
+    .from('players')
+    .select('name,discord_id,solo_elo,active')
+    .eq('active', true)
+    .not('discord_id', 'is', null)
+    .order('solo_elo', { ascending: false })
+    .limit(safeLimit);
+
+  if (error) {
+    throw new Error(error.message || 'Unable to load PL leaderboard.');
+  }
+
+  return Array.isArray(data) ? data : [];
+}
+
 function normalizeTierInput(value) {
   if (!value) {
     return null;
@@ -4256,6 +4273,56 @@ async function handleLeaderboardCommand(message, args) {
   }
 }
 
+async function handlePLLeaderboardCommand(message, args) {
+  try {
+    let requestedLimit = 20;
+    if (args[0]) {
+      const parsed = parseInt(args[0], 10);
+      if (!Number.isNaN(parsed) && parsed > 0) {
+        requestedLimit = Math.min(parsed, 100);
+      }
+    }
+
+    const players = await fetchPLLeaderboard(requestedLimit);
+    if (!players.length) {
+      await message.reply({
+        content: localizeText({
+          fr: 'Aucun joueur PL classé pour le moment.',
+          en: 'No PL ranked players yet.'
+        })
+      });
+      return;
+    }
+
+    const lines = players.map((player, index) => {
+      const rank = index + 1;
+      const trophy = rank <= 3 ? `${TROPHY_EMOJI} ` : '';
+      const elo = Math.round(Number(player?.solo_elo || 1000));
+      const name = player?.name || `Player ${player?.discord_id || '?'}`;
+      return `**#${rank}** ${trophy}**${name}** • **${elo} Elo**`;
+    });
+
+    await message.reply({
+      embeds: [
+        new EmbedBuilder()
+          .setTitle(localizeText({ fr: `${TROPHY_EMOJI} Classement PL`, en: `${TROPHY_EMOJI} PL leaderboard` }))
+          .setDescription(lines.join('\n'))
+          .setColor(0x5865f2)
+          .setTimestamp(new Date())
+      ],
+      allowedMentions: { repliedUser: false }
+    });
+  } catch (error) {
+    errorLog('Failed to fetch PL leaderboard:', error);
+    await message.reply({
+      content: localizeText({
+        fr: 'Erreur lors de la récupération du classement PL.',
+        en: 'Failed to retrieve PL leaderboard.'
+      })
+    });
+  }
+}
+
 async function handleMapsCommand(message) {
   const frenchLines = [
     '🗺️ **Rotation des maps disponibles**',
@@ -4765,11 +4832,39 @@ async function handleTierSyncCommand(message) {
   }
 }
 
+async function fetchPlayerTierDescription(playerId) {
+  if (!playerId) {
+    return '';
+  }
+
+  const { data, error } = await supabase
+    .from('lfn_player_profiles')
+    .select('description')
+    .eq('player_id', playerId)
+    .maybeSingle();
+
+  if (error && error.code !== 'PGRST116' && error.code !== '42P01' && error.code !== '42703') {
+    throw new Error(error.message || 'Unable to load player description.');
+  }
+
+  return String(data?.description || '').trim();
+}
+
 async function handleTierCommand(message) {
-  const roleCache = message.member?.roles?.cache;
+  const mention = message.mentions.users.first();
+  const targetUser = mention || message.author;
+  const member =
+    (mention ? await message.guild?.members.fetch(targetUser.id).catch(() => null) : message.member) || null;
+  const roleCache = member?.roles?.cache;
   if (!roleCache) {
     await message.reply({ content: 'No-Tier' });
     return;
+  }
+
+  let description = '';
+  const playerProfile = await fetchPlayerByDiscordId(targetUser.id).catch(() => null);
+  if (playerProfile?.id) {
+    description = await fetchPlayerTierDescription(playerProfile.id).catch(() => '');
   }
 
   const detectedTier = PUBLIC_TIER_ROLE_LOOKUP.find(({ roleId }) => roleCache.has(roleId));
@@ -4780,7 +4875,7 @@ async function handleTierCommand(message) {
 
   const tierRole = await message.guild.roles.fetch(detectedTier.roleId).catch(() => null);
   const sameTierCount = tierRole?.members?.size || 0;
-  const siteRanking = await getSiteRankingInfo(message.author.id);
+  const siteRanking = await getSiteRankingInfo(targetUser.id);
   const rankLabel = siteRanking.rank
     ? `#${siteRanking.rank}${siteRanking.totalPlayers ? `/${siteRanking.totalPlayers}` : ''}`
     : localizeText({ fr: 'Non classé', en: 'Unranked' });
@@ -4791,9 +4886,11 @@ async function handleTierCommand(message) {
         .setColor(PUBLIC_TIER_COLORS[detectedTier.tier] || 0x00b894)
         .setTitle(`${TROPHY_EMOJI}  ${detectedTier.tier.toUpperCase()}`)
         .setDescription(
-          `**${sameTierCount}** personne(s) ont le même tier que toi.\nClassement global: **${rankLabel}**`
+          `**${sameTierCount}** personne(s) ont le même tier.\nClassement global: **${rankLabel}**${
+            description ? `\n\n📝 ${description}` : ''
+          }`
         )
-        .setThumbnail(message.author.displayAvatarURL({ extension: 'png', size: 256 }))
+        .setThumbnail(targetUser.displayAvatarURL({ extension: 'png', size: 256 }))
     ]
   });
 }
@@ -5206,8 +5303,9 @@ async function handleHelpCommand(message) {
     '`!join` — Rejoindre la file de matchmaking',
     '`!leave` — Quitter la file d\'attente',
     '`!queue` — Voir la file PL avec le rang des joueurs',
-    '`!tier` — Voir ton tier selon tes rôles Discord',
-    '`!tierleaderboard [nombre]` — Voir le classement tiers du site (avec pagination)',
+    '`!lb [nombre]` — Voir le classement PL (Elo)',
+    '`!tier [@joueur]` — Voir le tier Discord + description joueur',
+    '`!tierlb [nombre]` — Voir le classement tiers du site (pagination)',
     '`!lfn` — Présentation de la compétition + lien du site',
     '`!elo [@joueur]` — Afficher le classement Elo',
     '`!ranks` — Voir ta progression Elo vers Verdoyant',
@@ -7036,6 +7134,9 @@ async function handleMessage(message) {
         break;
       case 'lb':
       case 'leaderboard':
+        await handlePLLeaderboardCommand(message, args);
+        break;
+      case 'tierlb':
       case 'tierleaderboard':
         await handleLeaderboardCommand(message, args);
         break;
