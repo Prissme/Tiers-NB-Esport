@@ -1947,7 +1947,7 @@ async function handleAdminSlashCommand(interaction) {
       return true;
     }
 
-    performanceStores.playerStore.invalidateRanking();
+    performanceStores.playerStore.invalidateRankingSnapshot();
     await interaction.reply({
       embeds: [
         new EmbedBuilder()
