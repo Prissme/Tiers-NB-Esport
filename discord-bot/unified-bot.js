@@ -1392,6 +1392,27 @@ function buildAdminSlashCommands() {
       ]
     },
     {
+      name: 'addpoints',
+      description: localizeText({ fr: 'Ajouter des points de tier à un joueur', en: 'Add tier points to a player' }),
+      dm_permission: false,
+      options: [
+        {
+          name: 'player',
+          description: localizeText({ fr: 'Joueur ciblé', en: 'Target player' }),
+          type: ApplicationCommandOptionType.User,
+          required: true
+        },
+        {
+          name: 'amount',
+          description: localizeText({ fr: 'Nombre de points à ajouter', en: 'Points amount to add' }),
+          type: ApplicationCommandOptionType.Integer,
+          required: true,
+          min_value: 1,
+          max_value: 10000
+        }
+      ]
+    },
+    {
       name: 'setws',
       description: localizeText({ fr: 'Définir la winstreak d’un joueur', en: 'Set a player win streak' }),
       dm_permission: false,
@@ -1555,7 +1576,7 @@ async function handleAdminSlashCommand(interaction) {
   }
 
   const command = interaction.commandName;
-  if (!['addelo', 'removeelo', 'setws', 'setls', 'banpl', 'cancelmatch', 'sync', 'addplayer', 'removeplayer'].includes(command)) {
+  if (!['addelo', 'removeelo', 'addpoints', 'setws', 'setls', 'banpl', 'cancelmatch', 'sync', 'addplayer', 'removeplayer'].includes(command)) {
     return false;
   }
 
@@ -1867,6 +1888,96 @@ async function handleAdminSlashCommand(interaction) {
   }
 
   const amount = interaction.options.getInteger('amount', true);
+  if (command === 'addpoints') {
+    const activeSeasonId = await getActiveSeasonId();
+    if (!activeSeasonId) {
+      await interaction.reply({
+        content: localizeText({
+          fr: 'Aucune saison active trouvée pour mettre à jour les points de tier.',
+          en: 'No active season found to update tier points.'
+        }),
+        flags: MessageFlags.Ephemeral
+      });
+      return true;
+    }
+
+    const { data: existingTierEntry, error: fetchTierError } = await supabase
+      .from('lfn_player_tier_points')
+      .select('points,tier')
+      .eq('player_id', player.id)
+      .eq('season_id', activeSeasonId)
+      .maybeSingle();
+
+    if (fetchTierError) {
+      errorLog('Failed to fetch current tier points:', fetchTierError);
+      await interaction.reply({
+        content: localizeText({
+          fr: 'Erreur lors de la récupération des points de tier.',
+          en: 'Error while fetching tier points.'
+        }),
+        flags: MessageFlags.Ephemeral
+      });
+      return true;
+    }
+
+    const currentPoints = Number(existingTierEntry?.points || 0);
+    const nextPoints = currentPoints + amount;
+    const currentTier = existingTierEntry?.tier || 'Tier E';
+
+    const { error: updateTierError } = await supabase.from('lfn_player_tier_points').upsert(
+      {
+        player_id: player.id,
+        season_id: activeSeasonId,
+        points: nextPoints,
+        tier: currentTier,
+        updated_at: new Date().toISOString()
+      },
+      { onConflict: 'player_id,season_id' }
+    );
+
+    if (updateTierError) {
+      errorLog('Failed to update tier points:', updateTierError);
+      await interaction.reply({
+        content: localizeText({
+          fr: 'Erreur lors de la mise à jour des points de tier.',
+          en: 'Error while updating tier points.'
+        }),
+        flags: MessageFlags.Ephemeral
+      });
+      return true;
+    }
+
+    performanceStores.playerStore.invalidateRanking();
+    await interaction.reply({
+      embeds: [
+        new EmbedBuilder()
+          .setTitle(localizeText({ fr: 'Points de tier ajoutés', en: 'Tier points added' }))
+          .setDescription(`<@${targetUser.id}>`)
+          .addFields(
+            {
+              name: localizeText({ fr: 'Anciens points', en: 'Previous points' }),
+              value: `${Math.round(currentPoints)}`,
+              inline: true
+            },
+            {
+              name: localizeText({ fr: 'Nouveaux points', en: 'New points' }),
+              value: `${Math.round(nextPoints)}`,
+              inline: true
+            },
+            {
+              name: localizeText({ fr: 'Delta', en: 'Delta' }),
+              value: `+${amount}`,
+              inline: true
+            }
+          )
+          .setColor(0x2ecc71)
+          .setTimestamp(new Date())
+      ],
+      flags: MessageFlags.Ephemeral
+    });
+    return true;
+  }
+
   const delta = command === 'addelo' ? amount : -amount;
   const currentElo = normalizeRating(player.solo_elo);
   const nextElo = Math.max(0, currentElo + delta);
@@ -2269,6 +2380,23 @@ async function fetchPLLeaderboard(limit = 50) {
   }
 
   return Array.isArray(data) ? data : [];
+}
+
+async function getActiveSeasonId() {
+  const { data, error } = await supabase
+    .from('lfn_seasons')
+    .select('id')
+    .eq('status', 'active')
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    errorLog('Failed to resolve active season:', error);
+    return null;
+  }
+
+  return data?.id || null;
 }
 
 function normalizeTierInput(value) {
