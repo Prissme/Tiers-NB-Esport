@@ -471,6 +471,7 @@ let tierSyncInterval = null;
 let worstPlayerRoleInterval = null;
 let botStarted = false;
 let supportsShieldColumns = true;
+let commandUsageCounter = 0;
 
 const QUEUE_CONFIGS = [{ maxEloDifference: null }];
 const QUEUE_COUNT = QUEUE_CONFIGS.length;
@@ -4299,6 +4300,67 @@ async function handleLeaderboardCommand(message, args) {
       return;
     }
 
+    const rawQuery = args.join(' ').trim();
+    if (rawQuery) {
+      const normalizedQuery = rawQuery.toLowerCase();
+      const matchedPlayers = allPlayers.filter((player) =>
+        String(player?.name || '')
+          .toLowerCase()
+          .includes(normalizedQuery)
+      );
+
+      if (!matchedPlayers.length) {
+        await message.reply({
+          content: localizeText(
+            {
+              fr: "Aucun joueur trouvé pour la recherche: **{query}**.",
+              en: 'No player found for search: **{query}**.'
+            },
+            { query: rawQuery }
+          ),
+          allowedMentions: { repliedUser: false }
+        });
+        return;
+      }
+
+      const lines = matchedPlayers.slice(0, 10).map((player) => {
+        const absoluteRank =
+          allPlayers.findIndex(
+            (entry) =>
+              String(entry?.discordId || '') === String(player?.discordId || '') &&
+              String(entry?.name || '').toLowerCase() === String(player?.name || '').toLowerCase()
+          ) + 1;
+        const countryFlag = toCountryFlag(player.countryCode);
+        const displayRank = absoluteRank > 0 ? absoluteRank : '?';
+        return `**#${displayRank}** **${player.name}** • ${countryFlag} ${String(player.countryCode || 'FR').toUpperCase()} • ${
+          player.tier
+        } • **${Math.round(Number(player.points || 0))} pts**`;
+      });
+
+      await message.reply({
+        embeds: [
+          new EmbedBuilder()
+            .setColor(0x8e44ad)
+            .setTitle(
+              localizeText(
+                { fr: '🔎 Résultats de recherche — {query}', en: '🔎 Search results — {query}' },
+                { query: rawQuery }
+              )
+            )
+            .setDescription(lines.join('\n'))
+            .setFooter({
+              text: localizeText(
+                { fr: '{count} résultat(s)', en: '{count} result(s)' },
+                { count: matchedPlayers.length }
+              )
+            })
+            .setTimestamp(new Date())
+        ],
+        allowedMentions: { repliedUser: false }
+      });
+      return;
+    }
+
     let requestedLimit = allPlayers.length;
     if (args[0]) {
       const parsed = parseInt(args[0], 10);
@@ -4356,7 +4418,11 @@ async function handleLeaderboardCommand(message, args) {
           .setCustomId('tierleaderboard_next')
           .setLabel('▶')
           .setStyle(ButtonStyle.Secondary)
-          .setDisabled(currentPage >= pages.length - 1)
+          .setDisabled(currentPage >= pages.length - 1),
+        new ButtonBuilder()
+          .setCustomId('tierleaderboard_search')
+          .setLabel(localizeText({ fr: 'Rechercher un joueur', en: 'Search player' }))
+          .setStyle(ButtonStyle.Primary)
       );
 
     const sentMessage = await message.reply({
@@ -4372,12 +4438,84 @@ async function handleLeaderboardCommand(message, args) {
     const collector = sentMessage.createMessageComponentCollector({
       filter: (interaction) =>
         interaction.isButton() &&
-        ['tierleaderboard_prev', 'tierleaderboard_next'].includes(interaction.customId) &&
+        ['tierleaderboard_prev', 'tierleaderboard_next', 'tierleaderboard_search'].includes(interaction.customId) &&
         interaction.user.id === message.author.id,
       time: 120000
     });
 
     collector.on('collect', async (interaction) => {
+      if (interaction.customId === 'tierleaderboard_search') {
+        const modalCustomId = `tierleaderboard_search_modal:${interaction.user.id}:${sentMessage.id}`;
+        const modal = new ModalBuilder()
+          .setCustomId(modalCustomId)
+          .setTitle(localizeText({ fr: 'Rechercher un joueur', en: 'Search player' }))
+          .addComponents(
+            new ActionRowBuilder().addComponents(
+              new TextInputBuilder()
+                .setCustomId('player_name')
+                .setLabel(localizeText({ fr: 'Nom du joueur', en: 'Player name' }))
+                .setPlaceholder(localizeText({ fr: 'Ex: Prissme', en: 'e.g. Prissme' }))
+                .setStyle(TextInputStyle.Short)
+                .setRequired(true)
+                .setMaxLength(32)
+            )
+          );
+
+        await interaction.showModal(modal);
+
+        const modalInteraction = await interaction
+          .awaitModalSubmit({
+            filter: (submitted) => submitted.customId === modalCustomId && submitted.user.id === message.author.id,
+            time: 60000
+          })
+          .catch(() => null);
+
+        if (!modalInteraction) {
+          return;
+        }
+
+        const query = (modalInteraction.fields.getTextInputValue('player_name') || '').trim().toLowerCase();
+        const matchedPlayers = players
+          .map((player, index) => ({
+            player,
+            globalRank: index + 1
+          }))
+          .filter((entry) => String(entry.player?.name || '').toLowerCase().includes(query))
+          .slice(0, 10);
+
+        if (!matchedPlayers.length) {
+          await modalInteraction.reply({
+            content: localizeText({
+              fr: 'Aucun joueur trouvé avec cette recherche.',
+              en: 'No player found with this search.'
+            }),
+            flags: MessageFlags.Ephemeral
+          });
+          return;
+        }
+
+        await modalInteraction.reply({
+          embeds: [
+            new EmbedBuilder()
+              .setColor(0x8e44ad)
+              .setTitle(localizeText({ fr: '🔎 Résultat de recherche', en: '🔎 Search result' }))
+              .setDescription(
+                matchedPlayers
+                  .map(
+                    ({ player, globalRank }) =>
+                      `**#${globalRank}** **${player.name}** • ${player.tier} • **${Math.round(
+                        Number(player.points || 0)
+                      )} pts**`
+                  )
+                  .join('\n')
+              )
+              .setTimestamp(new Date())
+          ],
+          flags: MessageFlags.Ephemeral
+        });
+        return;
+      }
+
       if (interaction.customId === 'tierleaderboard_prev' && currentPage > 0) {
         currentPage -= 1;
       }
@@ -5004,7 +5142,13 @@ async function handleTierCommand(message) {
   }
 
   const siteRankMap = await getSiteRankingMap().catch(() => ({ rankingByDiscordId: new Map(), totalPlayers: null }));
-  const playerRank = siteRankMap.rankingByDiscordId?.get(String(targetUser.id)) || null;
+  const playerRankInfo = siteRankMap.rankingByDiscordId?.get(String(targetUser.id)) || null;
+  const playerRank =
+    typeof playerRankInfo === 'number'
+      ? playerRankInfo
+      : Number.isFinite(playerRankInfo?.rank)
+        ? playerRankInfo.rank
+        : null;
   const rankLabel = playerRank
     ? `#${playerRank}${siteRankMap.totalPlayers ? `/${siteRankMap.totalPlayers}` : ''}`
     : localizeText({ fr: 'Non classé', en: 'Unranked' });
@@ -5025,6 +5169,37 @@ async function handleTierCommand(message) {
         )
         .setThumbnail(targetUser.displayAvatarURL({ extension: 'png', size: 256 }))
     ]
+  });
+}
+
+async function sendPeriodicPromotionEmbed(message) {
+  if (!message?.channel || commandUsageCounter % 20 !== 0) {
+    return;
+  }
+
+  const embed = new EmbedBuilder()
+    .setColor(0x2b1a3d)
+    .setTitle('Crée ta PROPRE CUP 🏆')
+    .setDescription(
+      [
+        'Tu veux voir ton nom sur une compétition ?',
+        '',
+        '👉 **Je t’organise ta propre cup :**',
+        '',
+        '• Organisation ✅',
+        '• Cast du direct 🎙️',
+        '• Hype 🔥',
+        '',
+        '👉 **Toi tu profites, je m’occupe de tout**',
+        '',
+        '💰 Format simple : ~9,99-19,99€',
+        '',
+        '👉 https://ko-fi.com/prissme'
+      ].join('\n')
+    );
+
+  await message.channel.send({ embeds: [embed] }).catch((err) => {
+    warn('Failed to send periodic promotion embed:', err?.message || err);
   });
 }
 
@@ -7227,6 +7402,7 @@ async function handleMessage(message) {
 
   const [commandName, ...args] = content.slice(1).split(/\s+/);
   const command = commandName.toLowerCase();
+  commandUsageCounter += 1;
 
   // === COMMANDES TEMPORAIREMENT DÉSACTIVÉES POUR SIMPLIFICATION ===
   const disabledCommands = new Set(['teams']);
@@ -7237,6 +7413,7 @@ async function handleMessage(message) {
         'Ces commandes sont temporairement désactivées pour simplifier le système compétitif. / These commands are temporarily disabled to simplify the competitive flow.',
       allowedMentions: { repliedUser: false }
     });
+    await sendPeriodicPromotionEmbed(message);
     return;
   }
 
@@ -7312,6 +7489,8 @@ async function handleMessage(message) {
       })
     });
   }
+
+  await sendPeriodicPromotionEmbed(message);
 }
 
 async function startUnifiedBot() {
