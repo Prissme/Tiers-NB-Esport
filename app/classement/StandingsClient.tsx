@@ -18,6 +18,9 @@ type PlayerStanding = {
   countryCode?: string;
   description?: string;
   inactivityPenalty?: number;
+  teamId?: string | null;
+  teamName?: string | null;
+  teamTag?: string | null;
 };
 
 const tierImageByName: Record<string, string> = {
@@ -38,6 +41,23 @@ const trophyImageByRank: Record<number, string> = {
 const getCountryCode = (countryCode?: string) => {
   const normalized = String(countryCode ?? "FR").trim().toUpperCase();
   return /^[A-Z]{2}$/.test(normalized) ? normalized : "UN";
+};
+
+const toFlagEmoji = (countryCode?: string) => {
+  const code = getCountryCode(countryCode);
+  if (!/^[A-Z]{2}$/.test(code)) {
+    return "🏳️";
+  }
+  return String.fromCodePoint(...[...code].map((char) => 127397 + char.charCodeAt(0)));
+};
+
+const TIER_EMOJI: Record<string, string> = {
+  "Tier S": "💎",
+  "Tier A": "🥇",
+  "Tier B": "🥈",
+  "Tier C": "🥉",
+  "Tier D": "🛡️",
+  "Tier E": "⚔️",
 };
 
 const getDisplayedTier = (player: PlayerStanding) => {
@@ -98,6 +118,7 @@ const copy = {
     playersDescription: "Classement des joueurs avec rôle de tier.",
     playerName: "Pseudo",
     playerTier: "Tier",
+    playerTeam: "Équipe",
     countryRankingTitle: "Classement par pays",
     countryRankingDescription: "Somme des points des joueurs actifs par pays.",
     country: "Pays",
@@ -109,6 +130,11 @@ const copy = {
     allTiers: "Tous les tiers",
     playerDescriptionFallback: "Aucune description pour ce joueur.",
     close: "Fermer",
+    searchPlayerPlaceholder: "Rechercher un joueur…",
+    previousPage: "Précédent",
+    nextPage: "Suivant",
+    page: "Page",
+    freeAgent: "F/A",
   },
   en: {
     info: "Information",
@@ -131,6 +157,7 @@ const copy = {
     playersDescription: "Ranking of players with a tier role.",
     playerName: "Nickname",
     playerTier: "Tier",
+    playerTeam: "Team",
     countryRankingTitle: "Country leaderboard",
     countryRankingDescription: "Total points of active players by country.",
     country: "Country",
@@ -142,6 +169,11 @@ const copy = {
     allTiers: "All tiers",
     playerDescriptionFallback: "No description available for this player.",
     close: "Close",
+    searchPlayerPlaceholder: "Search player…",
+    previousPage: "Previous",
+    nextPage: "Next",
+    page: "Page",
+    freeAgent: "F/A",
   },
 };
 
@@ -156,6 +188,8 @@ export default function StandingsClient({ locale }: { locale: Locale }) {
   const [selectedPlayer, setSelectedPlayer] = useState<PlayerStanding | null>(null);
   const [selectedCountry, setSelectedCountry] = useState("ALL");
   const [selectedTier, setSelectedTier] = useState("ALL");
+  const [playerSearch, setPlayerSearch] = useState("");
+  const [playersPage, setPlayersPage] = useState(1);
 
   const teamFallbackStandings = useMemo<SiteStandingsRow[]>(() => {
     return teams.map((team) => ({
@@ -280,6 +314,7 @@ export default function StandingsClient({ locale }: { locale: Locale }) {
 
   const availableCountries = useMemo(() => {
     const values = new Set(playerStandings.map((player) => getCountryCode(player.countryCode)));
+    values.add("GB");
     return [...values].sort((a, b) => a.localeCompare(b));
   }, [playerStandings]);
   const availableTiers = useMemo(() => {
@@ -293,11 +328,29 @@ export default function StandingsClient({ locale }: { locale: Locale }) {
         const countryOk =
           selectedCountry === "ALL" || getCountryCode(player.countryCode) === selectedCountry;
         const tierOk = selectedTier === "ALL" || player.tier === selectedTier;
-        return countryOk && tierOk;
+        const searchOk =
+          playerSearch.trim().length === 0 ||
+          player.name.toLowerCase().includes(playerSearch.trim().toLowerCase());
+        return countryOk && tierOk && searchOk;
       }),
-    [playerStandings, selectedCountry, selectedTier]
+    [playerStandings, selectedCountry, selectedTier, playerSearch]
   );
-  const topPlayers = useMemo(() => filteredPlayers.slice(0, 50), [filteredPlayers]);
+  const topPlayers = useMemo(() => {
+    const pageSize = 50;
+    const start = (playersPage - 1) * pageSize;
+    return filteredPlayers.slice(start, start + pageSize);
+  }, [filteredPlayers, playersPage]);
+  const totalPlayersPages = Math.max(1, Math.ceil(filteredPlayers.length / 50));
+
+  useEffect(() => {
+    setPlayersPage(1);
+  }, [selectedCountry, selectedTier, playerSearch]);
+
+  useEffect(() => {
+    if (playersPage > totalPlayersPages) {
+      setPlayersPage(totalPlayersPages);
+    }
+  }, [playersPage, totalPlayersPages]);
   const countryLeaderboard = useMemo(() => {
     const byCountry = new Map<string, { code: string; points: number; players: number }>();
     for (const player of filteredPlayers) {
@@ -392,6 +445,9 @@ export default function StandingsClient({ locale }: { locale: Locale }) {
                   </div>
                   <div className="mx-auto">
                     <p className="text-lg font-semibold text-white">{player.name}</p>
+                    <p className="text-xs uppercase tracking-[0.2em] text-white/70">
+                      {player.teamTag ?? content.freeAgent}
+                    </p>
                     <p className="text-sm text-white/70">
                       <img
                         src={`https://flagcdn.com/w40/${getCountryCode(player.countryCode).toLowerCase()}.png`}
@@ -433,7 +489,7 @@ export default function StandingsClient({ locale }: { locale: Locale }) {
               </option>
               {availableCountries.map((country) => (
                 <option key={country} value={country}>
-                  {content.filterCountry}: {country}
+                  {content.filterCountry}: {toFlagEmoji(country)} {country}
                 </option>
               ))}
             </select>
@@ -447,10 +503,17 @@ export default function StandingsClient({ locale }: { locale: Locale }) {
               </option>
               {availableTiers.map((tier) => (
                 <option key={tier} value={tier}>
-                  {content.filterTier}: {tier}
+                  {content.filterTier}: {TIER_EMOJI[tier] ?? "🏷️"} {tier}
                 </option>
               ))}
             </select>
+            <input
+              type="search"
+              className="min-w-[220px] rounded-md border border-white/20 bg-black/30 px-2 py-1 text-xs text-white placeholder:text-white/50"
+              placeholder={content.searchPlayerPlaceholder}
+              value={playerSearch}
+              onChange={(event) => setPlayerSearch(event.target.value)}
+            />
           </div>
           <table className="surface-table min-w-full text-sm text-white/80">
             <thead className="surface-table__header text-xs uppercase text-white/40">
@@ -459,13 +522,14 @@ export default function StandingsClient({ locale }: { locale: Locale }) {
                 <th className="px-3 py-2 text-left">{content.playerName}</th>
                 <th className="px-3 py-2 text-left">Pays</th>
                 <th className="px-3 py-2 text-left">{content.playerTier}</th>
+                <th className="px-3 py-2 text-left">{content.playerTeam}</th>
                 <th className="px-3 py-2 text-left">{content.points}</th>
               </tr>
             </thead>
             <tbody>
               {topPlayers.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-3 py-4 text-center text-white/40">
+                  <td colSpan={6} className="px-3 py-4 text-center text-white/40">
                     {content.emptyPlayers}
                   </td>
                 </tr>
@@ -473,10 +537,18 @@ export default function StandingsClient({ locale }: { locale: Locale }) {
                 topPlayers.map((player, index) => (
                   <tr
                     key={player.id}
-                    className="surface-table__row cursor-pointer"
+                    className={`surface-table__row cursor-pointer ${
+                      index === 0
+                        ? "bg-gradient-to-r from-amber-300/20 via-amber-200/10 to-transparent"
+                        : index === 1
+                          ? "bg-gradient-to-r from-slate-300/20 via-slate-200/10 to-transparent"
+                          : index === 2
+                            ? "bg-gradient-to-r from-amber-800/20 via-amber-700/10 to-transparent"
+                            : ""
+                    }`}
                     onClick={() => setSelectedPlayer(player)}
                   >
-                    <td className="px-3 py-2">{index + 1}</td>
+                    <td className="px-3 py-2">{(playersPage - 1) * 50 + index + 1}</td>
                     <td className="px-3 py-2 text-white/90">{player.name}</td>
                     <td className="px-3 py-2">
                       <div className="flex items-center gap-2">
@@ -500,12 +572,38 @@ export default function StandingsClient({ locale }: { locale: Locale }) {
                         <span>{getDisplayedTier(player)}</span>
                       </div>
                     </td>
+                    <td className="px-3 py-2">
+                      {player.teamTag ?? player.teamName ?? content.freeAgent}
+                    </td>
                     <td className="px-3 py-2 font-semibold">{player.points}</td>
                   </tr>
                 ))
               )}
             </tbody>
           </table>
+          <div className="flex items-center justify-between border-t border-white/10 px-3 py-2 text-xs text-white/70">
+            <span>
+              {content.page} {playersPage}/{totalPlayersPages}
+            </span>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                disabled={playersPage <= 1}
+                onClick={() => setPlayersPage((prev) => Math.max(1, prev - 1))}
+                className="rounded border border-white/20 px-2 py-1 disabled:opacity-40"
+              >
+                {content.previousPage}
+              </button>
+              <button
+                type="button"
+                disabled={playersPage >= totalPlayersPages}
+                onClick={() => setPlayersPage((prev) => Math.min(totalPlayersPages, prev + 1))}
+                className="rounded border border-white/20 px-2 py-1 disabled:opacity-40"
+              >
+                {content.nextPage}
+              </button>
+            </div>
+          </div>
         </div>
         {countryLeaderboard.length > 0 ? (
           <div className="overflow-x-auto rounded-xl border border-white/10 bg-black/20">

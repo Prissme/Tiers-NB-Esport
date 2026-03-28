@@ -78,6 +78,15 @@ type SummaryCard = {
   helper?: string;
 };
 
+type AdminPlayer = {
+  id: string;
+  name: string;
+  countryCode: string;
+  tier: string;
+  points: number;
+  teamId: string | null;
+};
+
 const emptyTeamForm = {
   name: "",
   tag: "",
@@ -387,6 +396,9 @@ export default function AdminPanel() {
   const [teamDivision, setTeamDivision] = useState("all");
   const [teamSortKey, setTeamSortKey] = useState<"name" | "wins" | "points">("name");
   const [teamSortDir, setTeamSortDir] = useState<"asc" | "desc">("asc");
+  const [playerTeamSearch, setPlayerTeamSearch] = useState("");
+  const [players, setPlayers] = useState<AdminPlayer[]>([]);
+  const [updatingPlayerId, setUpdatingPlayerId] = useState<string | null>(null);
   const [openTeamIds, setOpenTeamIds] = useState<string[]>([]);
   const [multiOpenTeams, setMultiOpenTeams] = useState(false);
   const [matchDay, setMatchDay] = useState("all");
@@ -518,6 +530,79 @@ export default function AdminPanel() {
       .map((team) => ({ label: `${team.name} (${team.tag ?? "?"})`, value: team.id }));
   }, [teams, scheduleDivision]);
 
+  const loadPlayers = useCallback(async () => {
+    const [{ data: playersRows, error: playersError }, { data: pointsRows, error: pointsError }] =
+      await Promise.all([
+        supabase.from("players").select("id,name,active").eq("active", true).order("name", {
+          ascending: true,
+        }),
+        supabase
+          .from("lfn_player_tier_points")
+          .select("player_id,points,tier,updated_at")
+          .order("updated_at", { ascending: false }),
+      ]);
+
+    if (playersError || pointsError) {
+      throw new Error(playersError?.message ?? pointsError?.message ?? "Chargement joueurs impossible.");
+    }
+
+    let { data: profilesRows, error: profilesError } = await supabase
+      .from("lfn_player_profiles")
+      .select("player_id,country_code,team_id");
+
+    if (profilesError?.code === "42703") {
+      const fallbackProfiles = await supabase
+        .from("lfn_player_profiles")
+        .select("player_id,country_code");
+      profilesRows = fallbackProfiles.data;
+      profilesError = fallbackProfiles.error;
+    }
+
+    if (profilesError && profilesError.code !== "42P01") {
+      throw new Error(profilesError.message);
+    }
+
+    const pointsByPlayer = new Map<string, { points: number; tier: string }>();
+    (pointsRows ?? []).forEach((row) => {
+      const playerId = String((row as Record<string, unknown>).player_id ?? "");
+      if (!playerId || pointsByPlayer.has(playerId)) {
+        return;
+      }
+      pointsByPlayer.set(playerId, {
+        points: Number((row as Record<string, unknown>).points ?? 0),
+        tier: String((row as Record<string, unknown>).tier ?? "Tier E"),
+      });
+    });
+
+    const profileByPlayer = new Map<string, { countryCode: string; teamId: string | null }>();
+    (profilesRows ?? []).forEach((row) => {
+      const raw = row as Record<string, unknown>;
+      const playerId = String(raw.player_id ?? "");
+      if (!playerId) return;
+      profileByPlayer.set(playerId, {
+        countryCode: String(raw.country_code ?? "FR").toUpperCase(),
+        teamId: raw.team_id ? String(raw.team_id) : null,
+      });
+    });
+
+    const nextPlayers: AdminPlayer[] = (playersRows ?? []).map((row) => {
+      const raw = row as Record<string, unknown>;
+      const playerId = String(raw.id ?? "");
+      const points = pointsByPlayer.get(playerId);
+      const profile = profileByPlayer.get(playerId);
+      return {
+        id: playerId,
+        name: String(raw.name ?? "Joueur"),
+        countryCode: profile?.countryCode ?? "FR",
+        tier: points?.tier ?? "Tier E",
+        points: points?.points ?? 0,
+        teamId: profile?.teamId ?? null,
+      };
+    });
+
+    setPlayers(nextPlayers);
+  }, [supabase]);
+
   const loadTeams = useCallback(async () => {
     let teamsQuery = supabase.from("lfn_teams").select("*").order("created_at", {
       ascending: false,
@@ -609,7 +694,8 @@ export default function AdminPanel() {
     try {
       const teamsPromise = loadTeams();
       const matchesPromise = loadMatches();
-      const [teamsList] = await Promise.all([teamsPromise, matchesPromise]);
+      const playersPromise = loadPlayers();
+      const [teamsList] = await Promise.all([teamsPromise, matchesPromise, playersPromise]);
 
       if (teamsList.length === 0) {
         setMatches([]);
@@ -619,10 +705,11 @@ export default function AdminPanel() {
       setErrorMessage(error instanceof Error ? error.message : "Erreur inconnue.");
       setTeams([]);
       setMatches([]);
+      setPlayers([]);
     } finally {
       setLoading(false);
     }
-  }, [loadMatches, loadTeams]);
+  }, [loadMatches, loadPlayers, loadTeams]);
 
   const refreshData = useCallback(async () => {
     setRefreshing(true);
@@ -734,6 +821,22 @@ export default function AdminPanel() {
     });
     return sorted;
   }, [teamDivision, teamSearch, teamSortDir, teamSortKey, teams]);
+
+  const filteredPlayersForAdmin = useMemo(() => {
+    const search = playerTeamSearch.trim().toLowerCase();
+    return players
+      .filter((player) => {
+        if (!search) return true;
+        const team = teams.find((entry) => entry.id === player.teamId);
+        return (
+          player.name.toLowerCase().includes(search) ||
+          player.countryCode.toLowerCase().includes(search) ||
+          (team?.name ?? "").toLowerCase().includes(search) ||
+          (team?.tag ?? "").toLowerCase().includes(search)
+        );
+      })
+      .sort((a, b) => b.points - a.points || a.name.localeCompare(b.name, "fr"));
+  }, [playerTeamSearch, players, teams]);
 
   const getTeamRosterStats = (team: Team) => {
     const activeMembers = team.roster.filter((member) => (member.name ?? "").trim().length > 0);
@@ -1506,6 +1609,50 @@ export default function AdminPanel() {
     }
   };
 
+  const handleAssignPlayerTeam = async (playerId: string, teamId: string) => {
+    setStatusMessage(null);
+    setErrorMessage(null);
+    setUpdatingPlayerId(playerId);
+
+    const normalizedTeamId = teamId || null;
+    const existingPlayer = players.find((player) => player.id === playerId);
+    const countryCode = existingPlayer?.countryCode ?? "FR";
+
+    try {
+      const { error } = await supabase.from("lfn_player_profiles").upsert(
+        {
+          player_id: playerId,
+          country_code: countryCode,
+          team_id: normalizedTeamId,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "player_id" }
+      );
+
+      if (error) {
+        if (error.code === "42703") {
+          throw new Error(
+            "Colonne team_id manquante dans lfn_player_profiles. Appliquez la migration SQL."
+          );
+        }
+        throw error;
+      }
+
+      setPlayers((prev) =>
+        prev.map((player) => (player.id === playerId ? { ...player, teamId: normalizedTeamId } : player))
+      );
+      showToast("success", "Équipe LFN attribuée au joueur.");
+    } catch (error) {
+      console.error("handleAssignPlayerTeam error", error);
+      showToast(
+        "error",
+        error instanceof Error ? error.message : "Impossible d'attribuer l'équipe."
+      );
+    } finally {
+      setUpdatingPlayerId(null);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <header className="flex flex-wrap items-center justify-between gap-4">
@@ -2166,6 +2313,70 @@ export default function AdminPanel() {
                   );
                 })
               )}
+            </div>
+          </div>
+
+          <div className="section-card space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 className="text-lg font-semibold text-white">Attribution équipe LFN (joueurs)</h2>
+                <p className="text-xs text-slate-400">
+                  Associez un joueur à une équipe. Sans équipe, le site affichera F/A.
+                </p>
+              </div>
+              <input
+                value={playerTeamSearch}
+                onChange={(event) => setPlayerTeamSearch(event.target.value)}
+                placeholder="Rechercher un joueur"
+                className="surface-pill px-4 py-2 text-xs text-white"
+              />
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs text-slate-300">
+                <thead className="border-b border-white/10 text-[11px] uppercase tracking-[0.2em] text-slate-500">
+                  <tr>
+                    <th className="px-2 py-2">Joueur</th>
+                    <th className="px-2 py-2">Pays</th>
+                    <th className="px-2 py-2">Tier</th>
+                    <th className="px-2 py-2">Points</th>
+                    <th className="px-2 py-2">Équipe actuelle</th>
+                    <th className="px-2 py-2">Attribuer</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-white/5">
+                  {filteredPlayersForAdmin.map((player) => {
+                    const assignedTeam = teams.find((team) => team.id === player.teamId);
+                    return (
+                      <tr key={`assign-${player.id}`}>
+                        <td className="px-2 py-2 text-white">{player.name}</td>
+                        <td className="px-2 py-2">{player.countryCode}</td>
+                        <td className="px-2 py-2">{player.tier}</td>
+                        <td className="px-2 py-2">{player.points}</td>
+                        <td className="px-2 py-2">{assignedTeam?.tag ?? assignedTeam?.name ?? "F/A"}</td>
+                        <td className="px-2 py-2">
+                          <div className="flex items-center gap-2">
+                            <select
+                              value={player.teamId ?? ""}
+                              onChange={(event) => {
+                                void handleAssignPlayerTeam(player.id, event.target.value);
+                              }}
+                              disabled={updatingPlayerId === player.id}
+                              className="surface-input surface-input--compact"
+                            >
+                              <option value="">F/A</option>
+                              {teamOptions.map((option) => (
+                                <option key={`assign-option-${player.id}-${option.value}`} value={option.value}>
+                                  {option.label}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
           </div>
         </section>
