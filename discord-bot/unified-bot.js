@@ -5141,19 +5141,15 @@ async function handleTierCommand(message) {
     return;
   }
 
-  const siteRankMap = await getSiteRankingMap().catch(() => ({ rankingByDiscordId: new Map(), totalPlayers: null }));
-  const playerRankInfo = siteRankMap.rankingByDiscordId?.get(String(targetUser.id)) || null;
-  const playerRank =
-    typeof playerRankInfo === 'number'
-      ? playerRankInfo
-      : Number.isFinite(playerRankInfo?.rank)
-        ? playerRankInfo.rank
-        : null;
+  const tierLeaderboard = await fetchSiteTierLeaderboard().catch(() => []);
+  const playerRank = tierLeaderboard.findIndex(
+    (player) => String(player?.discordId || '') === String(targetUser.id)
+  ) + 1;
+  const totalPlayers = tierLeaderboard.length || null;
   const rankLabel = playerRank
-    ? `#${playerRank}${siteRankMap.totalPlayers ? `/${siteRankMap.totalPlayers}` : ''}`
+    ? `#${playerRank}${totalPlayers ? `/${totalPlayers}` : ''}`
     : localizeText({ fr: 'Non classé', en: 'Unranked' });
-  const sameTierCount = (await fetchSiteTierLeaderboard().catch(() => []))
-    .filter((player) => player?.tier === siteTierPlayer.tier).length;
+  const sameTierCount = tierLeaderboard.filter((player) => player?.tier === siteTierPlayer.tier).length;
   const countryCode = String(siteTierPlayer.countryCode || 'FR').toUpperCase();
   const countryFlag = toCountryFlag(countryCode);
 
