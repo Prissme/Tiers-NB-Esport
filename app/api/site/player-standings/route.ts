@@ -43,6 +43,13 @@ type PlayerProfileRow = {
   player_id: string;
   country_code: string | null;
   description: string | null;
+  team_id?: string | null;
+};
+
+type TeamRow = {
+  id: string;
+  name: string | null;
+  tag: string | null;
 };
 
 export async function GET(request: Request) {
@@ -93,6 +100,7 @@ export async function GET(request: Request) {
       { data: players, error: playersError },
       { data: pointsRows, error: pointsError },
       { data: profileRows, error: profileError },
+      { data: teamsRows, error: teamsError },
     ] = await Promise.all([
       supabase
         .from("players")
@@ -100,10 +108,12 @@ export async function GET(request: Request) {
         .eq("active", true)
         .order("name", { ascending: true }),
       pointsQuery,
-      supabase.from("lfn_player_profiles").select("player_id,country_code,description"),
+      supabase.from("lfn_player_profiles").select("player_id,country_code,description,team_id"),
+      supabase.from("lfn_teams").select("id,name,tag").eq("is_active", true),
     ]);
 
     const isMissingProfileTable = profileError?.code === "42P01";
+    const isMissingTeamIdColumn = profileError?.code === "42703";
 
     if (pointsError?.code === "42703") {
       const fallbackPointsResult = await buildPointsQuery(false);
@@ -111,12 +121,21 @@ export async function GET(request: Request) {
       pointsError = fallbackPointsResult.error;
     }
 
-    if (playersError || pointsError || (profileError && !isMissingProfileTable)) {
+    if (isMissingTeamIdColumn) {
+      const fallbackProfiles = await supabase
+        .from("lfn_player_profiles")
+        .select("player_id,country_code,description");
+      profileRows = fallbackProfiles.data;
+      profileError = fallbackProfiles.error;
+    }
+
+    if (playersError || pointsError || teamsError || (profileError && !isMissingProfileTable)) {
       return NextResponse.json(
         {
           error:
             playersError?.message ??
             pointsError?.message ??
+            teamsError?.message ??
             profileError?.message ??
             "Unable to load player standings.",
         },
@@ -141,10 +160,18 @@ export async function GET(request: Request) {
     });
     const countryByPlayerId = new Map<string, string>();
     const descriptionByPlayerId = new Map<string, string>();
+    const teamIdByPlayerId = new Map<string, string>();
+    const teamsById = new Map<string, TeamRow>();
+    (teamsRows as TeamRow[] | null)?.forEach((row) => {
+      teamsById.set(row.id, row);
+    });
     if (!isMissingProfileTable) {
       (profileRows as PlayerProfileRow[] | null)?.forEach((row) => {
         countryByPlayerId.set(row.player_id, (row.country_code ?? "FR").toUpperCase());
         descriptionByPlayerId.set(row.player_id, (row.description ?? "").trim());
+        if (row.team_id) {
+          teamIdByPlayerId.set(row.player_id, row.team_id);
+        }
       });
     }
 
@@ -154,6 +181,7 @@ export async function GET(request: Request) {
         const tier = playerPoints?.tier ?? "Tier E";
         const points = playerPoints?.points ?? 0;
 
+        const team = teamsById.get(teamIdByPlayerId.get(player.id) ?? "");
         return {
           id: player.id,
           name: player.name || "Joueur",
@@ -163,6 +191,9 @@ export async function GET(request: Request) {
           inactivityPenalty: playerPoints?.inactivityPenalty ?? 0,
           countryCode: countryByPlayerId.get(player.id) ?? "FR",
           description: descriptionByPlayerId.get(player.id) ?? "",
+          teamId: team?.id ?? null,
+          teamName: team?.name ?? null,
+          teamTag: team?.tag ?? null,
         };
       })
       .filter((player) => tierOptions.has(player.tier) && player.points > 0)
