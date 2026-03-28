@@ -124,11 +124,11 @@ const PUBLIC_TIER_ROLE_LOOKUP = [
 
 const PUBLIC_TIER_COLORS = {
   'Tier S': 0xf1c40f,
-  'Tier A': 0xe67e22,
-  'Tier B': 0x9b59b6,
-  'Tier C': 0x3498db,
-  'Tier D': 0x2ecc71,
-  'Tier E': 0x95a5a6
+  'Tier A': 0xe74c3c,
+  'Tier B': 0xe67e22,
+  'Tier C': 0x9b59b6,
+  'Tier D': 0x3498db,
+  'Tier E': 0x2ecc71
 };
 
 const BRONZE_EMOJI = '<:Bronze:1439605520729116702>';
@@ -5154,6 +5154,8 @@ async function handleTierCommand(message) {
     : localizeText({ fr: 'Non classé', en: 'Unranked' });
   const sameTierCount = (await fetchSiteTierLeaderboard().catch(() => []))
     .filter((player) => player?.tier === siteTierPlayer.tier).length;
+  const countryCode = String(siteTierPlayer.countryCode || 'FR').toUpperCase();
+  const countryFlag = toCountryFlag(countryCode);
 
   await message.reply({
     embeds: [
@@ -5163,7 +5165,7 @@ async function handleTierCommand(message) {
         .setDescription(
           `**${sameTierCount}** personne(s) ont le même tier.\nClassement global: **${rankLabel}**\nPoints: **${Math.round(
             Number(siteTierPlayer.points || 0)
-          )}**${
+          )}**\nPays: **${countryFlag} ${countryCode}**${
             description ? `\n\n📝 ${description}` : ''
           }`
         )

@@ -315,6 +315,7 @@ export default function StandingsClient({ locale }: { locale: Locale }) {
   const availableCountries = useMemo(() => {
     const values = new Set(playerStandings.map((player) => getCountryCode(player.countryCode)));
     values.add("GB");
+    values.add("BG");
     return [...values].sort((a, b) => a.localeCompare(b));
   }, [playerStandings]);
   const availableTiers = useMemo(() => {
