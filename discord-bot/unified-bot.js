@@ -105,12 +105,12 @@ const TIER_DISTRIBUTION = [
 ];
 
 const TIER_EMOJIS = {
-  S: '<:tiers:1382755986120638505>',
-  A: '<:tiera:1382755988494352555>',
-  B: '<:tierb:1382755990352695456>',
-  C: '<:tierc:1382755992126881932>',
-  D: '<:tierd:1382755995524141106>',
-  E: '<:tiere:1382755993695555626>'
+  S: '<:TierS:1482724565657321594>',
+  A: '<:TierA:1482724563874877592>',
+  B: '<:TierB:1482724560993259651>',
+  C: '<:TierC:1482724558015299706>',
+  D: '<:TierD:1482724568387817484>',
+  E: '<:TierE:1482723920309260439>'
 };
 
 const PUBLIC_TIER_ROLE_LOOKUP = [
@@ -2096,7 +2096,8 @@ function formatTierEmoji(tier) {
     return null;
   }
 
-  return TIER_EMOJIS[tier] || tier;
+  const normalizedTier = String(tier).toUpperCase().replace(/^TIER\s+/, '');
+  return TIER_EMOJIS[normalizedTier] || tier;
 }
 
 function formatEloRankLabel(rankInfo) {
@@ -5152,12 +5153,14 @@ async function handleTierCommand(message) {
   const sameTierCount = tierLeaderboard.filter((player) => player?.tier === siteTierPlayer.tier).length;
   const countryCode = String(siteTierPlayer.countryCode || 'FR').toUpperCase();
   const countryFlag = toCountryFlag(countryCode);
+  const tierLabel = String(siteTierPlayer.tier || 'No Tier');
+  const tierEmoji = formatTierEmoji(tierLabel);
 
   await message.reply({
     embeds: [
       new EmbedBuilder()
         .setColor(PUBLIC_TIER_COLORS[siteTierPlayer.tier] || 0x00b894)
-        .setTitle(`${TROPHY_EMOJI}  ${String(siteTierPlayer.tier || 'No Tier').toUpperCase()}`)
+        .setTitle(`${TROPHY_EMOJI} ${tierEmoji ? `${tierEmoji} ` : ''}${tierLabel.toUpperCase()}`)
         .setDescription(
           `**${sameTierCount}** personne(s) ont le même tier.\nClassement global: **${rankLabel}**\nPoints: **${Math.round(
             Number(siteTierPlayer.points || 0)
@@ -5171,9 +5174,13 @@ async function handleTierCommand(message) {
 }
 
 function formatTierRoleMention(tier) {
-  const roleId = tierRoleMap[String(tier || '').toUpperCase()];
+  const normalizedTier = String(tier || '').toUpperCase();
+  const roleId =
+    tierRoleMap[normalizedTier] ||
+    (normalizedTier === 'A' ? '1482720488529727498' : null) ||
+    (normalizedTier === 'S' ? '1482720508813512814' : null);
   if (!roleId) {
-    return `Tier ${String(tier || '').toUpperCase()}`;
+    return `Tier ${normalizedTier}`;
   }
   return `<@&${roleId}>`;
 }
