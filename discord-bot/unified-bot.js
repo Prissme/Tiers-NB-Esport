@@ -5170,6 +5170,42 @@ async function handleTierCommand(message) {
   });
 }
 
+function formatTierRoleMention(tier) {
+  const roleId = tierRoleMap[String(tier || '').toUpperCase()];
+  if (!roleId) {
+    return `Tier ${String(tier || '').toUpperCase()}`;
+  }
+  return `<@&${roleId}>`;
+}
+
+async function handleTierCriteriaCommand(message) {
+  const rows = [
+    { tier: 'E', criteria: '0-9 points **ou** Master 1 BS' },
+    { tier: 'D', criteria: '10-19 points **ou** Master 2 BS' },
+    { tier: 'C', criteria: '20-34 points **ou** Master 3 BS' },
+    { tier: 'B', criteria: '35-55 points **ou** Pro BS' },
+    { tier: 'A', criteria: '55+ points' },
+    { tier: 'S', criteria: 'Top players du Tier A' }
+  ];
+
+  const description = rows
+    .map(({ tier, criteria }) => {
+      const emoji = formatTierEmoji(tier);
+      const roleMention = formatTierRoleMention(tier);
+      return `${emoji} ${roleMention} — **Tier ${tier}**\n↳ ${criteria}`;
+    })
+    .join('\n\n');
+
+  await message.reply({
+    embeds: [
+      new EmbedBuilder()
+        .setColor(0xf1c40f)
+        .setTitle('📊 Critères des tiers')
+        .setDescription(description)
+    ]
+  });
+}
+
 async function sendPeriodicPromotionEmbed(message) {
   if (!message?.channel || commandUsageCounter % 20 !== 0) {
     return;
@@ -5611,6 +5647,7 @@ async function handleHelpCommand(message) {
     '`!queue` — Voir la file PL avec le rang des joueurs',
     '`!lb [nombre]` — Voir le classement PL (Elo)',
     '`!tier [@joueur]` — Voir le tier Discord + description joueur',
+    '`!tiercriteria` — Voir comment atteindre chaque tier',
     '`!tierlb [nombre]` — Voir le classement tiers du site (pagination)',
     '`!lfn` — Présentation de la compétition + lien du site',
     '`!elo [@joueur]` — Afficher le classement Elo',
@@ -7461,6 +7498,11 @@ async function handleMessage(message) {
       case 'tier':
       case 'ier':
         await handleTierCommand(message, args);
+        break;
+      case 'tiercriteria':
+      case 'tiercrit':
+      case 'criteriatier':
+        await handleTierCriteriaCommand(message, args);
         break;
       case 'lfn':
         await handleLfnCommand(message, args);
