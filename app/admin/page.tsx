@@ -51,6 +51,7 @@ const countryOptions = [
   { code: "PL", label: "🇵🇱 Pologne" },
   { code: "RO", label: "🇷🇴 Roumanie" },
   { code: "CA", label: "🇨🇦 Canada" },
+  { code: "US", label: "🇺🇸 États-Unis" },
   { code: "MA", label: "🇲🇦 Maroc" },
   { code: "DZ", label: "🇩🇿 Algérie" },
   { code: "TN", label: "🇹🇳 Tunisie" },
