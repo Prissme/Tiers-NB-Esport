@@ -56,6 +56,8 @@ const countryOptions = [
   { code: "TN", label: "🇹🇳 Tunisie" },
   { code: "SN", label: "🇸🇳 Sénégal" },
   { code: "CM", label: "🇨🇲 Cameroun" },
+  { code: "NG", label: "🇳🇬 Nigeria" },
+  { code: "PK", label: "🇵🇰 Pakistan" },
   { code: "IL", label: "🇮🇱 Israël" },
   { code: "GB", label: "🇬🇧 Royaume-Uni" },
   { code: "JP", label: "🇯🇵 Japon" },
