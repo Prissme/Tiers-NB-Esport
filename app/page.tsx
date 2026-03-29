@@ -1,5 +1,6 @@
 import HeroCard from "./components/HeroCard";
 import EliteOffer from "./components/EliteOffer";
+import Button from "./components/Button";
 import { getLocale } from "./lib/i18n";
 
 export default function HomePage() {
@@ -10,12 +11,24 @@ export default function HomePage() {
       players: "Joueurs en LFN",
       viewers: "Sur discord",
       viewersCount: "30+ spectateurs",
+      competitionsTitle: "Compétitions",
+      eventTitle: "PrissCup",
+      eventDate: "Dimanche 29 mars à 16h",
+      eventDescription:
+        "La prochaine compétition démarre ce dimanche avec la PrissCup. Inscris-toi et viens tenter ta chance.",
+      joinButton: "Participer",
     },
     en: {
       matches: "LFN matches",
       players: "LFN players",
       viewers: "On Discord",
       viewersCount: "30+ viewers",
+      competitionsTitle: "Competitions",
+      eventTitle: "PrissCup",
+      eventDate: "Sunday, March 29 at 4 PM",
+      eventDescription:
+        "The next competition starts this Sunday with the PrissCup. Sign up and join the action.",
+      joinButton: "Join",
     },
   };
   const content = copy[locale];
@@ -57,6 +70,26 @@ export default function HomePage() {
                 ? "La LFN est un projet e-sport ambitieux sur Null's Brawl, pensé pour faire vivre la compétition sur le jeu avec du haut niveau et des émotions à chaque saison."
                 : "LFN is an ambitious esports project on Null's Brawl, built to keep high-level competition alive with strong emotions every season."}
             </p>
+          </div>
+        </section>
+        <section className="secondary-section">
+          <div className="surface-dominant rounded-[14px] px-6 py-8 shadow-[0_20px_60px_rgba(4,10,30,0.45)] sm:px-10">
+            <p className="text-xs uppercase tracking-[0.35em] text-utility">{content.competitionsTitle}</p>
+            <div className="mt-5 flex flex-col gap-6 rounded-[12px] border border-white/10 bg-[rgba(7,13,27,0.72)] p-5 sm:p-6">
+              <div className="space-y-2">
+                <h2 className="font-sekuya text-2xl text-white sm:text-3xl">{content.eventTitle}</h2>
+                <p className="text-xs uppercase tracking-[0.28em] text-utility">{content.eventDate}</p>
+                <p className="max-w-3xl text-sm text-slate-200 sm:text-base">{content.eventDescription}</p>
+              </div>
+              <div>
+                <Button
+                  href="https://discord.com/events/1236724293027496047/1486382244644917288"
+                  external
+                >
+                  {content.joinButton}
+                </Button>
+              </div>
+            </div>
           </div>
         </section>
         <div className="silent-gap" aria-hidden="true" />
