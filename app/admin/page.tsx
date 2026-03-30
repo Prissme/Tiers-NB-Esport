@@ -64,6 +64,7 @@ const countryOptions = [
   { code: "JP", label: "🇯🇵 Japon" },
   { code: "BG", label: "🇧🇬 Bulgarie" },
   { code: "AZ", label: "🇦🇿 Azerbaïdjan" },
+  { code: "UA", label: "🇺🇦 Ukraine" },
 ] as const;
 
 const toFlag = (countryCode?: string) => {
