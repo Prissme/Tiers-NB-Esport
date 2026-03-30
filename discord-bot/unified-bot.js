@@ -4599,6 +4599,81 @@ async function handlePLLeaderboardCommand(message, args) {
   }
 }
 
+async function handleWorldLeaderboardCommand(message) {
+  try {
+    const allPlayers = await fetchSiteTierLeaderboard();
+    if (!allPlayers.length) {
+      await message.reply({
+        content: localizeText({
+          fr: 'Aucun joueur classé pour le moment.',
+          en: 'No ranked players yet.'
+        }),
+        allowedMentions: { repliedUser: false }
+      });
+      return;
+    }
+
+    const countries = new Map();
+
+    for (const player of allPlayers) {
+      const normalizedCountryCode = String(player?.countryCode || 'FR').trim().toUpperCase();
+      const points = Math.round(Number(player?.points || 0));
+      const currentEntry = countries.get(normalizedCountryCode) || {
+        countryCode: normalizedCountryCode,
+        points: 0,
+        players: 0
+      };
+
+      currentEntry.points += Number.isFinite(points) ? points : 0;
+      currentEntry.players += 1;
+      countries.set(normalizedCountryCode, currentEntry);
+    }
+
+    const countryRanking = Array.from(countries.values()).sort((a, b) => {
+      if (b.points !== a.points) {
+        return b.points - a.points;
+      }
+      if (b.players !== a.players) {
+        return b.players - a.players;
+      }
+      return a.countryCode.localeCompare(b.countryCode);
+    });
+
+    const lines = countryRanking.slice(0, 20).map((entry, index) => {
+      const rank = index + 1;
+      const trophy = rank <= 3 ? `${TROPHY_EMOJI} ` : '';
+      const flag = toCountryFlag(entry.countryCode);
+      return `**#${rank}** ${trophy}${flag} **${entry.countryCode}** • **${entry.points} pts** (${entry.players} joueur(s))`;
+    });
+
+    await message.reply({
+      embeds: [
+        new EmbedBuilder()
+          .setColor(0x3498db)
+          .setTitle(localizeText({ fr: '🌍 Classement mondial des pays', en: '🌍 World country leaderboard' }))
+          .setDescription(lines.join('\n'))
+          .setFooter({
+            text: localizeText(
+              { fr: '{count} pays classés', en: '{count} ranked countries' },
+              { count: countryRanking.length }
+            )
+          })
+          .setTimestamp(new Date())
+      ],
+      allowedMentions: { repliedUser: false }
+    });
+  } catch (error) {
+    errorLog('Failed to fetch world leaderboard:', error);
+    await message.reply({
+      content: localizeText({
+        fr: 'Erreur lors de la récupération du classement mondial.',
+        en: 'Failed to retrieve world leaderboard.'
+      }),
+      allowedMentions: { repliedUser: false }
+    });
+  }
+}
+
 async function handleMapsCommand(message) {
   const frenchLines = [
     '🗺️ **Rotation des maps disponibles**',
@@ -5656,6 +5731,7 @@ async function handleHelpCommand(message) {
     '`!tier [@joueur]` — Voir le tier Discord + description joueur',
     '`!tiercriteria` — Voir comment atteindre chaque tier',
     '`!tierlb [nombre]` — Voir le classement tiers du site (pagination)',
+    '`!worldlb` — Voir le classement des pays par points',
     '`!lfn` — Présentation de la compétition + lien du site',
     '`!elo [@joueur]` — Afficher le classement Elo',
     '`!ranks` — Voir ta progression Elo vers Verdoyant',
@@ -7491,6 +7567,10 @@ async function handleMessage(message) {
       case 'tierlb':
       case 'tierleaderboard':
         await handleLeaderboardCommand(message, args);
+        break;
+      case 'worldlb':
+      case 'worldleaderboard':
+        await handleWorldLeaderboardCommand(message, args);
         break;
       case 'maps':
         await handleMapsCommand(message, args);
