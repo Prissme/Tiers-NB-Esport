@@ -9,7 +9,6 @@ import { supabase } from "../../lib/supabaseClient";
 const tabs = [
   { id: "programme", label: "Programme" },
   { id: "matchs", label: "Matchs" },
-  { id: "resultats", label: "Résultats" },
   { id: "teams", label: "Teams" },
   { id: "classement", label: "Classement" },
   { id: "joueurs", label: "Joueurs" },
@@ -324,19 +323,6 @@ export default function AdminPage() {
     });
   }, [playerSearch, tierPlayers]);
 
-  const handleValidateResult = async (match: MatchRecord) => {
-    const { error } = await supabase
-      .from("lfn_matches")
-      .update({ status: "finished", played_at: match.played_at ?? match.scheduled_at ?? null })
-      .eq("id", match.id);
-
-    if (error) {
-      setErrorMessage(error.message);
-      return;
-    }
-    fetchAllMatches(seasonId);
-  };
-
   if (loading) {
     return (
       <div className="dominant-section min-h-[50vh] rounded-[14px] bg-black/60 p-12 text-center text-white/70">
@@ -353,7 +339,7 @@ export default function AdminPage() {
             <p className="text-xs uppercase tracking-[0.4em] signal-accent">LFN ADMIN</p>
             <h1 className="mt-2 text-3xl font-semibold text-white">Admin Panel ELITE</h1>
             <p className="mt-2 max-w-xl text-sm text-muted">
-              Gestion complète du programme, des matchs, des résultats et des équipes. UI premium dark.
+              Gestion complète du programme, des matchs et des équipes. UI premium dark.
             </p>
           </div>
           <div className="surface-chip surface-chip--muted">
@@ -420,87 +406,6 @@ export default function AdminPage() {
             onMatchesUpdated={() => fetchAllMatches(seasonId)}
           />
         </div>
-      )}
-
-      {activeTab === "resultats" && (
-        <section className="secondary-section space-y-6">
-          <div className="surface-card--soft">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs uppercase tracking-[0.3em] text-utility">Résultats</p>
-                <h3 className="text-lg font-semibold text-white">Validation des résultats</h3>
-              </div>
-            </div>
-            <div className="mt-4 overflow-x-auto">
-              <table className="surface-table text-sm text-white/80">
-                <thead className="surface-table__header text-xs uppercase text-white/40">
-                  <tr>
-                    <th className="px-3 py-2 text-left">Match</th>
-                    <th className="px-3 py-2 text-left">Score</th>
-                    <th className="px-3 py-2 text-left">Sets</th>
-                    <th className="px-3 py-2 text-left">Joué le</th>
-                    <th className="px-3 py-2 text-left">Proof/VOD</th>
-                    <th className="px-3 py-2 text-right">Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {matches.length === 0 ? (
-                    <tr>
-                      <td colSpan={6} className="px-3 py-4 text-center text-white/40">
-                        Aucun résultat.
-                      </td>
-                    </tr>
-                  ) : (
-                    matches.map((match) => (
-                      <tr key={match.id} className="surface-table__row">
-                        <td className="px-3 py-2">
-                          {match.match_group ?? "Match"}
-                        </td>
-                        <td className="px-3 py-2">
-                          {match.score_a ?? 0} - {match.score_b ?? 0}
-                        </td>
-                        <td className="px-3 py-2">
-                          {match.sets_a ?? 0} - {match.sets_b ?? 0}
-                        </td>
-                        <td className="px-3 py-2">{formatDate(match.played_at)}</td>
-                        <td className="px-3 py-2 space-x-2 text-xs">
-                          {match.proof_url ? (
-                            <a
-                              href={match.proof_url}
-                              className="text-utility transition hover:text-white"
-                              target="_blank"
-                              rel="noreferrer"
-                            >
-                              Proof
-                            </a>
-                          ) : null}
-                          {match.vod_url ? (
-                            <a
-                              href={match.vod_url}
-                              className="text-utility transition hover:text-white"
-                              target="_blank"
-                              rel="noreferrer"
-                            >
-                              VOD
-                            </a>
-                          ) : null}
-                        </td>
-                        <td className="px-3 py-2 text-right">
-                          <button
-                            onClick={() => handleValidateResult(match)}
-                            className="surface-pill surface-pill--active px-3 py-1 text-xs font-semibold text-black"
-                          >
-                            Valider résultat
-                          </button>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </section>
       )}
 
       {activeTab === "teams" && (
