@@ -156,8 +156,8 @@ export default function MatchFormDialog({
 
     const scheduledAt = toTimestamp(parsed.data.scheduledDate, parsed.data.scheduledTime);
     const startTime = toTimestamp(parsed.data.startDate, parsed.data.startTime) ?? scheduledAt;
-    const status =
-      parsed.data.scoreA !== null && parsed.data.scoreB !== null ? "finished" : "scheduled";
+    const status = parsed.data.status === "completed" ? "finished" : parsed.data.status;
+    const hasFinalScore = status === "finished";
 
     const notesPayload = parsed.data.attachments?.length
       ? JSON.stringify({ attachments: parsed.data.attachments })
@@ -177,14 +177,14 @@ export default function MatchFormDialog({
       scheduled_at: scheduledAt,
       start_time: startTime,
       played_at: toTimestamp(parsed.data.playedDate, parsed.data.playedTime),
-      score_a: parsed.data.scoreA ?? null,
-      score_b: parsed.data.scoreB ?? null,
-      sets_a: parsed.data.setsA ?? null,
-      sets_b: parsed.data.setsB ?? null,
+      score_a: hasFinalScore ? parsed.data.scoreA ?? null : null,
+      score_b: hasFinalScore ? parsed.data.scoreB ?? null : null,
+      sets_a: hasFinalScore ? parsed.data.setsA ?? null : null,
+      sets_b: hasFinalScore ? parsed.data.setsB ?? null : null,
       notes: notesPayload,
       proof_url: null,
       vod_url: null,
-      season_id: null,
+      season_id: parsed.data.seasonId ?? seasonId ?? null,
     };
 
     const query = parsed.data.id
@@ -229,6 +229,18 @@ export default function MatchFormDialog({
 
         <form onSubmit={handleSubmit} className="mt-6 space-y-6">
           <div className="grid gap-4 md:grid-cols-3">
+            <label className="space-y-2 text-sm text-white/70">
+              Statut
+              <select
+                value={values.status}
+                onChange={handleTextChange("status")}
+                className="surface-input"
+              >
+                <option value="scheduled">Programmé</option>
+                <option value="live">En cours</option>
+                <option value="finished">Terminé</option>
+              </select>
+            </label>
             <label className="space-y-2 text-sm text-white/70">
               Division
               <input

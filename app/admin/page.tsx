@@ -62,6 +62,7 @@ const countryOptions = [
   { code: "GB", label: "🇬🇧 Royaume-Uni" },
   { code: "JP", label: "🇯🇵 Japon" },
   { code: "BG", label: "🇧🇬 Bulgarie" },
+  { code: "MK", label: "🇲🇰 Macédoine du Nord" },
   { code: "AZ", label: "🇦🇿 Azerbaïdjan" },
   { code: "UA", label: "🇺🇦 Ukraine" },
 ] as const;
