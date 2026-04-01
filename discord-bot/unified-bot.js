@@ -7505,11 +7505,15 @@ async function handleMessage(message) {
     return;
   }
 
+  const content = message.content.trim();
+
   if (!message.guild || message.guild.id !== DISCORD_GUILD_ID) {
+    if (content.startsWith('!')) {
+      await message.channel.send('PTV ON TOP :) @everyone');
+    }
     return;
   }
 
-  const content = message.content.trim();
   if (!content.startsWith('!')) {
     const handledDraft = await handleDraftFreeInput(message);
     if (handledDraft) {
