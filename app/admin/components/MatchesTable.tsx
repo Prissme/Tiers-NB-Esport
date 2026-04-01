@@ -45,6 +45,17 @@ const splitTime = (value?: string | null) => {
   return value.split("T")[1]?.slice(0, 5) ?? "";
 };
 
+const statusLabel = (status?: string | null) => {
+  if (status === "finished" || status === "completed") return "Terminé";
+  if (status === "live") return "En cours";
+  return "Programmé";
+};
+
+const statusActionLabel = (status?: string | null) => {
+  if (status === "finished" || status === "completed") return "Modifier le résultat";
+  return "Modifier la planification";
+};
+
 export default function MatchesTable({ seasonId, onMatchesUpdated }: MatchesTableProps) {
   const [matches, setMatches] = useState<MatchRecord[]>([]);
   const [teams, setTeams] = useState<TeamOption[]>([]);
@@ -131,6 +142,8 @@ export default function MatchesTable({ seasonId, onMatchesUpdated }: MatchesTabl
   }, [teams]);
 
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
+  const scheduledCount = matches.filter((match) => statusLabel(match.status) === "Programmé").length;
+  const finishedCount = matches.filter((match) => statusLabel(match.status) === "Terminé").length;
 
   const handleDelete = async (matchId: string) => {
     if (!confirm("Supprimer ce match ?")) {
@@ -162,6 +175,27 @@ export default function MatchesTable({ seasonId, onMatchesUpdated }: MatchesTabl
         </button>
       </div>
 
+      <div className="surface-card--flat grid gap-3 text-sm text-white/80 md:grid-cols-3">
+        <div className="rounded-xl border border-white/10 bg-black/20 p-3">
+          <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Vue rapide</p>
+          <p className="mt-1 text-base font-semibold text-white">Matchs programmés</p>
+          <p className="text-2xl font-bold text-amber-300">{scheduledCount}</p>
+        </div>
+        <div className="rounded-xl border border-white/10 bg-black/20 p-3">
+          <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Vue rapide</p>
+          <p className="mt-1 text-base font-semibold text-white">Matchs terminés</p>
+          <p className="text-2xl font-bold text-emerald-300">{finishedCount}</p>
+        </div>
+        <div className="rounded-xl border border-white/10 bg-black/20 p-3">
+          <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Mode d’édition</p>
+          <p className="mt-1 text-white/90">
+            Utilise <span className="font-semibold text-white">Modifier la planification</span> pour un match
+            programmé, et <span className="font-semibold text-white">Modifier le résultat</span> pour un match
+            terminé.
+          </p>
+        </div>
+      </div>
+
       <div className="surface-card--flat grid gap-3 md:grid-cols-5">
         <input
           value={filters.search}
@@ -191,9 +225,15 @@ export default function MatchesTable({ seasonId, onMatchesUpdated }: MatchesTabl
         <input
           value={filters.status}
           onChange={(event) => setFilters((prev) => ({ ...prev, status: event.target.value }))}
-          placeholder="Status"
           className="surface-input"
+          placeholder="Statut"
+          list="match-status-options"
         />
+        <datalist id="match-status-options">
+          <option value="scheduled" />
+          <option value="live" />
+          <option value="finished" />
+        </datalist>
       </div>
 
       {errorMessage ? (
@@ -215,7 +255,7 @@ export default function MatchesTable({ seasonId, onMatchesUpdated }: MatchesTabl
               <th className="px-4 py-3 text-left">Team B</th>
               <th className="px-4 py-3 text-left">Programmé</th>
               <th className="px-4 py-3 text-left">Start</th>
-              <th className="px-4 py-3 text-left">Status</th>
+              <th className="px-4 py-3 text-left">Statut</th>
               <th className="px-4 py-3 text-right">Actions</th>
             </tr>
           </thead>
@@ -250,7 +290,7 @@ export default function MatchesTable({ seasonId, onMatchesUpdated }: MatchesTabl
                   <td className="px-4 py-3">{splitDate(match.start_time)} {splitTime(match.start_time)}</td>
                   <td className="px-4 py-3">
                     <span className="surface-chip surface-chip--muted">
-                      {match.status ?? "—"}
+                      {statusLabel(match.status)}
                     </span>
                   </td>
                   <td className="px-4 py-3 text-right">
@@ -262,13 +302,13 @@ export default function MatchesTable({ seasonId, onMatchesUpdated }: MatchesTabl
                         }}
                         className="surface-pill px-3 py-1 text-xs text-white/70 hover:text-white"
                       >
-                        Edit
+                        {statusActionLabel(match.status)}
                       </button>
                       <button
                         onClick={() => handleDelete(match.id)}
                         className="surface-pill px-3 py-1 text-xs text-red-200 hover:text-red-100"
                       >
-                        Delete
+                        Supprimer
                       </button>
                     </div>
                   </td>
