@@ -74,6 +74,7 @@ const WORST_PLAYER_ROLE_NAME = process.env.WORST_PLAYER_ROLE_NAME || 'PIRE JOUEU
 const PL_ADMIN_ROLE_ID = process.env.PL_ADMIN_ROLE_ID || '1470549482432102511';
 const SECONDARY_PL_ADMIN_ROLE_ID = '1472652444331671593';
 const PL_PLAYER_ROLE_ID = '1469030334510137398';
+const PL_LEADERBOARD_PAGE_SIZE = 10;
 
 const ROLE_TIER_S = process.env.ROLE_TIER_S;
 const ROLE_TIER_A = process.env.ROLE_TIER_A;
@@ -1518,6 +1519,11 @@ function buildAdminSlashCommands() {
           required: true
         }
       ]
+    },
+    {
+      name: 'resetelo',
+      description: localizeText({ fr: "Réinitialiser l'Elo de tous les joueurs", en: 'Reset every player Elo' }),
+      dm_permission: false
     }
   ];
 }
@@ -1577,7 +1583,9 @@ async function handleAdminSlashCommand(interaction) {
   }
 
   const command = interaction.commandName;
-  if (!['addelo', 'removeelo', 'addpoints', 'setws', 'setls', 'banpl', 'cancelmatch', 'sync', 'addplayer', 'removeplayer'].includes(command)) {
+  if (
+    !['addelo', 'removeelo', 'addpoints', 'setws', 'setls', 'banpl', 'cancelmatch', 'sync', 'addplayer', 'removeplayer', 'resetelo'].includes(command)
+  ) {
     return false;
   }
 
@@ -1696,6 +1704,73 @@ async function handleAdminSlashCommand(interaction) {
         content: localizeText({
           fr: '❌ Erreur pendant la synchronisation des rôles de rang.',
           en: '❌ Error while synchronizing rank roles.'
+        })
+      });
+    }
+
+    return true;
+  }
+
+  if (command === 'resetelo') {
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+
+    try {
+      const { data: allPlayers, error: fetchError } = await supabase
+        .from('players')
+        .select('discord_id,games_played,wins,losses')
+        .not('discord_id', 'is', null);
+
+      if (fetchError) {
+        throw fetchError;
+      }
+
+      const { error: resetError } = await supabase
+        .from('players')
+        .update({ solo_elo: DEFAULT_ELO })
+        .not('id', 'is', null);
+
+      if (resetError) {
+        throw resetError;
+      }
+
+      const players = Array.isArray(allPlayers) ? allPlayers : [];
+      let rolesUpdated = 0;
+
+      for (const player of players) {
+        const discordId = player?.discord_id?.toString();
+        if (!discordId) {
+          continue;
+        }
+
+        const gamesPlayed =
+          typeof player?.games_played === 'number'
+            ? player.games_played
+            : (Number(player?.wins || 0) + Number(player?.losses || 0));
+        const shouldKeepPLRole = gamesPlayed > 0;
+        await syncMemberRankRole(interaction.guild, discordId, DEFAULT_ELO, {
+          assignRankRole: false,
+          removePlPlayerRole: !shouldKeepPLRole
+        });
+        rolesUpdated += 1;
+      }
+
+      performanceStores.playerStore.invalidateRankingSnapshot();
+
+      await interaction.editReply({
+        content: localizeText(
+          {
+            fr: '✅ Elo réinitialisé à **{elo}** pour tous les joueurs. Rôles nettoyés pour **{count}** membres.',
+            en: '✅ Elo reset to **{elo}** for all players. Roles cleaned for **{count}** members.'
+          },
+          { elo: DEFAULT_ELO, count: rolesUpdated }
+        )
+      });
+    } catch (err) {
+      errorLog('Failed to reset all Elo values:', err);
+      await interaction.editReply({
+        content: localizeText({
+          fr: "❌ Impossible de réinitialiser l'Elo global.",
+          en: '❌ Unable to reset global Elo.'
         })
       });
     }
@@ -2243,13 +2318,15 @@ function formatDiscordTimestamp(dateInput, style = 'R') {
   return `<t:${Math.floor(ms / 1000)}:${style}>`;
 }
 
-async function syncMemberRankRole(guildContext, discordId, rating) {
+async function syncMemberRankRole(guildContext, discordId, rating, options = {}) {
   if (!guildContext?.members || !discordId) {
     return;
   }
 
+  const { assignRankRole = true, removePlPlayerRole = false } = options;
   const roleIds = Object.values(ELO_RANK_ROLE_IDS).filter(Boolean);
-  if (!roleIds.length) {
+  const managedRoleIds = [...roleIds, ...(removePlPlayerRole ? [PL_PLAYER_ROLE_ID] : [])].filter(Boolean);
+  if (!managedRoleIds.length) {
     return;
   }
 
@@ -2258,14 +2335,14 @@ async function syncMemberRankRole(guildContext, discordId, rating) {
     return;
   }
 
-  const targetRoleId = ELO_RANK_ROLE_IDS[getRankRoleKeyByRating(rating)];
-  const rolesToRemove = roleIds.filter((roleId) => roleId !== targetRoleId && member.roles.cache.has(roleId));
+  const targetRoleId = assignRankRole ? ELO_RANK_ROLE_IDS[getRankRoleKeyByRating(rating)] : null;
+  const rolesToRemove = managedRoleIds.filter((roleId) => roleId !== targetRoleId && member.roles.cache.has(roleId));
 
   if (rolesToRemove.length) {
     await member.roles.remove(rolesToRemove, 'LFN rank role sync after match validation').catch(() => null);
   }
 
-  if (targetRoleId && !member.roles.cache.has(targetRoleId)) {
+  if (assignRankRole && targetRoleId && !member.roles.cache.has(targetRoleId)) {
     await member.roles.add(targetRoleId, 'LFN rank role sync after match validation').catch(() => null);
   }
 }
@@ -2300,15 +2377,34 @@ async function syncAllRankRoles(guildContext) {
     return { synced: 0 };
   }
 
-  const snapshot = await performanceStores.playerStore.getRankingSnapshot({ includeInactive: false, forceRefresh: true });
+  const { data, error } = await supabase
+    .from('players')
+    .select('discord_id,solo_elo,games_played,wins,losses,active')
+    .eq('active', true)
+    .not('discord_id', 'is', null)
+    .order('solo_elo', { ascending: false });
+
+  if (error) {
+    throw new Error(error.message || 'Unable to sync rank roles.');
+  }
 
   let synced = 0;
-  for (const player of snapshot.rankedPlayers) {
+  for (const player of data || []) {
     if (!player?.discord_id) {
       continue;
     }
 
-    await syncMemberRankRole(guildContext, player.discord_id, player.weightedScore);
+    const normalizedElo = normalizeRating(player.solo_elo);
+    const gamesPlayed =
+      typeof player?.games_played === 'number'
+        ? player.games_played
+        : (Number(player?.wins || 0) + Number(player?.losses || 0));
+    const shouldHaveRankRole = normalizedElo > DEFAULT_ELO || gamesPlayed > 0;
+
+    await syncMemberRankRole(guildContext, player.discord_id, normalizedElo, {
+      assignRankRole: shouldHaveRankRole,
+      removePlPlayerRole: !shouldHaveRankRole
+    });
     synced += 1;
   }
 
@@ -2828,15 +2924,29 @@ async function sendRankUpNotification(player, oldRating, newRating) {
   const playerLabel = player?.discordId ? `<@${player.discordId}>` : player?.displayName || 'Joueur';
   const oldLabel = formatEloRankLabel(oldRank);
   const newLabel = formatEloRankLabel(newRank);
+  const playerUser = player?.discordId ? await client.users.fetch(player.discordId).catch(() => null) : null;
+  const avatarUrl = playerUser?.displayAvatarURL?.({ extension: 'png', size: 256 });
+
+  const embed = new EmbedBuilder()
+    .setColor(0xf1c40f)
+    .setTitle('🎉 RANK UP! 🎉')
+    .setDescription(
+      localizeText(
+        {
+          fr: '{player}\n**{old}** → **{new}**',
+          en: '{player}\n**{old}** → **{new}**'
+        },
+        { player: playerLabel, old: oldLabel, new: newLabel }
+      )
+    )
+    .setTimestamp(new Date());
+
+  if (avatarUrl) {
+    embed.setThumbnail(avatarUrl);
+  }
 
   await channel.send({
-    content: localizeText(
-      {
-        fr: '🎉 {player} monte de rang : {old} → {new}',
-        en: '🎉 {player} ranked up: {old} → {new}'
-      },
-      { player: playerLabel, old: oldLabel, new: newLabel }
-    )
+    embeds: [embed]
   });
 }
 
@@ -4551,7 +4661,7 @@ async function handleLeaderboardCommand(message, args) {
 
 async function handlePLLeaderboardCommand(message, args) {
   try {
-    let requestedLimit = 20;
+    let requestedLimit = 50;
     if (args[0]) {
       const parsed = parseInt(args[0], 10);
       if (!Number.isNaN(parsed) && parsed > 0) {
@@ -4570,23 +4680,101 @@ async function handlePLLeaderboardCommand(message, args) {
       return;
     }
 
-    const lines = players.map((player, index) => {
-      const rank = index + 1;
-      const trophy = rank <= 3 ? `${TROPHY_EMOJI} ` : '';
-      const elo = Math.round(Number(player?.solo_elo || 1000));
-      const name = player?.name || `Player ${player?.discord_id || '?'}`;
-      return `**#${rank}** ${trophy}**${name}** • **${elo} Elo**`;
+    const pages = [];
+    for (let i = 0; i < players.length; i += PL_LEADERBOARD_PAGE_SIZE) {
+      pages.push(players.slice(i, i + PL_LEADERBOARD_PAGE_SIZE));
+    }
+
+    const buildPageEmbed = (pageIndex) => {
+      const page = pages[pageIndex] || [];
+      const lines = page.map((player, index) => {
+        const rank = pageIndex * PL_LEADERBOARD_PAGE_SIZE + index + 1;
+        const rankInfo = getEloRankByRating(player?.solo_elo);
+        const rankLabel = formatEloRankLabel(rankInfo);
+        const trophy = rank <= 3 ? `${TROPHY_EMOJI} ` : '';
+        const elo = Math.round(Number(player?.solo_elo || 1000));
+        const name = player?.name || `Player ${player?.discord_id || '?'}`;
+        return `**#${rank}** ${trophy}**${name}** • ${rankLabel} • **${elo} Elo**`;
+      });
+
+      return new EmbedBuilder()
+        .setTitle(localizeText({ fr: `${TROPHY_EMOJI} Classement PL`, en: `${TROPHY_EMOJI} PL leaderboard` }))
+        .setDescription(lines.join('\n'))
+        .setFooter({
+          text: localizeText(
+            { fr: 'Page {current}/{total}', en: 'Page {current}/{total}' },
+            { current: pageIndex + 1, total: pages.length }
+          )
+        })
+        .setColor(0x5865f2)
+        .setTimestamp(new Date());
+    };
+
+    let currentPage = 0;
+    const sentMessage = await message.reply({
+      embeds: [buildPageEmbed(currentPage)],
+      components:
+        pages.length > 1
+          ? [
+              new ActionRowBuilder().addComponents(
+                new ButtonBuilder()
+                  .setCustomId('plleaderboard_prev')
+                  .setLabel(localizeText({ fr: 'Précédent', en: 'Previous' }))
+                  .setStyle(ButtonStyle.Secondary)
+                  .setDisabled(true),
+                new ButtonBuilder()
+                  .setCustomId('plleaderboard_next')
+                  .setLabel(localizeText({ fr: 'Suivant', en: 'Next' }))
+                  .setStyle(ButtonStyle.Primary)
+              )
+            ]
+          : [],
+      allowedMentions: { repliedUser: false }
     });
 
-    await message.reply({
-      embeds: [
-        new EmbedBuilder()
-          .setTitle(localizeText({ fr: `${TROPHY_EMOJI} Classement PL`, en: `${TROPHY_EMOJI} PL leaderboard` }))
-          .setDescription(lines.join('\n'))
-          .setColor(0x5865f2)
-          .setTimestamp(new Date())
-      ],
-      allowedMentions: { repliedUser: false }
+    if (pages.length <= 1) {
+      return;
+    }
+
+    const collector = sentMessage.createMessageComponentCollector({
+      filter: (interaction) =>
+        ['plleaderboard_prev', 'plleaderboard_next'].includes(interaction.customId) &&
+        interaction.user.id === message.author.id,
+      time: 60_000
+    });
+
+    collector.on('collect', async (interaction) => {
+      if (interaction.customId === 'plleaderboard_prev' && currentPage > 0) {
+        currentPage -= 1;
+      } else if (interaction.customId === 'plleaderboard_next' && currentPage < pages.length - 1) {
+        currentPage += 1;
+      }
+
+      await interaction.update({
+        embeds: [buildPageEmbed(currentPage)],
+        components: [
+          new ActionRowBuilder().addComponents(
+            new ButtonBuilder()
+              .setCustomId('plleaderboard_prev')
+              .setLabel(localizeText({ fr: 'Précédent', en: 'Previous' }))
+              .setStyle(ButtonStyle.Secondary)
+              .setDisabled(currentPage === 0),
+            new ButtonBuilder()
+              .setCustomId('plleaderboard_next')
+              .setLabel(localizeText({ fr: 'Suivant', en: 'Next' }))
+              .setStyle(ButtonStyle.Primary)
+              .setDisabled(currentPage >= pages.length - 1)
+          )
+        ]
+      });
+    });
+
+    collector.on('end', async () => {
+      try {
+        await sentMessage.edit({ components: [] });
+      } catch (err) {
+        warn('Unable to clear PL leaderboard pagination controls:', err?.message || err);
+      }
     });
   } catch (error) {
     errorLog('Failed to fetch PL leaderboard:', error);
@@ -5230,6 +5418,8 @@ async function handleTierCommand(message) {
   const countryFlag = toCountryFlag(countryCode);
   const tierLabel = String(siteTierPlayer.tier || 'No Tier');
   const tierEmoji = formatTierEmoji(tierLabel);
+  const eloRankInfo = getEloRankByRating(playerProfile?.solo_elo);
+  const eloRankLabel = formatEloRankLabel(eloRankInfo);
 
   await message.reply({
     embeds: [
@@ -5239,7 +5429,7 @@ async function handleTierCommand(message) {
         .setDescription(
           `**${sameTierCount}** personne(s) ont le même tier.\nClassement global: **${rankLabel}**\nPoints: **${Math.round(
             Number(siteTierPlayer.points || 0)
-          )}**\nPays: **${countryFlag} ${countryCode}**${
+          )}**\nRang PL: **${eloRankLabel}**\nPays: **${countryFlag} ${countryCode}**${
             description ? `\n\n📝 ${description}` : ''
           }`
         )
