@@ -24,6 +24,12 @@ const { createClient } = require('@supabase/supabase-js');
 const predictions = require('./predictions');
 const draft = require('./draft');
 const { createPerformanceStores } = require('./performance-store');
+const seasonSystem = require('./season-system');
+const {
+  buildSeasonStartEmbed,
+  buildSeasonLeaderboardEmbed,
+  buildSeasonPlayerProfileEmbed
+} = require('./season-embeds');
 const fs = require('fs/promises');
 const path = require('path');
 
@@ -2023,6 +2029,15 @@ async function handleAdminSlashCommand(interaction) {
       return true;
     }
 
+    await upsertSeasonStatsForPlayer(player.id, {
+      points: nextPoints,
+      tier: currentTier,
+      wins: Number(player.wins || 0),
+      losses: Number(player.losses || 0),
+      games_played: Number(player.games_played || 0),
+      solo_elo: Number(player.solo_elo || DEFAULT_ELO)
+    });
+
     performanceStores.playerStore.invalidateRankingSnapshot();
     await interaction.reply({
       embeds: [
@@ -2495,6 +2510,43 @@ async function getActiveSeasonId() {
   }
 
   return data?.id || null;
+}
+
+async function upsertSeasonStatsForPlayer(playerId, payload) {
+  const activeSeason = await seasonSystem.getActiveSeason(supabase).catch(() => null);
+  if (!activeSeason?.id || !playerId) {
+    return;
+  }
+
+  const { data: existing } = await supabase
+    .from('lfn_player_season_stats')
+    .select('points,tier,wins,losses,games_played,solo_elo')
+    .eq('season_id', activeSeason.id)
+    .eq('player_id', playerId)
+    .maybeSingle();
+
+  const nextPayload = {
+    points: payload.points ?? existing?.points ?? 0,
+    tier: payload.tier ?? existing?.tier ?? 'Tier E',
+    wins: payload.wins ?? existing?.wins ?? 0,
+    losses: payload.losses ?? existing?.losses ?? 0,
+    games_played: payload.games_played ?? existing?.games_played ?? 0,
+    solo_elo: payload.solo_elo ?? existing?.solo_elo ?? DEFAULT_ELO
+  };
+
+  const { error } = await supabase.from('lfn_player_season_stats').upsert(
+    {
+      season_id: activeSeason.id,
+      player_id: playerId,
+      ...nextPayload,
+      updated_at: new Date().toISOString()
+    },
+    { onConflict: 'season_id,player_id' }
+  );
+
+  if (error) {
+    warn('Unable to sync season stats for player:', error.message);
+  }
 }
 
 function normalizeTierInput(value) {
@@ -5450,6 +5502,184 @@ function formatTierRoleMention(tier) {
   return `<@&${roleId}>`;
 }
 
+
+async function handleSeasonCommand(message, args) {
+  const sub = String(args[0] || '').toLowerCase();
+
+  if (sub === 'start') {
+    const hasPermission = message.member?.permissions?.has(PermissionsBitField.Flags.ManageGuild);
+    if (!hasPermission) {
+      await message.reply({
+        content: localizeText({
+          fr: "❌ Vous n'avez pas la permission de démarrer une saison.",
+          en: "❌ You don't have permission to start a season."
+        }),
+        allowedMentions: { repliedUser: false }
+      });
+      return;
+    }
+
+    const seasonIdentifier = args.slice(1).join('-');
+    if (!seasonIdentifier.trim()) {
+      await message.reply({
+        content: localizeText({
+          fr: 'Utilisation: `!season start <identifiant>` (ex: `!season start s3-2026`)',
+          en: 'Usage: `!season start <identifier>` (e.g. `!season start s3-2026`)'
+        }),
+        allowedMentions: { repliedUser: false }
+      });
+      return;
+    }
+
+    try {
+      const result = await seasonSystem.startNewSeason(supabase, {
+        identifier: seasonIdentifier,
+        baseElo: DEFAULT_ELO,
+        resetElo: true
+      });
+
+      await message.reply({
+        embeds: [
+          buildSeasonStartEmbed({
+            ...result,
+            localizeText
+          })
+        ],
+        allowedMentions: { repliedUser: false }
+      });
+      return;
+    } catch (error) {
+      errorLog('Failed to start new season:', error);
+      await message.reply({
+        content: localizeText(
+          {
+            fr: 'Impossible de démarrer la saison: {message}',
+            en: 'Unable to start season: {message}'
+          },
+          { message: error.message }
+        ),
+        allowedMentions: { repliedUser: false }
+      });
+      return;
+    }
+  }
+
+  if (sub === 'current' || sub === 'info') {
+    const activeSeason = await seasonSystem.getActiveSeason(supabase).catch(() => null);
+    if (!activeSeason) {
+      await message.reply({ content: localizeText({ fr: 'Aucune saison active.', en: 'No active season.' }) });
+      return;
+    }
+
+    await message.reply({
+      embeds: [
+        new EmbedBuilder()
+          .setColor(0x3498db)
+          .setTitle(localizeText({ fr: 'Saison actuelle', en: 'Current season' }))
+          .addFields(
+            { name: localizeText({ fr: 'Nom', en: 'Name' }), value: activeSeason.name || 'n/a', inline: true },
+            {
+              name: localizeText({ fr: 'Identifiant', en: 'Identifier' }),
+              value: activeSeason.identifier || 'n/a',
+              inline: true
+            },
+            {
+              name: localizeText({ fr: 'Début', en: 'Start' }),
+              value: activeSeason.starts_at ? `<t:${Math.floor(new Date(activeSeason.starts_at).getTime() / 1000)}:F>` : 'n/a',
+              inline: false
+            }
+          )
+      ]
+    });
+    return;
+  }
+
+  if (sub === 'prevlb' || sub === 'previouslb') {
+    const activeSeason = await seasonSystem.getActiveSeason(supabase).catch(() => null);
+    const previousSeason = await seasonSystem.getPreviousSeason(supabase, activeSeason?.id).catch(() => null);
+
+    if (!previousSeason?.id) {
+      await message.reply({
+        content: localizeText({ fr: 'Aucune saison précédente archivée.', en: 'No archived previous season.' })
+      });
+      return;
+    }
+
+    const leaderboard = await seasonSystem.getSeasonLeaderboard(supabase, previousSeason.id, { limit: 25 });
+    await message.reply({
+      embeds: [
+        buildSeasonLeaderboardEmbed({
+          season: previousSeason,
+          entries: leaderboard,
+          localizeText,
+          title: localizeText({ fr: '🏁 Classement final — saison précédente', en: '🏁 Final leaderboard — previous season' })
+        })
+      ],
+      allowedMentions: { repliedUser: false }
+    });
+    return;
+  }
+
+  if (sub === 'profile') {
+    const activeSeason = await seasonSystem.getActiveSeason(supabase).catch(() => null);
+    if (!activeSeason?.id) {
+      await message.reply({ content: localizeText({ fr: 'Aucune saison active.', en: 'No active season.' }) });
+      return;
+    }
+
+    const targetUser = message.mentions.users.first() || message.author;
+    const player = await fetchPlayerByDiscordId(targetUser.id).catch(() => null);
+    if (!player?.id) {
+      await message.reply({
+        content: localizeText({ fr: 'Profil joueur introuvable.', en: 'Player profile not found.' }),
+        allowedMentions: { repliedUser: false }
+      });
+      return;
+    }
+
+    const profile = await seasonSystem.getSeasonPlayerProfile(supabase, player.id, activeSeason.id).catch(() => null);
+    if (!profile) {
+      await message.reply({
+        content: localizeText({ fr: 'Aucune progression sur cette saison.', en: 'No progress for this season yet.' }),
+        allowedMentions: { repliedUser: false }
+      });
+      return;
+    }
+
+    await message.reply({
+      embeds: [
+        buildSeasonPlayerProfileEmbed({
+          playerName: player.name || targetUser.username,
+          season: activeSeason,
+          profile,
+          localizeText
+        })
+      ],
+      allowedMentions: { repliedUser: false }
+    });
+    return;
+  }
+
+  const activeSeason = await seasonSystem.getActiveSeason(supabase).catch(() => null);
+  if (!activeSeason?.id) {
+    await message.reply({ content: localizeText({ fr: 'Aucune saison active.', en: 'No active season.' }) });
+    return;
+  }
+
+  const leaderboard = await seasonSystem.getSeasonLeaderboard(supabase, activeSeason.id, { limit: 25 });
+  await message.reply({
+    embeds: [
+      buildSeasonLeaderboardEmbed({
+        season: activeSeason,
+        entries: leaderboard,
+        localizeText,
+        title: localizeText({ fr: '🏆 Classement saison en cours', en: '🏆 Current season leaderboard' })
+      })
+    ],
+    allowedMentions: { repliedUser: false }
+  });
+}
+
 async function handleTierCriteriaCommand(message) {
   const rows = [
     { tier: 'E', criteria: '0-9 points **ou** Master 1 BS' },
@@ -5921,6 +6151,10 @@ async function handleHelpCommand(message) {
     '`!tier [@joueur]` — Voir le tier Discord + description joueur',
     '`!tiercriteria` — Voir comment atteindre chaque tier',
     '`!tierlb [nombre]` — Voir le classement tiers du site (pagination)',
+    '`!season` — Voir le classement de la saison en cours',
+    '`!season prevlb` — Voir le classement final de la saison précédente',
+    '`!season profile [@joueur]` — Voir la progression d\'un joueur sur la saison',
+    '`!season start <id>` — Démarrer une nouvelle saison (staff)',
     '`!worldlb` — Voir le classement des pays par points',
     '`!lfn` — Présentation de la compétition + lien du site',
     '`!elo [@joueur]` — Afficher le classement Elo',
@@ -6548,6 +6782,13 @@ async function applyMatchOutcome(state, outcome, userId) {
 
         throw new Error(playerError.message);
       }
+
+      await upsertSeasonStatsForPlayer(update.id, {
+        wins: update.wins,
+        losses: update.losses,
+        games_played: update.games_played,
+        solo_elo: update.solo_elo
+      });
     } catch (error) {
       throw new Error(`Unable to update player ${update.id}: ${error.message}`);
     }
@@ -7761,6 +8002,10 @@ async function handleMessage(message) {
       case 'tierlb':
       case 'tierleaderboard':
         await handleLeaderboardCommand(message, args);
+        break;
+      case 'season':
+      case 'saison':
+        await handleSeasonCommand(message, args);
         break;
       case 'worldlb':
       case 'worldleaderboard':
