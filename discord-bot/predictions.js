@@ -337,6 +337,14 @@ function trimLabel(value) {
   return String(value ?? '').trim().slice(0, 30);
 }
 
+function normalizeTeamKey(value) {
+  return String(value ?? '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]/g, '');
+}
+
 async function fetchPublicTeams(forceRefresh = false) {
   const now = Date.now();
   if (!forceRefresh && now - publicTeamsCache.fetchedAt <= TEAMS_CACHE_TTL_MS) {
@@ -399,10 +407,16 @@ async function fetchLogoAsDataUri(url) {
 }
 
 async function buildMatchVisualAttachment(prediction) {
-  const teams = await fetchPublicTeams();
-  const teamByName = new Map(teams.map((team) => [team.name.toLowerCase(), team]));
-  const team1 = teamByName.get(prediction.team1_name.toLowerCase()) || { name: prediction.team1_name, logoUrl: null };
-  const team2 = teamByName.get(prediction.team2_name.toLowerCase()) || { name: prediction.team2_name, logoUrl: null };
+  let teams = [];
+  try {
+    teams = await fetchPublicTeams();
+  } catch (err) {
+    context.warn('Unable to load teams for prediction visuals, fallback to text-only card:', err?.message || err);
+  }
+
+  const teamByName = new Map(teams.map((team) => [normalizeTeamKey(team.name), team]));
+  const team1 = teamByName.get(normalizeTeamKey(prediction.team1_name)) || { name: prediction.team1_name, logoUrl: null };
+  const team2 = teamByName.get(normalizeTeamKey(prediction.team2_name)) || { name: prediction.team2_name, logoUrl: null };
 
   const [team1LogoData, team2LogoData] = await Promise.all([
     fetchLogoAsDataUri(team1.logoUrl),

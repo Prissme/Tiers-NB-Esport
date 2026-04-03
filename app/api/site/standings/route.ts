@@ -46,14 +46,13 @@ const getCurrentSeasonId = async (
 
   const seasons = (data ?? [])
     .map((row) => row as Record<string, unknown>)
-    .sort((a, b) => getSeasonStartTs(a) - getSeasonStartTs(b))
+    .sort((a, b) => getSeasonStartTs(b) - getSeasonStartTs(a))
     .map((row) => ({
       id: String(row.id ?? ""),
       status: row.status ? String(row.status) : "upcoming",
     }));
   const active = seasons.find((season) => season.status === "active");
-  const upcoming = seasons.filter((season) => season.status === "upcoming");
-  return active?.id ?? upcoming[0]?.id ?? seasons[0]?.id ?? null;
+  return active?.id ?? seasons[0]?.id ?? null;
 };
 
 const isFinishedStatus = (status?: string | null) =>
