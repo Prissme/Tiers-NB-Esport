@@ -39,11 +39,10 @@ export async function GET() {
 
     const seasons = (data ?? [])
       .map((row) => row as Record<string, unknown>)
-      .sort((a, b) => getSeasonStartTs(a) - getSeasonStartTs(b))
+      .sort((a, b) => getSeasonStartTs(b) - getSeasonStartTs(a))
       .map((row) => mapSeason(row));
     const active = seasons.find((season) => season.status === "active");
-    const upcoming = seasons.filter((season) => season.status === "upcoming");
-    const season = active ?? upcoming[0] ?? seasons[0] ?? null;
+    const season = active ?? seasons[0] ?? null;
 
     return NextResponse.json({ season, source: "supabase" });
   } catch (error) {

@@ -2495,6 +2495,90 @@ async function fetchPLLeaderboard(limit = 50) {
   return Array.isArray(data) ? data : [];
 }
 
+async function fetchRostersLeaderboard(limit = 20) {
+  const safeLimit = Math.max(1, Math.min(Number(limit) || 20, 100));
+  const activeSeasonId = await getActiveSeasonId();
+
+  let teamsQuery = supabase
+    .from('lfn_teams')
+    .select('id,name,tag,division')
+    .order('name', { ascending: true });
+  if (activeSeasonId) {
+    teamsQuery = teamsQuery.eq('season_id', activeSeasonId);
+  }
+
+  let matchesQuery = supabase
+    .from('lfn_matches')
+    .select('team_a_id,team_b_id,score_a,score_b,status,season_id');
+  if (activeSeasonId) {
+    matchesQuery = matchesQuery.eq('season_id', activeSeasonId);
+  }
+
+  const [{ data: teams, error: teamsError }, { data: matches, error: matchesError }] = await Promise.all([
+    teamsQuery,
+    matchesQuery
+  ]);
+
+  if (teamsError || matchesError) {
+    throw new Error(teamsError?.message || matchesError?.message || 'Unable to load rosters leaderboard.');
+  }
+
+  const stats = new Map(
+    (teams || []).map((team) => [
+      String(team.id || ''),
+      {
+        teamId: String(team.id || ''),
+        name: String(team.name || ''),
+        tag: team.tag ? String(team.tag).toUpperCase() : null,
+        setsWon: 0,
+        setsLost: 0,
+        wins: 0,
+        losses: 0
+      }
+    ])
+  );
+
+  (matches || [])
+    .filter((match) => ['finished', 'completed'].includes(String(match?.status || '').toLowerCase()))
+    .forEach((match) => {
+      const teamAId = String(match?.team_a_id || '');
+      const teamBId = String(match?.team_b_id || '');
+      const teamA = stats.get(teamAId);
+      const teamB = stats.get(teamBId);
+      if (!teamA || !teamB) {
+        return;
+      }
+
+      const scoreA = Number(match?.score_a);
+      const scoreB = Number(match?.score_b);
+      if (!Number.isFinite(scoreA) || !Number.isFinite(scoreB)) {
+        return;
+      }
+
+      teamA.setsWon += scoreA;
+      teamA.setsLost += scoreB;
+      teamB.setsWon += scoreB;
+      teamB.setsLost += scoreA;
+
+      if (scoreA > scoreB) {
+        teamA.wins += 1;
+        teamB.losses += 1;
+      } else if (scoreB > scoreA) {
+        teamB.wins += 1;
+        teamA.losses += 1;
+      }
+    });
+
+  return Array.from(stats.values())
+    .sort((a, b) => {
+      if (b.setsWon !== a.setsWon) return b.setsWon - a.setsWon;
+      if (a.setsLost !== b.setsLost) return a.setsLost - b.setsLost;
+      if (b.wins !== a.wins) return b.wins - a.wins;
+      return a.name.localeCompare(b.name, 'fr');
+    })
+    .slice(0, safeLimit);
+}
+
 async function getActiveSeasonId() {
   const { data, error } = await supabase
     .from('lfn_seasons')
@@ -4839,6 +4923,58 @@ async function handlePLLeaderboardCommand(message, args) {
   }
 }
 
+async function handleRostersLeaderboardCommand(message, args) {
+  try {
+    let requestedLimit = 20;
+    if (args[0]) {
+      const parsed = parseInt(args[0], 10);
+      if (!Number.isNaN(parsed) && parsed > 0) {
+        requestedLimit = Math.min(parsed, 50);
+      }
+    }
+
+    const rosters = await fetchRostersLeaderboard(requestedLimit);
+    if (!rosters.length) {
+      await message.reply({
+        content: localizeText({
+          fr: 'Aucun roster classé pour le moment.',
+          en: 'No ranked rosters yet.'
+        }),
+        allowedMentions: { repliedUser: false }
+      });
+      return;
+    }
+
+    const lines = rosters.map((team, index) => {
+      const rosterEmoji = team.tag ? `:GO${team.tag}: ` : '';
+      return `**#${index + 1}** ${rosterEmoji}**${team.name}** • **${team.setsWon} pts** (${team.wins}V-${team.losses}D, ${team.setsLost} sets perdus)`;
+    });
+
+    const embed = new EmbedBuilder()
+      .setColor(0x1abc9c)
+      .setTitle(localizeText({ fr: '🏟️ Classement rosters (sets gagnés)', en: '🏟️ Rosters leaderboard (sets won)' }))
+      .setDescription(lines.join('\n'))
+      .setFooter({
+        text: localizeText({
+          fr: '1 set gagné = 1 point',
+          en: '1 set won = 1 point'
+        })
+      })
+      .setTimestamp(new Date());
+
+    await message.reply({ embeds: [embed], allowedMentions: { repliedUser: false } });
+  } catch (error) {
+    errorLog('Failed to fetch rosters leaderboard:', error);
+    await message.reply({
+      content: localizeText({
+        fr: 'Erreur lors de la récupération du classement rosters.',
+        en: 'Failed to retrieve rosters leaderboard.'
+      }),
+      allowedMentions: { repliedUser: false }
+    });
+  }
+}
+
 async function handleWorldLeaderboardCommand(message) {
   try {
     const allPlayers = await fetchSiteTierLeaderboard();
@@ -6151,6 +6287,7 @@ async function handleHelpCommand(message) {
     '`!tier [@joueur]` — Voir le tier Discord + description joueur',
     '`!tiercriteria` — Voir comment atteindre chaque tier',
     '`!tierlb [nombre]` — Voir le classement tiers du site (pagination)',
+    '`!rosterslb [nombre]` — Classement des équipes (1 set gagné = 1 point)',
     '`!season` — Voir le classement de la saison en cours',
     '`!season prevlb` — Voir le classement final de la saison précédente',
     '`!season profile [@joueur]` — Voir la progression d\'un joueur sur la saison',
@@ -8002,6 +8139,9 @@ async function handleMessage(message) {
       case 'tierlb':
       case 'tierleaderboard':
         await handleLeaderboardCommand(message, args);
+        break;
+      case 'rosterslb':
+        await handleRostersLeaderboardCommand(message, args);
         break;
       case 'season':
       case 'saison':
