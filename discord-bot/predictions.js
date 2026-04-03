@@ -6,6 +6,7 @@
 
 const {
   ActionRowBuilder,
+  AttachmentBuilder,
   ApplicationCommandOptionType,
   ButtonBuilder,
   ButtonStyle,
@@ -25,8 +26,16 @@ const REQUIRED_PREDICTION_TABLES = [
   'lfn_prediction_votes',
   'lfn_prediction_validations'
 ];
+const TEAMS_TABLE = process.env.LFN_TEAMS_TABLE || 'lfn_teams';
+const TEAM_NAME_COLUMN = process.env.LFN_TEAM_NAME_COLUMN || 'name';
+const TEAM_LOGO_COLUMN = process.env.LFN_TEAM_LOGO_COLUMN || 'logo_url';
+const TEAM_ACTIVE_COLUMN = process.env.LFN_TEAM_ACTIVE_COLUMN || 'is_active';
+const TEAMS_CACHE_TTL_MS = 5 * 60 * 1000;
+const LOGO_FETCH_TIMEOUT_MS = 5000;
 
 let context = null;
+let publicTeamsCache = { fetchedAt: 0, teams: [] };
+const logoDataUriCache = new Map();
 
 function initPredictionContext(options) {
   context = {
@@ -79,48 +88,56 @@ function buildCommands(localizeText) {
           name: 'match1_team1',
           description: localizeText({ fr: "Équipe 1 du match 1", en: 'Match 1 team 1' }),
           type: ApplicationCommandOptionType.String,
+          autocomplete: true,
           required: true
         },
         {
           name: 'match1_team2',
           description: localizeText({ fr: "Équipe 2 du match 1", en: 'Match 1 team 2' }),
           type: ApplicationCommandOptionType.String,
+          autocomplete: true,
           required: true
         },
         {
           name: 'match2_team1',
           description: localizeText({ fr: "Équipe 1 du match 2", en: 'Match 2 team 1' }),
           type: ApplicationCommandOptionType.String,
+          autocomplete: true,
           required: false
         },
         {
           name: 'match2_team2',
           description: localizeText({ fr: "Équipe 2 du match 2", en: 'Match 2 team 2' }),
           type: ApplicationCommandOptionType.String,
+          autocomplete: true,
           required: false
         },
         {
           name: 'match3_team1',
           description: localizeText({ fr: "Équipe 1 du match 3", en: 'Match 3 team 1' }),
           type: ApplicationCommandOptionType.String,
+          autocomplete: true,
           required: false
         },
         {
           name: 'match3_team2',
           description: localizeText({ fr: "Équipe 2 du match 3", en: 'Match 3 team 2' }),
           type: ApplicationCommandOptionType.String,
+          autocomplete: true,
           required: false
         },
         {
           name: 'match4_team1',
           description: localizeText({ fr: "Équipe 1 du match 4", en: 'Match 4 team 1' }),
           type: ApplicationCommandOptionType.String,
+          autocomplete: true,
           required: false
         },
         {
           name: 'match4_team2',
           description: localizeText({ fr: "Équipe 2 du match 4", en: 'Match 4 team 2' }),
           type: ApplicationCommandOptionType.String,
+          autocomplete: true,
           required: false
         },
         {
@@ -307,6 +324,145 @@ function buildEmbed(prediction, stats, isClosed, winnerKey = null) {
   return embed;
 }
 
+function escapeXml(input) {
+  return String(input ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&apos;');
+}
+
+function trimLabel(value) {
+  return String(value ?? '').trim().slice(0, 30);
+}
+
+async function fetchPublicTeams(forceRefresh = false) {
+  const now = Date.now();
+  if (!forceRefresh && now - publicTeamsCache.fetchedAt <= TEAMS_CACHE_TTL_MS) {
+    return publicTeamsCache.teams;
+  }
+
+  const selectColumns = [TEAM_NAME_COLUMN, TEAM_LOGO_COLUMN, TEAM_ACTIVE_COLUMN].filter(Boolean).join(', ');
+  let query = context.supabase.from(TEAMS_TABLE).select(selectColumns).order(TEAM_NAME_COLUMN, { ascending: true });
+
+  if (TEAM_ACTIVE_COLUMN) {
+    query = query.eq(TEAM_ACTIVE_COLUMN, true);
+  }
+
+  const { data, error } = await query;
+  if (error) {
+    throw error;
+  }
+
+  const teams = (data || [])
+    .map((row) => ({
+      name: String(row?.[TEAM_NAME_COLUMN] ?? '').trim(),
+      logoUrl: row?.[TEAM_LOGO_COLUMN] ? String(row[TEAM_LOGO_COLUMN]).trim() : null
+    }))
+    .filter((team) => team.name.length > 0);
+
+  publicTeamsCache = { fetchedAt: now, teams };
+  return teams;
+}
+
+async function fetchLogoAsDataUri(url) {
+  const safeUrl = String(url || '').trim();
+  if (!safeUrl) {
+    return null;
+  }
+
+  if (logoDataUriCache.has(safeUrl)) {
+    return logoDataUriCache.get(safeUrl);
+  }
+
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), LOGO_FETCH_TIMEOUT_MS);
+    const response = await fetch(safeUrl, { signal: controller.signal });
+    clearTimeout(timeout);
+    if (!response.ok) {
+      return null;
+    }
+    const contentType = (response.headers.get('content-type') || '').toLowerCase();
+    if (!contentType.startsWith('image/')) {
+      return null;
+    }
+    const bytes = await response.arrayBuffer();
+    const base64 = Buffer.from(bytes).toString('base64');
+    const dataUri = `data:${contentType};base64,${base64}`;
+    logoDataUriCache.set(safeUrl, dataUri);
+    return dataUri;
+  } catch {
+    return null;
+  }
+}
+
+async function buildMatchVisualAttachment(prediction) {
+  const teams = await fetchPublicTeams();
+  const teamByName = new Map(teams.map((team) => [team.name.toLowerCase(), team]));
+  const team1 = teamByName.get(prediction.team1_name.toLowerCase()) || { name: prediction.team1_name, logoUrl: null };
+  const team2 = teamByName.get(prediction.team2_name.toLowerCase()) || { name: prediction.team2_name, logoUrl: null };
+
+  const [team1LogoData, team2LogoData] = await Promise.all([
+    fetchLogoAsDataUri(team1.logoUrl),
+    fetchLogoAsDataUri(team2.logoUrl)
+  ]);
+
+  const width = 1200;
+  const height = 630;
+  const svg = `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0B1021"/>
+      <stop offset="60%" stop-color="#131A33"/>
+      <stop offset="100%" stop-color="#091226"/>
+    </linearGradient>
+    <linearGradient id="leftGlow" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#2E90FA" stop-opacity="0.85"/>
+      <stop offset="100%" stop-color="#2E90FA" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="rightGlow" x1="1" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#EF4444" stop-opacity="0.85"/>
+      <stop offset="100%" stop-color="#EF4444" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <rect width="${width}" height="${height}" fill="url(#bg)"/>
+  <rect x="0" y="0" width="${width / 2}" height="${height}" fill="url(#leftGlow)"/>
+  <rect x="${width / 2}" y="0" width="${width / 2}" height="${height}" fill="url(#rightGlow)"/>
+  <circle cx="300" cy="300" r="150" fill="#0F1A3A" stroke="#2E90FA" stroke-width="5"/>
+  <circle cx="900" cy="300" r="150" fill="#2A0E18" stroke="#EF4444" stroke-width="5"/>
+  <text x="600" y="315" font-size="88" font-family="Inter, Arial, sans-serif" text-anchor="middle" fill="#FFFFFF" font-weight="700">VS</text>
+  <text x="300" y="520" font-size="44" font-family="Inter, Arial, sans-serif" text-anchor="middle" fill="#E6F0FF" font-weight="700">${escapeXml(trimLabel(team1.name))}</text>
+  <text x="900" y="520" font-size="44" font-family="Inter, Arial, sans-serif" text-anchor="middle" fill="#FFE5E5" font-weight="700">${escapeXml(trimLabel(team2.name))}</text>
+  ${
+    team1LogoData
+      ? `<image href="${team1LogoData}" x="190" y="190" width="220" height="220" preserveAspectRatio="xMidYMid meet"/>`
+      : `<text x="300" y="315" font-size="28" font-family="Inter, Arial, sans-serif" text-anchor="middle" fill="#9FB3D9">Logo indisponible</text>`
+  }
+  ${
+    team2LogoData
+      ? `<image href="${team2LogoData}" x="790" y="190" width="220" height="220" preserveAspectRatio="xMidYMid meet"/>`
+      : `<text x="900" y="315" font-size="28" font-family="Inter, Arial, sans-serif" text-anchor="middle" fill="#FFB6B6">Logo indisponible</text>`
+  }
+</svg>`;
+
+  const fileName = `match-${prediction.match_number}-vs.svg`;
+  return new AttachmentBuilder(Buffer.from(svg, 'utf8'), { name: fileName });
+}
+
+async function buildPredictionPayload(prediction, stats, isClosed, winnerKey = null, showValidation = false) {
+  const embed = buildEmbed(prediction, stats, isClosed, winnerKey);
+  const visual = await buildMatchVisualAttachment(prediction);
+  embed.setImage(`attachment://${visual.name}`);
+  return {
+    embeds: [embed],
+    components: buildVoteComponents(prediction, isClosed, showValidation),
+    files: [visual]
+  };
+}
+
 async function upsertPredictionRecord(payload) {
   const { data, error } = await context.supabase.from('lfn_predictions').upsert(payload).select().single();
   if (error) {
@@ -399,11 +555,15 @@ async function upsertVote(predictionId, userId, votedTeam) {
 
 async function updateMessage(interaction, prediction, isClosed = false) {
   const stats = await fetchVoteCounts(prediction.id);
-  const embed = buildEmbed(prediction, stats, isClosed);
   const lastMatchNumber = await fetchLastPredictionMatchNumber();
-  const components = buildVoteComponents(prediction, isClosed, prediction.match_number === lastMatchNumber);
-
-  await interaction.message.edit({ embeds: [embed], components });
+  const payload = await buildPredictionPayload(
+    prediction,
+    stats,
+    isClosed,
+    null,
+    prediction.match_number === lastMatchNumber
+  );
+  await interaction.message.edit(payload);
 }
 
 async function fetchLastPredictionMatchNumber() {
@@ -466,6 +626,28 @@ async function handlePredictionsCommand(interaction) {
   }
 
   const allTeams = matches.flatMap((entry) => [entry.team1_name, entry.team2_name]);
+  let publicTeams = [];
+  try {
+    publicTeams = await fetchPublicTeams();
+  } catch (err) {
+    context.warn('Unable to load public teams for prediction command:', err);
+  }
+  const availableTeams = new Set(publicTeams.map((team) => team.name.toLowerCase()));
+  if (availableTeams.size > 0) {
+    const unknownTeams = allTeams.filter((teamName) => !availableTeams.has(teamName.toLowerCase()));
+    if (unknownTeams.length > 0) {
+      await interaction.editReply({
+        content: context.localizeText(
+          {
+            fr: '⚠️ Équipes non valides (doivent être affichées sur le site) : {teams}.',
+            en: '⚠️ Invalid teams (must be published on the website): {teams}.'
+          },
+          { teams: unknownTeams.join(', ') }
+        )
+      });
+      return true;
+    }
+  }
 
   if (!validateTeams(allTeams)) {
     await interaction.editReply({
@@ -493,10 +675,15 @@ async function handlePredictionsCommand(interaction) {
 
   try {
     for (const prediction of matches) {
-      const embed = buildEmbed({ ...prediction }, { team1: 0, team2: 0, total: 0 }, false);
+      const payload = await buildPredictionPayload(
+        prediction,
+        { team1: 0, team2: 0, total: 0 },
+        false,
+        null,
+        prediction.match_number === lastMatchNumber
+      );
       const message = await channel.send({
-        embeds: [embed],
-        components: buildVoteComponents(prediction, false, prediction.match_number === lastMatchNumber)
+        ...payload
       });
 
       const dbRecord = await upsertPredictionRecord({
@@ -831,11 +1018,14 @@ async function handleCloseCommand(interaction) {
 
         const message = await channel.messages.fetch(prediction.message_id);
         const stats = await fetchVoteCounts(prediction.id);
-        const embed = buildEmbed(prediction, stats, true);
-        await message.edit({
-          embeds: [embed],
-          components: buildVoteComponents(prediction, true, prediction.match_number === lastMatchNumber)
-        });
+        const payload = await buildPredictionPayload(
+          prediction,
+          stats,
+          true,
+          null,
+          prediction.match_number === lastMatchNumber
+        );
+        await message.edit(payload);
       } catch (err) {
         context.warn('Unable to close prediction message:', err);
       }
@@ -922,11 +1112,14 @@ async function handleAnnounceCommand(interaction) {
         const message = await channel.messages.fetch(prediction.message_id);
         const stats = await fetchVoteCounts(prediction.id);
         const winnerKey = winnersByMatch.get(prediction.match_number);
-        const embed = buildEmbed(prediction, stats, true, winnerKey);
-        await message.edit({
-          embeds: [embed],
-          components: buildVoteComponents(prediction, true, prediction.match_number === lastMatchNumber)
-        });
+        const payload = await buildPredictionPayload(
+          prediction,
+          stats,
+          true,
+          winnerKey,
+          prediction.match_number === lastMatchNumber
+        );
+        await message.edit(payload);
       } catch (err) {
         context.warn('Unable to announce prediction winner:', err);
       }
@@ -1048,6 +1241,10 @@ async function handleInteraction(interaction) {
     return false;
   }
 
+  if (interaction.isAutocomplete()) {
+    return handleAutocomplete(interaction);
+  }
+
   if (interaction.isChatInputCommand() && interaction.commandName === 'predictions') {
     return handlePredictionsCommand(interaction);
   }
@@ -1065,6 +1262,44 @@ async function handleInteraction(interaction) {
   }
 
   return handleAnnounceCommand(interaction);
+}
+
+async function handleAutocomplete(interaction) {
+  if (!interaction.isAutocomplete() || interaction.commandName !== 'predictions') {
+    return false;
+  }
+
+  try {
+    const focused = interaction.options.getFocused(true);
+    const focusedValue = String(focused?.value || '').toLowerCase();
+    const teams = await fetchPublicTeams();
+    const alreadySelected = new Set(
+      [1, 2, 3, 4]
+        .flatMap((match) => [
+          interaction.options.getString(`match${match}_team1`),
+          interaction.options.getString(`match${match}_team2`)
+        ])
+        .filter(Boolean)
+        .map((name) => name.toLowerCase())
+    );
+
+    const suggestions = teams
+      .filter((team) => team.name.toLowerCase().includes(focusedValue))
+      .filter((team) => !alreadySelected.has(team.name.toLowerCase()) || team.name.toLowerCase() === focusedValue)
+      .slice(0, 25)
+      .map((team) => ({ name: team.name, value: team.name }));
+
+    await interaction.respond(suggestions);
+  } catch (err) {
+    context.warn('Prediction autocomplete failed:', err);
+    try {
+      await interaction.respond([]);
+    } catch {
+      // no-op
+    }
+  }
+
+  return true;
 }
 
 module.exports = {
