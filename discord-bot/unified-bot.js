@@ -80,6 +80,7 @@ const WORST_PLAYER_ROLE_NAME = process.env.WORST_PLAYER_ROLE_NAME || 'PIRE JOUEU
 const PL_ADMIN_ROLE_ID = process.env.PL_ADMIN_ROLE_ID || '1470549482432102511';
 const SECONDARY_PL_ADMIN_ROLE_ID = '1472652444331671593';
 const PL_PLAYER_ROLE_ID = '1469030334510137398';
+const PL_ROLE_CHANNEL_ID = '1267617798658457732';
 const PL_LEADERBOARD_PAGE_SIZE = 10;
 
 const ROLE_TIER_S = process.env.ROLE_TIER_S;
@@ -958,6 +959,10 @@ async function addWhiteCheckmarkReaction(message) {
 }
 
 function buildPLJoinReplyContent(joinResult) {
+  if (joinResult.blockedByMissingPLRole) {
+    return `Si tu n'as pas le rôle <@&${PL_PLAYER_ROLE_ID}>, tu ne peux pas jouer en PL. Le bot te bloque tant que tu ne l'as pas. Prends ton rôle PL dans <#${PL_ROLE_CHANNEL_ID}>.`;
+  }
+
   if (joinResult.blockedByDodgeLock) {
     return `Tu as 4 votes dodge: -30 Elo et verrouillage 1h. Réessaie dans ${formatDurationMinutes(joinResult.lockRemainingMs)}. (4 dodge votes: -30 Elo and 1h lock. Try again in ${formatDurationMinutes(joinResult.lockRemainingMs)}.)`;
   }
@@ -1016,6 +1021,12 @@ async function addPlayerToPLQueue(userId, guildContext, options = {}) {
 
     if (isInPLQueue(guildContext.id, userId)) {
       return { added: false, reason: 'already', queueIndex };
+    }
+
+    const member = await guildContext.members.fetch(userId).catch(() => null);
+    const hasPlPlayerRole = Boolean(member?.roles?.cache?.has(PL_PLAYER_ROLE_ID));
+    if (!hasPlPlayerRole) {
+      return { added: false, blockedByMissingPLRole: true, queueIndex };
     }
 
     if (queueIndex === 1) {
@@ -6279,33 +6290,18 @@ async function handleDraftFreeInput(message) {
 }
 
 async function handleHelpCommand(message) {
-  const commands = [
-    '`!join` — Rejoindre la file de matchmaking',
-    '`!leave` — Quitter la file d\'attente',
-    '`!queue` — Voir la file PL avec le rang des joueurs',
-    '`!lb [nombre]` — Voir le classement PL (Elo)',
-    '`!tier [@joueur]` — Voir le tier Discord + description joueur',
-    '`!tiercriteria` — Voir comment atteindre chaque tier',
-    '`!tierlb [nombre]` — Voir le classement tiers du site (pagination)',
-    '`!rosterslb [nombre]` — Classement des équipes (1 set gagné = 1 point)',
-    '`!season` — Voir le classement de la saison en cours',
-    '`!season prevlb` — Voir le classement final de la saison précédente',
-    '`!season profile [@joueur]` — Voir la progression d\'un joueur sur la saison',
-    '`!season start <id>` — Démarrer une nouvelle saison (staff)',
-    '`!worldlb` — Voir le classement des pays par points',
-    '`!lfn` — Présentation de la compétition + lien du site',
-    '`!elo [@joueur]` — Afficher le classement Elo',
-    '`!ranks` — Voir ta progression Elo vers Verdoyant',
-    '`!last` — Afficher le joueur avec le moins d\'Elo',
-    '`!maps` — Afficher la rotation des maps'
-  ];
-
   await message.reply({
     embeds: [
       new EmbedBuilder()
-        .setTitle('Commandes du bot')
-        .setDescription(commands.join('\n'))
+        .setTitle('!help')
+        .setDescription('Choisis une rubrique avec les boutons ci-dessous.')
         .setColor(0x00b894)
+    ],
+    components: [
+      new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId('help_pl').setLabel('Rubrique PL').setStyle(ButtonStyle.Primary),
+        new ButtonBuilder().setCustomId('help_esports').setLabel('Rubrique E-Sports').setStyle(ButtonStyle.Secondary)
+      )
     ]
   });
 }
@@ -7006,6 +7002,42 @@ async function handleInteraction(interaction) {
   }
 
   if (interaction.isButton()) {
+    if (interaction.customId === 'help_pl') {
+      await interaction.reply({
+        flags: MessageFlags.Ephemeral,
+        embeds: [
+          new EmbedBuilder()
+            .setTitle('Rubrique PL')
+            .setColor(0x2563eb)
+            .setDescription(
+              [
+                '`!join`',
+                '`!leave`',
+                '`!queue`',
+                '`!lb`',
+                '`!elo`',
+                '`!ranks`',
+                '`!maps`'
+              ].join('\n')
+            )
+        ]
+      });
+      return;
+    }
+
+    if (interaction.customId === 'help_esports') {
+      await interaction.reply({
+        flags: MessageFlags.Ephemeral,
+        embeds: [
+          new EmbedBuilder()
+            .setTitle('Rubrique E-Sports')
+            .setColor(0x0ea5e9)
+            .setDescription(['`!tier`', '`!lfn`', '`!tierlb`', '`!worldlb`', '`!tiercriteria`'].join('\n'))
+        ]
+      });
+      return;
+    }
+
     if (interaction.customId === 'prisscup_info') {
       await interaction.reply({
         flags: MessageFlags.Ephemeral,
@@ -8119,15 +8151,8 @@ async function handleMessage(message) {
       case 'file':
         await handleQueueCommand(message, args);
         break;
-      case 'cleanqueue':
-        await handleCleanQueueCommand(message, args);
-        break;
       case 'elo':
         await handleEloCommand(message, args);
-        break;
-      case 'last':
-      case 'dernier':
-        await handleLastCommand(message, args);
         break;
       case 'ranks':
         await handleRanksCommand(message, args);
@@ -8140,26 +8165,12 @@ async function handleMessage(message) {
       case 'tierleaderboard':
         await handleLeaderboardCommand(message, args);
         break;
-      case 'rosterslb':
-        await handleRostersLeaderboardCommand(message, args);
-        break;
-      case 'season':
-      case 'saison':
-        await handleSeasonCommand(message, args);
-        break;
       case 'worldlb':
       case 'worldleaderboard':
         await handleWorldLeaderboardCommand(message, args);
         break;
       case 'maps':
         await handleMapsCommand(message, args);
-        break;
-      case 'prisscupdel':
-      case 'prisscupdelete':
-        await handlePrisscupDeleteTeamCommand(message, args);
-        break;
-      case 'tiers':
-        await handleTierSyncCommand(message, args);
         break;
       case 'tier':
       case 'ier':
@@ -8172,12 +8183,6 @@ async function handleMessage(message) {
         break;
       case 'lfn':
         await handleLfnCommand(message, args);
-        break;
-      case 'teams':
-        await handleTeamsCommand(message, args);
-        break;
-      case 'draft':
-        await handleDraftCommand(message, args);
         break;
       case 'aide':
       case 'help':
