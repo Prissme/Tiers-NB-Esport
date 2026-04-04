@@ -85,7 +85,7 @@ export async function GET(request: Request) {
       );
 
     if (effectiveSeason) {
-      matchesQuery = matchesQuery.eq("season_id", effectiveSeason);
+      matchesQuery = matchesQuery.or(`season_id.eq.${effectiveSeason},season_id.is.null`);
     }
     if (division) {
       matchesQuery = matchesQuery.eq("division", division);
@@ -155,6 +155,12 @@ export async function GET(request: Request) {
         pointsAdmin: null,
         pointsTotal: row.pointsTotal,
       }))
+      .sort((a, b) => {
+        if (b.wins !== a.wins) return b.wins - a.wins;
+        if (b.pointsTotal !== a.pointsTotal) return b.pointsTotal - a.pointsTotal;
+        if (a.losses !== b.losses) return a.losses - b.losses;
+        return a.teamName.localeCompare(b.teamName, "fr", { sensitivity: "base" });
+      })
       .slice(0, limit);
 
     return NextResponse.json({ standings, source: "supabase" });
