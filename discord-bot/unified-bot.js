@@ -7191,7 +7191,9 @@ async function handleInteraction(interaction) {
           new EmbedBuilder()
             .setTitle('Rubrique E-Sports')
             .setColor(0x0ea5e9)
-            .setDescription(['`!tier`', '`!lfn`', '`!tierlb`', '`!worldlb`', '`!tiercriteria`'].join('\n'))
+            .setDescription(
+              ['`!tier`', '`!lfn`', '`!tierlb`', '`!worldlb`', '`!tiercriteria`', '`!synctiers`'].join('\n')
+            )
         ]
       });
       return;
@@ -8271,6 +8273,7 @@ async function handleMessage(message) {
         break;
       case 'tiers':
       case 'tiersync':
+      case 'synctier':
       case 'synctiers':
         await handleTierSyncCommand(message, args);
         break;
