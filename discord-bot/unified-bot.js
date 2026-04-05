@@ -2027,13 +2027,14 @@ async function handleAdminSlashCommand(interaction) {
     const nextPoints = currentPoints + amount;
     const currentTier = existingTierEntry?.tier || 'Tier E';
     const recalculatedTier = resolveTierByPoints(nextPoints);
+    const persistedTier = recalculatedTier || 'Tier E';
 
     const { error: updateTierError } = await supabase.from('lfn_player_tier_points').upsert(
       {
         player_id: player.id,
         season_id: activeSeasonId,
         points: nextPoints,
-        tier: recalculatedTier,
+        tier: persistedTier,
         updated_at: new Date().toISOString()
       },
       { onConflict: 'player_id,season_id' }
@@ -2053,7 +2054,7 @@ async function handleAdminSlashCommand(interaction) {
 
     await upsertSeasonStatsForPlayer(player.id, {
       points: nextPoints,
-      tier: recalculatedTier,
+      tier: persistedTier,
       wins: Number(player.wins || 0),
       losses: Number(player.losses || 0),
       games_played: Number(player.games_played || 0),
@@ -2085,7 +2086,7 @@ async function handleAdminSlashCommand(interaction) {
             },
             {
               name: localizeText({ fr: 'Tier', en: 'Tier' }),
-              value: `${currentTier} → ${recalculatedTier}`,
+              value: `${currentTier} → ${recalculatedTier || 'No Tier'}`,
               inline: true
             }
           )
@@ -2231,7 +2232,7 @@ function formatEloRankLabel(rankInfo) {
     return `${emoji} ${name}`.trim();
   }
 
-  return `${emoji} ${name} **${numeral}**`.trim();
+  return `${emoji} ${name} ${numeral}`.trim();
 }
 
 function formatEloRankEmoji(rankInfo) {
@@ -5659,16 +5660,88 @@ async function handleTierCommand(message) {
   });
 }
 
-function formatTierRoleMention(tier) {
-  const normalizedTier = String(tier || '').toUpperCase();
-  const roleId =
-    tierRoleMap[normalizedTier] ||
-    (normalizedTier === 'A' ? '1482720488529727498' : null) ||
-    (normalizedTier === 'S' ? '1482720508813512814' : null);
+function formatRoleReference(guildContext, roleId, fallbackLabel) {
   if (!roleId) {
-    return `Tier ${normalizedTier}`;
+    return fallbackLabel || 'Rôle non défini';
   }
-  return `<@&${roleId}>`;
+
+  const roleName = guildContext?.roles?.cache?.get(roleId)?.name;
+  if (roleName) {
+    return `<@&${roleId}> (\`${roleId}\`)`;
+  }
+
+  return `${fallbackLabel || 'Role'} (\`${roleId}\`)`;
+}
+
+function resolveTierByPoints(points) {
+  const safePoints = Number.isFinite(Number(points)) ? Number(points) : 0;
+  if (safePoints <= 0) {
+    return null;
+  }
+  if (safePoints >= 55) {
+    return 'Tier A';
+  }
+  if (safePoints >= 35) {
+    return 'Tier B';
+  }
+  if (safePoints >= 20) {
+    return 'Tier C';
+  }
+  if (safePoints >= 10) {
+    return 'Tier D';
+  }
+  return 'Tier E';
+}
+
+function tierLabelToLetter(tierLabel) {
+  const normalized = String(tierLabel || '')
+    .replace(/^tier\s*/i, '')
+    .trim()
+    .toUpperCase();
+  return ROOM_TIER_ORDER.includes(normalized) ? normalized : 'E';
+}
+
+async function syncSingleMemberTierRole(targetGuild, discordId, tierLabel) {
+  if (!targetGuild || !discordId) {
+    return;
+  }
+
+  let member = null;
+  try {
+    member = await targetGuild.members.fetch(discordId);
+  } catch (err) {
+    return;
+  }
+
+  if (!member) {
+    return;
+  }
+
+  const allTierRoleIds = Object.values(tierRoleMap).filter(Boolean);
+  const tierLetter = tierLabelToLetter(tierLabel);
+  const targetRoleId = tierLabel ? tierRoleMap[tierLetter] : null;
+  const rolesToRemove = allTierRoleIds.filter((id) => id !== targetRoleId && member.roles.cache.has(id));
+
+  if (!targetRoleId) {
+    for (const roleId of rolesToRemove) {
+      await member.roles.remove(roleId, 'Tier synchronization').catch((err) => {
+        warn(`Unable to remove tier role ${roleId} from ${member.id}:`, err?.message || err);
+      });
+    }
+    return;
+  }
+
+  if (!member.roles.cache.has(targetRoleId)) {
+    await member.roles.add(targetRoleId, 'Tier synchronization').catch((err) => {
+      warn(`Unable to add tier role ${tierLetter} to ${member.id}:`, err?.message || err);
+    });
+  }
+
+  for (const roleId of rolesToRemove) {
+    await member.roles.remove(roleId, 'Tier synchronization').catch((err) => {
+      warn(`Unable to remove tier role ${roleId} from ${member.id}:`, err?.message || err);
+    });
+  }
 }
 
 function resolveTierByPoints(points) {
@@ -5913,20 +5986,21 @@ async function handleSeasonCommand(message, args) {
 }
 
 async function handleTierCriteriaCommand(message) {
+  const roleARef = formatRoleReference(message.guild, ROLE_TIER_A, 'Tier A');
+  const roleSRef = formatRoleReference(message.guild, ROLE_TIER_S, 'Tier S');
   const rows = [
     { tier: 'E', criteria: '0 à 9 points' },
     { tier: 'D', criteria: '10 à 19 points' },
     { tier: 'C', criteria: '20 à 34 points' },
     { tier: 'B', criteria: '35 à 54 points' },
-    { tier: 'A', criteria: `55+ points • ${formatTierRoleMention('A')}` },
-    { tier: 'S', criteria: `Top players du Tier A • ${formatTierRoleMention('S')}` }
+    { tier: 'A', criteria: `55+ points • ${roleARef}` },
+    { tier: 'S', criteria: `Top players du Tier A • ${roleSRef}` }
   ];
 
   const description = rows
     .map(({ tier, criteria }) => {
       const emoji = formatTierEmoji(tier);
-      const roleMention = formatTierRoleMention(tier);
-      return `${emoji} ${roleMention} — **Tier ${tier}**\n↳ ${criteria}`;
+      return `${emoji} **Tier ${tier}**\n↳ ${criteria}`;
     })
     .join('\n\n');
 
@@ -8027,11 +8101,12 @@ async function syncTiersWithRoles() {
     const tierRow = pointsByPlayerId.get(player.id);
     const points = Number(tierRow?.points || 0);
     const recalculatedTier = resolveTierByPoints(points);
+    const persistedTier = recalculatedTier || 'Tier E';
 
-    if (tierRow && tierRow.tier !== recalculatedTier) {
+    if (tierRow && tierRow.tier !== persistedTier) {
       await supabase
         .from('lfn_player_tier_points')
-        .update({ tier: recalculatedTier, updated_at: new Date().toISOString() })
+        .update({ tier: persistedTier, updated_at: new Date().toISOString() })
         .eq('season_id', activeSeasonId)
         .eq('player_id', player.id)
         .then(({ error }) => {
@@ -8041,7 +8116,7 @@ async function syncTiersWithRoles() {
         });
     }
 
-    await upsertSeasonStatsForPlayer(player.id, { points, tier: recalculatedTier });
+    await upsertSeasonStatsForPlayer(player.id, { points, tier: persistedTier });
     await syncSingleMemberTierRole(guild, player.discord_id, recalculatedTier);
   }
 
