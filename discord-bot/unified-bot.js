@@ -950,6 +950,16 @@ function buildRankGapErrorEmbed() {
   return new EmbedBuilder().setColor(0xef4444).setDescription('Écart de rang trop élevé');
 }
 
+
+function buildMissingPLRoleEmbed() {
+  return new EmbedBuilder()
+    .setColor(0xef4444)
+    .setTitle('Rôle PL requis')
+    .setDescription(
+      `Si tu n'as pas le rôle <@&${PL_PLAYER_ROLE_ID}>, tu ne peux pas jouer en PL.\nPrends ton rôle PL dans <#${PL_ROLE_CHANNEL_ID}>.`
+    );
+}
+
 async function addWhiteCheckmarkReaction(message) {
   if (!message?.react) {
     return;
@@ -3702,6 +3712,8 @@ async function handlePLJoinCommand(message) {
   try {
     if (joinResult.blockedByRankGap) {
       await message.author.send({ embeds: [buildRankGapErrorEmbed()] });
+    } else if (joinResult.blockedByMissingPLRole) {
+      await message.author.send({ embeds: [buildMissingPLRoleEmbed()] });
     } else {
       await message.author.send(replyContent);
     }
@@ -3847,6 +3859,8 @@ async function handleJoinCommand(message, args) {
       const replyContent = buildPLJoinReplyContent(joinResult);
       if (joinResult.blockedByRankGap) {
         await message.reply({ embeds: [buildRankGapErrorEmbed()] });
+      } else if (joinResult.blockedByMissingPLRole) {
+        await message.reply({ embeds: [buildMissingPLRoleEmbed()] });
       } else if (joinResult.added) {
         await addWhiteCheckmarkReaction(message);
       } else {
@@ -7093,6 +7107,14 @@ async function handleInteraction(interaction) {
       if (joinResult.blockedByRankGap) {
         await interaction.reply({
           embeds: [buildRankGapErrorEmbed()],
+          flags: MessageFlags.Ephemeral
+        });
+        return;
+      }
+
+      if (joinResult.blockedByMissingPLRole) {
+        await interaction.reply({
+          embeds: [buildMissingPLRoleEmbed()],
           flags: MessageFlags.Ephemeral
         });
         return;
