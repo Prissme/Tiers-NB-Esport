@@ -5744,6 +5744,69 @@ async function syncSingleMemberTierRole(targetGuild, discordId, tierLabel) {
   }
 }
 
+function resolveTierByPoints(points) {
+  const safePoints = Number.isFinite(Number(points)) ? Number(points) : 0;
+  if (safePoints >= 55) {
+    return 'Tier A';
+  }
+  if (safePoints >= 35) {
+    return 'Tier B';
+  }
+  if (safePoints >= 20) {
+    return 'Tier C';
+  }
+  if (safePoints >= 10) {
+    return 'Tier D';
+  }
+  return 'Tier E';
+}
+
+function tierLabelToLetter(tierLabel) {
+  const normalized = String(tierLabel || '')
+    .replace(/^tier\s*/i, '')
+    .trim()
+    .toUpperCase();
+  return ROOM_TIER_ORDER.includes(normalized) ? normalized : 'E';
+}
+
+async function syncSingleMemberTierRole(targetGuild, discordId, tierLabel) {
+  if (!targetGuild || !discordId) {
+    return;
+  }
+
+  const tierLetter = tierLabelToLetter(tierLabel);
+  const targetRoleId = tierRoleMap[tierLetter];
+  if (!targetRoleId) {
+    return;
+  }
+
+  let member = null;
+  try {
+    member = await targetGuild.members.fetch(discordId);
+  } catch (err) {
+    return;
+  }
+
+  if (!member) {
+    return;
+  }
+
+  const allTierRoleIds = Object.values(tierRoleMap).filter(Boolean);
+  const rolesToRemove = allTierRoleIds.filter((id) => id !== targetRoleId && member.roles.cache.has(id));
+
+  if (!member.roles.cache.has(targetRoleId)) {
+    await member.roles.add(targetRoleId, 'Tier synchronization').catch((err) => {
+      warn(`Unable to add tier role ${tierLetter} to ${member.id}:`, err?.message || err);
+    });
+  }
+
+  for (const roleId of rolesToRemove) {
+    await member.roles.remove(roleId, 'Tier synchronization').catch((err) => {
+      warn(`Unable to remove tier role ${roleId} from ${member.id}:`, err?.message || err);
+    });
+  }
+}
+
 
 async function handleSeasonCommand(message, args) {
   const sub = String(args[0] || '').toLowerCase();
