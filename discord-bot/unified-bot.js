@@ -5667,10 +5667,10 @@ function formatRoleReference(guildContext, roleId, fallbackLabel) {
 
   const roleName = guildContext?.roles?.cache?.get(roleId)?.name;
   if (roleName) {
-    return `<@&${roleId}> (\`${roleId}\`)`;
+    return `<@&${roleId}>`;
   }
 
-  return `${fallbackLabel || 'Role'} (\`${roleId}\`)`;
+  return fallbackLabel || 'Role';
 }
 
 function resolveTierByPoints(points) {
@@ -5698,7 +5698,7 @@ function tierLabelToLetter(tierLabel) {
     .replace(/^tier\s*/i, '')
     .trim()
     .toUpperCase();
-  return ROOM_TIER_ORDER.includes(normalized) ? normalized : 'E';
+  return ROOM_TIER_ORDER.includes(normalized) ? normalized : null;
 }
 
 async function syncSingleMemberTierRole(targetGuild, discordId, tierLabel) {
@@ -5743,70 +5743,6 @@ async function syncSingleMemberTierRole(targetGuild, discordId, tierLabel) {
     });
   }
 }
-
-function resolveTierByPoints(points) {
-  const safePoints = Number.isFinite(Number(points)) ? Number(points) : 0;
-  if (safePoints >= 55) {
-    return 'Tier A';
-  }
-  if (safePoints >= 35) {
-    return 'Tier B';
-  }
-  if (safePoints >= 20) {
-    return 'Tier C';
-  }
-  if (safePoints >= 10) {
-    return 'Tier D';
-  }
-  return 'Tier E';
-}
-
-function tierLabelToLetter(tierLabel) {
-  const normalized = String(tierLabel || '')
-    .replace(/^tier\s*/i, '')
-    .trim()
-    .toUpperCase();
-  return ROOM_TIER_ORDER.includes(normalized) ? normalized : 'E';
-}
-
-async function syncSingleMemberTierRole(targetGuild, discordId, tierLabel) {
-  if (!targetGuild || !discordId) {
-    return;
-  }
-
-  const tierLetter = tierLabelToLetter(tierLabel);
-  const targetRoleId = tierRoleMap[tierLetter];
-  if (!targetRoleId) {
-    return;
-  }
-
-  let member = null;
-  try {
-    member = await targetGuild.members.fetch(discordId);
-  } catch (err) {
-    return;
-  }
-
-  if (!member) {
-    return;
-  }
-
-  const allTierRoleIds = Object.values(tierRoleMap).filter(Boolean);
-  const rolesToRemove = allTierRoleIds.filter((id) => id !== targetRoleId && member.roles.cache.has(id));
-
-  if (!member.roles.cache.has(targetRoleId)) {
-    await member.roles.add(targetRoleId, 'Tier synchronization').catch((err) => {
-      warn(`Unable to add tier role ${tierLetter} to ${member.id}:`, err?.message || err);
-    });
-  }
-
-  for (const roleId of rolesToRemove) {
-    await member.roles.remove(roleId, 'Tier synchronization').catch((err) => {
-      warn(`Unable to remove tier role ${roleId} from ${member.id}:`, err?.message || err);
-    });
-  }
-}
-
 
 async function handleSeasonCommand(message, args) {
   const sub = String(args[0] || '').toLowerCase();
@@ -6050,9 +5986,12 @@ async function handleLfnCommand(message) {
     embeds: [
       new EmbedBuilder()
         .setColor(0xe39f30)
-        .setTitle('LFN Esports — Ligue francophone')
+        .setTitle(localizeText({ fr: 'LFN Esports — Ligue francophone', en: 'LFN Esports — French league' }))
         .setDescription(
-          'La LFN est une compétition Brawl Stars francophone organisée sur plusieurs saisons, avec classement, matchs et suivi des équipes.'
+          localizeText({
+            fr: "La LFN est une compétition Null's Brawl francophone organisée sur plusieurs saisons, avec classement, matchs et suivi des équipes.",
+            en: "LFN is a French-speaking Null's Brawl competition run across multiple seasons, with standings, matches, and team tracking."
+          })
         )
         .addFields({ name: 'Site officiel', value: 'https://www.lfn-esports.fr/' })
         .setURL('https://www.lfn-esports.fr/')
