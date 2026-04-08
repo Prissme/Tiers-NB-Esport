@@ -5634,7 +5634,6 @@ async function handleTierCommand(message) {
   const rankLabel = playerRank
     ? `#${playerRank}${totalPlayers ? `/${totalPlayers}` : ''}`
     : localizeText({ fr: 'Non classé', en: 'Unranked' });
-  const sameTierCount = tierLeaderboard.filter((player) => player?.tier === siteTierPlayer.tier).length;
   const countryCode = String(siteTierPlayer.countryCode || 'FR').toUpperCase();
   const countryFlag = toCountryFlag(countryCode);
   const tierLabel = String(siteTierPlayer.tier || 'No Tier');
@@ -5649,7 +5648,6 @@ async function handleTierCommand(message) {
         .setTitle(`${TROPHY_EMOJI} ${tierEmoji ? `${tierEmoji} ` : ''}${tierLabel.toUpperCase()}`)
         .setDescription(description ? `📝 ${description}` : '‎')
         .addFields(
-          { name: 'Même tier', value: `**${sameTierCount}** personne(s)`, inline: true },
           { name: 'Classement global', value: `**${rankLabel}**`, inline: true },
           { name: 'Points', value: `**${Math.round(Number(siteTierPlayer.points || 0))}**`, inline: true },
           { name: 'Rang PL', value: `**${eloRankLabel}**`, inline: true },
@@ -5933,6 +5931,8 @@ async function handleTierCriteriaCommand(message) {
     { tier: 'S', criteria: `Top players du Tier A • ${roleSRef}` }
   ];
 
+  const rulebookUrl = 'https://www.lfn-esports.fr/reglement#tier-system';
+
   const description = rows
     .map(({ tier, criteria }) => {
       const emoji = formatTierEmoji(tier);
@@ -5945,7 +5945,9 @@ async function handleTierCriteriaCommand(message) {
       new EmbedBuilder()
         .setColor(0xf1c40f)
         .setTitle('📊 Critères des tiers')
-        .setDescription(description)
+        .setDescription(`${description}\n\n⚠️ Si ton rôle Discord n'est pas à jour, utilise \`!synctiers\`.`)
+        .addFields({ name: 'Rulebook complet', value: rulebookUrl })
+        .setURL(rulebookUrl)
     ]
   });
 }

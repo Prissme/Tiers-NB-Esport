@@ -65,6 +65,7 @@ const rulebooksByLocale: Record<"fr" | "en", Rulebook[]> = {
             "A player enters the system after 3 validated wins, or",
             "At least one semifinal appearance in a tournament.",
             "Once validated, the player enters Tier E with 0 points.",
+            "If your Discord tier role is out of sync, use !synctiers in Discord.",
           ],
         },
         {
@@ -121,7 +122,6 @@ const rulebooksByLocale: Record<"fr" | "en", Rulebook[]> = {
           title: "LFN (Main Competition)",
           body: "LFN is the main competition in the system.",
           bullets: [
-            "Quarterfinal: +3 points",
             "Semifinal: +5 points",
             "Final: +7 points",
             "Winner: +10 points",
@@ -141,9 +141,9 @@ const rulebooksByLocale: Record<"fr" | "en", Rulebook[]> = {
           title: "Inactivity",
           body: "Inactivity causes progressive point loss to keep the scene active and prevent frozen tiers.",
           bullets: [
-            "7 days without playing: -2 points",
-            "14 days without playing: -5 points",
-            "21 days without playing: -10 points",
+            "14 days without playing: -2 points",
+            "30 days without playing: -5 points",
+            "60 days without playing: -10 points",
           ],
         },
         {
@@ -361,6 +361,7 @@ const rulebooksByLocale: Record<"fr" | "en", Rulebook[]> = {
             "Un joueur intègre le système après 3 victoires validées, ou",
             "Au moins une demi-finale en tournoi.",
             "Une fois validé, le joueur entre en Tier E avec 0 point.",
+            "Si ton rôle de tier Discord n'est pas synchronisé, utilise !synctiers sur Discord.",
           ],
         },
         {
@@ -417,7 +418,6 @@ const rulebooksByLocale: Record<"fr" | "en", Rulebook[]> = {
           title: "LFN (compétition principale)",
           body: "La LFN est la compétition principale du système.",
           bullets: [
-            "Quart de finale : +3 points",
             "Demi-finale : +5 points",
             "Finale : +7 points",
             "Vainqueur : +10 points",
@@ -437,9 +437,9 @@ const rulebooksByLocale: Record<"fr" | "en", Rulebook[]> = {
           title: "Inactivité",
           body: "L'inactivité entraîne une perte progressive de points pour maintenir une scène active et éviter les tiers figés.",
           bullets: [
-            "7 jours sans jouer : -2 points",
-            "14 jours sans jouer : -5 points",
-            "21 jours sans jouer : -10 points",
+            "14 jours sans jouer : -2 points",
+            "1 mois sans jouer : -5 points",
+            "2 mois sans jouer : -10 points",
           ],
         },
         {
