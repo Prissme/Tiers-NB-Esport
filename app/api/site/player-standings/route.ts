@@ -19,9 +19,9 @@ type PlayerPointsRow = {
 };
 
 const INACTIVITY_RULES = [
-  { days: 21, penalty: 10 },
-  { days: 14, penalty: 5 },
-  { days: 7, penalty: 2 },
+  { days: 60, penalty: 10 },
+  { days: 30, penalty: 5 },
+  { days: 14, penalty: 2 },
 ] as const;
 
 function computeInactivityPenalty(lastPointsUpdate: string | null | undefined) {
