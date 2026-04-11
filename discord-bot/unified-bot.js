@@ -1138,8 +1138,14 @@ async function handlePLMatchTimeout(messageId) {
 
   if (channel?.isTextBased()) {
     await channel.send({
-      content:
-        '⏰ Match annulé (1 heure écoulée, aucun résultat). Joueurs retirés du match.\n⏰ Match cancelled (1 hour passed, no result). Players removed from the match.'
+      embeds: [
+        new EmbedBuilder()
+          .setColor(0xf59e0b)
+          .setTitle('⏰ Match PL annulé')
+          .setDescription(
+            '1 heure écoulée sans résultat : les joueurs ont été retirés du match.\n\n1 hour passed without a result: players were removed from the match.'
+          )
+      ]
     });
   }
 
