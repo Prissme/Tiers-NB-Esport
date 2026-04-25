@@ -6,10 +6,10 @@ import type { Locale } from "../lib/i18n";
 const TARGETS = [
   {
     label: {
-      fr: "LFN SAISON 5",
-      en: "LFN SEASON 5",
+      fr: "LFN SAISON 5 DAY 6",
+      en: "LFN SEASON 6 DAY 6",
     },
-    timestamp: new Date("2026-04-01T18:00:00+02:00").getTime(),
+    timestamp: new Date("2026-04-25T20:00:00+02:00").getTime(),
   },
 ] as const;
 
