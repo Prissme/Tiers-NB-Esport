@@ -6,6 +6,7 @@ import Header from "./components/Header";
 import BackgroundFX from "./components/BackgroundFX";
 import PageTransition from "./components/PageTransition";
 import { getLocale } from "./lib/i18n";
+import Script from "next/script"; // Importation pour Analytics
 
 const inter = Inter({
   subsets: ["latin"],
@@ -72,6 +73,21 @@ export default function RootLayout({
   const locale = getLocale();
   return (
     <html lang={locale} className={`${inter.variable} ${cormorant.variable}`}>
+      <head>
+        {/* Google Analytics */}
+        <Script
+          src="https://www.googletagmanager.com/gtag/js?id=G-7QKWJL07DZ"
+          strategy="afterInteractive"
+        />
+        <Script id="google-analytics" strategy="afterInteractive">
+          {`
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+            gtag('config', 'G-7QKWJL07DZ');
+          `}
+        </Script>
+      </head>
       <body className="min-h-screen bg-[color:var(--color-bg)] text-[color:var(--color-text)]">
         <div className="relative min-h-screen overflow-hidden">
           <BackgroundFX />
