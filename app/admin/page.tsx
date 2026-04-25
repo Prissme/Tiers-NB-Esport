@@ -6,6 +6,210 @@ import MatchesTable, { type MatchRecord } from "./components/MatchesTable";
 import TeamsPanel from "./components/TeamsPanel";
 import { supabase } from "../../lib/supabaseClient";
 
+// ============ LISTE COMPLÈTE DES 195 PAYS ============
+const COUNTRIES = [
+  { code: "AF", name: "Afghanistan", label: "🇦🇫 Afghanistan" },
+  { code: "AL", name: "Albanie", label: "🇦🇱 Albanie" },
+  { code: "DZ", name: "Algérie", label: "🇩🇿 Algérie" },
+  { code: "AD", name: "Andorre", label: "🇦🇩 Andorre" },
+  { code: "AO", name: "Angola", label: "🇦🇴 Angola" },
+  { code: "AG", name: "Antigua-et-Barbuda", label: "🇦🇬 Antigua-et-Barbuda" },
+  { code: "SA", name: "Arabie Saoudite", label: "🇸🇦 Arabie Saoudite" },
+  { code: "AR", name: "Argentine", label: "🇦🇷 Argentine" },
+  { code: "AM", name: "Arménie", label: "🇦🇲 Arménie" },
+  { code: "AU", name: "Australie", label: "🇦🇺 Australie" },
+  { code: "AT", name: "Autriche", label: "🇦🇹 Autriche" },
+  { code: "AZ", name: "Azerbaïdjan", label: "🇦🇿 Azerbaïdjan" },
+  { code: "BS", name: "Bahamas", label: "🇧🇸 Bahamas" },
+  { code: "BH", name: "Bahreïn", label: "🇧🇭 Bahreïn" },
+  { code: "BD", name: "Bangladesh", label: "🇧🇩 Bangladesh" },
+  { code: "BB", name: "Barbade", label: "🇧🇧 Barbade" },
+  { code: "BE", name: "Belgique", label: "🇧🇪 Belgique" },
+  { code: "BZ", name: "Belize", label: "🇧🇿 Belize" },
+  { code: "BJ", name: "Bénin", label: "🇧🇯 Bénin" },
+  { code: "BT", name: "Bhoutan", label: "🇧🇹 Bhoutan" },
+  { code: "BY", name: "Biélorussie", label: "🇧🇾 Biélorussie" },
+  { code: "MM", name: "Birmanie", label: "🇲🇲 Birmanie" },
+  { code: "BO", name: "Bolivie", label: "🇧🇴 Bolivie" },
+  { code: "BA", name: "Bosnie-Herzégovine", label: "🇧🇦 Bosnie-Herzégovine" },
+  { code: "BW", name: "Botswana", label: "🇧🇼 Botswana" },
+  { code: "BR", name: "Brésil", label: "🇧🇷 Brésil" },
+  { code: "BN", name: "Brunei", label: "🇧🇳 Brunei" },
+  { code: "BG", name: "Bulgarie", label: "🇧🇬 Bulgarie" },
+  { code: "BF", name: "Burkina Faso", label: "🇧🇫 Burkina Faso" },
+  { code: "BI", name: "Burundi", label: "🇧🇮 Burundi" },
+  { code: "KH", name: "Cambodge", label: "🇰🇭 Cambodge" },
+  { code: "CM", name: "Cameroun", label: "🇨🇲 Cameroun" },
+  { code: "CA", name: "Canada", label: "🇨🇦 Canada" },
+  { code: "CV", name: "Cap-Vert", label: "🇨🇻 Cap-Vert" },
+  { code: "KZ", name: "Kazakhstan", label: "🇰🇿 Kazakhstan" },
+  { code: "QA", name: "Qatar", label: "🇶🇦 Qatar" },
+  { code: "KE", name: "Kenya", label: "🇰🇪 Kenya" },
+  { code: "KG", name: "Kirghizistan", label: "🇰🇬 Kirghizistan" },
+  { code: "KI", name: "Kiribati", label: "🇰🇮 Kiribati" },
+  { code: "KW", name: "Koweït", label: "🇰🇼 Koweït" },
+  { code: "LA", name: "Laos", label: "🇱🇦 Laos" },
+  { code: "LS", name: "Lesotho", label: "🇱🇸 Lesotho" },
+  { code: "LV", name: "Lettonie", label: "🇱🇻 Lettonie" },
+  { code: "LB", name: "Liban", label: "🇱🇧 Liban" },
+  { code: "LR", name: "Liberia", label: "🇱🇷 Liberia" },
+  { code: "LY", name: "Libye", label: "🇱🇾 Libye" },
+  { code: "LI", name: "Liechtenstein", label: "🇱🇮 Liechtenstein" },
+  { code: "LT", name: "Lituanie", label: "🇱🇹 Lituanie" },
+  { code: "LU", name: "Luxembourg", label: "🇱🇺 Luxembourg" },
+  { code: "MG", name: "Madagascar", label: "🇲🇬 Madagascar" },
+  { code: "MY", name: "Malaisie", label: "🇲🇾 Malaisie" },
+  { code: "MW", name: "Malawi", label: "🇲🇼 Malawi" },
+  { code: "MV", name: "Maldives", label: "🇲🇻 Maldives" },
+  { code: "ML", name: "Mali", label: "🇲🇱 Mali" },
+  { code: "MT", name: "Malte", label: "🇲🇹 Malte" },
+  { code: "MA", name: "Maroc", label: "🇲🇦 Maroc" },
+  { code: "MQ", name: "Martinique", label: "🇲🇶 Martinique" },
+  { code: "MU", name: "Maurice", label: "🇲🇺 Maurice" },
+  { code: "MR", name: "Mauritanie", label: "🇲🇷 Mauritanie" },
+  { code: "MX", name: "Mexique", label: "🇲🇽 Mexique" },
+  { code: "MD", name: "Moldavie", label: "🇲🇩 Moldavie" },
+  { code: "MC", name: "Monaco", label: "🇲🇨 Monaco" },
+  { code: "MN", name: "Mongolie", label: "🇲🇳 Mongolie" },
+  { code: "ME", name: "Monténégro", label: "🇲🇪 Monténégro" },
+  { code: "MZ", name: "Mozambique", label: "🇲🇿 Mozambique" },
+  { code: "NA", name: "Namibie", label: "🇳🇦 Namibie" },
+  { code: "NR", name: "Nauru", label: "🇳🇷 Nauru" },
+  { code: "NP", name: "Népal", label: "🇳🇵 Népal" },
+  { code: "NI", name: "Nicaragua", label: "🇳🇮 Nicaragua" },
+  { code: "NE", name: "Niger", label: "🇳🇪 Niger" },
+  { code: "NG", name: "Nigéria", label: "🇳🇬 Nigéria" },
+  { code: "NU", name: "Niue", label: "🇳🇺 Niue" },
+  { code: "NO", name: "Norvège", label: "🇳🇴 Norvège" },
+  { code: "NZ", name: "Nouvelle-Zélande", label: "🇳🇿 Nouvelle-Zélande" },
+  { code: "OM", name: "Oman", label: "🇴🇲 Oman" },
+  { code: "UG", name: "Ouganda", label: "🇺🇬 Ouganda" },
+  { code: "UZ", name: "Ouzbékistan", label: "🇺🇿 Ouzbékistan" },
+  { code: "PK", name: "Pakistan", label: "🇵🇰 Pakistan" },
+  { code: "PW", name: "Palaos", label: "🇵🇼 Palaos" },
+  { code: "PA", name: "Panama", label: "🇵🇦 Panama" },
+  { code: "PG", name: "Papouasie-Nouvelle-Guinée", label: "🇵🇬 Papouasie-Nouvelle-Guinée" },
+  { code: "PY", name: "Paraguay", label: "🇵🇾 Paraguay" },
+  { code: "NL", name: "Pays-Bas", label: "🇳🇱 Pays-Bas" },
+  { code: "PE", name: "Pérou", label: "🇵🇪 Pérou" },
+  { code: "PH", name: "Philippines", label: "🇵🇭 Philippines" },
+  { code: "PL", name: "Pologne", label: "🇵🇱 Pologne" },
+  { code: "PF", name: "Polynésie Française", label: "🇵🇫 Polynésie Française" },
+  { code: "PR", name: "Porto Rico", label: "🇵🇷 Porto Rico" },
+  { code: "PT", name: "Portugal", label: "🇵🇹 Portugal" },
+  { code: "RE", name: "Réunion", label: "🇷🇪 Réunion" },
+  { code: "RO", name: "Roumanie", label: "🇷🇴 Roumanie" },
+  { code: "GB", name: "Royaume-Uni", label: "🇬🇧 Royaume-Uni" },
+  { code: "RU", name: "Russie", label: "🇷🇺 Russie" },
+  { code: "RW", name: "Rwanda", label: "🇷🇼 Rwanda" },
+  { code: "EH", name: "Sahara Occidental", label: "🇪🇭 Sahara Occidental" },
+  { code: "KN", name: "Saint-Christophe-et-Niévès", label: "🇰🇳 Saint-Christophe-et-Niévès" },
+  { code: "SM", name: "Saint-Marin", label: "🇸🇲 Saint-Marin" },
+  { code: "PM", name: "Saint-Pierre-et-Miquelon", label: "🇵🇲 Saint-Pierre-et-Miquelon" },
+  { code: "VC", name: "Saint-Vincent-et-les-Grenadines", label: "🇻🇨 Saint-Vincent-et-les-Grenadines" },
+  { code: "SH", name: "Sainte-Hélène", label: "🇸🇭 Sainte-Hélène" },
+  { code: "LC", name: "Sainte-Lucie", label: "🇱🇨 Sainte-Lucie" },
+  { code: "ST", name: "São Tomé-et-Príncipe", label: "🇸🇹 São Tomé-et-Príncipe" },
+  { code: "SN", name: "Sénégal", label: "🇸🇳 Sénégal" },
+  { code: "RS", name: "Serbie", label: "🇷🇸 Serbie" },
+  { code: "SG", name: "Singapour", label: "🇸🇬 Singapour" },
+  { code: "SK", name: "Slovaquie", label: "🇸🇰 Slovaquie" },
+  { code: "SI", name: "Slovénie", label: "🇸🇮 Slovénie" },
+  { code: "SO", name: "Somalie", label: "🇸🇴 Somalie" },
+  { code: "SD", name: "Soudan", label: "🇸🇩 Soudan" },
+  { code: "SS", name: "Soudan du Sud", label: "🇸🇸 Soudan du Sud" },
+  { code: "SE", name: "Suède", label: "🇸🇪 Suède" },
+  { code: "CH", name: "Suisse", label: "🇨🇭 Suisse" },
+  { code: "SJ", name: "Svalbard et Jan Mayen", label: "🇸🇯 Svalbard et Jan Mayen" },
+  { code: "SZ", name: "Swaziland", label: "🇸🇿 Swaziland" },
+  { code: "SY", name: "Syrie", label: "🇸🇾 Syrie" },
+  { code: "TJ", name: "Tadjikistan", label: "🇹🇯 Tadjikistan" },
+  { code: "TW", name: "Taïwan", label: "🇹🇼 Taïwan" },
+  { code: "TZ", name: "Tanzanie", label: "🇹🇿 Tanzanie" },
+  { code: "TD", name: "Tchad", label: "🇹🇩 Tchad" },
+  { code: "CZ", name: "Tchéquie", label: "🇨🇿 Tchéquie" },
+  { code: "TF", name: "Terres Australes Françaises", label: "🇹🇫 Terres Australes Françaises" },
+  { code: "TH", name: "Thaïlande", label: "🇹🇭 Thaïlande" },
+  { code: "TL", name: "Timor Oriental", label: "🇹🇱 Timor Oriental" },
+  { code: "TG", name: "Togo", label: "🇹🇬 Togo" },
+  { code: "TK", name: "Tokelau", label: "🇹🇰 Tokelau" },
+  { code: "TO", name: "Tonga", label: "🇹🇴 Tonga" },
+  { code: "TT", name: "Trinité-et-Tobago", label: "🇹🇹 Trinité-et-Tobago" },
+  { code: "TN", name: "Tunisie", label: "🇹🇳 Tunisie" },
+  { code: "TM", name: "Turkménistan", label: "🇹🇲 Turkménistan" },
+  { code: "TR", name: "Turquie", label: "🇹🇷 Turquie" },
+  { code: "TV", name: "Tuvalu", label: "🇹🇻 Tuvalu" },
+  { code: "UA", name: "Ukraine", label: "🇺🇦 Ukraine" },
+  { code: "UY", name: "Uruguay", label: "🇺🇾 Uruguay" },
+  { code: "VU", name: "Vanuatu", label: "🇻🇺 Vanuatu" },
+  { code: "VA", name: "Vatican", label: "🇻🇦 Vatican" },
+  { code: "VE", name: "Venezuela", label: "🇻🇪 Venezuela" },
+  { code: "VN", name: "Viêt Nam", label: "🇻🇳 Viêt Nam" },
+  { code: "EJ", name: "Îles Åland", label: "🇪🇯 Îles Åland" },
+  { code: "BV", name: "Île Bouvet", label: "🇧🇻 Île Bouvet" },
+  { code: "CX", name: "Île Christmas", label: "🇨🇽 Île Christmas" },
+  { code: "CC", name: "Îles Cocos", label: "🇨🇨 Îles Cocos" },
+  { code: "CK", name: "Îles Cook", label: "🇨🇰 Îles Cook" },
+  { code: "FK", name: "Îles Malouines", label: "🇫🇰 Îles Malouines" },
+  { code: "FO", name: "Îles Féroé", label: "🇫🇴 Îles Féroé" },
+  { code: "GS", name: "Îles Géorgie du Sud et Sandwich du Sud", label: "🇬🇸 Îles Géorgie du Sud et Sandwich du Sud" },
+  { code: "HK", name: "Hong Kong", label: "🇭🇰 Hong Kong" },
+  { code: "IO", name: "Îles Britanniques de l'Océan Indien", label: "🇮🇴 Îles Britanniques de l'Océan Indien" },
+  { code: "MP", name: "Îles Mariannes du Nord", label: "🇲🇵 Îles Mariannes du Nord" },
+  { code: "MH", name: "Îles Marshall", label: "🇲🇭 Îles Marshall" },
+  { code: "PN", name: "Îles Pitcairn", label: "🇵🇳 Îles Pitcairn" },
+  { code: "SB", name: "Îles Salomon", label: "🇸🇧 Îles Salomon" },
+  { code: "TC", name: "Îles Turques-et-Caïques", label: "🇹🇨 Îles Turques-et-Caïques" },
+  { code: "VI", name: "Îles Vierges des États-Unis", label: "🇻🇮 Îles Vierges des États-Unis" },
+  { code: "VG", name: "Îles Vierges Britanniques", label: "🇻🇬 Îles Vierges Britanniques" },
+  { code: "UM", name: "Îles mineures éloignées des États-Unis", label: "🇺🇲 Îles mineures éloignées des États-Unis" },
+  { code: "BM", name: "Bermudes", label: "🇧🇲 Bermudes" },
+  { code: "BQ", name: "Bonaire, Saint-Eustache et Saba", label: "🇧🇶 Bonaire, Saint-Eustache et Saba" },
+  { code: "KY", name: "Îles Caïmans", label: "🇰🇾 Îles Caïmans" },
+  { code: "CW", name: "Curaçao", label: "🇨🇼 Curaçao" },
+  { code: "DJ", name: "Djibouti", label: "🇩🇯 Djibouti" },
+  { code: "DM", name: "Dominique", label: "🇩🇲 Dominique" },
+  { code: "DO", name: "République Dominicaine", label: "🇩🇴 République Dominicaine" },
+  { code: "EG", name: "Égypte", label: "🇪🇬 Égypte" },
+  { code: "AE", name: "Émirats Arabes Unis", label: "🇦🇪 Émirats Arabes Unis" },
+  { code: "EC", name: "Équateur", label: "🇪🇨 Équateur" },
+  { code: "ER", name: "Érythrée", label: "🇪🇷 Érythrée" },
+  { code: "ES", name: "Espagne", label: "🇪🇸 Espagne" },
+  { code: "EE", name: "Estonie", label: "🇪🇪 Estonie" },
+  { code: "FM", name: "États Fédérés de Micronésie", label: "🇫🇲 États Fédérés de Micronésie" },
+  { code: "US", name: "États-Unis", label: "🇺🇸 États-Unis" },
+  { code: "ET", name: "Éthiopie", label: "🇪🇹 Éthiopie" },
+  { code: "FI", name: "Finlande", label: "🇫🇮 Finlande" },
+  { code: "FR", name: "France", label: "🇫🇷 France" },
+  { code: "GR", name: "Grèce", label: "🇬🇷 Grèce" },
+  { code: "GD", name: "Grenade", label: "🇬🇩 Grenade" },
+  { code: "GL", name: "Groenland", label: "🇬🇱 Groenland" },
+  { code: "GP", name: "Guadeloupe", label: "🇬🇵 Guadeloupe" },
+  { code: "GU", name: "Guam", label: "🇬🇺 Guam" },
+  { code: "GT", name: "Guatémala", label: "🇬🇹 Guatémala" },
+  { code: "GG", name: "Guernesey", label: "🇬🇬 Guernesey" },
+  { code: "GN", name: "Guinée", label: "🇬🇳 Guinée" },
+  { code: "GQ", name: "Guinée Équatoriale", label: "🇬🇶 Guinée Équatoriale" },
+  { code: "GW", name: "Guinée-Bissau", label: "🇬🇼 Guinée-Bissau" },
+  { code: "GY", name: "Guyana", label: "🇬🇾 Guyana" },
+  { code: "HT", name: "Haïti", label: "🇭🇹 Haïti" },
+  { code: "HM", name: "Îles Heard et MacDonald", label: "🇭🇲 Îles Heard et MacDonald" },
+  { code: "HN", name: "Honduras", label: "🇭🇳 Honduras" },
+  { code: "HU", name: "Hongrie", label: "🇭🇺 Hongrie" },
+  { code: "IN", name: "Inde", label: "🇮🇳 Inde" },
+  { code: "ID", name: "Indonésie", label: "🇮🇩 Indonésie" },
+  { code: "IQ", name: "Irak", label: "🇮🇶 Irak" },
+  { code: "IR", name: "Iran", label: "🇮🇷 Iran" },
+  { code: "IE", name: "Irlande", label: "🇮🇪 Irlande" },
+  { code: "IS", name: "Islande", label: "🇮🇸 Islande" },
+  { code: "IL", name: "Israël", label: "🇮🇱 Israël" },
+  { code: "IT", name: "Italie", label: "🇮🇹 Italie" },
+  { code: "JM", name: "Jamaïque", label: "🇯🇲 Jamaïque" },
+  { code: "JP", name: "Japon", label: "🇯🇵 Japon" },
+  { code: "JE", name: "Jersey", label: "🇯🇪 Jersey" },
+  { code: "JO", name: "Jordanie", label: "🇯🇴 Jordanie" },
+];
+
 const tabs = [
   { id: "programme", label: "Programme" },
   { id: "matchs", label: "Matchs" },
@@ -36,36 +240,6 @@ type TierPlayer = {
 };
 
 const tierOptions = ["Tier S", "Tier A", "Tier B", "Tier C", "Tier D", "Tier E"] as const;
-
-const countryOptions = [
-  { code: "FR", label: "🇫🇷 France" },
-  { code: "BE", label: "🇧🇪 Belgique" },
-  { code: "CH", label: "🇨🇭 Suisse" },
-  { code: "PT", label: "🇵🇹 Portugal" },
-  { code: "DE", label: "🇩🇪 Allemagne" },
-  { code: "IT", label: "🇮🇹 Italie" },
-  { code: "ES", label: "🇪🇸 Espagne" },
-  { code: "TR", label: "🇹🇷 Turquie" },
-  { code: "RU", label: "🇷🇺 Russie" },
-  { code: "PL", label: "🇵🇱 Pologne" },
-  { code: "RO", label: "🇷🇴 Roumanie" },
-  { code: "CA", label: "🇨🇦 Canada" },
-  { code: "US", label: "🇺🇸 États-Unis" },
-  { code: "MA", label: "🇲🇦 Maroc" },
-  { code: "DZ", label: "🇩🇿 Algérie" },
-  { code: "TN", label: "🇹🇳 Tunisie" },
-  { code: "SN", label: "🇸🇳 Sénégal" },
-  { code: "CM", label: "🇨🇲 Cameroun" },
-  { code: "NG", label: "🇳🇬 Nigeria" },
-  { code: "PK", label: "🇵🇰 Pakistan" },
-  { code: "IL", label: "🇮🇱 Israël" },
-  { code: "GB", label: "🇬🇧 Royaume-Uni" },
-  { code: "JP", label: "🇯🇵 Japon" },
-  { code: "BG", label: "🇧🇬 Bulgarie" },
-  { code: "MK", label: "🇲🇰 Macédoine du Nord" },
-  { code: "AZ", label: "🇦🇿 Azerbaïdjan" },
-  { code: "UA", label: "🇺🇦 Ukraine" },
-] as const;
 
 const toFlag = (countryCode?: string) => {
   const normalized = String(countryCode ?? "FR").trim().toUpperCase();
@@ -146,8 +320,6 @@ export default function AdminPage() {
     }
   };
 
-
-
   const fetchTierPlayers = async (seasonOverride?: string | null) => {
     try {
       const effectiveSeason = seasonOverride ?? seasonId;
@@ -219,6 +391,7 @@ export default function AdminPage() {
       setCreatingPlayer(false);
     }
   };
+
   const checkAdmin = async () => {
     try {
       const response = await fetch("/api/admin/session", { cache: "no-store" });
@@ -450,7 +623,6 @@ export default function AdminPage() {
         </section>
       )}
 
-
       {activeTab === "joueurs" && (
         <section className="secondary-section surface-card--soft">
           <div className="flex items-center justify-between">
@@ -516,7 +688,7 @@ export default function AdminPage() {
                 className="rounded-md border border-white/15 bg-black/30 px-3 py-2 text-white"
                 defaultValue="FR"
               >
-                {countryOptions.map((country) => (
+                {COUNTRIES.map((country) => (
                   <option key={country.code} value={country.code}>
                     {country.label}
                   </option>
@@ -622,7 +794,7 @@ export default function AdminPage() {
                                     defaultValue={player.countryCode ?? "FR"}
                                     className="rounded-md border border-white/15 bg-black/30 px-2 py-1 text-white"
                                   >
-                                    {countryOptions.map((country) => (
+                                    {COUNTRIES.map((country) => (
                                       <option key={country.code} value={country.code}>
                                         {country.label}
                                       </option>
