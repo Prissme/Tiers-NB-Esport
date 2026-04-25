@@ -13,7 +13,7 @@ export default function HomePage() {
       viewersCount: "30+ spectateurs",
       competitionsTitle: "Compétitions",
       eventTitle: "PrissCup",
-      eventDate: "Dimanche 29 mars à 16h",
+      eventDate: "Dimanche 26 avril à 16h",
       eventDescription:
         "La prochaine compétition démarre ce dimanche avec la PrissCup. Inscris-toi et viens tenter ta chance.",
       joinButton: "Participer",
@@ -25,7 +25,7 @@ export default function HomePage() {
       viewersCount: "30+ viewers",
       competitionsTitle: "Competitions",
       eventTitle: "PrissCup",
-      eventDate: "Sunday, March 29 at 4 PM",
+      eventDate: "Sunday, April 26 at 4 PM",
       eventDescription:
         "The next competition starts this Sunday with the PrissCup. Sign up and join the action.",
       joinButton: "Join",
