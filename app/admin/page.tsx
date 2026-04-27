@@ -5,210 +5,7 @@ import { useRouter } from "next/navigation";
 import MatchesTable, { type MatchRecord } from "./components/MatchesTable";
 import TeamsPanel from "./components/TeamsPanel";
 import { supabase } from "../../lib/supabaseClient";
-
-// ============ LISTE COMPLÈTE DES 195 PAYS ============
-const COUNTRIES = [
-  { code: "AF", name: "Afghanistan", label: "🇦🇫 Afghanistan" },
-  { code: "AL", name: "Albanie", label: "🇦🇱 Albanie" },
-  { code: "DZ", name: "Algérie", label: "🇩🇿 Algérie" },
-  { code: "AD", name: "Andorre", label: "🇦🇩 Andorre" },
-  { code: "AO", name: "Angola", label: "🇦🇴 Angola" },
-  { code: "AG", name: "Antigua-et-Barbuda", label: "🇦🇬 Antigua-et-Barbuda" },
-  { code: "SA", name: "Arabie Saoudite", label: "🇸🇦 Arabie Saoudite" },
-  { code: "AR", name: "Argentine", label: "🇦🇷 Argentine" },
-  { code: "AM", name: "Arménie", label: "🇦🇲 Arménie" },
-  { code: "AU", name: "Australie", label: "🇦🇺 Australie" },
-  { code: "AT", name: "Autriche", label: "🇦🇹 Autriche" },
-  { code: "AZ", name: "Azerbaïdjan", label: "🇦🇿 Azerbaïdjan" },
-  { code: "BS", name: "Bahamas", label: "🇧🇸 Bahamas" },
-  { code: "BH", name: "Bahreïn", label: "🇧🇭 Bahreïn" },
-  { code: "BD", name: "Bangladesh", label: "🇧🇩 Bangladesh" },
-  { code: "BB", name: "Barbade", label: "🇧🇧 Barbade" },
-  { code: "BE", name: "Belgique", label: "🇧🇪 Belgique" },
-  { code: "BZ", name: "Belize", label: "🇧🇿 Belize" },
-  { code: "BJ", name: "Bénin", label: "🇧🇯 Bénin" },
-  { code: "BT", name: "Bhoutan", label: "🇧🇹 Bhoutan" },
-  { code: "BY", name: "Biélorussie", label: "🇧🇾 Biélorussie" },
-  { code: "MM", name: "Birmanie", label: "🇲🇲 Birmanie" },
-  { code: "BO", name: "Bolivie", label: "🇧🇴 Bolivie" },
-  { code: "BA", name: "Bosnie-Herzégovine", label: "🇧🇦 Bosnie-Herzégovine" },
-  { code: "BW", name: "Botswana", label: "🇧🇼 Botswana" },
-  { code: "BR", name: "Brésil", label: "🇧🇷 Brésil" },
-  { code: "BN", name: "Brunei", label: "🇧🇳 Brunei" },
-  { code: "BG", name: "Bulgarie", label: "🇧🇬 Bulgarie" },
-  { code: "BF", name: "Burkina Faso", label: "🇧🇫 Burkina Faso" },
-  { code: "BI", name: "Burundi", label: "🇧🇮 Burundi" },
-  { code: "KH", name: "Cambodge", label: "🇰🇭 Cambodge" },
-  { code: "CM", name: "Cameroun", label: "🇨🇲 Cameroun" },
-  { code: "CA", name: "Canada", label: "🇨🇦 Canada" },
-  { code: "CV", name: "Cap-Vert", label: "🇨🇻 Cap-Vert" },
-  { code: "KZ", name: "Kazakhstan", label: "🇰🇿 Kazakhstan" },
-  { code: "QA", name: "Qatar", label: "🇶🇦 Qatar" },
-  { code: "KE", name: "Kenya", label: "🇰🇪 Kenya" },
-  { code: "KG", name: "Kirghizistan", label: "🇰🇬 Kirghizistan" },
-  { code: "KI", name: "Kiribati", label: "🇰🇮 Kiribati" },
-  { code: "KW", name: "Koweït", label: "🇰🇼 Koweït" },
-  { code: "LA", name: "Laos", label: "🇱🇦 Laos" },
-  { code: "LS", name: "Lesotho", label: "🇱🇸 Lesotho" },
-  { code: "LV", name: "Lettonie", label: "🇱🇻 Lettonie" },
-  { code: "LB", name: "Liban", label: "🇱🇧 Liban" },
-  { code: "LR", name: "Liberia", label: "🇱🇷 Liberia" },
-  { code: "LY", name: "Libye", label: "🇱🇾 Libye" },
-  { code: "LI", name: "Liechtenstein", label: "🇱🇮 Liechtenstein" },
-  { code: "LT", name: "Lituanie", label: "🇱🇹 Lituanie" },
-  { code: "LU", name: "Luxembourg", label: "🇱🇺 Luxembourg" },
-  { code: "MG", name: "Madagascar", label: "🇲🇬 Madagascar" },
-  { code: "MY", name: "Malaisie", label: "🇲🇾 Malaisie" },
-  { code: "MW", name: "Malawi", label: "🇲🇼 Malawi" },
-  { code: "MV", name: "Maldives", label: "🇲🇻 Maldives" },
-  { code: "ML", name: "Mali", label: "🇲🇱 Mali" },
-  { code: "MT", name: "Malte", label: "🇲🇹 Malte" },
-  { code: "MA", name: "Maroc", label: "🇲🇦 Maroc" },
-  { code: "MQ", name: "Martinique", label: "🇲🇶 Martinique" },
-  { code: "MU", name: "Maurice", label: "🇲🇺 Maurice" },
-  { code: "MR", name: "Mauritanie", label: "🇲🇷 Mauritanie" },
-  { code: "MX", name: "Mexique", label: "🇲🇽 Mexique" },
-  { code: "MD", name: "Moldavie", label: "🇲🇩 Moldavie" },
-  { code: "MC", name: "Monaco", label: "🇲🇨 Monaco" },
-  { code: "MN", name: "Mongolie", label: "🇲🇳 Mongolie" },
-  { code: "ME", name: "Monténégro", label: "🇲🇪 Monténégro" },
-  { code: "MZ", name: "Mozambique", label: "🇲🇿 Mozambique" },
-  { code: "NA", name: "Namibie", label: "🇳🇦 Namibie" },
-  { code: "NR", name: "Nauru", label: "🇳🇷 Nauru" },
-  { code: "NP", name: "Népal", label: "🇳🇵 Népal" },
-  { code: "NI", name: "Nicaragua", label: "🇳🇮 Nicaragua" },
-  { code: "NE", name: "Niger", label: "🇳🇪 Niger" },
-  { code: "NG", name: "Nigéria", label: "🇳🇬 Nigéria" },
-  { code: "NU", name: "Niue", label: "🇳🇺 Niue" },
-  { code: "NO", name: "Norvège", label: "🇳🇴 Norvège" },
-  { code: "NZ", name: "Nouvelle-Zélande", label: "🇳🇿 Nouvelle-Zélande" },
-  { code: "OM", name: "Oman", label: "🇴🇲 Oman" },
-  { code: "UG", name: "Ouganda", label: "🇺🇬 Ouganda" },
-  { code: "UZ", name: "Ouzbékistan", label: "🇺🇿 Ouzbékistan" },
-  { code: "PK", name: "Pakistan", label: "🇵🇰 Pakistan" },
-  { code: "PW", name: "Palaos", label: "🇵🇼 Palaos" },
-  { code: "PA", name: "Panama", label: "🇵🇦 Panama" },
-  { code: "PG", name: "Papouasie-Nouvelle-Guinée", label: "🇵🇬 Papouasie-Nouvelle-Guinée" },
-  { code: "PY", name: "Paraguay", label: "🇵🇾 Paraguay" },
-  { code: "NL", name: "Pays-Bas", label: "🇳🇱 Pays-Bas" },
-  { code: "PE", name: "Pérou", label: "🇵🇪 Pérou" },
-  { code: "PH", name: "Philippines", label: "🇵🇭 Philippines" },
-  { code: "PL", name: "Pologne", label: "🇵🇱 Pologne" },
-  { code: "PF", name: "Polynésie Française", label: "🇵🇫 Polynésie Française" },
-  { code: "PR", name: "Porto Rico", label: "🇵🇷 Porto Rico" },
-  { code: "PT", name: "Portugal", label: "🇵🇹 Portugal" },
-  { code: "RE", name: "Réunion", label: "🇷🇪 Réunion" },
-  { code: "RO", name: "Roumanie", label: "🇷🇴 Roumanie" },
-  { code: "GB", name: "Royaume-Uni", label: "🇬🇧 Royaume-Uni" },
-  { code: "RU", name: "Russie", label: "🇷🇺 Russie" },
-  { code: "RW", name: "Rwanda", label: "🇷🇼 Rwanda" },
-  { code: "EH", name: "Sahara Occidental", label: "🇪🇭 Sahara Occidental" },
-  { code: "KN", name: "Saint-Christophe-et-Niévès", label: "🇰🇳 Saint-Christophe-et-Niévès" },
-  { code: "SM", name: "Saint-Marin", label: "🇸🇲 Saint-Marin" },
-  { code: "PM", name: "Saint-Pierre-et-Miquelon", label: "🇵🇲 Saint-Pierre-et-Miquelon" },
-  { code: "VC", name: "Saint-Vincent-et-les-Grenadines", label: "🇻🇨 Saint-Vincent-et-les-Grenadines" },
-  { code: "SH", name: "Sainte-Hélène", label: "🇸🇭 Sainte-Hélène" },
-  { code: "LC", name: "Sainte-Lucie", label: "🇱🇨 Sainte-Lucie" },
-  { code: "ST", name: "São Tomé-et-Príncipe", label: "🇸🇹 São Tomé-et-Príncipe" },
-  { code: "SN", name: "Sénégal", label: "🇸🇳 Sénégal" },
-  { code: "RS", name: "Serbie", label: "🇷🇸 Serbie" },
-  { code: "SG", name: "Singapour", label: "🇸🇬 Singapour" },
-  { code: "SK", name: "Slovaquie", label: "🇸🇰 Slovaquie" },
-  { code: "SI", name: "Slovénie", label: "🇸🇮 Slovénie" },
-  { code: "SO", name: "Somalie", label: "🇸🇴 Somalie" },
-  { code: "SD", name: "Soudan", label: "🇸🇩 Soudan" },
-  { code: "SS", name: "Soudan du Sud", label: "🇸🇸 Soudan du Sud" },
-  { code: "SE", name: "Suède", label: "🇸🇪 Suède" },
-  { code: "CH", name: "Suisse", label: "🇨🇭 Suisse" },
-  { code: "SJ", name: "Svalbard et Jan Mayen", label: "🇸🇯 Svalbard et Jan Mayen" },
-  { code: "SZ", name: "Swaziland", label: "🇸🇿 Swaziland" },
-  { code: "SY", name: "Syrie", label: "🇸🇾 Syrie" },
-  { code: "TJ", name: "Tadjikistan", label: "🇹🇯 Tadjikistan" },
-  { code: "TW", name: "Taïwan", label: "🇹🇼 Taïwan" },
-  { code: "TZ", name: "Tanzanie", label: "🇹🇿 Tanzanie" },
-  { code: "TD", name: "Tchad", label: "🇹🇩 Tchad" },
-  { code: "CZ", name: "Tchéquie", label: "🇨🇿 Tchéquie" },
-  { code: "TF", name: "Terres Australes Françaises", label: "🇹🇫 Terres Australes Françaises" },
-  { code: "TH", name: "Thaïlande", label: "🇹🇭 Thaïlande" },
-  { code: "TL", name: "Timor Oriental", label: "🇹🇱 Timor Oriental" },
-  { code: "TG", name: "Togo", label: "🇹🇬 Togo" },
-  { code: "TK", name: "Tokelau", label: "🇹🇰 Tokelau" },
-  { code: "TO", name: "Tonga", label: "🇹🇴 Tonga" },
-  { code: "TT", name: "Trinité-et-Tobago", label: "🇹🇹 Trinité-et-Tobago" },
-  { code: "TN", name: "Tunisie", label: "🇹🇳 Tunisie" },
-  { code: "TM", name: "Turkménistan", label: "🇹🇲 Turkménistan" },
-  { code: "TR", name: "Turquie", label: "🇹🇷 Turquie" },
-  { code: "TV", name: "Tuvalu", label: "🇹🇻 Tuvalu" },
-  { code: "UA", name: "Ukraine", label: "🇺🇦 Ukraine" },
-  { code: "UY", name: "Uruguay", label: "🇺🇾 Uruguay" },
-  { code: "VU", name: "Vanuatu", label: "🇻🇺 Vanuatu" },
-  { code: "VA", name: "Vatican", label: "🇻🇦 Vatican" },
-  { code: "VE", name: "Venezuela", label: "🇻🇪 Venezuela" },
-  { code: "VN", name: "Viêt Nam", label: "🇻🇳 Viêt Nam" },
-  { code: "EJ", name: "Îles Åland", label: "🇪🇯 Îles Åland" },
-  { code: "BV", name: "Île Bouvet", label: "🇧🇻 Île Bouvet" },
-  { code: "CX", name: "Île Christmas", label: "🇨🇽 Île Christmas" },
-  { code: "CC", name: "Îles Cocos", label: "🇨🇨 Îles Cocos" },
-  { code: "CK", name: "Îles Cook", label: "🇨🇰 Îles Cook" },
-  { code: "FK", name: "Îles Malouines", label: "🇫🇰 Îles Malouines" },
-  { code: "FO", name: "Îles Féroé", label: "🇫🇴 Îles Féroé" },
-  { code: "GS", name: "Îles Géorgie du Sud et Sandwich du Sud", label: "🇬🇸 Îles Géorgie du Sud et Sandwich du Sud" },
-  { code: "HK", name: "Hong Kong", label: "🇭🇰 Hong Kong" },
-  { code: "IO", name: "Îles Britanniques de l'Océan Indien", label: "🇮🇴 Îles Britanniques de l'Océan Indien" },
-  { code: "MP", name: "Îles Mariannes du Nord", label: "🇲🇵 Îles Mariannes du Nord" },
-  { code: "MH", name: "Îles Marshall", label: "🇲🇭 Îles Marshall" },
-  { code: "PN", name: "Îles Pitcairn", label: "🇵🇳 Îles Pitcairn" },
-  { code: "SB", name: "Îles Salomon", label: "🇸🇧 Îles Salomon" },
-  { code: "TC", name: "Îles Turques-et-Caïques", label: "🇹🇨 Îles Turques-et-Caïques" },
-  { code: "VI", name: "Îles Vierges des États-Unis", label: "🇻🇮 Îles Vierges des États-Unis" },
-  { code: "VG", name: "Îles Vierges Britanniques", label: "🇻🇬 Îles Vierges Britanniques" },
-  { code: "UM", name: "Îles mineures éloignées des États-Unis", label: "🇺🇲 Îles mineures éloignées des États-Unis" },
-  { code: "BM", name: "Bermudes", label: "🇧🇲 Bermudes" },
-  { code: "BQ", name: "Bonaire, Saint-Eustache et Saba", label: "🇧🇶 Bonaire, Saint-Eustache et Saba" },
-  { code: "KY", name: "Îles Caïmans", label: "🇰🇾 Îles Caïmans" },
-  { code: "CW", name: "Curaçao", label: "🇨🇼 Curaçao" },
-  { code: "DJ", name: "Djibouti", label: "🇩🇯 Djibouti" },
-  { code: "DM", name: "Dominique", label: "🇩🇲 Dominique" },
-  { code: "DO", name: "République Dominicaine", label: "🇩🇴 République Dominicaine" },
-  { code: "EG", name: "Égypte", label: "🇪🇬 Égypte" },
-  { code: "AE", name: "Émirats Arabes Unis", label: "🇦🇪 Émirats Arabes Unis" },
-  { code: "EC", name: "Équateur", label: "🇪🇨 Équateur" },
-  { code: "ER", name: "Érythrée", label: "🇪🇷 Érythrée" },
-  { code: "ES", name: "Espagne", label: "🇪🇸 Espagne" },
-  { code: "EE", name: "Estonie", label: "🇪🇪 Estonie" },
-  { code: "FM", name: "États Fédérés de Micronésie", label: "🇫🇲 États Fédérés de Micronésie" },
-  { code: "US", name: "États-Unis", label: "🇺🇸 États-Unis" },
-  { code: "ET", name: "Éthiopie", label: "🇪🇹 Éthiopie" },
-  { code: "FI", name: "Finlande", label: "🇫🇮 Finlande" },
-  { code: "FR", name: "France", label: "🇫🇷 France" },
-  { code: "GR", name: "Grèce", label: "🇬🇷 Grèce" },
-  { code: "GD", name: "Grenade", label: "🇬🇩 Grenade" },
-  { code: "GL", name: "Groenland", label: "🇬🇱 Groenland" },
-  { code: "GP", name: "Guadeloupe", label: "🇬🇵 Guadeloupe" },
-  { code: "GU", name: "Guam", label: "🇬🇺 Guam" },
-  { code: "GT", name: "Guatémala", label: "🇬🇹 Guatémala" },
-  { code: "GG", name: "Guernesey", label: "🇬🇬 Guernesey" },
-  { code: "GN", name: "Guinée", label: "🇬🇳 Guinée" },
-  { code: "GQ", name: "Guinée Équatoriale", label: "🇬🇶 Guinée Équatoriale" },
-  { code: "GW", name: "Guinée-Bissau", label: "🇬🇼 Guinée-Bissau" },
-  { code: "GY", name: "Guyana", label: "🇬🇾 Guyana" },
-  { code: "HT", name: "Haïti", label: "🇭🇹 Haïti" },
-  { code: "HM", name: "Îles Heard et MacDonald", label: "🇭🇲 Îles Heard et MacDonald" },
-  { code: "HN", name: "Honduras", label: "🇭🇳 Honduras" },
-  { code: "HU", name: "Hongrie", label: "🇭🇺 Hongrie" },
-  { code: "IN", name: "Inde", label: "🇮🇳 Inde" },
-  { code: "ID", name: "Indonésie", label: "🇮🇩 Indonésie" },
-  { code: "IQ", name: "Irak", label: "🇮🇶 Irak" },
-  { code: "IR", name: "Iran", label: "🇮🇷 Iran" },
-  { code: "IE", name: "Irlande", label: "🇮🇪 Irlande" },
-  { code: "IS", name: "Islande", label: "🇮🇸 Islande" },
-  { code: "IL", name: "Israël", label: "🇮🇱 Israël" },
-  { code: "IT", name: "Italie", label: "🇮🇹 Italie" },
-  { code: "JM", name: "Jamaïque", label: "🇯🇲 Jamaïque" },
-  { code: "JP", name: "Japon", label: "🇯🇵 Japon" },
-  { code: "JE", name: "Jersey", label: "🇯🇪 Jersey" },
-  { code: "JO", name: "Jordanie", label: "🇯🇴 Jordanie" },
-];
+import { COUNTRIES, CountrySearch } from "./components/CountrySearch";
 
 const tabs = [
   { id: "programme", label: "Programme" },
@@ -256,6 +53,23 @@ const formatDate = (value?: string | null) => {
   return value.replace("T", " ").slice(0, 16);
 };
 
+// ─── New player form state ───────────────────────────────────────────────────
+type NewPlayerForm = {
+  name: string;
+  tier: string;
+  points: number;
+  countryCode: string;
+  description: string;
+};
+
+const defaultNewPlayer: NewPlayerForm = {
+  name: "",
+  tier: "Tier E",
+  points: 0,
+  countryCode: "FR",
+  description: "",
+};
+
 export default function AdminPage() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState("programme");
@@ -270,6 +84,9 @@ export default function AdminPage() {
   const [creatingPlayer, setCreatingPlayer] = useState(false);
   const [playerSearch, setPlayerSearch] = useState("");
   const [expandedPlayerId, setExpandedPlayerId] = useState<string | null>(null);
+
+  // New player form
+  const [newPlayer, setNewPlayer] = useState<NewPlayerForm>(defaultNewPlayer);
 
   const fetchAllMatches = async (seasonOverride?: string | null) => {
     let query = supabase
@@ -349,8 +166,8 @@ export default function AdminPage() {
         body: JSON.stringify({ ...payload, seasonId }),
       });
       if (!response.ok) {
-        const payload = (await response.json()) as { error?: string };
-        setErrorMessage(payload.error ?? "Impossible de mettre à jour le joueur.");
+        const body = (await response.json()) as { error?: string };
+        setErrorMessage(body.error ?? "Impossible de mettre à jour le joueur.");
         return;
       }
       await fetchTierPlayers(seasonId);
@@ -362,31 +179,34 @@ export default function AdminPage() {
     }
   };
 
-  const createTierPlayer = async (payload: {
-    name: string;
-    tier: string;
-    points: number;
-    countryCode: string;
-    description?: string;
-  }) => {
+  const createTierPlayer = async () => {
+    const { name, tier, points, countryCode, description } = newPlayer;
+    if (!name.trim()) {
+      setErrorMessage("Le pseudo est obligatoire.");
+      return;
+    }
+    if (!Number.isInteger(points)) {
+      setErrorMessage("Les points doivent être un nombre entier.");
+      return;
+    }
     setCreatingPlayer(true);
     try {
       const response = await fetch("/api/admin/player-standings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...payload, seasonId }),
+        body: JSON.stringify({ name: name.trim(), tier, points, countryCode, description, seasonId }),
       });
       if (!response.ok) {
         const body = (await response.json()) as { error?: string };
         setErrorMessage(body.error ?? "Impossible d'ajouter le joueur.");
-        return false;
+        return;
       }
       await fetchTierPlayers(seasonId);
-      return true;
+      setNewPlayer(defaultNewPlayer);
+      setErrorMessage(null);
     } catch (error) {
       console.error("Unable to create tier player", error);
       setErrorMessage("Impossible d'ajouter le joueur.");
-      return false;
     } finally {
       setCreatingPlayer(false);
     }
@@ -631,92 +451,104 @@ export default function AdminPage() {
               <h3 className="text-lg font-semibold text-white">Classement joueurs (tiers Prissme TV)</h3>
             </div>
           </div>
-          <div className="mt-4 overflow-x-auto">
-            <form
-              className="mb-4 grid gap-3 rounded-xl border border-white/10 bg-black/20 p-4 md:grid-cols-[1.5fr_1fr_1fr_1fr_auto]"
-              onSubmit={async (event) => {
-                event.preventDefault();
-                const formData = new FormData(event.currentTarget);
-                const name = String(formData.get("name") ?? "").trim();
-                const tier = String(formData.get("tier") ?? "");
-                const points = Number(formData.get("points"));
-                const countryCode = String(formData.get("countryCode") ?? "FR").toUpperCase();
-                const description = String(formData.get("description") ?? "").trim();
 
-                if (!name) {
-                  setErrorMessage("Le pseudo est obligatoire.");
-                  return;
-                }
-                if (!Number.isInteger(points)) {
-                  setErrorMessage("Les points doivent être un nombre entier.");
-                  return;
-                }
+          {/* ── Add player form ── */}
+          <div className="mt-4 grid gap-3 rounded-xl border border-white/10 bg-black/20 p-4">
+            <div className="grid gap-3 md:grid-cols-[1.5fr_1fr_1fr]">
+              <div>
+                <label className="block text-xs uppercase tracking-[0.25em] text-white/50 mb-1">
+                  Pseudo
+                </label>
+                <input
+                  type="text"
+                  value={newPlayer.name}
+                  onChange={(e) => setNewPlayer((prev) => ({ ...prev, name: e.target.value }))}
+                  placeholder="Pseudo du joueur"
+                  className="surface-input"
+                />
+              </div>
+              <div>
+                <label className="block text-xs uppercase tracking-[0.25em] text-white/50 mb-1">
+                  Tier
+                </label>
+                <select
+                  value={newPlayer.tier}
+                  onChange={(e) => setNewPlayer((prev) => ({ ...prev, tier: e.target.value }))}
+                  className="surface-input"
+                >
+                  {tierOptions.map((tier) => (
+                    <option key={tier} value={tier}>
+                      {tier}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs uppercase tracking-[0.25em] text-white/50 mb-1">
+                  Points
+                </label>
+                <input
+                  type="number"
+                  value={newPlayer.points}
+                  onChange={(e) =>
+                    setNewPlayer((prev) => ({ ...prev, points: Number(e.target.value) }))
+                  }
+                  className="surface-input"
+                />
+              </div>
+            </div>
 
-                const ok = await createTierPlayer({ name, tier, points, countryCode, description });
-                if (ok) {
-                  setErrorMessage(null);
-                  event.currentTarget.reset();
+            {/* Country search */}
+            <div>
+              <CountrySearch
+                value={newPlayer.countryCode}
+                onChange={(code) =>
+                  setNewPlayer((prev) => ({ ...prev, countryCode: code ?? "FR" }))
                 }
-              }}
-            >
-              <input
-                name="name"
-                placeholder="Pseudo du joueur"
-                className="rounded-md border border-white/15 bg-black/30 px-3 py-2 text-white"
-                required
+                label="Pays"
               />
-              <select
-                name="tier"
-                className="rounded-md border border-white/15 bg-black/30 px-3 py-2 text-white"
-                defaultValue="Tier E"
-              >
-                {tierOptions.map((tier) => (
-                  <option key={tier} value={tier}>
-                    {tier}
-                  </option>
-                ))}
-              </select>
-              <input
-                type="number"
-                name="points"
-                defaultValue={0}
-                className="rounded-md border border-white/15 bg-black/30 px-3 py-2 text-white"
-                required
+            </div>
+
+            <div>
+              <label className="block text-xs uppercase tracking-[0.25em] text-white/50 mb-1">
+                Description (optionnel)
+              </label>
+              <textarea
+                value={newPlayer.description}
+                onChange={(e) =>
+                  setNewPlayer((prev) => ({ ...prev, description: e.target.value }))
+                }
+                placeholder="Description du joueur"
+                className="surface-textarea"
+                rows={2}
               />
-              <select
-                name="countryCode"
-                className="rounded-md border border-white/15 bg-black/30 px-3 py-2 text-white"
-                defaultValue="FR"
-              >
-                {COUNTRIES.map((country) => (
-                  <option key={country.code} value={country.code}>
-                    {country.label}
-                  </option>
-                ))}
-              </select>
+            </div>
+
+            <div>
               <button
-                type="submit"
+                type="button"
+                onClick={createTierPlayer}
                 disabled={creatingPlayer}
                 className="surface-pill surface-pill--active px-4 py-2 text-sm font-semibold text-black disabled:opacity-50"
               >
                 {creatingPlayer ? "Ajout..." : "Ajouter joueur"}
               </button>
-              <textarea
-                name="description"
-                placeholder="Description du joueur (optionnel)"
-                className="rounded-md border border-white/15 bg-black/30 px-3 py-2 text-white md:col-span-5"
-                rows={2}
-              />
-            </form>
-            <div className="mb-4">
-              <input
-                type="search"
-                value={playerSearch}
-                onChange={(event) => setPlayerSearch(event.target.value)}
-                placeholder="Rechercher un joueur, un tier ou un pays (ex: Tier A, FR...)"
-                className="w-full rounded-md border border-white/15 bg-black/30 px-3 py-2 text-white placeholder:text-white/40"
-              />
             </div>
+          </div>
+
+          {/* Search */}
+          <div className="mt-4">
+            <input
+              type="search"
+              value={playerSearch}
+              onChange={(event) => setPlayerSearch(event.target.value)}
+              placeholder="Rechercher un joueur, un tier ou un pays (ex: Tier A, FR...)"
+              className="surface-input"
+            />
+          </div>
+
+          {/* Players table */}
+          <div className="mt-4 overflow-x-auto">
             <table className="surface-table text-sm text-white/80">
               <thead className="surface-table__header text-xs uppercase text-white/40">
                 <tr>
@@ -744,7 +576,9 @@ export default function AdminPage() {
                         <tr
                           className="surface-table__row cursor-pointer"
                           onClick={() =>
-                            setExpandedPlayerId((current) => (current === player.id ? null : player.id))
+                            setExpandedPlayerId((current) =>
+                              current === player.id ? null : player.id
+                            )
                           }
                         >
                           <td className="px-3 py-2">{index + 1}</td>
@@ -760,79 +594,14 @@ export default function AdminPage() {
                         {isExpanded ? (
                           <tr className="surface-table__row bg-white/5">
                             <td colSpan={5} className="px-3 py-3">
-                              <form
-                                className="flex flex-col gap-2"
-                                onSubmit={(event) => {
-                                  event.preventDefault();
-                                  const formData = new FormData(event.currentTarget);
-                                  const value = Number(formData.get("points"));
-                                  const tier = String(formData.get("tier") ?? "");
-                                  const countryCode = String(
-                                    formData.get("countryCode") ?? "FR"
-                                  ).toUpperCase();
-                                  const description = String(formData.get("description") ?? "").trim();
-                                  if (!Number.isInteger(value)) {
-                                    setErrorMessage("Les points doivent être un nombre entier.");
-                                    return;
-                                  }
-                                  if (!tierOptions.includes(tier as (typeof tierOptions)[number])) {
-                                    setErrorMessage("Tier invalide.");
-                                    return;
-                                  }
-                                  updateTierPlayer({
-                                    playerId: player.id,
-                                    points: value,
-                                    tier,
-                                    countryCode,
-                                    description,
-                                  });
-                                }}
-                              >
-                                <div className="flex flex-wrap items-center gap-2">
-                                  <select
-                                    name="countryCode"
-                                    defaultValue={player.countryCode ?? "FR"}
-                                    className="rounded-md border border-white/15 bg-black/30 px-2 py-1 text-white"
-                                  >
-                                    {COUNTRIES.map((country) => (
-                                      <option key={country.code} value={country.code}>
-                                        {country.label}
-                                      </option>
-                                    ))}
-                                  </select>
-                                  <select
-                                    name="tier"
-                                    defaultValue={player.tier}
-                                    className="rounded-md border border-white/15 bg-black/30 px-2 py-1 text-white"
-                                  >
-                                    {tierOptions.map((tier) => (
-                                      <option key={tier} value={tier}>
-                                        {tier}
-                                      </option>
-                                    ))}
-                                  </select>
-                                  <input
-                                    type="number"
-                                    name="points"
-                                    defaultValue={player.points}
-                                    className="w-24 rounded-md border border-white/15 bg-black/30 px-2 py-1 text-white"
-                                  />
-                                  <button
-                                    type="submit"
-                                    disabled={updatingPlayerId === player.id}
-                                    className="surface-pill surface-pill--active px-3 py-1 text-xs font-semibold text-black disabled:opacity-50"
-                                  >
-                                    {updatingPlayerId === player.id ? "..." : "Sauver"}
-                                  </button>
-                                </div>
-                                <textarea
-                                  name="description"
-                                  defaultValue={player.description ?? ""}
-                                  rows={3}
-                                  placeholder="Description affichée sur /classement et avec !tier"
-                                  className="rounded-md border border-white/15 bg-black/30 px-2 py-1 text-white"
-                                />
-                              </form>
+                              <PlayerEditRow
+                                player={player}
+                                updating={updatingPlayerId === player.id}
+                                onSave={(values) =>
+                                  updateTierPlayer({ playerId: player.id, ...values })
+                                }
+                                onError={setErrorMessage}
+                              />
                             </td>
                           </tr>
                         ) : null}
@@ -845,6 +614,98 @@ export default function AdminPage() {
           </div>
         </section>
       )}
+    </div>
+  );
+}
+
+// ─── Inline edit row ─────────────────────────────────────────────────────────
+type PlayerEditRowProps = {
+  player: TierPlayer;
+  updating: boolean;
+  onSave: (values: { points: number; tier: string; countryCode: string; description: string }) => void;
+  onError: (msg: string) => void;
+};
+
+const tierOptions = ["Tier S", "Tier A", "Tier B", "Tier C", "Tier D", "Tier E"] as const;
+
+function PlayerEditRow({ player, updating, onSave, onError }: PlayerEditRowProps) {
+  const [tier, setTier] = useState(player.tier);
+  const [points, setPoints] = useState(player.points);
+  const [countryCode, setCountryCode] = useState(player.countryCode ?? "FR");
+  const [description, setDescription] = useState(player.description ?? "");
+
+  const handleSave = () => {
+    if (!Number.isInteger(points)) {
+      onError("Les points doivent être un nombre entier.");
+      return;
+    }
+    if (!tierOptions.includes(tier as (typeof tierOptions)[number])) {
+      onError("Tier invalide.");
+      return;
+    }
+    onSave({ points, tier, countryCode: countryCode.toUpperCase(), description });
+  };
+
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="grid gap-3 md:grid-cols-[1fr_1fr_1fr_auto]">
+        <div>
+          <label className="block text-xs uppercase tracking-[0.25em] text-white/50 mb-1">
+            Tier
+          </label>
+          <select
+            value={tier}
+            onChange={(e) => setTier(e.target.value)}
+            className="surface-input"
+          >
+            {tierOptions.map((t) => (
+              <option key={t} value={t}>
+                {t}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="block text-xs uppercase tracking-[0.25em] text-white/50 mb-1">
+            Points
+          </label>
+          <input
+            type="number"
+            value={points}
+            onChange={(e) => setPoints(Number(e.target.value))}
+            className="surface-input"
+          />
+        </div>
+        <div className="md:col-span-1">
+          <CountrySearch
+            value={countryCode}
+            onChange={(code) => setCountryCode(code ?? "FR")}
+            label="Pays"
+          />
+        </div>
+        <div className="flex items-end">
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={updating}
+            className="surface-pill surface-pill--active px-4 py-2 text-xs font-semibold text-black disabled:opacity-50 w-full"
+          >
+            {updating ? "..." : "Sauver"}
+          </button>
+        </div>
+      </div>
+      <div>
+        <label className="block text-xs uppercase tracking-[0.25em] text-white/50 mb-1">
+          Description
+        </label>
+        <textarea
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          rows={3}
+          placeholder="Description affichée sur /classement et avec !tier"
+          className="surface-textarea"
+        />
+      </div>
     </div>
   );
 }
