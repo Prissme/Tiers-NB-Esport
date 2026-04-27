@@ -17,7 +17,7 @@ import {
   type ResultMatch,
 } from "../../src/lib/lfn-matches";
 
-// ============ LISTE COMPLÈTE DES 195 PAYS ============
+// ============ LISTE COMPLÈTE DE 200+ PAYS ============
 const COUNTRIES = [
   { code: "AF", name: "Afghanistan" },
   { code: "AL", name: "Albanie" },
@@ -120,6 +120,8 @@ const COUNTRIES = [
   { code: "VC", name: "Saint-Vincent-et-les-Grenadines" },
   { code: "SH", name: "Sainte-Hélène" },
   { code: "LC", name: "Sainte-Lucie" },
+  { code: "BL", name: "Saint-Barthélemy" },
+  { code: "MF", name: "Saint-Martin" },
   { code: "ST", name: "São Tomé-et-Príncipe" },
   { code: "SN", name: "Sénégal" },
   { code: "RS", name: "Serbie" },
@@ -178,9 +180,11 @@ const COUNTRIES = [
   { code: "BQ", name: "Bonaire, Saint-Eustache et Saba" },
   { code: "KY", name: "Îles Caïmans" },
   { code: "CW", name: "Curaçao" },
+  { code: "SX", name: "Sint-Maarten" },
   { code: "DJ", name: "Djibouti" },
   { code: "DM", name: "Dominique" },
   { code: "DO", name: "République Dominicaine" },
+  { code: "DE", name: "Allemagne" },
   { code: "EG", name: "Égypte" },
   { code: "AE", name: "Émirats Arabes Unis" },
   { code: "EC", name: "Équateur" },
@@ -192,10 +196,12 @@ const COUNTRIES = [
   { code: "ET", name: "Éthiopie" },
   { code: "FI", name: "Finlande" },
   { code: "FR", name: "France" },
+  { code: "GE", name: "Géorgie" },
   { code: "GR", name: "Grèce" },
   { code: "GD", name: "Grenade" },
   { code: "GL", name: "Groenland" },
   { code: "GP", name: "Guadeloupe" },
+  { code: "GF", name: "Guyane Française" },
   { code: "GU", name: "Guam" },
   { code: "GT", name: "Guatémala" },
   { code: "GG", name: "Guernesey" },
@@ -219,7 +225,86 @@ const COUNTRIES = [
   { code: "JP", name: "Japon" },
   { code: "JE", name: "Jersey" },
   { code: "JO", name: "Jordanie" },
-];
+  { code: "WF", name: "Wallis et Futuna" },
+  { code: "NC", name: "Nouvelle-Calédonie" },
+  { code: "AS", name: "Samoa Américaines" },
+  { code: "WS", name: "Samoa" },
+  { code: "SC", name: "Seychelles" },
+].sort((a, b) => a.name.localeCompare(b.name));
+
+// ============ Composant de sélection de pays avec recherche ============
+type CountrySearchProps = {
+  value: string;
+  onChange: (code: string) => void;
+  placeholder?: string;
+};
+
+function CountrySearch({ value, onChange, placeholder = "Rechercher un pays..." }: CountrySearchProps) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+
+  const filtered = useMemo(() => {
+    if (!search) return COUNTRIES;
+    const query = search.toLowerCase();
+    return COUNTRIES.filter(
+      (country) =>
+        country.name.toLowerCase().includes(query) ||
+        country.code.toLowerCase().includes(query)
+    );
+  }, [search]);
+
+  const selected = COUNTRIES.find((c) => c.code === value);
+
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        className="surface-input w-full text-left flex items-center justify-between"
+      >
+        <span>{selected ? selected.name : placeholder}</span>
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+        </svg>
+      </button>
+
+      {open && (
+        <div className="absolute top-full left-0 right-0 mt-1 bg-slate-800 border border-white/10 rounded-lg shadow-xl z-10">
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder={placeholder}
+            className="w-full px-3 py-2 bg-slate-700 text-white text-sm border-b border-white/10 focus:outline-none focus:ring-0"
+            autoFocus
+          />
+          <div className="max-h-60 overflow-y-auto">
+            {filtered.length === 0 ? (
+              <div className="px-3 py-2 text-sm text-slate-400">Aucun pays trouvé</div>
+            ) : (
+              filtered.map((country) => (
+                <button
+                  key={country.code}
+                  type="button"
+                  onClick={() => {
+                    onChange(country.code);
+                    setOpen(false);
+                    setSearch("");
+                  }}
+                  className={`w-full text-left px-3 py-2 text-sm hover:bg-amber-400/10 transition-colors ${
+                    value === country.code ? "bg-amber-400/20 text-amber-200" : "text-slate-300"
+                  }`}
+                >
+                  <span className="font-medium">{country.code}</span> - {country.name}
+                </button>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 // ============ Types ============
 type Team = {
@@ -244,6 +329,7 @@ type TeamRosterMember = {
   name: string;
   mains: string | null;
   description: string | null;
+  countryCode?: string | null;
   elite?: boolean | null;
   wins?: number | null;
   losses?: number | null;
@@ -349,6 +435,7 @@ const buildRosterTemplate = () =>
     name: "",
     mains: "",
     description: "",
+    countryCode: null,
     elite: false,
   }));
 
@@ -366,6 +453,7 @@ const normalizeRoster = (roster?: TeamRosterMember[] | null) => {
       name: existing.name ?? "",
       mains: existing.mains ?? "",
       description: existing.description ?? "",
+      countryCode: existing.countryCode ?? null,
       elite: existing.elite ?? false,
     };
   });
@@ -389,6 +477,7 @@ const findRosterEntry = (
     name: "",
     mains: "",
     description: "",
+    countryCode: null,
     elite: false,
   };
 
