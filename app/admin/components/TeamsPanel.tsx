@@ -1,6 +1,8 @@
+// app/admin/components/TeamsPanel.tsx
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { CountrySearch } from "./CountrySearch";
 import { supabase } from "../../../lib/supabaseClient";
 import { TEAM_MEMBER_COLUMNS, TEAM_MEMBERS_TABLE } from "../../../src/lib/supabase/config";
 
@@ -32,6 +34,7 @@ type TeamMember = {
   name: string;
   mains: string | null;
   description: string | null;
+  countryCode?: string | null;
   elite: boolean | null;
 };
 
@@ -43,6 +46,7 @@ const buildRosterTemplate = (teamId: string) =>
     name: "",
     mains: "",
     description: "",
+    countryCode: null,
     elite: false,
   }));
 
@@ -111,6 +115,7 @@ export default function TeamsPanel() {
         name: String(existing?.[TEAM_MEMBER_COLUMNS.name] ?? ""),
         mains: String(existing?.[TEAM_MEMBER_COLUMNS.mains] ?? ""),
         description: String(existing?.[TEAM_MEMBER_COLUMNS.description] ?? ""),
+        countryCode: (existing?.[TEAM_MEMBER_COLUMNS.countryCode] as string | null) ?? null,
         elite: Boolean(existing?.[TEAM_MEMBER_COLUMNS.elite] ?? false),
       };
     });
@@ -239,6 +244,7 @@ export default function TeamsPanel() {
       [TEAM_MEMBER_COLUMNS.name]: member.name,
       [TEAM_MEMBER_COLUMNS.mains]: member.mains || null,
       [TEAM_MEMBER_COLUMNS.description]: member.description || null,
+      [TEAM_MEMBER_COLUMNS.countryCode]: member.countryCode || null,
       [TEAM_MEMBER_COLUMNS.elite]: member.elite ?? false,
       [TEAM_MEMBER_COLUMNS.isActive]: true,
     }));
@@ -261,7 +267,10 @@ export default function TeamsPanel() {
     setStatusMessage(null);
     setErrorMessage(null);
 
-    const { error } = await supabase.from(TEAM_MEMBERS_TABLE).delete().eq(TEAM_MEMBER_COLUMNS.teamId, selectedTeamId);
+    const { error } = await supabase
+      .from(TEAM_MEMBERS_TABLE)
+      .delete()
+      .eq(TEAM_MEMBER_COLUMNS.teamId, selectedTeamId);
 
     if (error) {
       setErrorMessage(error.message);
@@ -326,7 +335,9 @@ export default function TeamsPanel() {
               Division
               <input
                 value={teamForm.division}
-                onChange={(event) => setTeamForm((prev) => ({ ...prev, division: event.target.value }))}
+                onChange={(event) =>
+                  setTeamForm((prev) => ({ ...prev, division: event.target.value }))
+                }
                 className="surface-input"
               />
             </label>
@@ -334,7 +345,9 @@ export default function TeamsPanel() {
               Logo URL
               <input
                 value={teamForm.logo_url}
-                onChange={(event) => setTeamForm((prev) => ({ ...prev, logo_url: event.target.value }))}
+                onChange={(event) =>
+                  setTeamForm((prev) => ({ ...prev, logo_url: event.target.value }))
+                }
                 className="surface-input"
               />
             </label>
@@ -414,6 +427,7 @@ export default function TeamsPanel() {
               <tr>
                 <th className="px-3 py-2 text-left">Slot</th>
                 <th className="px-3 py-2 text-left">Pseudo</th>
+                <th className="px-3 py-2 text-left">Pays</th>
                 <th className="px-3 py-2 text-left">Mains</th>
                 <th className="px-3 py-2 text-left">Description</th>
                 <th className="px-3 py-2 text-left">Elite</th>
@@ -436,6 +450,19 @@ export default function TeamsPanel() {
                         })
                       }
                       className="surface-input surface-input--compact"
+                    />
+                  </td>
+                  <td className="px-3 py-2 min-w-[200px]">
+                    <CountrySearch
+                      value={member.countryCode || null}
+                      onChange={(code) =>
+                        setMembers((prev) => {
+                          const updated = [...prev];
+                          updated[index] = { ...updated[index], countryCode: code };
+                          return updated;
+                        })
+                      }
+                      label=""
                     />
                   </td>
                   <td className="px-3 py-2">
@@ -486,15 +513,11 @@ export default function TeamsPanel() {
       </div>
 
       {statusMessage ? (
-        <div className="surface-alert surface-alert--success">
-          {statusMessage}
-        </div>
+        <div className="surface-alert surface-alert--success">{statusMessage}</div>
       ) : null}
 
       {errorMessage ? (
-        <div className="surface-alert surface-alert--error">
-          {errorMessage}
-        </div>
+        <div className="surface-alert surface-alert--error">{errorMessage}</div>
       ) : null}
     </div>
   );
