@@ -36,8 +36,6 @@ type TierPlayer = {
   description?: string;
 };
 
-const tierOptions = ["Tier S", "Tier A", "Tier B", "Tier C", "Tier D", "Tier E"] as const;
-
 const toFlag = (countryCode?: string) => {
   const normalized = String(countryCode ?? "FR").trim().toUpperCase();
   if (!/^[A-Z]{2}$/.test(normalized)) return "🏳️";
