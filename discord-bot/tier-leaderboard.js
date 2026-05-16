@@ -6,6 +6,7 @@
 //  Optimisé pour Discord (affichage inline)
 // ============================================================
 
+const _siteBaseUrl = process.env.SITE_BASE_URL || "http://localhost:3000";
 const { AttachmentBuilder } = require('discord.js');
 const sharp = require('sharp');
 
