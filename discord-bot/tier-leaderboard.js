@@ -10,9 +10,16 @@ const sharp = require('sharp');
 const TIER_LEADERBOARD_CHANNEL_ID = '1505250882231468102';
 const UPDATE_INTERVAL = 5 * 60 * 1000;
 
-// IMPORTANT: URL backend (doit être PUBLIC et stable)
-const SITE_BASE_URL =
-  process.env.SITE_BASE_URL || 'https://lfn-esports.fr';
+// ============================================================
+// SUPABASE (DIRECT DB ACCESS)
+// ============================================================
+
+const { createClient } = require('@supabase/supabase-js');
+
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY
+);
 
 // ============================================================
 // STATE
@@ -25,51 +32,22 @@ let messageId = null;
 let intervalRef = null;
 
 // ============================================================
-// SAFE FETCH (anti ECONNRESET)
-// ============================================================
-
-async function safeFetch(url, retries = 3) {
-  for (let i = 1; i <= retries; i++) {
-    try {
-      const res = await fetch(url, {
-        cache: 'no-store',
-        signal: AbortSignal.timeout(8000),
-        headers: {
-          'Connection': 'keep-alive',
-        },
-      });
-
-      if (!res.ok) {
-        throw new Error(`HTTP ${res.status}`);
-      }
-
-      return await res.json();
-    } catch (err) {
-      console.warn(`[TierLeaderboard] fetch attempt ${i}/${retries} failed:`, err.message);
-
-      if (i === retries) {
-        throw err;
-      }
-    }
-  }
-}
-
-// ============================================================
-// FETCH PLAYERS
+// FETCH DB DIRECT (FAST)
 // ============================================================
 
 async function fetchTierPlayers() {
-  const url = `${SITE_BASE_URL}/api/site/player-standings`;
+  const { data, error } = await supabase
+    .from('players')
+    .select('id,name,tier,points,teamTag,countryCode')
+    .gt('points', 0);
 
-  const data = await safeFetch(url, 3);
-
-  if (!Array.isArray(data?.players)) {
-    throw new Error('Invalid API format');
+  if (error) {
+    throw new Error(`Supabase error: ${error.message}`);
   }
 
-  return data.players
-    .filter(p => Number(p?.points || 0) > 0)
-    .sort((a, b) => Number(b.points) - Number(a.points));
+  if (!Array.isArray(data)) return [];
+
+  return data.sort((a, b) => (b.points || 0) - (a.points || 0));
 }
 
 // ============================================================
@@ -83,23 +61,23 @@ function esc(str) {
     .replace(/>/g, '&gt;');
 }
 
-function truncate(str, max) {
+function trunc(str, max) {
   if (!str) return '';
   return str.length > max ? str.slice(0, max - 1) + '…' : str;
 }
 
 // ============================================================
-// IMAGE GENERATION (SAFE + SIMPLE)
+// IMAGE GENERATION (OPTIMIZED)
 // ============================================================
 
-async function generateImage(players) {
+async function generateLeaderboardImage(players) {
   const W = 1920;
   const HEADER_H = 100;
   const ROW_H = 45;
   const PAD = 30;
   const COL_W = W / 2;
 
-  const TIER_ORDER = ['Tier S', 'Tier A', 'Tier B', 'Tier C', 'Tier D', 'Tier E'];
+  const TIERS = ['Tier S', 'Tier A', 'Tier B', 'Tier C', 'Tier D', 'Tier E'];
 
   const COLORS = {
     'Tier S': '#FFD700',
@@ -111,16 +89,14 @@ async function generateImage(players) {
   };
 
   const byTier = {};
-  for (const t of TIER_ORDER) byTier[t] = [];
+  for (const t of TIERS) byTier[t] = [];
 
   for (const p of players) {
     const t = p.tier || 'Tier E';
     if (byTier[t]) byTier[t].push(p);
   }
 
-  const active = TIER_ORDER.filter(t => byTier[t].length > 0);
-
-  if (!active.length) throw new Error('No players');
+  const active = TIERS.filter(t => byTier[t].length);
 
   let col1 = [];
   let col2 = [];
@@ -129,7 +105,6 @@ async function generateImage(players) {
 
   for (const t of active) {
     const size = byTier[t].length + 1;
-
     if (r1 <= r2) {
       col1.push(t);
       r1 += size;
@@ -139,7 +114,7 @@ async function generateImage(players) {
     }
   }
 
-  const H = HEADER_H + Math.max(r1, r2) * ROW_H + 300;
+  const H = HEADER_H + Math.max(r1, r2) * ROW_H + 200;
 
   const render = (tiers, x, startRank) => {
     let y = HEADER_H + PAD;
@@ -152,7 +127,7 @@ async function generateImage(players) {
 
       out += `
         <rect x="${x}" y="${y}" width="${COL_W}" height="40" fill="#1A1A2E"/>
-        <text x="${x + PAD}" y="${y + 25}" fill="${color}" font-size="18">
+        <text x="${x + PAD}" y="${y + 26}" fill="${color}" font-size="18">
           ${esc(t)} (${list.length})
         </text>
       `;
@@ -165,7 +140,9 @@ async function generateImage(players) {
         out += `
           <rect x="${x}" y="${y}" width="${COL_W}" height="${ROW_H}" fill="#0F172A"/>
           <text x="${x + PAD}" y="${y + 28}" fill="#FFD700">#${rank}</text>
-          <text x="${x + 80}" y="${y + 28}" fill="#fff">${esc(truncate(p.name, 22))}</text>
+          <text x="${x + 80}" y="${y + 28}" fill="#fff">
+            ${esc(trunc(p.name, 22))}
+          </text>
           <text x="${x + COL_W - PAD}" y="${y + 28}" fill="${color}" text-anchor="end">
             ${Math.round(p.points)} pts
           </text>
@@ -189,7 +166,7 @@ async function generateImage(players) {
   </text>
 
   <text x="30" y="80" fill="#aaa" font-size="14">
-    Auto refresh 5min
+    auto refresh 5min
   </text>
 
   ${render(col1, 0, 0)}
@@ -200,7 +177,7 @@ async function generateImage(players) {
 }
 
 // ============================================================
-// DISCORD UPDATE (SAFE)
+// DISCORD UPDATE (FAST + SAFE)
 // ============================================================
 
 async function updateLeaderboard() {
@@ -213,14 +190,14 @@ async function updateLeaderboard() {
 
     const players = await fetchTierPlayers();
 
-    const image = await generateImage(players);
+    const image = await generateLeaderboardImage(players);
 
     const file = new AttachmentBuilder(image, {
       name: 'tier.png',
     });
 
     const payload = {
-      content: `🏆 LFN Tier Leaderboard — ${SITE_BASE_URL}`,
+      content: `🏆 Tier Leaderboard — live`,
       files: [file],
     };
 
@@ -238,9 +215,9 @@ async function updateLeaderboard() {
     const sent = await channelRef.send(payload);
     messageId = sent.id;
 
-    console.log('[TierLeaderboard] posted new message');
+    console.log('[TierLeaderboard] posted');
   } catch (err) {
-    console.error('[TierLeaderboard] update failed:', err.message);
+    console.error('[TierLeaderboard] ERROR:', err.message);
   }
 }
 
@@ -248,13 +225,9 @@ async function updateLeaderboard() {
 // INIT
 // ============================================================
 
-function initTierLeaderboard(client, guild, siteBaseUrl) {
+function initTierLeaderboard(client, guild) {
   clientRef = client;
   guildRef = guild;
-
-  if (siteBaseUrl) {
-    process.env.SITE_BASE_URL = siteBaseUrl.replace(/\/+$/, '');
-  }
 
   updateLeaderboard();
 
@@ -262,7 +235,7 @@ function initTierLeaderboard(client, guild, siteBaseUrl) {
 
   intervalRef = setInterval(updateLeaderboard, UPDATE_INTERVAL);
 
-  console.log('[TierLeaderboard] initialized');
+  console.log('[TierLeaderboard] initialized (DB DIRECT MODE)');
 }
 
 module.exports = { initTierLeaderboard };
