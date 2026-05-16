@@ -1,6 +1,8 @@
 'use strict';
 
 require('../ensure-fetch');
+const ws = require('ws');
+global.WebSocket = ws;
 const {
   ActionRowBuilder,
   ApplicationCommandOptionType,
