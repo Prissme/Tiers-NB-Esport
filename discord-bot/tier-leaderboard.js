@@ -7,51 +7,94 @@ const sharp = require('sharp');
 // CONFIG
 // ============================================================
 
-const TIER_LEADERBOARD_CHANNEL_ID = '1505250882231468102';
+let SITE_BASE_URL = process.env.SITE_BASE_URL || 'http://localhost:3000';
+
+const CHANNEL_ID = '1505250882231468102';
 const UPDATE_INTERVAL = 5 * 60 * 1000;
 
-// ============================================================
-// SUPABASE (DIRECT DB ACCESS)
-// ============================================================
+// fallback tiers (safe)
+const TIER_ORDER = ['Tier S', 'Tier A', 'Tier B', 'Tier C', 'Tier D', 'Tier E'];
 
-const { createClient } = require('@supabase/supabase-js');
-
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
+const TIER_COLORS = {
+  'Tier S': '#FFD700',
+  'Tier A': '#FF4500',
+  'Tier B': '#FF8C00',
+  'Tier C': '#9932CC',
+  'Tier D': '#4169E1',
+  'Tier E': '#2E8B57',
+};
 
 // ============================================================
 // STATE
 // ============================================================
 
-let clientRef = null;
-let guildRef = null;
-let channelRef = null;
+let client = null;
+let guild = null;
+let channel = null;
 let messageId = null;
-let intervalRef = null;
+let interval = null;
 
 // ============================================================
-// FETCH DB DIRECT (FAST)
+// FETCH SAFE AVEC RETRY + TIMEOUT
 // ============================================================
 
-async function fetchTierPlayers() {
-  const { data, error } = await supabase
-    .from('players')
-    .select('id,name,tier,points,teamTag,countryCode')
-    .gt('points', 0);
+function sleep(ms) {
+  return new Promise(r => setTimeout(r, ms));
+}
 
-  if (error) {
-    throw new Error(`Supabase error: ${error.message}`);
+async function safeFetch(url, retries = 3) {
+  let lastErr;
+
+  for (let i = 0; i < retries; i++) {
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 8000);
+
+      const res = await fetch(url, {
+        method: 'GET',
+        cache: 'no-store',
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeout);
+
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
+      }
+
+      return await res.json();
+    } catch (err) {
+      lastErr = err;
+      console.warn(`[TierLeaderboard] fetch attempt ${i + 1}/${retries} failed:`, err.message);
+      await sleep(800 * (i + 1)); // backoff progressif
+    }
   }
 
-  if (!Array.isArray(data)) return [];
-
-  return data.sort((a, b) => (b.points || 0) - (a.points || 0));
+  throw new Error(`Failed fetch after ${retries} retries: ${lastErr?.message}`);
 }
 
 // ============================================================
-// UTILS
+// SOURCE UNIQUE (IMPORTANT)
+// ============================================================
+// on utilise EXACTEMENT la même API que ton front Next.js
+// => évite Supabase schema mismatch (ton bug actuel)
+
+async function fetchPlayers() {
+  const url = `${SITE_BASE_URL}/api/site/player-standings`;
+
+  const data = await safeFetch(url, 3);
+
+  if (!Array.isArray(data?.players)) {
+    throw new Error('Invalid players format');
+  }
+
+  return data.players
+    .filter(p => Number(p?.points || 0) > 0)
+    .sort((a, b) => Number(b.points) - Number(a.points));
+}
+
+// ============================================================
+// SVG GENERATOR
 // ============================================================
 
 function esc(str) {
@@ -61,163 +104,152 @@ function esc(str) {
     .replace(/>/g, '&gt;');
 }
 
-function trunc(str, max) {
-  if (!str) return '';
-  return str.length > max ? str.slice(0, max - 1) + '…' : str;
+function trunc(str, n = 18) {
+  str = String(str ?? '');
+  return str.length > n ? str.slice(0, n - 1) + '…' : str;
 }
 
-// ============================================================
-// IMAGE GENERATION (OPTIMIZED)
-// ============================================================
-
-async function generateLeaderboardImage(players) {
+async function generateImage(players) {
   const W = 1920;
-  const HEADER_H = 100;
-  const ROW_H = 45;
-  const PAD = 30;
-  const COL_W = W / 2;
+  const HEADER_H = 90;
+  const ROW_H = 42;
+  const TIER_H = 38;
+  const GAP = 8;
+  const PADDING = 28;
+  const DIVIDER = 4;
 
-  const TIERS = ['Tier S', 'Tier A', 'Tier B', 'Tier C', 'Tier D', 'Tier E'];
+  const COL_W = Math.floor((W - DIVIDER) / 2);
 
-  const COLORS = {
-    'Tier S': '#FFD700',
-    'Tier A': '#FF4500',
-    'Tier B': '#FF8C00',
-    'Tier C': '#9932CC',
-    'Tier D': '#4169E1',
-    'Tier E': '#2E8B57',
-  };
-
-  const byTier = {};
-  for (const t of TIERS) byTier[t] = [];
+  const byTier = Object.fromEntries(TIER_ORDER.map(t => [t, []]));
 
   for (const p of players) {
-    const t = p.tier || 'Tier E';
-    if (byTier[t]) byTier[t].push(p);
+    const tier = p.tier || 'Tier E';
+    if (byTier[tier]) byTier[tier].push(p);
   }
 
-  const active = TIERS.filter(t => byTier[t].length);
+  const active = TIER_ORDER.filter(t => byTier[t].length);
 
-  let col1 = [];
-  let col2 = [];
-  let r1 = 0;
-  let r2 = 0;
+  let col1 = [], col2 = [];
+  let r1 = 0, r2 = 0;
 
   for (const t of active) {
-    const size = byTier[t].length + 1;
+    const cost = byTier[t].length + 1;
     if (r1 <= r2) {
       col1.push(t);
-      r1 += size;
+      r1 += cost;
     } else {
       col2.push(t);
-      r2 += size;
+      r2 += cost;
     }
   }
 
-  const H = HEADER_H + Math.max(r1, r2) * ROW_H + 200;
+  const H = HEADER_H + Math.max(r1, r2) * ROW_H + 400;
 
-  const render = (tiers, x, startRank) => {
-    let y = HEADER_H + PAD;
+  function render(tiers, offset, startRank) {
+    let y = HEADER_H + PADDING;
     let rank = startRank;
-    let out = '';
+    const out = [];
 
     for (const t of tiers) {
       const list = byTier[t];
-      const color = COLORS[t];
+      const color = TIER_COLORS[t];
 
-      out += `
-        <rect x="${x}" y="${y}" width="${COL_W}" height="40" fill="#1A1A2E"/>
-        <text x="${x + PAD}" y="${y + 26}" fill="${color}" font-size="18">
+      out.push(`
+        <rect x="${offset}" y="${y}" width="${COL_W}" height="${TIER_H}" fill="#111827" rx="6"/>
+        <rect x="${offset}" y="${y}" width="5" height="${TIER_H}" fill="${color}" rx="3"/>
+        <text x="${offset + 16}" y="${y + 26}" fill="${color}" font-size="16" font-weight="bold">
           ${esc(t)} (${list.length})
         </text>
-      `;
+      `);
 
-      y += 55;
+      y += TIER_H + GAP;
 
       for (const p of list) {
         rank++;
 
-        out += `
-          <rect x="${x}" y="${y}" width="${COL_W}" height="${ROW_H}" fill="#0F172A"/>
-          <text x="${x + PAD}" y="${y + 28}" fill="#FFD700">#${rank}</text>
-          <text x="${x + 80}" y="${y + 28}" fill="#fff">
-            ${esc(trunc(p.name, 22))}
+        const bg = rank % 2 ? '#0B1220' : '#0F172A';
+
+        out.push(`
+          <rect x="${offset}" y="${y}" width="${COL_W}" height="${ROW_H}" fill="${bg}" rx="4"/>
+          <text x="${offset + 14}" y="${y + 26}" fill="#fff" font-size="14">
+            #${rank} ${trunc(esc(p.name))}
           </text>
-          <text x="${x + COL_W - PAD}" y="${y + 28}" fill="${color}" text-anchor="end">
+          <text x="${offset + COL_W - 14}" y="${y + 26}" fill="${color}" font-size="14" text-anchor="end">
             ${Math.round(p.points)} pts
           </text>
-        `;
+        `);
 
         y += ROW_H;
       }
 
-      y += 10;
+      y += GAP;
     }
 
-    return out;
-  };
+    return out.join('');
+  }
+
+  const updated = new Date().toLocaleString('fr-FR');
 
   const svg = `
-<svg width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg">
-  <rect width="100%" height="100%" fill="#0A0A14"/>
+  <svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}">
+    <rect width="100%" height="100%" fill="#050816"/>
 
-  <text x="30" y="50" fill="#FFD700" font-size="28">
-    LFN Tier Leaderboard
-  </text>
+    <rect width="100%" height="${HEADER_H}" fill="#0B1220"/>
+    <text x="24" y="50" fill="#FFD700" font-size="26" font-weight="bold">
+      LFN Tier Leaderboard
+    </text>
+    <text x="24" y="75" fill="#9CA3AF" font-size="14">
+      ${players.length} joueurs • ${updated}
+    </text>
 
-  <text x="30" y="80" fill="#aaa" font-size="14">
-    auto refresh 5min
-  </text>
+    <rect x="${COL_W}" y="${HEADER_H}" width="${DIVIDER}" height="${H}" fill="#1F2937"/>
 
-  ${render(col1, 0, 0)}
-  ${render(col2, COL_W, col1.reduce((a, t) => a + byTier[t].length, 0))}
-</svg>`;
+    ${render(col1, 0, 0)}
+    ${render(col2, COL_W + DIVIDER, col1.reduce((a, t) => a + byTier[t].length, 0))}
+  </svg>`;
 
-  return sharp(Buffer.from(svg)).png().toBuffer();
+  return sharp(Buffer.from(svg))
+    .png()
+    .toBuffer();
 }
 
 // ============================================================
-// DISCORD UPDATE (FAST + SAFE)
+// DISCORD UPDATE
 // ============================================================
 
-async function updateLeaderboard() {
-  if (!clientRef || !guildRef) return;
+async function update() {
+  if (!client || !guild) return;
 
   try {
-    if (!channelRef) {
-      channelRef = await guildRef.channels.fetch(TIER_LEADERBOARD_CHANNEL_ID);
+    if (!channel) {
+      channel = await guild.channels.fetch(CHANNEL_ID);
     }
 
-    const players = await fetchTierPlayers();
+    const players = await fetchPlayers();
+    const img = await generateImage(players);
 
-    const image = await generateLeaderboardImage(players);
-
-    const file = new AttachmentBuilder(image, {
-      name: 'tier.png',
-    });
+    const file = new AttachmentBuilder(img, { name: 'tier.png' });
 
     const payload = {
-      content: `🏆 Tier Leaderboard — live`,
+      content: `🏆 Tier Leaderboard • ${new Date().toLocaleString('fr-FR')}`,
       files: [file],
     };
 
     if (messageId) {
       try {
-        const msg = await channelRef.messages.fetch(messageId);
+        const msg = await channel.messages.fetch(messageId);
         await msg.edit(payload);
-        console.log('[TierLeaderboard] updated');
         return;
       } catch {
         messageId = null;
       }
     }
 
-    const sent = await channelRef.send(payload);
+    const sent = await channel.send(payload);
     messageId = sent.id;
 
-    console.log('[TierLeaderboard] posted');
   } catch (err) {
-    console.error('[TierLeaderboard] ERROR:', err.message);
+    console.error('[TierLeaderboard] update failed:', err.message);
   }
 }
 
@@ -225,17 +257,18 @@ async function updateLeaderboard() {
 // INIT
 // ============================================================
 
-function initTierLeaderboard(client, guild) {
-  clientRef = client;
-  guildRef = guild;
+function initTierLeaderboard(c, g, baseUrl) {
+  client = c;
+  guild = g;
 
-  updateLeaderboard();
+  if (baseUrl) SITE_BASE_URL = baseUrl.replace(/\/+$/, '');
 
-  if (intervalRef) clearInterval(intervalRef);
+  update().catch(console.error);
 
-  intervalRef = setInterval(updateLeaderboard, UPDATE_INTERVAL);
+  if (interval) clearInterval(interval);
+  interval = setInterval(() => update().catch(console.error), UPDATE_INTERVAL);
 
-  console.log('[TierLeaderboard] initialized (DB DIRECT MODE)');
+  console.log('[TierLeaderboard] initialized (stable mode)');
 }
 
 module.exports = { initTierLeaderboard };
