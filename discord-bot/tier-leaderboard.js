@@ -1,18 +1,28 @@
 'use strict';
 
+// ============================================================
+// tier-leaderboard.js (STABLE DB VERSION)
+// Génère un classement Tier LFN en image PNG via SVG + Sharp
+// SOURCE: Supabase direct (lfn_player_tier_points)
+// ============================================================
+
 const { AttachmentBuilder } = require('discord.js');
 const sharp = require('sharp');
+const { createClient } = require('@supabase/supabase-js');
 
-// ============================================================
-// CONFIG
-// ============================================================
+// --- CONFIG ---
+const TIER_LEADERBOARD_CHANNEL_ID = '1505250882231468102';
+const UPDATE_INTERVAL_MS = 5 * 60 * 1000;
 
-let SITE_BASE_URL = process.env.SITE_BASE_URL || 'http://localhost:3000';
+let SITE_BASE_URL = process.env.SITE_BASE_URL || 'https://lfn-esports.fr';
 
-const CHANNEL_ID = '1505250882231468102';
-const UPDATE_INTERVAL = 5 * 60 * 1000;
+// --- SUPABASE ---
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY
+);
 
-// fallback tiers (safe)
+// --- TIER CONFIG ---
 const TIER_ORDER = ['Tier S', 'Tier A', 'Tier B', 'Tier C', 'Tier D', 'Tier E'];
 
 const TIER_COLORS = {
@@ -24,10 +34,7 @@ const TIER_COLORS = {
   'Tier E': '#2E8B57',
 };
 
-// ============================================================
-// STATE
-// ============================================================
-
+// --- GLOBALS ---
 let client = null;
 let guild = null;
 let channel = null;
@@ -35,130 +42,106 @@ let messageId = null;
 let interval = null;
 
 // ============================================================
-// FETCH SAFE AVEC RETRY + TIMEOUT
+// FETCH DATA (DB DIRECT - FIXED)
 // ============================================================
+async function fetchTierPlayers() {
+  const { data, error } = await supabase
+    .from('lfn_player_tier_points')
+    .select('player_id, points, tier, season_id')
+    .eq('season_id', 1)
+    .gt('points', 0)
+    .order('points', { ascending: false });
 
-function sleep(ms) {
-  return new Promise(r => setTimeout(r, ms));
+  if (error) throw new Error(`Supabase error: ${error.message}`);
+  return data || [];
 }
 
-async function safeFetch(url, retries = 3) {
-  let lastErr;
+// ============================================================
+// FETCH PLAYER PROFILES (NAMES)
+// ============================================================
+async function fetchProfiles(playerIds) {
+  if (!playerIds.length) return {};
 
-  for (let i = 0; i < retries; i++) {
-    try {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 8000);
+  const { data, error } = await supabase
+    .from('lfn_player_profiles')
+    .select('id, name, countryCode, teamTag, teamName')
+    .in('id', playerIds);
 
-      const res = await fetch(url, {
-        method: 'GET',
-        cache: 'no-store',
-        signal: controller.signal,
-      });
+  if (error) return {};
 
-      clearTimeout(timeout);
-
-      if (!res.ok) {
-        throw new Error(`HTTP ${res.status}`);
-      }
-
-      return await res.json();
-    } catch (err) {
-      lastErr = err;
-      console.warn(`[TierLeaderboard] fetch attempt ${i + 1}/${retries} failed:`, err.message);
-      await sleep(800 * (i + 1)); // backoff progressif
-    }
+  const map = {};
+  for (const p of data || []) {
+    map[p.id] = p;
   }
-
-  throw new Error(`Failed fetch after ${retries} retries: ${lastErr?.message}`);
+  return map;
 }
 
 // ============================================================
-// SOURCE UNIQUE (IMPORTANT)
+// UTIL
 // ============================================================
-// on utilise EXACTEMENT la même API que ton front Next.js
-// => évite Supabase schema mismatch (ton bug actuel)
-
-async function fetchPlayers() {
-  const url = `${SITE_BASE_URL}/api/site/player-standings`;
-
-  const data = await safeFetch(url, 3);
-
-  if (!Array.isArray(data?.players)) {
-    throw new Error('Invalid players format');
-  }
-
-  return data.players
-    .filter(p => Number(p?.points || 0) > 0)
-    .sort((a, b) => Number(b.points) - Number(a.points));
-}
-
-// ============================================================
-// SVG GENERATOR
-// ============================================================
-
-function esc(str) {
-  return String(str ?? '')
+const esc = (s) =>
+  String(s ?? '')
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;');
-}
 
-function trunc(str, n = 18) {
-  str = String(str ?? '');
-  return str.length > n ? str.slice(0, n - 1) + '…' : str;
-}
+const trunc = (s, n) =>
+  s && s.length > n ? s.slice(0, n - 1) + '…' : s;
 
+// ============================================================
+// SVG GENERATION
+// ============================================================
 async function generateImage(players) {
   const W = 1920;
-  const HEADER_H = 90;
-  const ROW_H = 42;
-  const TIER_H = 38;
+  const HEADER_H = 100;
+  const ROW_H = 45;
+  const TIER_H = 40;
   const GAP = 8;
-  const PADDING = 28;
+  const PADDING = 30;
   const DIVIDER = 4;
-
   const COL_W = Math.floor((W - DIVIDER) / 2);
 
-  const byTier = Object.fromEntries(TIER_ORDER.map(t => [t, []]));
+  const byTier = {};
+  for (const t of TIER_ORDER) byTier[t] = [];
 
   for (const p of players) {
     const tier = p.tier || 'Tier E';
-    if (byTier[tier]) byTier[tier].push(p);
+    if (!byTier[tier]) byTier[tier] = [];
+    byTier[tier].push(p);
   }
 
-  const active = TIER_ORDER.filter(t => byTier[t].length);
+  const activeTiers = TIER_ORDER.filter(t => byTier[t]?.length);
 
   let col1 = [], col2 = [];
   let r1 = 0, r2 = 0;
 
-  for (const t of active) {
-    const cost = byTier[t].length + 1;
+  for (const t of activeTiers) {
+    const count = byTier[t].length + 1;
     if (r1 <= r2) {
       col1.push(t);
-      r1 += cost;
+      r1 += count;
     } else {
       col2.push(t);
-      r2 += cost;
+      r2 += count;
     }
   }
 
-  const H = HEADER_H + Math.max(r1, r2) * ROW_H + 400;
+  const H = HEADER_H + 1000;
 
-  function render(tiers, offset, startRank) {
+  function renderColumn(tiers, offsetX, rankStart) {
     let y = HEADER_H + PADDING;
-    let rank = startRank;
-    const out = [];
+    let rank = rankStart;
+    let out = [];
 
-    for (const t of tiers) {
-      const list = byTier[t];
-      const color = TIER_COLORS[t];
+    for (const tier of tiers) {
+      const color = TIER_COLORS[tier];
+
+      const list = byTier[tier];
 
       out.push(`
-        <rect x="${offset}" y="${y}" width="${COL_W}" height="${TIER_H}" fill="#111827" rx="6"/>
-        <rect x="${offset}" y="${y}" width="5" height="${TIER_H}" fill="${color}" rx="3"/>
-        <text x="${offset + 16}" y="${y + 26}" fill="${color}" font-size="16" font-weight="bold">
-          ${esc(t)} (${list.length})
+        <rect x="${offsetX}" y="${y}" width="${COL_W}" height="${TIER_H}" fill="#1A1A2E"/>
+        <text x="${offsetX + 20}" y="${y + 25}" fill="${color}" font-size="18" font-weight="bold">
+          ${tier} — ${list.length}
         </text>
       `);
 
@@ -167,15 +150,17 @@ async function generateImage(players) {
       for (const p of list) {
         rank++;
 
-        const bg = rank % 2 ? '#0B1220' : '#0F172A';
+        const bg = rank % 2 ? '#0F172A' : '#16213E';
 
         out.push(`
-          <rect x="${offset}" y="${y}" width="${COL_W}" height="${ROW_H}" fill="${bg}" rx="4"/>
-          <text x="${offset + 14}" y="${y + 26}" fill="#fff" font-size="14">
-            #${rank} ${trunc(esc(p.name))}
+          <rect x="${offsetX}" y="${y}" width="${COL_W}" height="${ROW_H}" fill="${bg}"/>
+
+          <text x="${offsetX + 20}" y="${y + 28}" fill="white">
+            #${rank} ${esc(p.name)}
           </text>
-          <text x="${offset + COL_W - 14}" y="${y + 26}" fill="${color}" font-size="14" text-anchor="end">
-            ${Math.round(p.points)} pts
+
+          <text x="${offsetX + COL_W - 120}" y="${y + 28}" fill="${color}" text-anchor="end">
+            ${p.points} pts
           </text>
         `);
 
@@ -188,52 +173,56 @@ async function generateImage(players) {
     return out.join('');
   }
 
-  const updated = new Date().toLocaleString('fr-FR');
+  return sharp(Buffer.from(`
+    <svg width="${W}" height="${H}">
+      <rect width="100%" height="100%" fill="#0A0A14"/>
 
-  const svg = `
-  <svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}">
-    <rect width="100%" height="100%" fill="#050816"/>
+      <rect width="${W}" height="${HEADER_H}" fill="#1A1A2E"/>
+      <text x="30" y="50" fill="#FFD700" font-size="28">LFN Tier Leaderboard</text>
 
-    <rect width="100%" height="${HEADER_H}" fill="#0B1220"/>
-    <text x="24" y="50" fill="#FFD700" font-size="26" font-weight="bold">
-      LFN Tier Leaderboard
-    </text>
-    <text x="24" y="75" fill="#9CA3AF" font-size="14">
-      ${players.length} joueurs • ${updated}
-    </text>
-
-    <rect x="${COL_W}" y="${HEADER_H}" width="${DIVIDER}" height="${H}" fill="#1F2937"/>
-
-    ${render(col1, 0, 0)}
-    ${render(col2, COL_W + DIVIDER, col1.reduce((a, t) => a + byTier[t].length, 0))}
-  </svg>`;
-
-  return sharp(Buffer.from(svg))
+      ${renderColumn(col1, 0, 0)}
+      ${renderColumn(col2, COL_W + DIVIDER, 0)}
+    </svg>
+  `))
     .png()
     .toBuffer();
 }
 
 // ============================================================
-// DISCORD UPDATE
+// MAIN UPDATE
 // ============================================================
-
 async function update() {
-  if (!client || !guild) return;
-
   try {
-    if (!channel) {
-      channel = await guild.channels.fetch(CHANNEL_ID);
-    }
+    const raw = await fetchTierPlayers();
 
-    const players = await fetchPlayers();
+    const profiles = await fetchProfiles(raw.map(r => r.player_id));
+
+    const players = raw.map(r => {
+      const p = profiles[r.player_id] || {};
+      return {
+        name: p.name || 'Unknown',
+        points: r.points,
+        tier: r.tier,
+        countryCode: p.countryCode,
+        teamTag: p.teamTag,
+        teamName: p.teamName
+      };
+    });
+
     const img = await generateImage(players);
 
-    const file = new AttachmentBuilder(img, { name: 'tier.png' });
+    const attachment = new AttachmentBuilder(img, {
+      name: 'tier-leaderboard.png'
+    });
 
     const payload = {
-      content: `🏆 Tier Leaderboard • ${new Date().toLocaleString('fr-FR')}`,
-      files: [file],
+      content: `🏆 LFN Tier Leaderboard • ${new Date().toLocaleString('fr-FR')}`,
+      files: [attachment]
     };
+
+    if (!channel) {
+      channel = await guild.channels.fetch(TIER_LEADERBOARD_CHANNEL_ID);
+    }
 
     if (messageId) {
       try {
@@ -249,26 +238,24 @@ async function update() {
     messageId = sent.id;
 
   } catch (err) {
-    console.error('[TierLeaderboard] update failed:', err.message);
+    console.error('[TierLeaderboard] ERROR:', err.message);
   }
 }
 
 // ============================================================
 // INIT
 // ============================================================
+function initTierLeaderboard(discordClient, discordGuild, baseUrl) {
+  client = discordClient;
+  guild = discordGuild;
+  if (baseUrl) SITE_BASE_URL = baseUrl;
 
-function initTierLeaderboard(c, g, baseUrl) {
-  client = c;
-  guild = g;
-
-  if (baseUrl) SITE_BASE_URL = baseUrl.replace(/\/+$/, '');
-
-  update().catch(console.error);
+  update();
 
   if (interval) clearInterval(interval);
-  interval = setInterval(() => update().catch(console.error), UPDATE_INTERVAL);
+  interval = setInterval(update, UPDATE_INTERVAL_MS);
 
-  console.log('[TierLeaderboard] initialized (stable mode)');
+  console.log('[TierLeaderboard] initialized (DB DIRECT + stable)');
 }
 
 module.exports = { initTierLeaderboard };
