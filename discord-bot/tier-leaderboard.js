@@ -2,31 +2,34 @@
 
 // ============================================================
 //  tier-leaderboard.js
-//  Module autonome — classement Tier dans un channel dédié
-//  Génère une image PNG via Python/Pillow au lieu d'un embed texte
+//  Génère une image PNG du classement Tier via SVG + sharp
+//  (aucune dépendance Python / canvas)
 // ============================================================
 
 const { AttachmentBuilder } = require('discord.js');
-const { execFile } = require('child_process');
-const { promisify } = require('util');
-const path = require('path');
-const os = require('os');
-const fs = require('fs/promises');
-
-const execFileAsync = promisify(execFile);
+const sharp = require('sharp');
 
 const TIER_LEADERBOARD_CHANNEL_ID = '1505250882231468102';
-const TIER_LEADERBOARD_UPDATE_INTERVAL_MS = 5 * 60 * 1000; // toutes les 5 minutes
+const TIER_LEADERBOARD_UPDATE_INTERVAL_MS = 5 * 60 * 1000;
 
-// ── état interne ────────────────────────────────────────────
+const TIER_ORDER = ['Tier S', 'Tier A', 'Tier B', 'Tier C', 'Tier D', 'Tier E'];
+
+const TIER_COLORS = {
+  'Tier S': '#f1c40f',
+  'Tier A': '#e74c3c',
+  'Tier B': '#e67e22',
+  'Tier C': '#9b59b6',
+  'Tier D': '#3498db',
+  'Tier E': '#2ecc71',
+};
+
+// état interne
 let _client = null;
 let _guild = null;
 let _siteBaseUrl = 'https://www.lfn-esports.fr';
 let _leaderboardChannel = null;
 let _leaderboardMessageId = null;
 let _intervalRef = null;
-
-// ── helpers ─────────────────────────────────────────────────
 
 async function fetchTierPlayers() {
   const url = `${_siteBaseUrl}/api/site/player-standings`;
@@ -37,181 +40,103 @@ async function fetchTierPlayers() {
   return players.filter((p) => Number(p?.points || 0) > 0);
 }
 
-// ── génération image Python ──────────────────────────────────
+function esc(str) {
+  return String(str ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
 
-/**
- * Génère l'image PNG du classement via un script Python inline.
- * @param {Array} players — liste triée de joueurs avec { name, tier, points, countryCode, teamTag }
- * @returns {Buffer} — contenu PNG
- */
+function truncate(str, max) {
+  return str.length > max ? str.slice(0, max - 1) + '\u2026' : str;
+}
+
 async function generateLeaderboardImage(players) {
-  const tmpDir = os.tmpdir();
-  const dataFile = path.join(tmpDir, `lfn_lb_${Date.now()}.json`);
-  const outFile = path.join(tmpDir, `lfn_lb_${Date.now()}.png`);
+  const W = 960;
+  const PADDING = 28;
+  const HEADER_H = 76;
+  const ROW_H = 44;
+  const TIER_H = 36;
+  const GAP = 5;
 
-  // Écrire les données JSON dans un fichier temporaire
-  await fs.writeFile(dataFile, JSON.stringify(players), 'utf8');
-
-  const pythonScript = /* python */ `
-import json, sys, os
-from PIL import Image, ImageDraw, ImageFont
-
-# ── Polices ────────────────────────────────────────────────
-FONT_REGULAR = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
-FONT_BOLD    = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
-
-# Fallback si DejaVu absent
-for candidate in [FONT_REGULAR, FONT_BOLD]:
-    if not os.path.exists(candidate):
-        sys.exit(f"Font not found: {candidate}")
-
-# ── Constantes de style ────────────────────────────────────
-TIER_ORDER = ['Tier S','Tier A','Tier B','Tier C','Tier D','Tier E']
-TIER_COLORS = {
-    'Tier S': (241,196, 15),
-    'Tier A': (231, 76, 60),
-    'Tier B': (230,126, 34),
-    'Tier C': (155, 89,182),
-    'Tier D': ( 52,152,219),
-    'Tier E': ( 46,204,113),
-}
-BG_DARK   = (11, 16, 33)
-BG_HEADER = (15, 22, 45)
-BG_ROW_A  = (18, 24, 45)
-BG_ROW_B  = (14, 20, 38)
-BG_TIER   = (20, 28, 55)
-ACCENT    = (30, 40, 70)
-TEXT_MAIN = (230,235,255)
-TEXT_DIM  = (100,120,160)
-GOLD      = (241,196, 15)
-
-WIDTH    = 960
-PADDING  = 28
-HEADER_H = 76
-ROW_H    = 46
-TIER_H   = 38
-GAP      = 6
-
-# ── Données ────────────────────────────────────────────────
-with open(sys.argv[1]) as f:
-    players = json.load(f)
-
-by_tier = {t: [] for t in TIER_ORDER}
-for p in players:
-    t = p.get('tier', 'Tier E')
-    if t in by_tier:
-        by_tier[t].append(p)
-
-active_tiers = [t for t in TIER_ORDER if by_tier[t]]
-total_rows   = sum(len(by_tier[t]) for t in active_tiers)
-total_h = (HEADER_H + PADDING
-           + len(active_tiers) * (TIER_H + GAP)
-           + total_rows * ROW_H
-           + PADDING * 2)
-
-# ── Création image ─────────────────────────────────────────
-img  = Image.new('RGB', (WIDTH, total_h), BG_DARK)
-draw = ImageDraw.Draw(img)
-
-f_title = ImageFont.truetype(FONT_BOLD,    26)
-f_tier  = ImageFont.truetype(FONT_BOLD,    17)
-f_bold  = ImageFont.truetype(FONT_BOLD,    16)
-f_reg   = ImageFont.truetype(FONT_REGULAR, 15)
-f_small = ImageFont.truetype(FONT_REGULAR, 12)
-
-# Header
-draw.rectangle([0, 0, WIDTH, HEADER_H], fill=BG_HEADER)
-draw.text((PADDING, 15), "Classement Tier — LFN Esports", font=f_title, fill=GOLD)
-sub = f"{len(players)} joueurs classes"
-draw.text((PADDING, 48), sub, font=f_small, fill=TEXT_DIM)
-site_w = int(draw.textlength("lfn-esports.fr", font=f_small))
-draw.text((WIDTH - PADDING - site_w, 48), "lfn-esports.fr", font=f_small, fill=TEXT_DIM)
-draw.rectangle([0, HEADER_H, WIDTH, HEADER_H + 2], fill=ACCENT)
-
-y = HEADER_H + PADDING
-global_rank = 0
-
-for tier in TIER_ORDER:
-    tier_players = by_tier[tier]
-    if not tier_players:
-        continue
-
-    color = TIER_COLORS[tier]
-
-    # Barre de tier
-    draw.rectangle([0, y, WIDTH, y + TIER_H], fill=BG_TIER)
-    draw.rectangle([0, y, 5, y + TIER_H], fill=color)
-    count = len(tier_players)
-    label = f"{tier}  —  {count} joueur{'s' if count > 1 else ''}"
-    draw.text((PADDING + 10, y + 10), label, font=f_tier, fill=color)
-    y += TIER_H
-
-    for p in tier_players:
-        global_rank += 1
-        row_bg = BG_ROW_A if global_rank % 2 == 0 else BG_ROW_B
-        draw.rectangle([0, y, WIDTH, y + ROW_H], fill=row_bg)
-
-        # Barre de couleur latérale (fine)
-        draw.rectangle([0, y, 2, y + ROW_H], fill=color)
-
-        # Rang
-        if   global_rank == 1: rank_str = "#1"
-        elif global_rank == 2: rank_str = "#2"
-        elif global_rank == 3: rank_str = "#3"
-        else:                  rank_str = f"#{global_rank}"
-
-        rank_color = GOLD if global_rank <= 3 else TEXT_DIM
-        draw.text((PADDING, y + 14), rank_str, font=f_bold, fill=rank_color)
-
-        # Nom + tag
-        name = str(p.get('name', ''))
-        tag  = p.get('teamTag')
-        display = f"{name}  [{tag}]" if tag else name
-        name_x = PADDING + 58
-        draw.text((name_x, y + 14), display, font=f_bold, fill=TEXT_MAIN)
-
-        # Pays
-        cc = str(p.get('countryCode') or 'FR').upper()[:2]
-        country_w = int(draw.textlength(cc, font=f_small))
-        draw.text((WIDTH - PADDING - 80 - country_w, y + 16), cc, font=f_small, fill=TEXT_DIM)
-
-        # Points
-        pts = f"{round(float(p.get('points', 0)))} pts"
-        pts_w = int(draw.textlength(pts, font=f_bold))
-        draw.text((WIDTH - PADDING - pts_w, y + 14), pts, font=f_bold, fill=color)
-
-        y += ROW_H
-
-    y += GAP
-
-# Pied de page
-draw.rectangle([0, total_h - 2, WIDTH, total_h], fill=ACCENT)
-
-img.save(sys.argv[2], format='PNG', optimize=True)
-print("OK")
-`;
-
-  const scriptFile = path.join(tmpDir, `lfn_gen_${Date.now()}.py`);
-  await fs.writeFile(scriptFile, pythonScript, 'utf8');
-
-  try {
-    await execFileAsync('python3', [scriptFile, dataFile, outFile], { timeout: 30_000 });
-    const buffer = await fs.readFile(outFile);
-    return buffer;
-  } finally {
-    // Nettoyage silencieux des fichiers temporaires
-    fs.unlink(dataFile).catch(() => null);
-    fs.unlink(outFile).catch(() => null);
-    fs.unlink(scriptFile).catch(() => null);
+  const byTier = {};
+  for (const t of TIER_ORDER) byTier[t] = [];
+  for (const p of players) {
+    const t = p.tier || 'Tier E';
+    if (byTier[t]) byTier[t].push(p);
   }
-}
+  const activeTiers = TIER_ORDER.filter((t) => byTier[t].length > 0);
+  const totalRows = players.length;
 
-// ── fonction principale ──────────────────────────────────────
+  const H =
+    HEADER_H +
+    PADDING +
+    activeTiers.length * (TIER_H + GAP) +
+    totalRows * ROW_H +
+    PADDING;
+
+  const rows = [];
+  let y = HEADER_H + PADDING;
+  let globalRank = 0;
+
+  for (const tier of TIER_ORDER) {
+    const tierPlayers = byTier[tier];
+    if (!tierPlayers.length) continue;
+
+    const color = TIER_COLORS[tier];
+    const count = tierPlayers.length;
+    const label = `${tier}  \u2014  ${count} joueur${count > 1 ? 's' : ''}`;
+
+    rows.push(`
+      <rect x="0" y="${y}" width="${W}" height="${TIER_H}" fill="#14213d"/>
+      <rect x="0" y="${y}" width="5" height="${TIER_H}" fill="${color}"/>
+      <text x="${PADDING + 10}" y="${y + TIER_H / 2 + 6}" font-family="Arial,sans-serif" font-size="16" font-weight="bold" fill="${color}">${esc(label)}</text>
+    `);
+    y += TIER_H;
+
+    for (const p of tierPlayers) {
+      globalRank++;
+      const rowBg = globalRank % 2 === 0 ? '#121830' : '#0e1426';
+      const rankColor = globalRank <= 3 ? '#f1c40f' : '#6478a0';
+      const rankStr = `#${globalRank}`;
+      const name = truncate(esc(p.name || ''), 28);
+      const tag = p.teamTag ? `  [${esc(p.teamTag)}]` : '';
+      const cc = String(p.countryCode || 'FR').toUpperCase().slice(0, 2);
+      const pts = `${Math.round(Number(p.points || 0))} pts`;
+
+      rows.push(`
+        <rect x="0" y="${y}" width="${W}" height="${ROW_H}" fill="${rowBg}"/>
+        <rect x="0" y="${y}" width="2" height="${ROW_H}" fill="${color}"/>
+        <text x="${PADDING}" y="${y + ROW_H / 2 + 6}" font-family="Arial,sans-serif" font-size="15" font-weight="bold" fill="${rankColor}">${rankStr}</text>
+        <text x="${PADDING + 56}" y="${y + ROW_H / 2 + 6}" font-family="Arial,sans-serif" font-size="15" font-weight="bold" fill="#e6ebff">${name}${tag}</text>
+        <text x="${W - PADDING - 120}" y="${y + ROW_H / 2 + 5}" font-family="Arial,sans-serif" font-size="12" fill="#647896">${cc}</text>
+        <text x="${W - PADDING}" y="${y + ROW_H / 2 + 6}" font-family="Arial,sans-serif" font-size="15" font-weight="bold" fill="${color}" text-anchor="end">${pts}</text>
+      `);
+      y += ROW_H;
+    }
+
+    y += GAP;
+  }
+
+  const svg = `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">
+  <rect width="${W}" height="${H}" fill="#0b1021"/>
+  <rect x="0" y="0" width="${W}" height="${HEADER_H}" fill="#0f1629"/>
+  <text x="${PADDING}" y="42" font-family="Arial,sans-serif" font-size="24" font-weight="bold" fill="#f1c40f">Classement Tier \u2014 LFN Esports</text>
+  <text x="${PADDING}" y="62" font-family="Arial,sans-serif" font-size="12" fill="#647896">${players.length} joueurs class\u00e9s \u2022 mis \u00e0 jour toutes les 5 min</text>
+  <text x="${W - PADDING}" y="62" font-family="Arial,sans-serif" font-size="12" fill="#647896" text-anchor="end">lfn-esports.fr</text>
+  <rect x="0" y="${HEADER_H}" width="${W}" height="2" fill="#1e2846"/>
+  ${rows.join('\n')}
+  <rect x="0" y="${H - 2}" width="${W}" height="2" fill="#1e2846"/>
+</svg>`;
+
+  return sharp(Buffer.from(svg, 'utf8')).png().toBuffer();
+}
 
 async function sendOrUpdateTierLeaderboardEmbed() {
   if (!_client || !_guild) return;
 
-  // Résolution du channel
   if (!_leaderboardChannel) {
     _leaderboardChannel = await _guild.channels.fetch(TIER_LEADERBOARD_CHANNEL_ID).catch(() => null);
   }
@@ -220,7 +145,6 @@ async function sendOrUpdateTierLeaderboardEmbed() {
     return;
   }
 
-  // Récupération des joueurs
   let players = [];
   try {
     players = await fetchTierPlayers();
@@ -234,12 +158,11 @@ async function sendOrUpdateTierLeaderboardEmbed() {
     return;
   }
 
-  // Génération de l'image
   let imageBuffer;
   try {
     imageBuffer = await generateLeaderboardImage(players);
   } catch (err) {
-    console.error('[TierLeaderboard] Échec de la génération de l\'image:', err?.message || err);
+    console.error('[TierLeaderboard] Echec generation image:', err?.message || err);
     return;
   }
 
@@ -249,80 +172,59 @@ async function sendOrUpdateTierLeaderboardEmbed() {
     dateStyle: 'short',
     timeStyle: 'short',
   });
+
   const payload = {
-    content: `**🏆 Classement Tier LFN** — mis à jour toutes les 5 min\n[Voir le classement complet](https://www.lfn-esports.fr/classement) • ${updatedAt}`,
+    content: `**\uD83C\uDFC6 Classement Tier LFN** \u2014 [Voir le site](https://www.lfn-esports.fr/classement) \u2022 ${updatedAt}`,
     files: [attachment],
   };
 
-  // Tenter d'éditer le message existant
   if (_leaderboardMessageId) {
     try {
       const existing = await _leaderboardChannel.messages.fetch(_leaderboardMessageId);
       await existing.edit(payload);
-      console.log('[TierLeaderboard] Image mise à jour.');
+      console.log('[TierLeaderboard] Image mise a jour.');
       return;
     } catch (err) {
-      console.warn('[TierLeaderboard] Impossible d\'éditer le message existant, nouveau message:', err?.message || err);
+      console.warn('[TierLeaderboard] Edition impossible, nouveau message:', err?.message || err);
       _leaderboardMessageId = null;
     }
   }
 
-  // Nettoyer les anciens messages du bot dans ce channel
   try {
     const recent = await _leaderboardChannel.messages.fetch({ limit: 20 });
     const old = recent.filter(
-      (m) =>
-        m.author.id === _client.user?.id &&
-        m.content?.includes('Classement Tier LFN')
+      (m) => m.author.id === _client.user?.id && m.content?.includes('Classement Tier LFN')
     );
     await Promise.all(old.map((m) => m.delete().catch(() => null)));
   } catch (_) {}
 
-  // Envoyer un nouveau message
   const sent = await _leaderboardChannel.send(payload).catch((err) => {
-    console.error('[TierLeaderboard] Échec de l\'envoi:', err);
+    console.error('[TierLeaderboard] Echec envoi:', err);
     return null;
   });
   if (sent) {
     _leaderboardMessageId = sent.id;
-    console.log('[TierLeaderboard] Image postée, message ID:', sent.id);
+    console.log('[TierLeaderboard] Image postee, ID:', sent.id);
   }
 }
 
-// ── initialisation ────────────────────────────────────────────
-
-/**
- * Appelle cette fonction dans onReady() de unified-bot.js
- * @param {Client} client   — le client Discord.js
- * @param {Guild}  guild    — le guild résolu
- * @param {string} siteBaseUrl — optionnel, ex: 'https://www.lfn-esports.fr'
- */
 function initTierLeaderboard(client, guild, siteBaseUrl) {
   _client = client;
   _guild = guild;
   if (siteBaseUrl) _siteBaseUrl = siteBaseUrl.replace(/\/+$/, '');
 
-  // Premier envoi immédiat
   sendOrUpdateTierLeaderboardEmbed().catch((err) =>
     console.error('[TierLeaderboard] Erreur initiale:', err)
   );
 
-  // Mise à jour périodique
   if (_intervalRef) clearInterval(_intervalRef);
   _intervalRef = setInterval(() => {
     sendOrUpdateTierLeaderboardEmbed().catch((err) =>
-      console.error('[TierLeaderboard] Erreur mise à jour:', err)
+      console.error('[TierLeaderboard] Erreur mise a jour:', err)
     );
   }, TIER_LEADERBOARD_UPDATE_INTERVAL_MS);
 
-  console.log('[TierLeaderboard] Initialisé, mise à jour toutes les', TIER_LEADERBOARD_UPDATE_INTERVAL_MS / 60000, 'min.');
+  console.log('[TierLeaderboard] Initialise, mise a jour toutes les', TIER_LEADERBOARD_UPDATE_INTERVAL_MS / 60000, 'min.');
 }
 
 module.exports = { initTierLeaderboard };
-
-// ============================================================
-//  INTÉGRATION dans unified-bot.js — aucun changement requis.
-//  Le module expose exactement la même API qu'avant :
-//    const { initTierLeaderboard } = require('./tier-leaderboard');
-//    initTierLeaderboard(readyClient, guild, SITE_BASE_URL);
-// ============================================================
