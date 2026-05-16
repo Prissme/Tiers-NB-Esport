@@ -25,6 +25,7 @@ const predictions = require('./predictions');
 const draft = require('./draft');
 const { createPerformanceStores } = require('./performance-store');
 const seasonSystem = require('./season-system');
+const { initTierLeaderboard } = require('./tier-leaderboard');
 const {
   buildSeasonStartEmbed,
   buildSeasonLeaderboardEmbed,
@@ -8134,6 +8135,7 @@ async function onReady(readyClient) {
   }, WORST_PLAYER_ROLE_SYNC_INTERVAL_MS);
 
   await restorePLState();
+  initTierLeaderboard(readyClient, guild, SITE_BASE_URL);
   await processPLQueue();
 }
 
