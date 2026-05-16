@@ -2,7 +2,7 @@
 
 // ============================================================
 //  tier-leaderboard.js
-//  Classement Tier LFN — Version finale robuste
+//  Classement Tier LFN — Version robuste
 // ============================================================
 
 const { AttachmentBuilder } = require('discord.js');
@@ -21,7 +21,6 @@ const TIER_COLORS = {
   'Tier E': '#2ecc71',
 };
 
-// Force l'URL avec www (important pour éviter les problèmes de redirect/DNS)
 let _client = null;
 let _guild = null;
 let _siteBaseUrl = 'https://www.lfn-esports.fr';
@@ -29,59 +28,45 @@ let _leaderboardChannel = null;
 let _leaderboardMessageId = null;
 let _intervalRef = null;
 
-// ── Fetch players ultra-robuste ───────────────────────────────
+// ── Fetch players ─────────────────────────────────────────────
 async function fetchTierPlayers() {
   const url = `${_siteBaseUrl}/api/site/player-standings`;
   console.log(`[TierLeaderboard] Fetch → ${url}`);
 
-  const fetchOptions = {
-    method: 'GET',
-    headers: { 
-      'User-Agent': 'LFN-Discord-Bot/1.0',
-      'Cache-Control': 'no-cache, no-store'
-    },
-    // Timeout
-    signal: AbortSignal.timeout(15000)
-  };
-
   for (let attempt = 1; attempt <= 3; attempt++) {
     try {
-      const res = await fetch(url, fetchOptions);
+      const res = await fetch(url, {
+        method: 'GET',
+        headers: { 'User-Agent': 'LFN-Discord-Bot/1.0' },
+        signal: AbortSignal.timeout(15000)
+      });
 
-      if (!res.ok) {
-        throw new Error(`HTTP ${res.status} - ${res.statusText}`);
-      }
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
       const payload = await res.json();
       const players = Array.isArray(payload?.players) 
         ? payload.players.filter(p => Number(p?.points || 0) > 0)
         : [];
 
-      console.log(`[TierLeaderboard] ✅ ${players.length} joueurs récupérés (tentative ${attempt})`);
+      console.log(`[TierLeaderboard] ✅ ${players.length} joueurs récupérés`);
       return players;
 
     } catch (err) {
       console.error(`[TierLeaderboard] Fetch error (tentative ${attempt}/3): ${err.message}`);
-      
-      if (attempt < 3) {
-        const delay = attempt * 2000;
-        console.log(`[TierLeaderboard] Attente ${delay}ms avant retry...`);
-        await new Promise(r => setTimeout(r, delay));
-      }
+      if (attempt < 3) await new Promise(r => setTimeout(r, 2000));
     }
   }
-
-  console.error('[TierLeaderboard] ❌ Échec total du fetch après 3 tentatives');
   return [];
 }
 
-// ── Helpers ───────────────────────────────────────────────────
+// ── Helpers améliorés ─────────────────────────────────────────
 function esc(str) {
   return String(str ?? '')
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
 }
 
 function trunc(str, max = 23) {
@@ -111,13 +96,8 @@ async function generateLeaderboardImage(players) {
   let col1 = [], col2 = [], rows1 = 0, rows2 = 0;
   for (const tier of activeTiers) {
     const needed = byTier[tier].length + 1;
-    if (rows1 <= rows2) {
-      col1.push(tier);
-      rows1 += needed;
-    } else {
-      col2.push(tier);
-      rows2 += needed;
-    }
+    if (rows1 <= rows2) { col1.push(tier); rows1 += needed; }
+    else { col2.push(tier); rows2 += needed; }
   }
 
   const totalHeight = HEADER_H + PADDING * 2 + Math.max(rows1, rows2) * ROW_H;
@@ -150,7 +130,7 @@ async function generateLeaderboardImage(players) {
         const rankColor = rank <= 3 ? '#f1c40f' : '#8ba3e0';
         const name = trunc(esc(p.name || ''));
         const tag = p.teamTag ? ` [${esc(p.teamTag)}]` : '';
-        const country = String(p.countryCode || 'FR').toUpperCase().slice(0, 2);
+        const country = esc(String(p.countryCode || 'FR').toUpperCase().slice(0, 2));
         const points = `${Math.round(Number(p.points || 0))} pts`;
 
         parts.push(`
@@ -195,7 +175,7 @@ async function generateLeaderboardImage(players) {
 </svg>`;
 
   return sharp(Buffer.from(svg, 'utf8'))
-    .png({ quality: 96, compressionLevel: 9 })
+    .png({ quality: 95, compressionLevel: 9 })
     .toBuffer();
 }
 
@@ -207,16 +187,10 @@ async function sendOrUpdateTierLeaderboardEmbed() {
     _leaderboardChannel = await _guild.channels.fetch(TIER_LEADERBOARD_CHANNEL_ID).catch(() => null);
   }
 
-  if (!_leaderboardChannel?.isTextBased()) {
-    console.warn('[TierLeaderboard] Channel introuvable');
-    return;
-  }
+  if (!_leaderboardChannel?.isTextBased()) return;
 
   const players = await fetchTierPlayers();
-  if (players.length === 0) {
-    console.log('[TierLeaderboard] Aucun joueur à afficher pour le moment');
-    return;
-  }
+  if (players.length === 0) return;
 
   let imageBuffer;
   try {
@@ -227,11 +201,7 @@ async function sendOrUpdateTierLeaderboardEmbed() {
   }
 
   const attachment = new AttachmentBuilder(imageBuffer, { name: 'classement-tier.png' });
-  const updatedAt = new Date().toLocaleString('fr-FR', { 
-    timeZone: 'Europe/Paris', 
-    dateStyle: 'short', 
-    timeStyle: 'short' 
-  });
+  const updatedAt = new Date().toLocaleString('fr-FR', { timeZone: 'Europe/Paris', dateStyle: 'short', timeStyle: 'short' });
 
   const payload = {
     content: `**🏆 Classement Tier LFN** — [Voir le site](https://www.lfn-esports.fr/classement) • ${updatedAt}`,
@@ -242,11 +212,9 @@ async function sendOrUpdateTierLeaderboardEmbed() {
     try {
       const msg = await _leaderboardChannel.messages.fetch(_leaderboardMessageId);
       await msg.edit(payload);
-      console.log('[TierLeaderboard] Message mis à jour avec succès');
+      console.log('[TierLeaderboard] Message mis à jour');
       return;
-    } catch (e) {
-      _leaderboardMessageId = null;
-    }
+    } catch { _leaderboardMessageId = null; }
   }
 
   try {
@@ -254,7 +222,7 @@ async function sendOrUpdateTierLeaderboardEmbed() {
     _leaderboardMessageId = sent.id;
     console.log('[TierLeaderboard] Nouveau message envoyé');
   } catch (err) {
-    console.error('[TierLeaderboard] Erreur envoi Discord:', err.message);
+    console.error('[TierLeaderboard] Erreur envoi:', err.message);
   }
 }
 
@@ -262,23 +230,20 @@ async function sendOrUpdateTierLeaderboardEmbed() {
 function initTierLeaderboard(client, guild, siteBaseUrl = null) {
   _client = client;
   _guild = guild;
-  
   if (siteBaseUrl) {
     _siteBaseUrl = siteBaseUrl.replace(/\/+$/, '');
-    // Force www si absent
-    if (!_siteBaseUrl.includes('www.')) {
+    if (!_siteBaseUrl.startsWith('https://www.')) {
       _siteBaseUrl = _siteBaseUrl.replace('https://', 'https://www.');
     }
   }
 
   console.log(`[TierLeaderboard] Initialisation avec URL: ${_siteBaseUrl}`);
-
   sendOrUpdateTierLeaderboardEmbed();
 
   if (_intervalRef) clearInterval(_intervalRef);
   _intervalRef = setInterval(sendOrUpdateTierLeaderboardEmbed, TIER_LEADERBOARD_UPDATE_INTERVAL_MS);
 
-  console.log(`[TierLeaderboard] Démarré (mise à jour toutes les ${TIER_LEADERBOARD_UPDATE_INTERVAL_MS / 60000} min)`);
+  console.log(`[TierLeaderboard] Démarré (toutes les 5 min)`);
 }
 
 module.exports = { initTierLeaderboard };
