@@ -2,7 +2,7 @@
 
 // ============================================================
 //  tier-leaderboard.js
-//  Classement Tier LFN — Version propre avec Google Fonts
+//  Classement Tier LFN — Version propre & robuste
 // ============================================================
 
 const { AttachmentBuilder } = require('discord.js');
@@ -28,20 +28,46 @@ let _leaderboardChannel = null;
 let _leaderboardMessageId = null;
 let _intervalRef = null;
 
-// ── Fetch players ─────────────────────────────────────────────
+// ── Fetch players (version robuste) ───────────────────────────
 async function fetchTierPlayers() {
-  try {
-    const url = `${_siteBaseUrl}/api/site/player-standings`;
-    const res = await fetch(url, { method: 'GET', cache: 'no-store' });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const payload = await res.json();
-    return Array.isArray(payload?.players) 
-      ? payload.players.filter(p => Number(p?.points || 0) > 0)
-      : [];
-  } catch (err) {
-    console.warn('[TierLeaderboard] Fetch error:', err.message);
-    return [];
+  const url = `${_siteBaseUrl}/api/site/player-standings`;
+  console.log(`[TierLeaderboard] Fetch → ${url}`);
+
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 12000);
+
+      const res = await fetch(url, {
+        method: 'GET',
+        cache: 'no-store',
+        signal: controller.signal,
+        headers: { 'User-Agent': 'LFN-Discord-Bot/1.0' }
+      });
+
+      clearTimeout(timeout);
+
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+      const payload = await res.json();
+      const players = Array.isArray(payload?.players) 
+        ? payload.players.filter(p => Number(p?.points || 0) > 0)
+        : [];
+
+      console.log(`[TierLeaderboard] ${players.length} joueurs récupérés (tentative ${attempt})`);
+      return players;
+
+    } catch (err) {
+      console.error(`[TierLeaderboard] Fetch error (tentative ${attempt}): ${err.message}`);
+      if (attempt === 1) {
+        console.log('[TierLeaderboard] Nouvelle tentative...');
+        await new Promise(r => setTimeout(r, 1500)); // petite pause
+      }
+    }
   }
+
+  console.warn('[TierLeaderboard] Impossible de récupérer les données après 2 tentatives');
+  return [];
 }
 
 // ── Helpers ───────────────────────────────────────────────────
@@ -58,7 +84,7 @@ function trunc(str, max = 23) {
   return str.length > max ? str.slice(0, max - 1) + '…' : str;
 }
 
-// ── Generate Image ────────────────────────────────────────────
+// ── Génération de l'image ─────────────────────────────────────
 async function generateLeaderboardImage(players) {
   const W = 1280;
   const PADDING = 28;
@@ -77,7 +103,7 @@ async function generateLeaderboardImage(players) {
 
   const activeTiers = TIER_ORDER.filter(t => byTier[t].length > 0);
 
-  // Répartition en 2 colonnes
+  // Répartition équilibrée
   let col1 = [], col2 = [], rows1 = 0, rows2 = 0;
   for (const tier of activeTiers) {
     const needed = byTier[tier].length + 1;
@@ -104,7 +130,6 @@ async function generateLeaderboardImage(players) {
       const color = TIER_COLORS[tier];
       const count = tp.length;
 
-      // Tier Header
       parts.push(`
         <rect x="${xOffset}" y="${y}" width="${COL_W}" height="${TIER_H}" fill="#14213d" rx="4"/>
         <rect x="${xOffset}" y="${y}" width="6" height="${TIER_H}" fill="${color}" rx="4"/>
@@ -115,7 +140,6 @@ async function generateLeaderboardImage(players) {
       `);
       y += TIER_H + GAP;
 
-      // Players
       for (const p of tp) {
         rank++;
         const rowBg = rank % 2 === 0 ? '#121830' : '#0e1426';
@@ -172,7 +196,7 @@ async function generateLeaderboardImage(players) {
     .toBuffer();
 }
 
-// ── Send / Update Embed ───────────────────────────────────────
+// ── Send / Update ─────────────────────────────────────────────
 async function sendOrUpdateTierLeaderboardEmbed() {
   if (!_client || !_guild) return;
 
@@ -186,7 +210,7 @@ async function sendOrUpdateTierLeaderboardEmbed() {
   }
 
   const players = await fetchTierPlayers();
-  if (!players.length) {
+  if (players.length === 0) {
     console.log('[TierLeaderboard] Aucun joueur à afficher');
     return;
   }
@@ -195,19 +219,22 @@ async function sendOrUpdateTierLeaderboardEmbed() {
   try {
     imageBuffer = await generateLeaderboardImage(players);
   } catch (err) {
-    console.error('[TierLeaderboard] Erreur génération image:', err);
+    console.error('[TierLeaderboard] Erreur génération image:', err.message);
     return;
   }
 
   const attachment = new AttachmentBuilder(imageBuffer, { name: 'classement-tier.png' });
-  const updatedAt = new Date().toLocaleString('fr-FR', { timeZone: 'Europe/Paris', dateStyle: 'short', timeStyle: 'short' });
+  const updatedAt = new Date().toLocaleString('fr-FR', { 
+    timeZone: 'Europe/Paris', 
+    dateStyle: 'short', 
+    timeStyle: 'short' 
+  });
 
   const payload = {
     content: `**🏆 Classement Tier LFN** — [Voir le site](https://www.lfn-esports.fr/classement) • ${updatedAt}`,
     files: [attachment],
   };
 
-  // Mise à jour du message existant
   if (_leaderboardMessageId) {
     try {
       const msg = await _leaderboardChannel.messages.fetch(_leaderboardMessageId);
@@ -215,38 +242,39 @@ async function sendOrUpdateTierLeaderboardEmbed() {
       console.log('[TierLeaderboard] Message mis à jour');
       return;
     } catch (e) {
+      console.warn('[TierLeaderboard] Message introuvable, création d’un nouveau...');
       _leaderboardMessageId = null;
     }
   }
 
-  // Envoi d'un nouveau message
   try {
     const sent = await _leaderboardChannel.send(payload);
     _leaderboardMessageId = sent.id;
-    console.log('[TierLeaderboard] Nouveau message envoyé');
+    console.log('[TierLeaderboard] Nouveau classement posté');
   } catch (err) {
-    console.error('[TierLeaderboard] Erreur envoi:', err);
+    console.error('[TierLeaderboard] Erreur envoi Discord:', err.message);
   }
 }
 
-// ── Init ──────────────────────────────────────────────────────
+// ── Initialisation ────────────────────────────────────────────
 function initTierLeaderboard(client, guild, siteBaseUrl = null) {
   _client = client;
   _guild = guild;
   if (siteBaseUrl) _siteBaseUrl = siteBaseUrl.replace(/\/+$/, '');
 
   console.log('[TierLeaderboard] Initialisation...');
+  console.log(`[TierLeaderboard] Site URL : ${_siteBaseUrl}`);
 
   sendOrUpdateTierLeaderboardEmbed();
 
   if (_intervalRef) clearInterval(_intervalRef);
   _intervalRef = setInterval(() => {
     sendOrUpdateTierLeaderboardEmbed().catch(err => 
-      console.error('[TierLeaderboard] Erreur interval:', err)
+      console.error('[TierLeaderboard] Erreur dans l’intervalle:', err.message)
     );
   }, TIER_LEADERBOARD_UPDATE_INTERVAL_MS);
 
-  console.log(`[TierLeaderboard] Démarré (mise à jour toutes les ${TIER_LEADERBOARD_UPDATE_INTERVAL_MS / 60000} min)`);
+  console.log(`[TierLeaderboard] Démarré (toutes les ${TIER_LEADERBOARD_UPDATE_INTERVAL_MS / 60000} min)`);
 }
 
 module.exports = { initTierLeaderboard };
