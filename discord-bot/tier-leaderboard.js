@@ -2,124 +2,173 @@
 
 // ============================================================
 //  tier-leaderboard.js
-//  2 colonnes, format paysage — Discord affiche l'image inline
+//  Génère un classement Tier LFN en image SVG (2 colonnes, format paysage)
+//  Optimisé pour Discord (affichage inline)
 // ============================================================
 
 const { AttachmentBuilder } = require('discord.js');
 const sharp = require('sharp');
 
+// --- CONFIGURATION ---
 const TIER_LEADERBOARD_CHANNEL_ID = '1505250882231468102';
-const TIER_LEADERBOARD_UPDATE_INTERVAL_MS = 5 * 60 * 1000;
+const TIER_LEADERBOARD_UPDATE_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
+const SITE_BASE_URL = 'https://www.lfn-esports.fr';
 
+// --- CONSTANTES DE DESIGN ---
 const TIER_ORDER = ['Tier S', 'Tier A', 'Tier B', 'Tier C', 'Tier D', 'Tier E'];
 const TIER_COLORS = {
-  'Tier S': '#f1c40f', 'Tier A': '#e74c3c', 'Tier B': '#e67e22',
-  'Tier C': '#9b59b6', 'Tier D': '#3498db', 'Tier E': '#2ecc71',
+  'Tier S': '#FFD700', // Or
+  'Tier A': '#FF4500', // Orange rougeâtre
+  'Tier B': '#FF8C00', // Orange
+  'Tier C': '#9932CC', // Violet
+  'Tier D': '#4169E1', // Bleu royal
+  'Tier E': '#2E8B57', // Vert
 };
 
+// --- VARIABLES GLOBALES ---
 let _client = null;
 let _guild = null;
-let _siteBaseUrl = 'https://www.lfn-esports.fr';
 let _leaderboardChannel = null;
 let _leaderboardMessageId = null;
 let _intervalRef = null;
 
-// ── fetch ────────────────────────────────────────────────────
+// ============================================================
+//  FETCH DES DONNÉES
+// ============================================================
 async function fetchTierPlayers() {
-  const url = `${_siteBaseUrl}/api/site/player-standings`;
+  const url = `${SITE_BASE_URL}/api/site/player-standings`;
   const res = await fetch(url, { method: 'GET', cache: 'no-store' });
-  if (!res.ok) throw new Error(`player-standings ${res.status}`);
+  if (!res.ok) throw new Error(`Erreur HTTP ${res.status} lors de la récupération des joueurs.`);
   const payload = await res.json();
-  const players = Array.isArray(payload?.players) ? payload.players : [];
-  return players.filter((p) => Number(p?.points || 0) > 0);
+  if (!Array.isArray(payload?.players)) throw new Error('Format de données invalide.');
+  return payload.players
+    .filter((p) => Number(p?.points || 0) > 0)
+    .sort((a, b) => Number(b.points) - Number(a.points)); // Tri par points (décroissant)
 }
 
-// ── helpers SVG ──────────────────────────────────────────────
+// ============================================================
+//  UTILITAIRES
+// ============================================================
 function esc(str) {
   return String(str ?? '')
-    .replace(/&/g, '&amp;').replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-}
-function trunc(str, max) {
-  return str.length > max ? str.slice(0, max - 1) + '\u2026' : str;
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
 }
 
-// ── génération image ─────────────────────────────────────────
+function trunc(str, maxLength) {
+  if (!str) return '';
+  return str.length > maxLength ? str.slice(0, maxLength - 1) + '…' : str;
+}
+
+// ============================================================
+//  GÉNÉRATION DE L'IMAGE SVG
+// ============================================================
 async function generateLeaderboardImage(players) {
-  const W       = 1280;
-  const PADDING = 20;
-  const HEADER_H = 70;
-  const ROW_H   = 36;
-  const TIER_H  = 30;
-  const GAP     = 4;
-  const DIVIDER = 2;
-  const COL_W   = Math.floor((W - DIVIDER) / 2);
+  // --- DIMENSIONS ---
+  const W = 1920; // Largeur totale
+  const PADDING = 30; // Marge générale
+  const HEADER_H = 100; // Hauteur du header
+  const ROW_H = 45; // Hauteur d'une ligne de joueur
+  const TIER_H = 40; // Hauteur de la barre de tier
+  const GAP = 8; // Espacement entre les éléments
+  const DIVIDER_W = 4; // Épaisseur du séparateur de colonnes
+  const COL_W = Math.floor((W - DIVIDER_W) / 2); // Largeur d'une colonne
 
-  // Grouper par tier
+  // --- GROUPER LES JOUEURS PAR TIER ---
   const byTier = {};
-  for (const t of TIER_ORDER) byTier[t] = [];
-  for (const p of players) {
-    const t = p.tier || 'Tier E';
-    if (byTier[t]) byTier[t].push(p);
-  }
-  const activeTiers = TIER_ORDER.filter((t) => byTier[t].length > 0);
-
-  // Répartir les tiers en 2 colonnes (équilibre par nombre de lignes)
-  const col1 = [], col2 = [];
-  let rows1 = 0, rows2 = 0;
-  for (const t of activeTiers) {
-    const r = byTier[t].length + 1; // +1 pour l'en-tête de tier
-    if (rows1 <= rows2) { col1.push(t); rows1 += r; }
-    else                { col2.push(t); rows2 += r; }
+  for (const tier of TIER_ORDER) byTier[tier] = [];
+  for (const player of players) {
+    const tier = player.tier || 'Tier E';
+    if (byTier[tier]) byTier[tier].push(player);
   }
 
+  // Filtrer les tiers vides
+  const activeTiers = TIER_ORDER.filter((tier) => byTier[tier].length > 0);
+  if (activeTiers.length === 0) throw new Error('Aucun joueur classé.');
+
+  // --- RÉPARTIR LES TIERS EN 2 COLONNES ---
+  const col1 = [];
+  const col2 = [];
+  let rows1 = 0;
+  let rows2 = 0;
+
+  for (const tier of activeTiers) {
+    const tierRowCount = byTier[tier].length + 1; // +1 pour l'en-tête du tier
+    if (rows1 <= rows2) {
+      col1.push(tier);
+      rows1 += tierRowCount;
+    } else {
+      col2.push(tier);
+      rows2 += tierRowCount;
+    }
+  }
+
+  // --- CALCULER LA HAUTEUR TOTALE ---
   const maxRows = Math.max(rows1, rows2);
-  const H = HEADER_H + PADDING + maxRows * ROW_H + PADDING;
+  const H = HEADER_H + PADDING + maxRows * ROW_H + (activeTiers.length * GAP) + PADDING;
 
-  // Compter le rang de départ de la colonne 2
-  const col2RankStart = col1.reduce((s, t) => s + byTier[t].length, 0);
+  // --- RANG DE DÉPART POUR LA COLONNE 2 ---
+  const col2RankStart = col1.reduce((sum, tier) => sum + byTier[tier].length, 0);
 
+  // --- FONCTION POUR RENDRE UNE COLONNE ---
   function renderColumn(tiers, xOffset, rankStart) {
     const parts = [];
     let y = HEADER_H + PADDING;
     let rank = rankStart;
 
     for (const tier of tiers) {
-      const tp = byTier[tier];
-      if (!tp.length) continue;
-      const color = TIER_COLORS[tier];
-      const cnt = tp.length;
+      const tierPlayers = byTier[tier];
+      if (tierPlayers.length === 0) continue;
 
-      // Barre de tier
+      const color = TIER_COLORS[tier];
+      const playerCount = tierPlayers.length;
+
+      // --- EN-TÊTE DU TIER ---
       parts.push(`
-        <rect x="${xOffset}" y="${y}" width="${COL_W}" height="${TIER_H}" fill="#14213d"/>
-        <rect x="${xOffset}" y="${y}" width="4" height="${TIER_H}" fill="${color}"/>
-        <text x="${xOffset + PADDING}" y="${y + TIER_H / 2 + 5}"
-          font-family="Arial,sans-serif" font-size="14" font-weight="bold" fill="${color}"
-        >${esc(tier)}  \u2014  ${cnt} joueur${cnt > 1 ? 's' : ''}</text>
+        <rect x="${xOffset}" y="${y}" width="${COL_W}" height="${TIER_H}" fill="#1A1A2E" rx="5" ry="5"/>
+        <rect x="${xOffset}" y="${y}" width="6" height="${TIER_H}" fill="${color}" rx="3" ry="3"/>
+        <text x="${xOffset + PADDING}" y="${y + TIER_H / 2 + 7}"
+          font-family="Segoe UI, Arial, sans-serif" font-size="20" font-weight="bold" fill="${color}">
+          ${esc(tier)} — ${playerCount} joueur${playerCount > 1 ? 's' : ''}
+        </text>
       `);
       y += TIER_H + GAP;
 
-      for (const p of tp) {
+      // --- LIGNES DES JOUEURS ---
+      for (const player of tierPlayers) {
         rank++;
-        const rowBg     = rank % 2 === 0 ? '#121830' : '#0e1426';
-        const rankColor = rank <= 3 ? '#f1c40f' : '#6478a0';
-        const name      = trunc(esc(p.name || ''), 22);
-        const tag       = p.teamTag ? `  [${esc(p.teamTag)}]` : '';
-        const cc        = String(p.countryCode || 'FR').toUpperCase().slice(0, 2);
-        const pts       = `${Math.round(Number(p.points || 0))} pts`;
+        const rowBg = rank % 2 === 0 ? '#16213E' : '#0F172A';
+        const rankColor = rank <= 3 ? '#FFD700' : '#C0C0C0';
+        const name = trunc(esc(player.name || 'Inconnu'), 20);
+        const tag = player.teamTag ? ` [${esc(player.teamTag)}]` : '';
+        const countryCode = String(player.countryCode || 'FR').toUpperCase().slice(0, 2);
+        const points = `${Math.round(Number(player.points || 0))} pts`;
 
         parts.push(`
-          <rect x="${xOffset}" y="${y}" width="${COL_W}" height="${ROW_H}" fill="${rowBg}"/>
-          <rect x="${xOffset}" y="${y}" width="2" height="${ROW_H}" fill="${color}"/>
-          <text x="${xOffset + PADDING}" y="${y + ROW_H / 2 + 5}"
-            font-family="Arial,sans-serif" font-size="13" font-weight="bold" fill="${rankColor}">#${rank}</text>
-          <text x="${xOffset + PADDING + 44}" y="${y + ROW_H / 2 + 5}"
-            font-family="Arial,sans-serif" font-size="13" font-weight="bold" fill="#e6ebff">${name}${tag}</text>
-          <text x="${xOffset + COL_W - PADDING - 58}" y="${y + ROW_H / 2 + 4}"
-            font-family="Arial,sans-serif" font-size="11" fill="#647896">${cc}</text>
-          <text x="${xOffset + COL_W - PADDING}" y="${y + ROW_H / 2 + 5}"
-            font-family="Arial,sans-serif" font-size="13" font-weight="bold" fill="${color}" text-anchor="end">${pts}</text>
+          <rect x="${xOffset}" y="${y}" width="${COL_W}" height="${ROW_H}" fill="${rowBg}" rx="3" ry="3"/>
+          <rect x="${xOffset}" y="${y}" width="3" height="${ROW_H}" fill="${color}"/>
+
+          <text x="${xOffset + PADDING}" y="${y + ROW_H / 2 + 7}"
+            font-family="Segoe UI, Arial, sans-serif" font-size="18" font-weight="bold" fill="${rankColor}">
+            #${rank}
+          </text>
+
+          <text x="${xOffset + PADDING + 50}" y="${y + ROW_H / 2 + 7}"
+            font-family="Segoe UI, Arial, sans-serif" font-size="18" fill="#FFFFFF">
+            ${name}${tag}
+          </text>
+
+          <text x="${xOffset + COL_W - PADDING - 100}" y="${y + ROW_H / 2 + 7}"
+            font-family="Segoe UI, Arial, sans-serif" font-size="16" fill="#A0A0A0">
+            ${countryCode}
+          </text>
+
+          <text x="${xOffset + COL_W - PADDING}" y="${y + ROW_H / 2 + 7}"
+            font-family="Segoe UI, Arial, sans-serif" font-size="18" font-weight="bold" fill="${color}" text-anchor="end">
+            ${points}
+          </text>
         `);
         y += ROW_H;
       }
@@ -128,120 +177,164 @@ async function generateLeaderboardImage(players) {
     return parts.join('');
   }
 
+  // --- GÉNÉRER LE SVG ---
+  const updatedAt = new Date().toLocaleString('fr-FR', {
+    timeZone: 'Europe/Paris',
+    dateStyle: 'short',
+    timeStyle: 'short',
+  });
+
   const svg = `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">
-  <rect width="${W}" height="${H}" fill="#0b1021"/>
+  <!-- Fond -->
+  <rect width="${W}" height="${H}" fill="#0A0A14" rx="10" ry="10"/>
 
   <!-- Header -->
-  <rect x="0" y="0" width="${W}" height="${HEADER_H}" fill="#0f1629"/>
-  <text x="${PADDING}" y="38" font-family="Arial,sans-serif" font-size="22" font-weight="bold" fill="#f1c40f">Classement Tier \u2014 LFN Esports</text>
-  <text x="${PADDING}" y="58" font-family="Arial,sans-serif" font-size="12" fill="#647896">${players.length} joueurs class\u00e9s \u2022 mis \u00e0 jour toutes les 5 min</text>
-  <text x="${W - PADDING}" y="58" font-family="Arial,sans-serif" font-size="12" fill="#647896" text-anchor="end">lfn-esports.fr</text>
-  <rect x="0" y="${HEADER_H}" width="${W}" height="2" fill="#1e2846"/>
+  <rect x="0" y="0" width="${W}" height="${HEADER_H}" fill="#1A1A2E" rx="10" ry="10"/>
+  <text x="${PADDING}" y="40"
+    font-family="Segoe UI, Arial, sans-serif" font-size="32" font-weight="bold" fill="#FFD700">
+    Classement Tier — LFN Esports
+  </text>
+  <text x="${PADDING}" y="70"
+    font-family="Segoe UI, Arial, sans-serif" font-size="16" fill="#C0C0C0">
+    ${players.length} joueurs classés • Mis à jour toutes les 5 min • ${updatedAt}
+  </text>
+  <text x="${W - PADDING}" y="70"
+    font-family="Segoe UI, Arial, sans-serif" font-size="16" fill="#C0C0C0" text-anchor="end">
+    lfn-esports.fr
+  </text>
+  <rect x="0" y="${HEADER_H}" width="${W}" height="2" fill="#2A2A3E"/>
 
   <!-- Séparateur de colonnes -->
-  <rect x="${COL_W}" y="${HEADER_H}" width="${DIVIDER}" height="${H - HEADER_H}" fill="#1e2846"/>
+  <rect x="${COL_W}" y="${HEADER_H}" width="${DIVIDER_W}" height="${H - HEADER_H}" fill="#2A2A3E"/>
 
   <!-- Colonnes -->
   ${renderColumn(col1, 0, 0)}
-  ${renderColumn(col2, COL_W + DIVIDER, col2RankStart)}
+  ${renderColumn(col2, COL_W + DIVIDER_W, col2RankStart)}
 
   <!-- Pied de page -->
-  <rect x="0" y="${H - 2}" width="${W}" height="2" fill="#1e2846"/>
+  <rect x="0" y="${H - 2}" width="${W}" height="2" fill="#2A2A3E"/>
 </svg>`;
 
-  return sharp(Buffer.from(svg, 'utf8')).png().toBuffer();
+  // Convertir en PNG avec Sharp
+  return sharp(Buffer.from(svg, 'utf8'))
+    .png({ quality: 100, density: 300 })
+    .toBuffer();
 }
 
-// ── envoi Discord ─────────────────────────────────────────────
+// ============================================================
+//  ENVOI/MISE À JOUR SUR DISCORD
+// ============================================================
 async function sendOrUpdateTierLeaderboardEmbed() {
-  if (!_client || !_guild) return;
+  if (!_client || !_guild) {
+    console.warn('[TierLeaderboard] Client ou guild non initialisé.');
+    return;
+  }
 
+  // Récupérer le canal
   if (!_leaderboardChannel) {
     _leaderboardChannel = await _guild.channels.fetch(TIER_LEADERBOARD_CHANNEL_ID).catch(() => null);
-  }
-  if (!_leaderboardChannel?.isTextBased()) {
-    console.warn('[TierLeaderboard] Channel introuvable:', TIER_LEADERBOARD_CHANNEL_ID);
-    return;
+    if (!_leaderboardChannel?.isTextBased()) {
+      console.warn('[TierLeaderboard] Canal introuvable:', TIER_LEADERBOARD_CHANNEL_ID);
+      return;
+    }
   }
 
-  let players = [];
+  // Récupérer les joueurs
+  let players;
   try {
     players = await fetchTierPlayers();
+    if (players.length === 0) {
+      console.warn('[TierLeaderboard] Aucun joueur classé.');
+      return;
+    }
   } catch (err) {
-    console.warn('[TierLeaderboard] Impossible de charger les joueurs:', err?.message || err);
-    return;
-  }
-  if (!players.length) {
-    console.warn('[TierLeaderboard] Aucun joueur, image non mise a jour.');
+    console.error('[TierLeaderboard] Erreur lors de la récupération des joueurs:', err.message);
     return;
   }
 
+  // Générer l'image
   let imageBuffer;
   try {
     imageBuffer = await generateLeaderboardImage(players);
   } catch (err) {
-    console.error('[TierLeaderboard] Echec generation image:', err?.message || err);
+    console.error('[TierLeaderboard] Erreur lors de la génération de l\'image:', err.message);
     return;
   }
 
-  const attachment = new AttachmentBuilder(imageBuffer, { name: 'classement-tier.png' });
-  const updatedAt  = new Date().toLocaleString('fr-FR', {
-    timeZone: 'Europe/Paris', dateStyle: 'short', timeStyle: 'short',
+  // Préparer le message
+  const attachment = new AttachmentBuilder(imageBuffer, { name: 'classement-tier-lfn.png' });
+  const updatedAt = new Date().toLocaleString('fr-FR', {
+    timeZone: 'Europe/Paris',
+    dateStyle: 'short',
+    timeStyle: 'short',
   });
   const payload = {
-    content: `**\uD83C\uDFC6 Classement Tier LFN** \u2014 [Voir le site](https://www.lfn-esports.fr/classement) \u2022 ${updatedAt}`,
+    content: `**🏆 Classement Tier LFN** — [Voir le site](${SITE_BASE_URL}/classement) • ${updatedAt}`,
     files: [attachment],
   };
 
+  // Mettre à jour ou envoyer un nouveau message
   if (_leaderboardMessageId) {
     try {
-      const existing = await _leaderboardChannel.messages.fetch(_leaderboardMessageId);
-      await existing.edit(payload);
-      console.log('[TierLeaderboard] Image mise a jour.');
+      const existingMessage = await _leaderboardChannel.messages.fetch(_leaderboardMessageId);
+      await existingMessage.edit(payload);
+      console.log('[TierLeaderboard] Image mise à jour.');
       return;
     } catch (err) {
-      console.warn('[TierLeaderboard] Edition impossible:', err?.message || err);
+      console.warn('[TierLeaderboard] Impossible de modifier le message existant:', err.message);
       _leaderboardMessageId = null;
     }
   }
 
+  // Supprimer les anciens messages du bot (nettoyage)
   try {
-    const recent = await _leaderboardChannel.messages.fetch({ limit: 20 });
-    const old = recent.filter(
+    const recentMessages = await _leaderboardChannel.messages.fetch({ limit: 20 });
+    const oldMessages = recentMessages.filter(
       (m) => m.author.id === _client.user?.id && m.content?.includes('Classement Tier LFN')
     );
-    await Promise.all(old.map((m) => m.delete().catch(() => null)));
-  } catch (_) {}
+    await Promise.all(oldMessages.map((m) => m.delete().catch(() => null)));
+  } catch (err) {
+    console.warn('[TierLeaderboard] Erreur lors du nettoyage des anciens messages:', err.message);
+  }
 
-  const sent = await _leaderboardChannel.send(payload).catch((err) => {
-    console.error('[TierLeaderboard] Echec envoi:', err);
+  // Envoyer le nouveau message
+  const sentMessage = await _leaderboardChannel.send(payload).catch((err) => {
+    console.error('[TierLeaderboard] Erreur lors de l\'envoi du message:', err.message);
     return null;
   });
-  if (sent) {
-    _leaderboardMessageId = sent.id;
-    console.log('[TierLeaderboard] Image postee, ID:', sent.id);
+
+  if (sentMessage) {
+    _leaderboardMessageId = sentMessage.id;
+    console.log('[TierLeaderboard] Nouveau message envoyé. ID:', sentMessage.id);
   }
 }
 
-// ── init ──────────────────────────────────────────────────────
-function initTierLeaderboard(client, guild, siteBaseUrl) {
+// ============================================================
+//  INITIALISATION
+// ============================================================
+function initTierLeaderboard(client, guild, siteBaseUrl = SITE_BASE_URL) {
   _client = client;
-  _guild  = guild;
-  if (siteBaseUrl) _siteBaseUrl = siteBaseUrl.replace(/\/+$/, '');
+  _guild = guild;
+  if (siteBaseUrl) {
+    _siteBaseUrl = siteBaseUrl.replace(/\/+$/, '');
+  }
 
-  sendOrUpdateTierLeaderboardEmbed().catch((err) =>
-    console.error('[TierLeaderboard] Erreur initiale:', err)
-  );
+  // Lancer la première mise à jour
+  sendOrUpdateTierLeaderboardEmbed().catch((err) => {
+    console.error('[TierLeaderboard] Erreur initiale:', err.message);
+  });
 
+  // Planifier les mises à jour automatiques
   if (_intervalRef) clearInterval(_intervalRef);
   _intervalRef = setInterval(() => {
-    sendOrUpdateTierLeaderboardEmbed().catch((err) =>
-      console.error('[TierLeaderboard] Erreur mise a jour:', err)
-    );
+    sendOrUpdateTierLeaderboardEmbed().catch((err) => {
+      console.error('[TierLeaderboard] Erreur lors de la mise à jour:', err.message);
+    });
   }, TIER_LEADERBOARD_UPDATE_INTERVAL_MS);
 
-  console.log('[TierLeaderboard] Initialise, toutes les', TIER_LEADERBOARD_UPDATE_INTERVAL_MS / 60000, 'min.');
+  console.log(`[TierLeaderboard] Initialisé. Mise à jour toutes les ${TIER_LEADERBOARD_UPDATE_INTERVAL_MS / 60000} minutes.`);
 }
 
+// Exporter la fonction d'initialisation
 module.exports = { initTierLeaderboard };
