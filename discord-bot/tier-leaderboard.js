@@ -335,7 +335,16 @@ async function fetchTierPlayersFallback(activeSeasonId) {
 
 // ── Construction de l'embed ────────────────────────────────
 
-function buildTierLeaderboardEmbed(players, rankOffset = 0) {
+/**
+ * Construit un embed pour un chunk de joueurs donné.
+ *
+ * @param {Array}   players      - Liste de joueurs pour cet embed (sous-ensemble)
+ * @param {number}  rankOffset   - Décalage de rang global (nombre de joueurs déjà affichés avant ce chunk)
+ * @param {boolean} isFirst      - true si c'est le tout premier embed
+ * @param {number}  totalPlayers - Nombre total de joueurs classés (tous embeds confondus)
+ */
+function buildTierLeaderboardEmbed(players, rankOffset = 0, isFirst = false, totalPlayers = 0) {
+  // Regrouper les joueurs de ce chunk par tier
   const byTier = new Map();
   for (const tier of TIER_ORDER) byTier.set(tier, []);
 
@@ -345,18 +354,37 @@ function buildTierLeaderboardEmbed(players, rankOffset = 0) {
     byTier.get(tier).push(player);
   }
 
-  const topTier = players[0]?.tier || 'Tier S';
+  // Couleur basée sur le tier le plus haut présent dans ce chunk
+  const topTier = TIER_ORDER.find((t) => (byTier.get(t) || []).length > 0) || 'Tier E';
   const embedColor = TIER_COLOR_MAP[topTier] || 0xf1c40f;
 
+  // Titre : premier embed → header principal ; suivants → tiers présents dans ce chunk
+  let embedTitle;
+  if (isFirst) {
+    embedTitle = '🏆 Classement Tiers — Prissme TV';
+  } else {
+    const tiersInChunk = TIER_ORDER.filter((t) => (byTier.get(t) || []).length > 0);
+    embedTitle = tiersInChunk
+      .map((t) => {
+        const emoji = TIER_EMOJIS[t] || '';
+        return `${emoji} ${t}`;
+      })
+      .join(' • ');
+  }
+
   const embed = new EmbedBuilder()
-    .setTitle('🏆 Classement Tier — LFN Esports')
-    .setDescription(
-      `**${players.length} joueurs classés** — mis à jour toutes les 5 minutes\n` +
-      `[Voir le classement complet](https://www.lfn-esports.fr/classement)`
-    )
+    .setTitle(embedTitle)
     .setColor(embedColor)
     .setTimestamp(new Date())
     .setFooter({ text: 'LFN Esports • lfn-esports.fr' });
+
+  // Description uniquement sur le premier embed
+  if (isFirst) {
+    embed.setDescription(
+      `**${totalPlayers} joueurs classés** — mis à jour toutes les 5 minutes\n` +
+      `[Voir le classement complet](https://www.lfn-esports.fr/classement)`
+    );
+  }
 
   let globalRank = rankOffset;
 
@@ -406,6 +434,54 @@ function buildTierLeaderboardEmbed(players, rankOffset = 0) {
   return embed;
 }
 
+// ── Découpage des joueurs en chunks par tier ───────────────
+
+/**
+ * Découpe la liste complète de joueurs en chunks de PLAYERS_PER_EMBED,
+ * en évitant de couper un tier en deux embeds quand c'est possible.
+ *
+ * Retourne un tableau de tableaux de joueurs.
+ */
+function splitPlayersIntoChunks(players, chunkSize) {
+  if (!players.length) return [];
+
+  const chunks = [];
+  let i = 0;
+
+  while (i < players.length) {
+    const end = Math.min(i + chunkSize, players.length);
+    const chunk = players.slice(i, end);
+
+    // Si on n'est pas à la fin, essayer de ne pas couper un tier au milieu
+    if (end < players.length) {
+      const lastTierInChunk = chunk[chunk.length - 1].tier;
+      const nextPlayerTier = players[end].tier;
+
+      // Si le dernier joueur du chunk et le premier du suivant sont du même tier,
+      // reculer jusqu'au début de ce tier pour ne pas le couper
+      if (lastTierInChunk === nextPlayerTier) {
+        let cutPoint = chunk.length - 1;
+        while (cutPoint > 0 && chunk[cutPoint - 1].tier === lastTierInChunk) {
+          cutPoint--;
+        }
+
+        // Ne reculer que si ça laisse au moins un joueur dans le chunk
+        if (cutPoint > 0) {
+          chunks.push(players.slice(i, i + cutPoint));
+          i += cutPoint;
+          continue;
+        }
+        // Sinon on coupe quand même (tier trop grand pour tenir dans un chunk)
+      }
+    }
+
+    chunks.push(chunk);
+    i = end;
+  }
+
+  return chunks;
+}
+
 // ── Envoi / mise à jour du message ─────────────────────────
 
 async function sendOrUpdateTierLeaderboardEmbed() {
@@ -435,17 +511,28 @@ async function sendOrUpdateTierLeaderboardEmbed() {
 
   // Découper en chunks de 20 joueurs max par embed
   const PLAYERS_PER_EMBED = 20;
-  const embeds = [];
-  for (let i = 0; i < players.length; i += PLAYERS_PER_EMBED) {
-    const chunk = players.slice(i, i + PLAYERS_PER_EMBED);
-    embeds.push(buildTierLeaderboardEmbed(chunk, i));
-  }
+  const playerChunks = splitPlayersIntoChunks(players, PLAYERS_PER_EMBED);
+  const totalPlayers = players.length;
+
+  const embeds = playerChunks.map((chunk, index) => {
+    const rankOffset = playerChunks.slice(0, index).reduce((sum, c) => sum + c.length, 0);
+    const isFirst = index === 0;
+    return buildTierLeaderboardEmbed(chunk, rankOffset, isFirst, totalPlayers);
+  });
 
   // Nettoyage anciens messages du bot
   try {
     const recent = await _leaderboardChannel.messages.fetch({ limit: 20 });
     const old = recent.filter(
-      (m) => m.author.id === _client.user?.id && m.embeds?.[0]?.title?.includes('Classement Tier')
+      (m) =>
+        m.author.id === _client.user?.id &&
+        m.embeds?.length > 0 &&
+        (
+          m.embeds[0]?.title?.includes('Classement Tiers') ||
+          m.embeds[0]?.title?.includes('Classement Tier') ||
+          // Embeds suivants : titre = tiers (ex: "Tier A • Tier B")
+          TIER_ORDER.some((t) => m.embeds[0]?.title?.includes(t))
+        )
     );
     await Promise.all(old.map((m) => m.delete().catch(() => null)));
   } catch (_) {}
@@ -458,7 +545,7 @@ async function sendOrUpdateTierLeaderboardEmbed() {
   }
 
   _leaderboardMessageId = null;
-  console.log(`[TierLeaderboard] ${embeds.length} embed(s) postés pour ${players.length} joueurs.`);
+  console.log(`[TierLeaderboard] ${embeds.length} embed(s) postés pour ${totalPlayers} joueurs.`);
 }
 
 // ── Initialisation ──────────────────────────────────────────
