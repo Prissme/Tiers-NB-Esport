@@ -335,7 +335,7 @@ async function fetchTierPlayersFallback(activeSeasonId) {
 
 // ── Construction de l'embed ────────────────────────────────
 
-function buildTierLeaderboardEmbed(players) {
+function buildTierLeaderboardEmbed(players, rankOffset = 0) {
   const byTier = new Map();
   for (const tier of TIER_ORDER) byTier.set(tier, []);
 
@@ -358,7 +358,7 @@ function buildTierLeaderboardEmbed(players) {
     .setTimestamp(new Date())
     .setFooter({ text: 'LFN Esports • lfn-esports.fr' });
 
-  let globalRank = 0;
+  let globalRank = rankOffset;
 
   for (const tier of TIER_ORDER) {
     const tierPlayers = byTier.get(tier) || [];
@@ -433,18 +433,12 @@ async function sendOrUpdateTierLeaderboardEmbed() {
     return;
   }
 
-  const embed = buildTierLeaderboardEmbed(players);
-
-  if (_leaderboardMessageId) {
-    try {
-      const existing = await _leaderboardChannel.messages.fetch(_leaderboardMessageId);
-      await existing.edit({ embeds: [embed] });
-      console.log('[TierLeaderboard] Embed mis à jour avec succès.');
-      return;
-    } catch {
-      console.warn('[TierLeaderboard] Message existant introuvable, création d\'un nouveau.');
-      _leaderboardMessageId = null;
-    }
+  // Découper en chunks de 20 joueurs max par embed
+  const PLAYERS_PER_EMBED = 20;
+  const embeds = [];
+  for (let i = 0; i < players.length; i += PLAYERS_PER_EMBED) {
+    const chunk = players.slice(i, i + PLAYERS_PER_EMBED);
+    embeds.push(buildTierLeaderboardEmbed(chunk, i));
   }
 
   // Nettoyage anciens messages du bot
@@ -456,15 +450,15 @@ async function sendOrUpdateTierLeaderboardEmbed() {
     await Promise.all(old.map((m) => m.delete().catch(() => null)));
   } catch (_) {}
 
-  const sent = await _leaderboardChannel.send({ embeds: [embed] }).catch((err) => {
-    console.error('[TierLeaderboard] Échec envoi:', err);
-    return null;
-  });
-
-  if (sent) {
-    _leaderboardMessageId = sent.id;
-    console.log('[TierLeaderboard] Nouveau message posté - ID:', sent.id);
+  // Envoyer un message par embed
+  for (const embed of embeds) {
+    await _leaderboardChannel.send({ embeds: [embed] }).catch((err) => {
+      console.error('[TierLeaderboard] Échec envoi:', err.message);
+    });
   }
+
+  _leaderboardMessageId = null;
+  console.log(`[TierLeaderboard] ${embeds.length} embed(s) postés pour ${players.length} joueurs.`);
 }
 
 // ── Initialisation ──────────────────────────────────────────
