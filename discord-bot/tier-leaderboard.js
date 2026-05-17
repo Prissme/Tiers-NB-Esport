@@ -13,13 +13,14 @@ const TIER_LEADERBOARD_UPDATE_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
 
 const TIER_ORDER = ['Tier S', 'Tier A', 'Tier B', 'Tier C', 'Tier D', 'Tier E'];
 
-const TIER_EMOJI_UNICODE = {
-  'Tier S': '💎',
-  'Tier A': '🥇',
-  'Tier B': '🥈',
-  'Tier C': '🥉',
-  'Tier D': '🛡️',
-  'Tier E': '⚔️',
+// Emojis custom Discord (depuis unified-bot.js)
+const TIER_EMOJIS = {
+  'Tier S': '<:TierS:1482724565657321594>',
+  'Tier A': '<:TierA:1482724563874877592>',
+  'Tier B': '<:TierB:1482724560993259651>',
+  'Tier C': '<:TierC:1482724558015299706>',
+  'Tier D': '<:TierD:1482724568387817484>',
+  'Tier E': '<:TierE:1482723920309260439>',
 };
 
 const TIER_COLOR_MAP = {
@@ -42,9 +43,15 @@ let _intervalRef = null;
 // ── Helpers ────────────────────────────────────────────────
 
 function toCountryFlag(countryCode) {
-  const normalized = String(countryCode || 'FR').trim().toUpperCase();
+  const normalized = String(countryCode || '').trim().toUpperCase();
   if (!/^[A-Z]{2}$/.test(normalized)) return '🏳️';
-  return String.fromCodePoint(...Array.from(normalized).map((c) => 127397 + c.charCodeAt(0)));
+  try {
+    return String.fromCodePoint(
+      ...Array.from(normalized).map((c) => 0x1F1E6 - 65 + c.charCodeAt(0))
+    );
+  } catch {
+    return '🏳️';
+  }
 }
 
 // ── Fetch direct Supabase ──────────────────────────────────
@@ -64,10 +71,11 @@ async function fetchTierPlayers() {
     .maybeSingle();
 
   if (seasonError) {
-    throw new Error(`[TierLeaderboard] Erreur saison: ${seasonError.message}`);
+    console.warn('[TierLeaderboard] Erreur saison:', seasonError.message);
   }
 
   const activeSeasonId = seasonData?.id || null;
+  console.log('[TierLeaderboard] Saison active:', activeSeasonId || 'aucune');
 
   // 2. Récupérer les points de tier
   let pointsQuery = _supabase
@@ -85,15 +93,16 @@ async function fetchTierPlayers() {
     throw new Error(`[TierLeaderboard] Erreur points: ${pointsError.message}`);
   }
 
-  const filtered = (pointsRows || []).filter((row) => Number(row.points || 0) > 0);
-  if (!filtered.length) {
-    console.log('[TierLeaderboard] Aucun joueur avec des points.');
-    return [];
-  }
+  const allRows = pointsRows || [];
+  const filtered = allRows.filter((row) => Number(row.points || 0) > 0);
 
-  const playerIds = filtered.map((r) => r.player_id);
+  console.log(`[TierLeaderboard] ${allRows.length} lignes points, ${filtered.length} avec points > 0`);
 
-  // 3. Fetch players + profiles en parallèle
+  if (!filtered.length) return [];
+
+  const playerIds = [...new Set(filtered.map((r) => String(r.player_id)))];
+
+  // 3. Fetch players + profiles + teams en parallèle
   const [playersResult, profilesResult, teamsResult] = await Promise.all([
     _supabase
       .from('players')
@@ -109,15 +118,28 @@ async function fetchTierPlayers() {
       .eq('is_active', true),
   ]);
 
+  if (playersResult.error) {
+    console.warn('[TierLeaderboard] Erreur players:', playersResult.error.message);
+  }
+  if (profilesResult.error) {
+    console.warn('[TierLeaderboard] Erreur profiles:', profilesResult.error.message);
+  }
+  if (teamsResult.error) {
+    console.warn('[TierLeaderboard] Erreur teams:', teamsResult.error.message);
+  }
+
   const players = playersResult.data || [];
   const profiles = profilesResult.data || [];
   const teams = teamsResult.data || [];
 
-  const playerMap = new Map(players.map((p) => [p.id, p]));
-  const profileMap = new Map(profiles.map((p) => [p.player_id, p]));
-  const teamMap = new Map(teams.map((t) => [t.id, t]));
+  console.log(`[TierLeaderboard] ${players.length} players, ${profiles.length} profiles, ${teams.length} teams`);
 
-  // 4. Calcul de la pénalité d'inactivité (miroir de l'API site)
+  // Maps avec String() sur toutes les clés pour éviter les problèmes de type UUID
+  const playerMap = new Map(players.map((p) => [String(p.id), p]));
+  const profileMap = new Map(profiles.map((p) => [String(p.player_id), p]));
+  const teamMap = new Map(teams.map((t) => [String(t.id), t]));
+
+  // 4. Calcul de la pénalité d'inactivité (identique à l'API site)
   const INACTIVITY_RULES = [
     { days: 60, penalty: 10 },
     { days: 30, penalty: 5 },
@@ -136,12 +158,24 @@ async function fetchTierPlayers() {
   // 5. Assembler les joueurs
   const result = filtered
     .map((row) => {
-      const player = playerMap.get(row.player_id);
-      // Ignorer les joueurs inactifs
-      if (!player || player.active === false) return null;
+      const pid = String(row.player_id);
+      const player = playerMap.get(pid);
 
-      const profile = profileMap.get(row.player_id) || {};
-      const team = teamMap.get(profile.team_id) || null;
+      if (!player) {
+        console.warn(`[TierLeaderboard] Player introuvable pour player_id=${pid}`);
+        return null;
+      }
+
+      // Exclure les joueurs inactifs
+      if (player.active === false) return null;
+
+      const profile = profileMap.get(pid);
+
+      // Validation stricte du country_code
+      const rawCountry = String(profile?.country_code || '').trim().toUpperCase();
+      const countryCode = /^[A-Z]{2}$/.test(rawCountry) ? rawCountry : 'FR';
+
+      const team = profile?.team_id ? teamMap.get(String(profile.team_id)) : null;
 
       const basePoints = Number(row.points || 0);
       const lastUpdate = row.updated_at || row.created_at || null;
@@ -151,39 +185,37 @@ async function fetchTierPlayers() {
       if (adjustedPoints <= 0) return null;
 
       return {
-        id: row.player_id,
+        id: pid,
         name: player.name || 'Joueur',
         discordId: player.discord_id || null,
         tier: row.tier || 'Tier E',
         points: adjustedPoints,
-        countryCode: (profile.country_code || 'FR').toUpperCase(),
+        countryCode,
         teamTag: team?.tag || null,
-        teamName: team?.name || null,
       };
     })
     .filter(Boolean);
 
-  // Trier par points décroissants, puis par tier
+  // Tri : points décroissants, puis tier, puis nom
   const tierRank = {
     'Tier S': 6, 'Tier A': 5, 'Tier B': 4,
     'Tier C': 3, 'Tier D': 2, 'Tier E': 1,
   };
 
-  result.sort((a, b) =>
-    b.points - a.points ||
-    (tierRank[b.tier] ?? 0) - (tierRank[a.tier] ?? 0) ||
-    a.name.localeCompare(b.name, 'fr')
+  result.sort(
+    (a, b) =>
+      b.points - a.points ||
+      (tierRank[b.tier] ?? 0) - (tierRank[a.tier] ?? 0) ||
+      a.name.localeCompare(b.name, 'fr')
   );
 
-  console.log(`[TierLeaderboard] ${result.length} joueurs chargés depuis Supabase.`);
+  console.log(`[TierLeaderboard] ${result.length} joueurs prêts à afficher.`);
   return result;
 }
 
 // ── Construction de l'embed ────────────────────────────────
 
 function buildTierLeaderboardEmbed(players) {
-  const TROPHY = '🏆';
-
   const byTier = new Map();
   for (const tier of TIER_ORDER) byTier.set(tier, []);
 
@@ -197,7 +229,7 @@ function buildTierLeaderboardEmbed(players) {
   const embedColor = TIER_COLOR_MAP[topTier] || 0xf1c40f;
 
   const embed = new EmbedBuilder()
-    .setTitle(`${TROPHY} Classement Tier — LFN Esports`)
+    .setTitle('🏆 Classement Tier — LFN Esports')
     .setDescription(
       `**${players.length} joueurs classés** — mis à jour toutes les 5 minutes\n` +
       `[Voir le classement complet](https://www.lfn-esports.fr/classement)`
@@ -212,23 +244,24 @@ function buildTierLeaderboardEmbed(players) {
     const tierPlayers = byTier.get(tier) || [];
     if (!tierPlayers.length) continue;
 
-    const tierEmoji = TIER_EMOJI_UNICODE[tier] || '🏷️';
+    const tierEmoji = TIER_EMOJIS[tier] || '🏷️';
     const fieldTitle = `${tierEmoji} ${tier} — ${tierPlayers.length} joueur${tierPlayers.length > 1 ? 's' : ''}`;
 
     const lines = tierPlayers.map((player) => {
       globalRank += 1;
       const flag = toCountryFlag(player.countryCode);
-      const pts = Math.round(Number(player.points || 0));
+      const pts = Math.round(player.points);
       const teamTag = player.teamTag ? ` \`[${player.teamTag}]\`` : '';
       const medal =
         globalRank === 1 ? ' 🏆' :
         globalRank === 2 ? ' 🥈' :
         globalRank === 3 ? ' 🥉' : '';
 
-      return `**#${globalRank}**${medal} ${flag} **${player.name}**${teamTag} • **${pts} pts**`;
+      // Emoji tier + drapeau pays + nom + team + points
+      return `**#${globalRank}**${medal} ${tierEmoji} ${flag} **${player.name}**${teamTag} • **${pts} pts**`;
     });
 
-    // Split si trop long pour un seul field (limite 1024 chars)
+    // Split si le field dépasse 1000 chars
     const chunks = [];
     let current = '';
     for (const line of lines) {
@@ -291,7 +324,7 @@ async function sendOrUpdateTierLeaderboardEmbed() {
       await existing.edit({ embeds: [embed] });
       console.log('[TierLeaderboard] Embed mis à jour avec succès.');
       return;
-    } catch (err) {
+    } catch {
       console.warn('[TierLeaderboard] Message existant introuvable, création d\'un nouveau.');
       _leaderboardMessageId = null;
     }
@@ -328,8 +361,6 @@ function initTierLeaderboard(client, guild, supabase, siteBaseUrl = null) {
   _supabase = supabase;
 
   // siteBaseUrl gardé pour compatibilité de signature mais non utilisé
-  // (le fetch se fait directement via Supabase)
-
   console.log('[TierLeaderboard] Initialisation (mode Supabase direct)...');
 
   // Premier envoi
