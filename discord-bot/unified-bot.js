@@ -8147,7 +8147,7 @@ async function onReady(readyClient) {
   }, WORST_PLAYER_ROLE_SYNC_INTERVAL_MS);
 
   await restorePLState();
-  initTierLeaderboard(readyClient, guild, SITE_BASE_URL);
+  initTierLeaderboard(readyClient, guild, supabase, SITE_BASE_URL);
   await processPLQueue();
 }
 
