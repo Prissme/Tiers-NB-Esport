@@ -691,27 +691,37 @@ async function clearRuntimePlQueue(guildId) {
 }
 
 async function requeueRuntimePlPlayers(guildId, userIds = []) {
-  const queue = getPLQueue(guildId);
-  const toInsert = userIds.filter((id) => !queue.includes(id));
+  if (!guildId || !userIds?.length) {
+    return getPLQueue(guildId);
+  }
 
-  if (!toInsert.length) {
+  const queue = getPLQueue(guildId);
+  const toRequeue = userIds.filter((id) => !queue.includes(id));
+
+  if (!toRequeue.length) {
     return queue;
   }
 
-  const rows = toInsert.map((id) => ({
+  const rows = toRequeue.map((id) => ({
     guild_id: guildId,
     user_id: id,
     joined_at: new Date().toISOString()
   }));
 
-  const { error } = await supabase.from('runtime_pl_queue').insert(rows);
+  // FIX : On utilise UPSERT au lieu de INSERT pour éviter les doublons
+  const { error } = await supabase
+    .from('runtime_pl_queue')
+    .upsert(rows, {
+      onConflict: 'guild_id,user_id',
+      ignoreDuplicates: false
+    });
 
   if (error) {
     errorLog('Unable to requeue runtime PL players:', error.message);
     return queue;
   }
 
-  const updated = [...queue, ...toInsert];
+  const updated = [...queue, ...toRequeue];
   plQueueCache.set(guildId, updated);
   return updated;
 }
