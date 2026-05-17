@@ -2508,13 +2508,71 @@ function toCountryFlag(countryCode) {
 }
 
 async function fetchSiteTierLeaderboard() {
-  const response = await fetch(`${SITE_BASE_URL}/api/site/player-standings`, { method: 'GET' });
-  if (!response.ok) {
-    throw new Error(`Site standings request failed (${response.status})`);
+  const activeSeasonId = await getActiveSeasonId();
+
+  let query = supabase
+    .from('lfn_player_tier_points')
+    .select('player_id, points, tier, updated_at, created_at, players!inner(id, name, discord_id, active), lfn_player_profiles(player_id, country_code, team_id)')
+    .order('points', { ascending: false });
+
+  if (activeSeasonId) {
+    query = query.eq('season_id', activeSeasonId);
   }
-  const payload = await response.json();
-  const players = Array.isArray(payload?.players) ? payload.players : [];
-  return players.filter((player) => Number(player?.points || 0) > 0);
+
+  const { data, error } = await query;
+
+  if (error) {
+    // Fallback sans join si la FK n'est pas déclarée
+    const { data: pointsData, error: pointsError } = await (activeSeasonId
+      ? supabase.from('lfn_player_tier_points').select('player_id, points, tier').eq('season_id', activeSeasonId).order('points', { ascending: false })
+      : supabase.from('lfn_player_tier_points').select('player_id, points, tier').order('points', { ascending: false }));
+
+    if (pointsError) throw new Error(pointsError.message);
+
+    const filtered = (pointsData || []).filter(row => Number(row.points || 0) > 0);
+    const playerIds = filtered.map(r => r.player_id);
+    if (!playerIds.length) return [];
+
+    const { data: players } = await supabase.from('players').select('id, name, discord_id, active').in('id', playerIds);
+    const { data: profiles } = await supabase.from('lfn_player_profiles').select('player_id, country_code').in('player_id', playerIds);
+
+    const playerMap = new Map((players || []).map(p => [p.id, p]));
+    const profileMap = new Map((profiles || []).map(p => [p.player_id, p]));
+
+    return filtered.map(row => {
+      const player = playerMap.get(row.player_id);
+      if (!player || player.active === false) return null;
+      const profile = profileMap.get(row.player_id);
+      const countryCode = /^[A-Z]{2}$/.test(String(profile?.country_code || '').toUpperCase()) ? String(profile.country_code).toUpperCase() : 'FR';
+      return {
+        id: row.player_id,
+        name: player.name || 'Joueur',
+        discordId: player.discord_id || null,
+        tier: row.tier || 'Tier E',
+        points: Number(row.points || 0),
+        countryCode,
+      };
+    }).filter(Boolean);
+  }
+
+  const filtered = (data || []).filter(row => Number(row.points || 0) > 0);
+  return filtered.map(row => {
+    const player = row.players;
+    if (!player || player.active === false) return null;
+    const profileRaw = row.lfn_player_profiles;
+    const profile = Array.isArray(profileRaw) ? profileRaw[0] : profileRaw;
+    const rawCountry = String(profile?.country_code || '').trim().toUpperCase();
+    const countryCode = /^[A-Z]{2}$/.test(rawCountry) ? rawCountry : 'FR';
+    return {
+      id: row.player_id,
+      name: player.name || 'Joueur',
+      discordId: player.discord_id || null,
+      tier: row.tier || 'Tier E',
+      points: Number(row.points || 0),
+      countryCode,
+    };
+  }).filter(Boolean)
+    .sort((a, b) => b.points - a.points);
 }
 
 async function fetchSiteTierPlayerByDiscordId(discordId) {
