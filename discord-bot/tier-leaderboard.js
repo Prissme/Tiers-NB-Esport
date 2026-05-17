@@ -36,7 +36,6 @@ let _client = null;
 let _guild = null;
 let _supabase = null;
 let _leaderboardChannel = null;
-let _leaderboardMessageId = null;
 let _intervalRef = null;
 
 // ── Helpers ────────────────────────────────────────────────
@@ -77,8 +76,6 @@ async function fetchTierPlayers() {
   console.log('[TierLeaderboard] Saison active:', activeSeasonId || 'aucune');
 
   // 2. Points + player + profile en UNE SEULE requête avec join embed Supabase
-  //    On utilise les foreign key relationships pour tout récupérer d'un coup
-  //    et on paginait avec range() pour dépasser la limite de 1000
   const PAGE_SIZE = 1000;
   let allRows = [];
   let from = 0;
@@ -106,7 +103,6 @@ async function fetchTierPlayers() {
     const { data, error } = await query;
 
     if (error) {
-      // Si le join embed échoue (pas de FK déclarée), on fallback sur requêtes séparées
       console.warn('[TierLeaderboard] Join embed échoué, fallback requêtes séparées:', error.message);
       return fetchTierPlayersFallback(activeSeasonId);
     }
@@ -161,7 +157,6 @@ async function fetchTierPlayers() {
       const player = row.players;
       if (!player || player.active === false) return null;
 
-      // lfn_player_profiles peut être null ou un tableau (selon la relation)
       const profileRaw = row.lfn_player_profiles;
       const profile = Array.isArray(profileRaw)
         ? profileRaw[0] || null
@@ -185,7 +180,7 @@ async function fetchTierPlayers() {
         discordId: player.discord_id || null,
         tier: row.tier || 'Tier E',
         points: adjustedPoints,
-        countryCode, // null si pas de profil → pas de drapeau fallback FR
+        countryCode,
         teamTag: team?.tag || null,
       };
     })
@@ -214,7 +209,6 @@ async function fetchTierPlayersFallback(activeSeasonId) {
 
   const PAGE_SIZE = 1000;
 
-  // Fetch tous les points avec pagination
   let allPointsRows = [];
   let from = 0;
   let keepFetching = true;
@@ -244,9 +238,8 @@ async function fetchTierPlayersFallback(activeSeasonId) {
 
   const playerIds = [...new Set(filtered.map((r) => String(r.player_id)))];
 
-  // Fetch players + profiles + teams en parallèle (avec pagination si besoin)
   async function fetchAllPages(table, selectCols, filterCol, filterVals) {
-    const BATCH = 500; // IN() limité en URL
+    const BATCH = 500;
     let results = [];
     for (let i = 0; i < filterVals.length; i += BATCH) {
       const batch = filterVals.slice(i, i + BATCH);
@@ -297,8 +290,6 @@ async function fetchTierPlayersFallback(activeSeasonId) {
       const rawCountry = String(profile?.country_code || '').trim().toUpperCase();
       const countryCode = /^[A-Z]{2}$/.test(rawCountry) ? rawCountry : null;
 
-      const team = null;
-
       const basePoints = Number(row.points || 0);
       const penalty = computeInactivityPenalty(row.updated_at || row.created_at);
       const adjustedPoints = Math.max(0, basePoints - penalty);
@@ -312,7 +303,7 @@ async function fetchTierPlayersFallback(activeSeasonId) {
         tier: row.tier || 'Tier E',
         points: adjustedPoints,
         countryCode,
-        teamTag: team?.tag || null,
+        teamTag: null,
       };
     })
     .filter(Boolean);
@@ -336,40 +327,17 @@ async function fetchTierPlayersFallback(activeSeasonId) {
 // ── Construction de l'embed ────────────────────────────────
 
 /**
- * Construit un embed pour un chunk de joueurs donné.
- *
- * @param {Array}   players      - Liste de joueurs pour cet embed (sous-ensemble)
- * @param {number}  rankOffset   - Décalage de rang global (nombre de joueurs déjà affichés avant ce chunk)
- * @param {boolean} isFirst      - true si c'est le tout premier embed
- * @param {number}  totalPlayers - Nombre total de joueurs classés (tous embeds confondus)
+ * Construit un embed pour un tier spécifique
  */
-function buildTierLeaderboardEmbed(players, rankOffset = 0, isFirst = false, totalPlayers = 0) {
-  // Regrouper les joueurs de ce chunk par tier
-  const byTier = new Map();
-  for (const tier of TIER_ORDER) byTier.set(tier, []);
-
-  for (const player of players) {
-    const tier = player.tier || 'Tier E';
-    if (!byTier.has(tier)) byTier.set(tier, []);
-    byTier.get(tier).push(player);
-  }
-
-  // Couleur basée sur le tier le plus haut présent dans ce chunk
-  const topTier = TIER_ORDER.find((t) => (byTier.get(t) || []).length > 0) || 'Tier E';
-  const embedColor = TIER_COLOR_MAP[topTier] || 0xf1c40f;
-
-  // Titre : premier embed → header principal ; suivants → tiers présents dans ce chunk
+function buildTierEmbed(tier, players, startRank, totalPlayers, isFirstTier = false) {
+  const tierEmoji = TIER_EMOJIS[tier] || '🏷️';
+  const embedColor = TIER_COLOR_MAP[tier] || 0xf1c40f;
+  
   let embedTitle;
-  if (isFirst) {
+  if (isFirstTier) {
     embedTitle = '🏆 Classement Tiers — Prissme TV';
   } else {
-    const tiersInChunk = TIER_ORDER.filter((t) => (byTier.get(t) || []).length > 0);
-    embedTitle = tiersInChunk
-      .map((t) => {
-        const emoji = TIER_EMOJIS[t] || '';
-        return `${emoji} ${t}`;
-      })
-      .join(' • ');
+    embedTitle = `${tierEmoji} ${tier}`;
   }
 
   const embed = new EmbedBuilder()
@@ -379,107 +347,52 @@ function buildTierLeaderboardEmbed(players, rankOffset = 0, isFirst = false, tot
     .setFooter({ text: 'LFN Esports • lfn-esports.fr' });
 
   // Description uniquement sur le premier embed
-  if (isFirst) {
+  if (isFirstTier) {
     embed.setDescription(
       `**${totalPlayers} joueurs classés** — mis à jour toutes les 5 minutes\n` +
       `[Voir le classement complet](https://www.lfn-esports.fr/classement)`
     );
   }
 
-  let globalRank = rankOffset;
+  const lines = [];
+  let currentRank = startRank;
 
-  for (const tier of TIER_ORDER) {
-    const tierPlayers = byTier.get(tier) || [];
-    if (!tierPlayers.length) continue;
+  for (const player of players) {
+    const flag = player.countryCode ? toCountryFlag(player.countryCode) : '';
+    const pts = Math.round(player.points);
+    const teamTag = player.teamTag ? ` \`[${player.teamTag}]\`` : '';
+    const medal =
+      currentRank === 1 ? ' 🏆' :
+      currentRank === 2 ? ' 🥈' :
+      currentRank === 3 ? ' 🥉' : '';
 
-    const tierEmoji = TIER_EMOJIS[tier] || '🏷️';
-    const fieldTitle = `${tierEmoji} ${tier} — ${tierPlayers.length} joueur${tierPlayers.length > 1 ? 's' : ''}`;
+    lines.push(`**#${currentRank}**${medal} ${tierEmoji} ${flag} **${player.name}**${teamTag} • **${pts} pts**`);
+    currentRank++;
+  }
 
-    const lines = tierPlayers.map((player) => {
-      globalRank += 1;
-      const flag = player.countryCode ? toCountryFlag(player.countryCode) : '';
-      const pts = Math.round(player.points);
-      const teamTag = player.teamTag ? ` \`[${player.teamTag}]\`` : '';
-      const medal =
-        globalRank === 1 ? ' 🏆' :
-        globalRank === 2 ? ' 🥈' :
-        globalRank === 3 ? ' 🥉' : '';
+  // Regrouper les lignes dans des fields de max 1000 caractères
+  const maxFieldLength = 1000;
+  let currentFieldValue = '';
+  let fieldIndex = 0;
 
-      return `**#${globalRank}**${medal} ${tierEmoji} ${flag} **${player.name}**${teamTag} • **${pts} pts**`;
-    });
-
-    // Split si le field dépasse 1000 chars
-    const chunks = [];
-    let current = '';
-    for (const line of lines) {
-      const next = current ? `${current}\n${line}` : line;
-      if (next.length > 1000) {
-        chunks.push(current);
-        current = line;
-      } else {
-        current = next;
-      }
+  for (const line of lines) {
+    const nextValue = currentFieldValue ? `${currentFieldValue}\n${line}` : line;
+    if (nextValue.length > maxFieldLength && currentFieldValue) {
+      const fieldName = fieldIndex === 0 ? `${tierEmoji} ${tier} — ${players.length} joueur${players.length > 1 ? 's' : ''}` : `↳ ${tier} (suite)`;
+      embed.addFields({ name: fieldName, value: currentFieldValue, inline: false });
+      currentFieldValue = line;
+      fieldIndex++;
+    } else {
+      currentFieldValue = nextValue;
     }
-    if (current) chunks.push(current);
+  }
 
-    chunks.forEach((chunk, idx) => {
-      embed.addFields({
-        name: idx === 0 ? fieldTitle : `↳ ${tier} (suite)`,
-        value: chunk,
-        inline: false,
-      });
-    });
+  if (currentFieldValue) {
+    const fieldName = fieldIndex === 0 ? `${tierEmoji} ${tier} — ${players.length} joueur${players.length > 1 ? 's' : ''}` : `↳ ${tier} (suite)`;
+    embed.addFields({ name: fieldName, value: currentFieldValue, inline: false });
   }
 
   return embed;
-}
-
-// ── Découpage des joueurs en chunks par tier ───────────────
-
-/**
- * Découpe la liste complète de joueurs en chunks de PLAYERS_PER_EMBED,
- * en évitant de couper un tier en deux embeds quand c'est possible.
- *
- * Retourne un tableau de tableaux de joueurs.
- */
-function splitPlayersIntoChunks(players, chunkSize) {
-  if (!players.length) return [];
-
-  const chunks = [];
-  let i = 0;
-
-  while (i < players.length) {
-    const end = Math.min(i + chunkSize, players.length);
-    const chunk = players.slice(i, end);
-
-    // Si on n'est pas à la fin, essayer de ne pas couper un tier au milieu
-    if (end < players.length) {
-      const lastTierInChunk = chunk[chunk.length - 1].tier;
-      const nextPlayerTier = players[end].tier;
-
-      // Si le dernier joueur du chunk et le premier du suivant sont du même tier,
-      // reculer jusqu'au début de ce tier pour ne pas le couper
-      if (lastTierInChunk === nextPlayerTier) {
-        let cutPoint = chunk.length - 1;
-        while (cutPoint > 0 && chunk[cutPoint - 1].tier === lastTierInChunk) {
-          cutPoint--;
-        }
-
-        // Ne reculer que si ça laisse au moins un joueur dans le chunk
-        if (cutPoint > 0) {
-          chunks.push(players.slice(i, i + cutPoint));
-          i += cutPoint;
-          continue;
-        }
-        // Sinon on coupe quand même (tier trop grand pour tenir dans un chunk)
-      }
-    }
-
-    chunks.push(chunk);
-    i = end;
-  }
-
-  return chunks;
 }
 
 // ── Envoi / mise à jour du message ─────────────────────────
@@ -509,43 +422,56 @@ async function sendOrUpdateTierLeaderboardEmbed() {
     return;
   }
 
-  // Découper en chunks de 20 joueurs max par embed
-  const PLAYERS_PER_EMBED = 20;
-  const playerChunks = splitPlayersIntoChunks(players, PLAYERS_PER_EMBED);
-  const totalPlayers = players.length;
+  // Regrouper les joueurs par tier
+  const playersByTier = new Map();
+  for (const tier of TIER_ORDER) {
+    playersByTier.set(tier, []);
+  }
 
-  const embeds = playerChunks.map((chunk, index) => {
-    const rankOffset = playerChunks.slice(0, index).reduce((sum, c) => sum + c.length, 0);
-    const isFirst = index === 0;
-    return buildTierLeaderboardEmbed(chunk, rankOffset, isFirst, totalPlayers);
-  });
+  for (const player of players) {
+    const tier = player.tier || 'Tier E';
+    if (!playersByTier.has(tier)) playersByTier.set(tier, []);
+    playersByTier.get(tier).push(player);
+  }
+
+  const totalPlayers = players.length;
+  const embeds = [];
+  let currentRank = 1;
+  let isFirstTier = true;
+
+  for (const tier of TIER_ORDER) {
+    const tierPlayers = playersByTier.get(tier) || [];
+    if (tierPlayers.length === 0) continue;
+
+    const embed = buildTierEmbed(tier, tierPlayers, currentRank, totalPlayers, isFirstTier);
+    embeds.push(embed);
+    currentRank += tierPlayers.length;
+    isFirstTier = false;
+  }
 
   // Nettoyage anciens messages du bot
   try {
-    const recent = await _leaderboardChannel.messages.fetch({ limit: 20 });
+    const recent = await _leaderboardChannel.messages.fetch({ limit: 50 });
     const old = recent.filter(
       (m) =>
         m.author.id === _client.user?.id &&
         m.embeds?.length > 0 &&
         (
           m.embeds[0]?.title?.includes('Classement Tiers') ||
-          m.embeds[0]?.title?.includes('Classement Tier') ||
-          // Embeds suivants : titre = tiers (ex: "Tier A • Tier B")
-          TIER_ORDER.some((t) => m.embeds[0]?.title?.includes(t))
+          m.embeds[0]?.title?.includes('Tier')
         )
     );
     await Promise.all(old.map((m) => m.delete().catch(() => null)));
   } catch (_) {}
 
-  // Envoyer un message par embed
+  // Envoyer un embed par tier
   for (const embed of embeds) {
     await _leaderboardChannel.send({ embeds: [embed] }).catch((err) => {
       console.error('[TierLeaderboard] Échec envoi:', err.message);
     });
   }
 
-  _leaderboardMessageId = null;
-  console.log(`[TierLeaderboard] ${embeds.length} embed(s) postés pour ${totalPlayers} joueurs.`);
+  console.log(`[TierLeaderboard] ${embeds.length} embed(s) postés pour ${totalPlayers} joueurs (1 embed par tier).`);
 }
 
 // ── Initialisation ──────────────────────────────────────────
