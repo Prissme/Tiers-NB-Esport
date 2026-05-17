@@ -8069,6 +8069,72 @@ async function handleInteraction(interaction) {
   }
 }
 
+async function applyInactivityPenalties() {
+  const INACTIVITY_RULES = [
+    { days: 60, penalty: 10 },
+    { days: 30, penalty: 5 },
+    { days: 14, penalty: 2 },
+  ];
+
+  const activeSeasonId = await getActiveSeasonId();
+  if (!activeSeasonId) return;
+
+  const { data: rows, error } = await supabase
+    .from('lfn_player_tier_points')
+    .select('player_id, points, tier, updated_at, created_at')
+    .eq('season_id', activeSeasonId);
+
+  if (error) {
+    errorLog('applyInactivityPenalties fetch error:', error.message);
+    return;
+  }
+
+  for (const row of rows || []) {
+    const rawPoints = Number(row.points || 0);
+    if (rawPoints <= 0) continue;
+
+    const lastUpdate = row.updated_at ?? row.created_at ?? null;
+    if (!lastUpdate) continue;
+
+    const daysSince = Math.floor((Date.now() - new Date(lastUpdate).getTime()) / (1000 * 60 * 60 * 24));
+    const rule = INACTIVITY_RULES.find(r => daysSince >= r.days);
+    if (!rule) continue;
+
+    const newPoints = Math.max(0, rawPoints - rule.penalty);
+    if (newPoints === rawPoints) continue;
+
+    const newTier = resolveTierByPoints(newPoints) || 'Tier E';
+
+    const { error: updateError } = await supabase
+      .from('lfn_player_tier_points')
+      .update({
+        points: newPoints,
+        tier: newTier,
+      })
+      .eq('player_id', row.player_id)
+      .eq('season_id', activeSeasonId);
+
+    if (updateError) {
+      warn(`Unable to apply inactivity penalty for ${row.player_id}:`, updateError.message);
+      continue;
+    }
+
+    if (guild) {
+      const { data: player } = await supabase
+        .from('players')
+        .select('discord_id')
+        .eq('id', row.player_id)
+        .maybeSingle();
+
+      if (player?.discord_id) {
+        await syncSingleMemberTierRole(guild, player.discord_id, newTier);
+      }
+    }
+
+    log(`Inactivity penalty applied: player ${row.player_id} ${rawPoints} → ${newPoints} pts (${newTier})`);
+  }
+}
+
 async function syncTiersWithRoles() {
   if (!guild) {
     warn('Cannot sync tiers: guild not resolved yet.');
@@ -8205,6 +8271,10 @@ async function onReady(readyClient) {
   }, WORST_PLAYER_ROLE_SYNC_INTERVAL_MS);
 
   await restorePLState();
+  await applyInactivityPenalties();
+setInterval(() => {
+  applyInactivityPenalties().catch(err => errorLog('Inactivity penalties failed:', err));
+}, 60 * 60 * 1000);
   initTierLeaderboard(readyClient, guild, supabase, SITE_BASE_URL);
   await processPLQueue();
 }
