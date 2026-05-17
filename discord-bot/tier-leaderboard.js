@@ -13,7 +13,6 @@ const TIER_LEADERBOARD_UPDATE_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
 
 const TIER_ORDER = ['Tier S', 'Tier A', 'Tier B', 'Tier C', 'Tier D', 'Tier E'];
 
-// Emojis custom Discord (depuis unified-bot.js)
 const TIER_EMOJIS = {
   'Tier S': '<:TierS:1482724565657321594>',
   'Tier A': '<:TierA:1482724563874877592>',
@@ -61,7 +60,7 @@ async function fetchTierPlayers() {
     throw new Error('[TierLeaderboard] Supabase client non initialisé.');
   }
 
-  // 1. Récupérer la saison active
+  // 1. Saison active
   const { data: seasonData, error: seasonError } = await _supabase
     .from('lfn_seasons')
     .select('id')
@@ -77,69 +76,71 @@ async function fetchTierPlayers() {
   const activeSeasonId = seasonData?.id || null;
   console.log('[TierLeaderboard] Saison active:', activeSeasonId || 'aucune');
 
-  // 2. Récupérer les points de tier
-  let pointsQuery = _supabase
-    .from('lfn_player_tier_points')
-    .select('player_id, points, tier, updated_at, created_at')
-    .order('points', { ascending: false });
+  // 2. Points + player + profile en UNE SEULE requête avec join embed Supabase
+  //    On utilise les foreign key relationships pour tout récupérer d'un coup
+  //    et on paginait avec range() pour dépasser la limite de 1000
+  const PAGE_SIZE = 1000;
+  let allRows = [];
+  let from = 0;
+  let keepFetching = true;
 
-  if (activeSeasonId) {
-    pointsQuery = pointsQuery.eq('season_id', activeSeasonId);
+  while (keepFetching) {
+    let query = _supabase
+      .from('lfn_player_tier_points')
+      .select(`
+        player_id,
+        points,
+        tier,
+        updated_at,
+        created_at,
+        players!inner(id, name, discord_id, active),
+        lfn_player_profiles(player_id, country_code, team_id)
+      `)
+      .order('points', { ascending: false })
+      .range(from, from + PAGE_SIZE - 1);
+
+    if (activeSeasonId) {
+      query = query.eq('season_id', activeSeasonId);
+    }
+
+    const { data, error } = await query;
+
+    if (error) {
+      // Si le join embed échoue (pas de FK déclarée), on fallback sur requêtes séparées
+      console.warn('[TierLeaderboard] Join embed échoué, fallback requêtes séparées:', error.message);
+      return fetchTierPlayersFallback(activeSeasonId);
+    }
+
+    const rows = data || [];
+    allRows = allRows.concat(rows);
+
+    if (rows.length < PAGE_SIZE) {
+      keepFetching = false;
+    } else {
+      from += PAGE_SIZE;
+    }
   }
 
-  const { data: pointsRows, error: pointsError } = await pointsQuery;
+  console.log(`[TierLeaderboard] ${allRows.length} lignes récupérées via join embed.`);
 
-  if (pointsError) {
-    throw new Error(`[TierLeaderboard] Erreur points: ${pointsError.message}`);
-  }
-
-  const allRows = pointsRows || [];
   const filtered = allRows.filter((row) => Number(row.points || 0) > 0);
-
-  console.log(`[TierLeaderboard] ${allRows.length} lignes points, ${filtered.length} avec points > 0`);
+  console.log(`[TierLeaderboard] ${filtered.length} avec points > 0`);
 
   if (!filtered.length) return [];
 
-  const playerIds = [...new Set(filtered.map((r) => String(r.player_id)))];
+  // Teams séparément (peu de données, pas besoin de pagination)
+  const { data: teams, error: teamsError } = await _supabase
+    .from('lfn_teams')
+    .select('id, name, tag')
+    .eq('is_active', true);
 
-  // 3. Fetch players + profiles + teams en parallèle
-  const [playersResult, profilesResult, teamsResult] = await Promise.all([
-    _supabase
-      .from('players')
-      .select('id, name, discord_id, active')
-      .in('id', playerIds),
-    _supabase
-      .from('lfn_player_profiles')
-      .select('player_id, country_code, team_id')
-      .in('player_id', playerIds),
-    _supabase
-      .from('lfn_teams')
-      .select('id, name, tag')
-      .eq('is_active', true),
-  ]);
-
-  if (playersResult.error) {
-    console.warn('[TierLeaderboard] Erreur players:', playersResult.error.message);
-  }
-  if (profilesResult.error) {
-    console.warn('[TierLeaderboard] Erreur profiles:', profilesResult.error.message);
-  }
-  if (teamsResult.error) {
-    console.warn('[TierLeaderboard] Erreur teams:', teamsResult.error.message);
+  if (teamsError) {
+    console.warn('[TierLeaderboard] Erreur teams:', teamsError.message);
   }
 
-  const players = playersResult.data || [];
-  const profiles = profilesResult.data || [];
-  const teams = teamsResult.data || [];
+  const teamMap = new Map((teams || []).map((t) => [String(t.id), t]));
 
-  console.log(`[TierLeaderboard] ${players.length} players, ${profiles.length} profiles, ${teams.length} teams`);
-
-  // Maps avec String() sur toutes les clés pour éviter les problèmes de type UUID
-  const playerMap = new Map(players.map((p) => [String(p.id), p]));
-  const profileMap = new Map(profiles.map((p) => [String(p.player_id), p]));
-  const teamMap = new Map(teams.map((t) => [String(t.id), t]));
-
-  // 4. Calcul de la pénalité d'inactivité (identique à l'API site)
+  // Pénalité inactivité
   const INACTIVITY_RULES = [
     { days: 60, penalty: 10 },
     { days: 30, penalty: 5 },
@@ -155,31 +156,151 @@ async function fetchTierPlayers() {
     return rule?.penalty ?? 0;
   }
 
-  // 5. Assembler les joueurs
   const result = filtered
     .map((row) => {
-      const pid = String(row.player_id);
-      const player = playerMap.get(pid);
+      const player = row.players;
+      if (!player || player.active === false) return null;
 
-      if (!player) {
-        console.warn(`[TierLeaderboard] Player introuvable pour player_id=${pid}`);
-        return null;
-      }
+      // lfn_player_profiles peut être null ou un tableau (selon la relation)
+      const profileRaw = row.lfn_player_profiles;
+      const profile = Array.isArray(profileRaw)
+        ? profileRaw[0] || null
+        : profileRaw || null;
 
-      // Exclure les joueurs inactifs
-      if (player.active === false) return null;
-
-      const profile = profileMap.get(pid);
-
-      // Validation stricte du country_code
       const rawCountry = String(profile?.country_code || '').trim().toUpperCase();
-      const countryCode = /^[A-Z]{2}$/.test(rawCountry) ? rawCountry : 'FR';
+      const countryCode = /^[A-Z]{2}$/.test(rawCountry) ? rawCountry : null;
 
       const team = profile?.team_id ? teamMap.get(String(profile.team_id)) : null;
 
       const basePoints = Number(row.points || 0);
       const lastUpdate = row.updated_at || row.created_at || null;
       const penalty = computeInactivityPenalty(lastUpdate);
+      const adjustedPoints = Math.max(0, basePoints - penalty);
+
+      if (adjustedPoints <= 0) return null;
+
+      return {
+        id: String(row.player_id),
+        name: player.name || 'Joueur',
+        discordId: player.discord_id || null,
+        tier: row.tier || 'Tier E',
+        points: adjustedPoints,
+        countryCode, // null si pas de profil → pas de drapeau fallback FR
+        teamTag: team?.tag || null,
+      };
+    })
+    .filter(Boolean);
+
+  const tierRank = {
+    'Tier S': 6, 'Tier A': 5, 'Tier B': 4,
+    'Tier C': 3, 'Tier D': 2, 'Tier E': 1,
+  };
+
+  result.sort(
+    (a, b) =>
+      b.points - a.points ||
+      (tierRank[b.tier] ?? 0) - (tierRank[a.tier] ?? 0) ||
+      a.name.localeCompare(b.name, 'fr')
+  );
+
+  console.log(`[TierLeaderboard] ${result.length} joueurs prêts à afficher.`);
+  return result;
+}
+
+// ── Fallback : requêtes séparées avec pagination ───────────
+
+async function fetchTierPlayersFallback(activeSeasonId) {
+  console.log('[TierLeaderboard] Utilisation du fallback requêtes séparées...');
+
+  const PAGE_SIZE = 1000;
+
+  // Fetch tous les points avec pagination
+  let allPointsRows = [];
+  let from = 0;
+  let keepFetching = true;
+
+  while (keepFetching) {
+    let query = _supabase
+      .from('lfn_player_tier_points')
+      .select('player_id, points, tier, updated_at, created_at')
+      .order('points', { ascending: false })
+      .range(from, from + PAGE_SIZE - 1);
+
+    if (activeSeasonId) {
+      query = query.eq('season_id', activeSeasonId);
+    }
+
+    const { data, error } = await query;
+    if (error) throw new Error(`Erreur points fallback: ${error.message}`);
+
+    const rows = data || [];
+    allPointsRows = allPointsRows.concat(rows);
+    keepFetching = rows.length === PAGE_SIZE;
+    from += PAGE_SIZE;
+  }
+
+  const filtered = allPointsRows.filter((row) => Number(row.points || 0) > 0);
+  if (!filtered.length) return [];
+
+  const playerIds = [...new Set(filtered.map((r) => String(r.player_id)))];
+
+  // Fetch players + profiles + teams en parallèle (avec pagination si besoin)
+  async function fetchAllPages(table, selectCols, filterCol, filterVals) {
+    const BATCH = 500; // IN() limité en URL
+    let results = [];
+    for (let i = 0; i < filterVals.length; i += BATCH) {
+      const batch = filterVals.slice(i, i + BATCH);
+      const { data, error } = await _supabase
+        .from(table)
+        .select(selectCols)
+        .in(filterCol, batch);
+      if (error) console.warn(`[TierLeaderboard] Erreur ${table}:`, error.message);
+      results = results.concat(data || []);
+    }
+    return results;
+  }
+
+  const [players, profiles, teams] = await Promise.all([
+    fetchAllPages('players', 'id, name, discord_id, active', 'id', playerIds),
+    fetchAllPages('lfn_player_profiles', 'player_id, country_code, team_id', 'player_id', playerIds),
+    _supabase.from('lfn_teams').select('id, name, tag').eq('is_active', true).then(r => r.data || []),
+  ]);
+
+  console.log(`[TierLeaderboard] Fallback: ${players.length} players, ${profiles.length} profiles`);
+
+  const playerMap = new Map(players.map((p) => [String(p.id), p]));
+  const profileMap = new Map(profiles.map((p) => [String(p.player_id), p]));
+  const teamMap = new Map(teams.map((t) => [String(t.id), t]));
+
+  const INACTIVITY_RULES = [
+    { days: 60, penalty: 10 },
+    { days: 30, penalty: 5 },
+    { days: 14, penalty: 2 },
+  ];
+
+  function computeInactivityPenalty(lastUpdate) {
+    if (!lastUpdate) return 0;
+    const parsed = new Date(lastUpdate);
+    if (isNaN(parsed.getTime())) return 0;
+    const daysSince = Math.floor((Date.now() - parsed.getTime()) / (1000 * 60 * 60 * 24));
+    const rule = INACTIVITY_RULES.find((r) => daysSince >= r.days);
+    return rule?.penalty ?? 0;
+  }
+
+  const result = filtered
+    .map((row) => {
+      const pid = String(row.player_id);
+      const player = playerMap.get(pid);
+      if (!player || player.active === false) return null;
+
+      const profile = profileMap.get(pid);
+      const rawCountry = String(profile?.country_code || '').trim().toUpperCase();
+      const countryCode = /^[A-Z]{2}$/.test(rawCountry) ? rawCountry : null;
+
+      const team = profile?.team_id ? teamMap.get(String(profile.team_id)) : null;
+
+      const basePoints = Number(row.points || 0);
+      const penalty = computeInactivityPenalty(row.updated_at || row.created_at);
       const adjustedPoints = Math.max(0, basePoints - penalty);
 
       if (adjustedPoints <= 0) return null;
@@ -196,7 +317,6 @@ async function fetchTierPlayers() {
     })
     .filter(Boolean);
 
-  // Tri : points décroissants, puis tier, puis nom
   const tierRank = {
     'Tier S': 6, 'Tier A': 5, 'Tier B': 4,
     'Tier C': 3, 'Tier D': 2, 'Tier E': 1,
@@ -209,7 +329,7 @@ async function fetchTierPlayers() {
       a.name.localeCompare(b.name, 'fr')
   );
 
-  console.log(`[TierLeaderboard] ${result.length} joueurs prêts à afficher.`);
+  console.log(`[TierLeaderboard] Fallback: ${result.length} joueurs prêts.`);
   return result;
 }
 
@@ -249,7 +369,7 @@ function buildTierLeaderboardEmbed(players) {
 
     const lines = tierPlayers.map((player) => {
       globalRank += 1;
-      const flag = toCountryFlag(player.countryCode);
+      const flag = player.countryCode ? toCountryFlag(player.countryCode) : '';
       const pts = Math.round(player.points);
       const teamTag = player.teamTag ? ` \`[${player.teamTag}]\`` : '';
       const medal =
@@ -257,7 +377,6 @@ function buildTierLeaderboardEmbed(players) {
         globalRank === 2 ? ' 🥈' :
         globalRank === 3 ? ' 🥉' : '';
 
-      // Emoji tier + drapeau pays + nom + team + points
       return `**#${globalRank}**${medal} ${tierEmoji} ${flag} **${player.name}**${teamTag} • **${pts} pts**`;
     });
 
@@ -292,7 +411,6 @@ function buildTierLeaderboardEmbed(players) {
 async function sendOrUpdateTierLeaderboardEmbed() {
   if (!_client || !_guild) return;
 
-  // Résolution du channel
   if (!_leaderboardChannel) {
     _leaderboardChannel = await _guild.channels.fetch(TIER_LEADERBOARD_CHANNEL_ID).catch(() => null);
   }
@@ -317,7 +435,6 @@ async function sendOrUpdateTierLeaderboardEmbed() {
 
   const embed = buildTierLeaderboardEmbed(players);
 
-  // Tentative d'édition du message existant
   if (_leaderboardMessageId) {
     try {
       const existing = await _leaderboardChannel.messages.fetch(_leaderboardMessageId);
@@ -330,18 +447,15 @@ async function sendOrUpdateTierLeaderboardEmbed() {
     }
   }
 
-  // Nettoyage des anciens messages du bot
+  // Nettoyage anciens messages du bot
   try {
     const recent = await _leaderboardChannel.messages.fetch({ limit: 20 });
-    const oldMessages = recent.filter(
-      (m) =>
-        m.author.id === _client.user?.id &&
-        m.embeds?.[0]?.title?.includes('Classement Tier')
+    const old = recent.filter(
+      (m) => m.author.id === _client.user?.id && m.embeds?.[0]?.title?.includes('Classement Tier')
     );
-    await Promise.all(oldMessages.map((m) => m.delete().catch(() => null)));
+    await Promise.all(old.map((m) => m.delete().catch(() => null)));
   } catch (_) {}
 
-  // Envoi du nouveau message
   const sent = await _leaderboardChannel.send({ embeds: [embed] }).catch((err) => {
     console.error('[TierLeaderboard] Échec envoi:', err);
     return null;
@@ -360,15 +474,12 @@ function initTierLeaderboard(client, guild, supabase, siteBaseUrl = null) {
   _guild = guild;
   _supabase = supabase;
 
-  // siteBaseUrl gardé pour compatibilité de signature mais non utilisé
   console.log('[TierLeaderboard] Initialisation (mode Supabase direct)...');
 
-  // Premier envoi
   sendOrUpdateTierLeaderboardEmbed().catch((err) =>
     console.error('[TierLeaderboard] Erreur initiale:', err)
   );
 
-  // Mise à jour périodique
   if (_intervalRef) clearInterval(_intervalRef);
 
   _intervalRef = setInterval(() => {
