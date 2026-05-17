@@ -262,7 +262,7 @@ async function fetchTierPlayersFallback(activeSeasonId) {
 
   const [players, profiles, teams] = await Promise.all([
     fetchAllPages('players', 'id, name, discord_id, active', 'id', playerIds),
-    fetchAllPages('lfn_player_profiles', 'player_id, country_code, team_id', 'player_id', playerIds),
+    fetchAllPages('lfn_player_profiles', 'player_id, country_code', 'player_id', playerIds),
     _supabase.from('lfn_teams').select('id, name, tag').eq('is_active', true).then(r => r.data || []),
   ]);
 
@@ -297,7 +297,7 @@ async function fetchTierPlayersFallback(activeSeasonId) {
       const rawCountry = String(profile?.country_code || '').trim().toUpperCase();
       const countryCode = /^[A-Z]{2}$/.test(rawCountry) ? rawCountry : null;
 
-      const team = profile?.team_id ? teamMap.get(String(profile.team_id)) : null;
+      const team = null;
 
       const basePoints = Number(row.points || 0);
       const penalty = computeInactivityPenalty(row.updated_at || row.created_at);
