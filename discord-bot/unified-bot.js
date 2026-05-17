@@ -8131,8 +8131,10 @@ async function applyInactivityPenalties() {
       }
     }
 
-    log(`Inactivity penalty applied: player ${row.player_id} ${rawPoints} → ${newPoints} pts (${newTier})`);
+log(`Inactivity penalty applied: player ${row.player_id} ${rawPoints} → ${newPoints} pts (${newTier})`);
   }
+
+  await syncTiersWithRoles().catch(err => errorLog('Tier sync after inactivity penalties failed:', err));
 }
 
 async function syncTiersWithRoles() {
@@ -8192,7 +8194,7 @@ async function syncTiersWithRoles() {
     if (tierRow && tierRow.tier !== persistedTier) {
       await supabase
         .from('lfn_player_tier_points')
-        .update({ tier: persistedTier, updated_at: new Date().toISOString() })
+        .update({ tier: persistedTier })
         .eq('season_id', activeSeasonId)
         .eq('player_id', player.id)
         .then(({ error }) => {
