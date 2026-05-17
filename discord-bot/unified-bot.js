@@ -8274,10 +8274,10 @@ async function onReady(readyClient) {
   }, WORST_PLAYER_ROLE_SYNC_INTERVAL_MS);
 
   await restorePLState();
-  await applyInactivityPenalties();
-setInterval(() => {
-  applyInactivityPenalties().catch(err => errorLog('Inactivity penalties failed:', err));
-}, 60 * 60 * 1000);
+  // await applyInactivityPenalties();
+// setInterval(() => {
+//   applyInactivityPenalties().catch(err => errorLog('Inactivity penalties failed:', err));
+// }, 60 * 60 * 1000);
   initTierLeaderboard(readyClient, guild, supabase, SITE_BASE_URL);
   await processPLQueue();
 }
