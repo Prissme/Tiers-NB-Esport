@@ -8110,6 +8110,7 @@ async function applyInactivityPenalties() {
       .update({
         points: newPoints,
         tier: newTier,
+        updated_at: new Date().toISOString(),
       })
       .eq('player_id', row.player_id)
       .eq('season_id', activeSeasonId);
