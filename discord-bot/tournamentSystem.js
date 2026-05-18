@@ -20,29 +20,29 @@ const {
 const path = require('path');
 const fs = require('fs');
 
-// Configuration des couleurs : BLANC pur
-const EMBED_COLOR_MAIN = 0xFFFFFF;   
-const EMBED_COLOR_DETAIL = 0xFFFFFF; 
-const EMBED_COLOR_DELETE = 0xFFFFFF; 
+// Couleurs V1 (Bleu foncé premium)
+const EMBED_COLOR_MAIN = 0x0A192F;   
+const EMBED_COLOR_DETAIL = 0x0A192F; 
+const EMBED_COLOR_DELETE = 0x0A192F; 
 const FOOTER_TEXT = "La course vers le first Tier A continue !";
 
 /**
- * Fonction d'aide pour localiser de manière sûre le fichier Tournois.webp
+ * Fonction d'aide pour localiser une image dans le dossier public
  */
-function getTournamentIconAttachment() {
+function getPublicAttachment(fileName) {
     const pathsToTest = [
-        path.join(__dirname, '../public/Tournois.webp'),
-        path.join(__dirname, './public/Tournois.webp'),
-        path.join(__dirname, 'public/Tournois.webp'),
-        path.join(process.cwd(), 'public/Tournois.webp')
+        path.join(__dirname, '../public', fileName),
+        path.join(__dirname, './public', fileName),
+        path.join(__dirname, fileName),
+        path.join(process.cwd(), 'public', fileName)
     ];
 
     for (const p of pathsToTest) {
         if (fs.existsSync(p)) {
-            return new AttachmentBuilder(p, { name: 'Tournois.webp' });
+            return new AttachmentBuilder(p, { name: fileName });
         }
     }
-    console.warn("[Tournament] ATTENTION : Fichier 'Tournois.webp' introuvable.");
+    console.warn(`[Tournament] ATTENTION : Fichier '${fileName}' introuvable.`);
     return null;
 }
 
@@ -65,15 +65,16 @@ function parseDiscordTimestamp(dateStr, format = 'F') {
 }
 
 /**
- * Génère l'embed du menu principal
+ * Génère l'embed du menu principal (Style V1 avec PTV.webp dans le coin)
  */
 async function buildMainMenu() {
     const embed = new EmbedBuilder()
-        .setTitle("🎮  Tournois disponibles")
+        .setTitle("VOICI LES TOURNOIS QUI ARRIVENT SUR PTV")
         .setDescription("Clique sur une cup pour voir les détails, les conditions d'inscription et le cashprize.\n\u200b")
         .setColor(EMBED_COLOR_MAIN)
         .setTimestamp()
-        .setImage('attachment://Tournois.webp')
+        .setThumbnail('attachment://PTV.webp') // Image PTV.webp dans le coin droit
+        .setImage('attachment://Tournois.webp')  // Grosse image centrale Tournois.webp
         .setFooter({ text: FOOTER_TEXT });
 
     const { data: tournaments, error } = await global.supabase
@@ -109,7 +110,7 @@ async function buildMainMenu() {
         return new ButtonBuilder()
             .setCustomId(`cup_btn:${t.slug}`)
             .setLabel(label)
-            .setStyle(ButtonStyle.Primary)
+            .setStyle(ButtonStyle.Secondary)
             .setEmoji("🏆");
     });
 
@@ -149,9 +150,12 @@ async function refreshMainMenuDirect(interaction) {
             rows.push(row);
         }
 
+        // Chargement des deux fichiers nécessaires pour le menu principal
         const files = [];
-        const fileIcon = getTournamentIconAttachment();
-        if (fileIcon) files.push(fileIcon);
+        const fileTournois = getPublicAttachment('Tournois.webp');
+        const filePTV = getPublicAttachment('PTV.webp');
+        if (fileTournois) files.push(fileTournois);
+        if (filePTV) files.push(filePTV);
 
         await message.edit({ embeds: [embed], components: rows, files: files }).catch(() => null);
     } catch (err) {
@@ -205,18 +209,21 @@ async function handleTournamentInteractions(interaction) {
                 { name: "🔗  Inscriptions", value: channelMention, inline: true },
                 { name: "📊  Statut", value: statusText, inline: true }
             )
+            .setThumbnail('attachment://PTV.webp') // PTV.webp reste dans le coin des détails
             .setImage('attachment://Tournois.webp')
             .setFooter({ text: FOOTER_TEXT })
             .setTimestamp(new Date(t.created_at));
 
+        // Si une bannière personnalisée a été configurée à la création
         if (t.banner_url) {
             detailEmbed.setImage(t.banner_url);
-            detailEmbed.setThumbnail('attachment://Tournois.webp');
         }
 
         const files = [];
-        const fileIcon = getTournamentIconAttachment();
-        if (fileIcon) files.push(fileIcon);
+        const fileTournois = getPublicAttachment('Tournois.webp');
+        const filePTV = getPublicAttachment('PTV.webp');
+        if (fileTournois) files.push(fileTournois);
+        if (filePTV) files.push(filePTV);
 
         await interaction.followUp({ embeds: [detailEmbed], files: files, flags: [MessageFlags.Ephemeral] }).catch(() => null);
         
@@ -229,7 +236,6 @@ async function handleTournamentInteractions(interaction) {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] }).catch(() => null);
         const selectedSlug = interaction.values[0];
 
-        // Suppression en base de données
         const { error } = await global.supabase
             .from('lfn_tournaments')
             .delete()
@@ -242,7 +248,6 @@ async function handleTournamentInteractions(interaction) {
 
         await interaction.followUp({ content: `✅ Le tournoi (\`${selectedSlug}\`) a bien été définitivement supprimé !`, flags: [MessageFlags.Ephemeral] }).catch(() => null);
         
-        // On rafraîchit le menu d'affichage général automatiquement
         await refreshMainMenuDirect(interaction);
         return true;
     }
@@ -263,8 +268,10 @@ async function handleTournamentInteractions(interaction) {
             }
 
             const files = [];
-            const fileIcon = getTournamentIconAttachment();
-            if (fileIcon) files.push(fileIcon);
+            const fileTournois = getPublicAttachment('Tournois.webp');
+            const filePTV = getPublicAttachment('PTV.webp');
+            if (fileTournois) files.push(fileTournois);
+            if (filePTV) files.push(filePTV);
 
             try {
                 let targetChannel = interaction.channel;
@@ -304,8 +311,6 @@ async function handleTournamentInteractions(interaction) {
             const cashprize = interaction.options.getString('cashprize');
             const signupChannel = interaction.options.getChannel('signup_channel');
             const bannerAttachment = interaction.options.getAttachment('banner');
-            
-            // Récupération du paramètre optionnel de l'organisateur (Fallback sur l'auteur de la commande)
             const targetOrganizer = interaction.options.getUser('organizer') || interaction.user;
 
             if (maxTeams < 2 || maxTeams > 256) {
@@ -338,9 +343,9 @@ async function handleTournamentInteractions(interaction) {
                     max_teams: maxTeams,
                     registered_teams: 0,
                     date_string: dateStr,
-                    cashprize: cashprize, // Stocké avec les structures de rôles intactes
+                    cashprize: cashprize,
                     signup_channel_id: signupChannel.id,
-                    organizer_id: targetOrganizer.id, // ID de l'organisateur configuré
+                    organizer_id: targetOrganizer.id,
                     banner_url: bannerUrl 
                 });
 
@@ -400,7 +405,7 @@ async function handleTournamentInteractions(interaction) {
             return true;
         }
 
-        // COMMAND : /cup_delete (Nouvelle commande)
+        // COMMAND : /cup_delete
         if (commandName === 'cup_delete') {
             await interaction.deferReply({ flags: [MessageFlags.Ephemeral] }).catch(() => null);
 
@@ -414,13 +419,12 @@ async function handleTournamentInteractions(interaction) {
                 return true;
             }
 
-            // Génération du menu déroulant
             const selectMenu = new StringSelectMenuBuilder()
                 .setCustomId('cup_delete_select')
                 .setPlaceholder('Sélectionne la Cup à supprimer définitivement...');
 
             tournaments.forEach((t) => {
-                const desc = t.cashprize.replace(/<@&|>/g, ''); // Nettoyage rapide pour la description courte
+                const desc = t.cashprize.replace(/<@&|>/g, ''); 
                 selectMenu.addOptions(
                     new StringSelectMenuOptionBuilder()
                         .setLabel(t.name.substring(0, 99))
@@ -432,7 +436,7 @@ async function handleTournamentInteractions(interaction) {
 
             const deleteEmbed = new EmbedBuilder()
                 .setTitle("🗑️  Suppression d'un tournoi")
-                .setDescription("Choisis le tournoi à retirer à l'aide de la liste déroulante ci-dessous.\n*Attention, cette action supprimera la cup instantanément et mettra à jour le menu principal.*")
+                .setDescription("Choisis le tournoi à retirer à l'aide de la liste déroulante ci-dessous.\n*Cette action mettra à jour le menu principal.*")
                 .setColor(EMBED_COLOR_DELETE);
 
             const row = new ActionRowBuilder().addComponents(selectMenu);
