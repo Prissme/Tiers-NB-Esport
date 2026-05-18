@@ -11,11 +11,15 @@ const {
     EmbedBuilder, 
     ButtonBuilder, 
     ButtonStyle, 
-    ActionRowBuilder 
+    ActionRowBuilder,
+    MessageFlags,
+    AttachmentBuilder // Indispensable pour attacher l'image locale Tournois.webp
 } = require('discord.js');
+const path = require('path');
 
-const EMBED_COLOR_MAIN = 0x0F0F1A;   
-const EMBED_COLOR_DETAIL = 0x1A0F2E; 
+// Couleur demandée : Bleu foncé (ex: #0A192F ou 0x0A192F)
+const EMBED_COLOR_MAIN = 0x0A192F;   
+const EMBED_COLOR_DETAIL = 0x0A192F; 
 const EMBED_COLOR_CREATE = 0x0A2E1A; 
 const FOOTER_TEXT = "La course vers le first Tier A continue !";
 
@@ -25,6 +29,8 @@ async function buildMainMenu() {
         .setDescription("Clique sur une cup pour voir les détails, les conditions d'inscription et le cashprize.\n\u200b")
         .setColor(EMBED_COLOR_MAIN)
         .setTimestamp()
+        // Ajout de l'image locale "Tournois.webp" comme Thumbnail de l'embed
+        .setThumbnail('attachment://Tournois.webp')
         .setFooter({ text: FOOTER_TEXT });
 
     const { data: tournaments, error } = await global.supabase
@@ -43,7 +49,6 @@ async function buildMainMenu() {
 
     const buttons = [];
     tournaments.forEach(t => {
-        // Sécurité : On force la valeur à 0 si la colonne est vide dans Supabase
         const currentRegistered = t.registered_teams || 0; 
         const remaining = t.max_teams - currentRegistered;
         const statusIcon = remaining > 0 ? "✅" : "🔴";
@@ -93,7 +98,10 @@ async function refreshMainMenu(client, guildId) {
             rows.push(row);
         }
 
-        await message.edit({ embeds: [embed], components: rows });
+        // On recrée l'attachement pour l'édition du menu si nécessaire
+        const file = new AttachmentBuilder(path.join(__dirname, '../public/Tournois.webp'));
+
+        await message.edit({ embeds: [embed], components: rows, files: [file] });
     } catch (err) {
         console.warn(`[Tournament] Synchronisation du menu ignorée ou message introuvable pour la guilde : ${guildId}`);
     }
@@ -101,7 +109,7 @@ async function refreshMainMenu(client, guildId) {
 
 async function handleTournamentInteractions(interaction) {
     if (interaction.isButton() && interaction.customId?.startsWith('cup_btn:')) {
-        await interaction.deferReply({ ephemeral: true });
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const slug = interaction.customId.split(':')[1];
 
         const { data: t, error } = await global.supabase
@@ -111,7 +119,7 @@ async function handleTournamentInteractions(interaction) {
             .maybeSingle();
 
         if (error || !t) {
-            await interaction.followup.send({ content: "❌ Ce tournoi n'existe plus dans la base de données.", ephemeral: true });
+            await interaction.followup.send({ content: "❌ Ce tournoi n'existe plus dans la base de données.", flags: [MessageFlags.Ephemeral] });
             return true;
         }
 
@@ -132,10 +140,17 @@ async function handleTournamentInteractions(interaction) {
                 { name: "🔗  Inscriptions", value: channelMention, inline: true },
                 { name: "📊  Statut", value: statusText, inline: true }
             )
+            .setThumbnail('attachment://Tournois.webp')
             .setFooter({ text: FOOTER_TEXT })
             .setTimestamp(new Date(t.created_at));
 
-        await interaction.followup.send({ embeds: [detailEmbed], ephemeral: true });
+        // Si l'événement possède une bannière enregistrée, on l'affiche sur l'embed de détail
+        if (t.banner_url) {
+            detailEmbed.setImage(t.banner_url);
+        }
+
+        const file = new AttachmentBuilder(path.join(__dirname, '../public/Tournois.webp'));
+        await interaction.followup.send({ embeds: [detailEmbed], files: [file], flags: [MessageFlags.Ephemeral] });
         return true;
     }
 
@@ -143,10 +158,11 @@ async function handleTournamentInteractions(interaction) {
         const { commandName } = interaction;
 
         if (commandName === 'cup_menu') {
-            await interaction.deferReply({ ephemeral: true });
+            await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
 
-            if (!interaction.channel.isTextBased()) {
-                await interaction.followup.send({ content: "❌ Cette commande doit être exécutée dans un salon textuel.", ephemeral: true });
+            const textChannel = interaction.channel || await interaction.client.channels.fetch(interaction.channelId);
+            if (!textChannel || !textChannel.isTextBased()) {
+                await interaction.followup.send({ content: "❌ Impossible d'accéder au salon textuel.", flags: [MessageFlags.Ephemeral] });
                 return true;
             }
 
@@ -158,36 +174,41 @@ async function handleTournamentInteractions(interaction) {
                 rows.push(row);
             }
 
-            const msg = await interaction.channel.send({ embeds: [embed], components: rows });
+            // Récupération et attachement de l'image locale dans le dossier public
+            const file = new AttachmentBuilder(path.join(__dirname, '../public/Tournois.webp'));
+
+            const msg = await textChannel.send({ embeds: [embed], components: rows, files: [file] });
 
             await global.supabase
                 .from('lfn_tournament_menus')
                 .upsert({
                     guild_id: interaction.guild.id,
-                    channel_id: interaction.channel.id,
+                    channel_id: textChannel.id,
                     message_id: msg.id
                 });
 
-            await interaction.followup.send({ content: "✅ Menu principal initialisé et synchronisé avec la base de données !", ephemeral: true });
+            await interaction.followup.send({ content: "✅ Menu principal initialisé !", flags: [MessageFlags.Ephemeral] });
             return true;
         }
 
         if (commandName === 'cup_create') {
-            await interaction.deferReply({ ephemeral: true });
+            await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
 
             const name = interaction.options.getString('name');
             const maxTeams = interaction.options.getInteger('max_teams');
             const dateStr = interaction.options.getString('date');
             const cashprize = interaction.options.getString('cashprize');
             const signupChannel = interaction.options.getChannel('signup_channel');
+            // Récupération de l'image (bannière) fournie en argument
+            const bannerAttachment = interaction.options.getAttachment('banner');
 
             if (maxTeams < 2 || maxTeams > 256) {
-                await interaction.followup.send({ content: "❌ Le paramètre `max_teams` doit être configuré entre 2 et 256.", ephemeral: true });
+                await interaction.followup.send({ content: "❌ Le paramètre `max_teams` doit être configuré entre 2 et 256.", flags: [MessageFlags.Ephemeral] });
                 return true;
             }
 
             if (name.length > 80) {
-                await interaction.followup.send({ content: "❌ Le titre de la Cup ne doit pas dépasser le seuil de 80 caractères.", ephemeral: true });
+                await interaction.followup.send({ content: "❌ Le titre de la Cup ne doit pas dépasser le seuil de 80 caractères.", flags: [MessageFlags.Ephemeral] });
                 return true;
             }
 
@@ -196,11 +217,12 @@ async function handleTournamentInteractions(interaction) {
                 .select('*', { count: 'exact', head: true });
 
             if (countErr) {
-                await interaction.followup.send({ content: "❌ Erreur d'accès à la table de données Supabase.", ephemeral: true });
+                await interaction.followup.send({ content: "❌ Erreur d'accès à la table de données Supabase.", flags: [MessageFlags.Ephemeral] });
                 return true;
             }
 
             const slug = `t${(count || 0) + 1}`;
+            const bannerUrl = bannerAttachment ? bannerAttachment.url : null;
 
             await global.supabase
                 .from('lfn_tournaments')
@@ -208,11 +230,12 @@ async function handleTournamentInteractions(interaction) {
                     slug: slug,
                     name: name,
                     max_teams: maxTeams,
-                    registered_teams: 0, // FIX : On force le compteur à 0 à la création
+                    registered_teams: 0,
                     date_string: dateStr,
                     cashprize: cashprize,
                     signup_channel_id: signupChannel.id,
-                    organizer_id: interaction.user.id
+                    organizer_id: interaction.user.id,
+                    banner_url: bannerUrl // Optionnel : à ajouter dans ta colonne de BDD si souhaité
                 });
 
             const confirmEmbed = new EmbedBuilder()
@@ -228,14 +251,18 @@ async function handleTournamentInteractions(interaction) {
                 )
                 .setFooter({ text: FOOTER_TEXT });
 
-            await interaction.followup.send({ embeds: [confirmEmbed], ephemeral: true });
+            if (bannerUrl) {
+                confirmEmbed.setImage(bannerUrl);
+            }
+
+            await interaction.followup.send({ embeds: [confirmEmbed], flags: [MessageFlags.Ephemeral] });
 
             await refreshMainMenu(interaction.client, interaction.guild.id);
             return true;
         }
 
         if (commandName === 'cup_list') {
-            await interaction.deferReply({ ephemeral: true });
+            await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
 
             const { data: tournaments, error } = await global.supabase
                 .from('lfn_tournaments')
@@ -243,7 +270,7 @@ async function handleTournamentInteractions(interaction) {
                 .order('created_at', { ascending: true });
 
             if (error || !tournaments || tournaments.length === 0) {
-                await interaction.followup.send({ content: "Aucun tournoi actif répertorié pour le moment.", ephemeral: true });
+                await interaction.followup.send({ content: "Aucun tournoi actif répertorié pour le moment.", flags: [MessageFlags.Ephemeral] });
                 return true;
             }
 
@@ -259,7 +286,7 @@ async function handleTournamentInteractions(interaction) {
                 .setColor(EMBED_COLOR_MAIN)
                 .setFooter({ text: FOOTER_TEXT });
 
-            await interaction.followup.send({ embeds: [listEmbed], ephemeral: true });
+            await interaction.followup.send({ embeds: [listEmbed], flags: [MessageFlags.Ephemeral] });
             return true;
         }
     }
@@ -281,7 +308,9 @@ const slashCommandsData = [
         .addIntegerOption(opt => opt.setName('max_teams').setDescription("Nombre maximum d'équipes acceptées (2-256)").setRequired(true))
         .addStringOption(opt => opt.setName('date').setDescription('Date et heure de l’événement (ex: 24 Mai - 20h)').setRequired(true))
         .addStringOption(opt => opt.setName('cashprize').setDescription('Récompense promise (ex: 50€, rôles...)').setRequired(true))
-        .addChannelOption(opt => opt.setName('signup_channel').setDescription("Lien vers le salon dédié aux inscriptions").setRequired(true)),
+        .addChannelOption(opt => opt.setName('signup_channel').setDescription("Lien vers le salon dédié aux inscriptions").setRequired(true))
+        // Ajout de l'option d'attachement d'image (Bannière de l'event)
+        .addAttachmentOption(opt => opt.setName('banner').setDescription("L'image de la bannière du tournoi").setRequired(false)),
 
     new SlashCommandBuilder()
         .setName('cup_list')
