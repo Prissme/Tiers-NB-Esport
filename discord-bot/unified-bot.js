@@ -7154,7 +7154,7 @@ async function applyMatchOutcome(state, outcome, userId) {
 }
 
 async function handleInteraction(interaction) {
-  // 👇 ON AJOUTE CES DEUX LIGNES ICI 👇
+  //  ON AJOUTE CES DEUX LIGNES ICI 
   const handledByTournament = await handleTournamentInteractions(interaction);
   if (handledByTournament) return; 
 
