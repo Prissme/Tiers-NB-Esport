@@ -44,23 +44,19 @@ function getTournamentIconAttachment() {
 
 /**
  * Convertit une chaîne de caractères ou un timestamp en balise de temps Discord
- * Supporte le format brut (ex: "1716573600") ou une date texte si convertible.
  */
 function parseDiscordTimestamp(dateStr, format = 'F') {
     if (!dateStr) return "Non définie";
     
-    // Si c'est déjà un timestamp pur fourni par l'admin (ex: 1716573600)
     if (/^\d+$/.test(dateStr.trim())) {
         return `<t:${dateStr.trim()}:${format}>`;
     }
 
-    // Tente de convertir une date standard en Timestamp Unix
     const parsed = Date.parse(dateStr);
     if (!isNaN(parsed)) {
         return `<t:${Math.floor(parsed / 1000)}:${format}>`;
     }
 
-    // Fallback : Si c'est du texte libre (ex: "Ce soir à 20h"), Discord l'affichera en texte brut
     return dateStr;
 }
 
@@ -70,8 +66,7 @@ async function buildMainMenu() {
         .setDescription("Clique sur une cup pour voir les détails, les conditions d'inscription et le cashprize.\n\u200b")
         .setColor(EMBED_COLOR_MAIN)
         .setTimestamp()
-        // Changement ici : .setImage au lieu de .setThumbnail pour l'avoir en GRAND
-        .setImage('attachment://Tournois.webp')
+        .setImage('attachment://Tournois.webp') // En GRAND au milieu de l'embed
         .setFooter({ text: FOOTER_TEXT });
 
     const { data: tournaments, error } = await global.supabase
@@ -93,8 +88,6 @@ async function buildMainMenu() {
         const remaining = t.max_teams - currentRegistered;
         const statusIcon = remaining > 0 ? "✅" : "🔴";
         const statusText = remaining > 0 ? "🟢 Ouvert" : "🔴 Complet";
-
-        // Traduction dynamique de la date en tag Discord interactif
         const discordTime = parseDiscordTimestamp(t.date_string, 'f');
 
         embed.addFields({
@@ -104,7 +97,6 @@ async function buildMainMenu() {
         });
     });
 
-    // Génération dynamique des boutons
     const buttons = tournaments.map(t => {
         const label = t.name.length > 80 ? t.name.substring(0, 77) + "…" : t.name;
         return new ButtonBuilder()
@@ -152,6 +144,7 @@ async function refreshMainMenu(client, guildId) {
 }
 
 async function handleTournamentInteractions(interaction) {
+    // 1. Gestion du clic sur un bouton de Cup
     if (interaction.isButton() && interaction.customId?.startsWith('cup_btn:')) {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const slug = interaction.customId.split(':')[1];
@@ -164,7 +157,7 @@ async function handleTournamentInteractions(interaction) {
 
         if (error || !t) {
             await interaction.followup.send({ content: "❌ Ce tournoi n'existe plus.", flags: [MessageFlags.Ephemeral] });
-            return true;
+            return true; // Interaction gérée
         }
 
         const organizerMention = `<@${t.organizer_id}>`;
@@ -172,7 +165,6 @@ async function handleTournamentInteractions(interaction) {
         const currentRegistered = t.registered_teams || 0;
         const statusText = currentRegistered < t.max_teams ? "🟢 **Ouvert**" : "🔴 **Complet**";
         
-        // Utilisation du temps relatif (ex: "dans 3 jours") et complet pour le détail
         const fullTime = parseDiscordTimestamp(t.date_string, 'F');
         const relativeTime = parseDiscordTimestamp(t.date_string, 'R');
 
@@ -187,14 +179,13 @@ async function handleTournamentInteractions(interaction) {
                 { name: "🔗  Inscriptions", value: channelMention, inline: true },
                 { name: "📊  Statut", value: statusText, inline: true }
             )
-            .setImage('attachment://Tournois.webp') // Mis en GRAND aussi sur la vue détaillée si pas de bannière personnalisée
+            .setImage('attachment://Tournois.webp')
             .setFooter({ text: FOOTER_TEXT })
             .setTimestamp(new Date(t.created_at));
 
-        // Si l'événement possède une bannière unique, elle remplace le grand visuel par défaut
         if (t.banner_url) {
             detailEmbed.setImage(t.banner_url);
-            detailEmbed.setThumbnail('attachment://Tournois.webp'); // On bascule le logo par défaut sur le côté
+            detailEmbed.setThumbnail('attachment://Tournois.webp');
         }
 
         const files = [];
@@ -202,9 +193,10 @@ async function handleTournamentInteractions(interaction) {
         if (fileIcon) files.push(fileIcon);
 
         await interaction.followup.send({ embeds: [detailEmbed], files: files, flags: [MessageFlags.Ephemeral] });
-        return true;
+        return true; // Interaction gérée
     }
 
+    // 2. Gestion des Commandes Slash
     if (interaction.isChatInputCommand()) {
         const { commandName } = interaction;
 
@@ -227,7 +219,6 @@ async function handleTournamentInteractions(interaction) {
 
             const { embed, buttons } = await buildMainMenu();
             const rows = [];
-            
             for (let i = 0; i < buttons.length && i < 25; i += 5) {
                 const row = new ActionRowBuilder().addComponents(buttons.slice(i, i + 5));
                 rows.push(row);
@@ -248,7 +239,7 @@ async function handleTournamentInteractions(interaction) {
                 });
 
             await interaction.followup.send({ content: "✅ Menu principal initialisé !", flags: [MessageFlags.Ephemeral] });
-            return true;
+            return true; // Interaction gérée
         }
 
         if (commandName === 'cup_create') {
@@ -256,7 +247,7 @@ async function handleTournamentInteractions(interaction) {
 
             const name = interaction.options.getString('name');
             const maxTeams = interaction.options.getInteger('max_teams');
-            const dateStr = interaction.options.getString('date'); // Accepte un timestamp ou une date string valide
+            const dateStr = interaction.options.getString('date');
             const cashprize = interaction.options.getString('cashprize');
             const signupChannel = interaction.options.getChannel('signup_channel');
             const bannerAttachment = interaction.options.getAttachment('banner');
@@ -319,7 +310,7 @@ async function handleTournamentInteractions(interaction) {
             await interaction.followup.send({ embeds: [confirmEmbed], flags: [MessageFlags.Ephemeral] });
 
             await refreshMainMenu(interaction.client, interaction.guild.id);
-            return true;
+            return true; // Interaction gérée
         }
 
         if (commandName === 'cup_list') {
@@ -349,11 +340,11 @@ async function handleTournamentInteractions(interaction) {
                 .setFooter({ text: FOOTER_TEXT });
 
             await interaction.followup.send({ embeds: [listEmbed], flags: [MessageFlags.Ephemeral] });
-            return true;
+            return true; // Interaction gérée
         }
     }
 
-    return false;
+    return false; // L'interaction ne concernait pas les tournois
 }
 
 const slashCommandsData = [
