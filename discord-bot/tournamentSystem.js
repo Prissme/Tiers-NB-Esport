@@ -144,7 +144,6 @@ async function refreshMainMenu(client, guildId) {
 }
 
 async function handleTournamentInteractions(interaction) {
-    // 1. Gestion du clic sur un bouton de Cup
     if (interaction.isButton() && interaction.customId?.startsWith('cup_btn:')) {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const slug = interaction.customId.split(':')[1];
@@ -157,7 +156,7 @@ async function handleTournamentInteractions(interaction) {
 
         if (error || !t) {
             await interaction.followup.send({ content: "❌ Ce tournoi n'existe plus.", flags: [MessageFlags.Ephemeral] });
-            return true; // Interaction gérée
+            return true;
         }
 
         const organizerMention = `<@${t.organizer_id}>`;
@@ -193,10 +192,9 @@ async function handleTournamentInteractions(interaction) {
         if (fileIcon) files.push(fileIcon);
 
         await interaction.followup.send({ embeds: [detailEmbed], files: files, flags: [MessageFlags.Ephemeral] });
-        return true; // Interaction gérée
+        return true;
     }
 
-    // 2. Gestion des Commandes Slash
     if (interaction.isChatInputCommand()) {
         const { commandName } = interaction;
 
@@ -239,7 +237,7 @@ async function handleTournamentInteractions(interaction) {
                 });
 
             await interaction.followup.send({ content: "✅ Menu principal initialisé !", flags: [MessageFlags.Ephemeral] });
-            return true; // Interaction gérée
+            return true;
         }
 
         if (commandName === 'cup_create') {
@@ -310,7 +308,7 @@ async function handleTournamentInteractions(interaction) {
             await interaction.followup.send({ embeds: [confirmEmbed], flags: [MessageFlags.Ephemeral] });
 
             await refreshMainMenu(interaction.client, interaction.guild.id);
-            return true; // Interaction gérée
+            return true;
         }
 
         if (commandName === 'cup_list') {
@@ -318,7 +316,7 @@ async function handleTournamentInteractions(interaction) {
 
             const { data: tournaments, error } = await global.supabase
                 .from('lfn_tournaments')
-                .select('*')
+                .select('*', { count: 'exact' })
                 .order('created_at', { ascending: true });
 
             if (error || !tournaments || tournaments.length === 0) {
@@ -340,11 +338,11 @@ async function handleTournamentInteractions(interaction) {
                 .setFooter({ text: FOOTER_TEXT });
 
             await interaction.followup.send({ embeds: [listEmbed], flags: [MessageFlags.Ephemeral] });
-            return true; // Interaction gérée
+            return true;
         }
     }
 
-    return false; // L'interaction ne concernait pas les tournois
+    return false;
 }
 
 const slashCommandsData = [
