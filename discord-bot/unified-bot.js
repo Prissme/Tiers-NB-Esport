@@ -27,6 +27,7 @@ const predictions = require('./predictions');
 const draft = require('./draft');
 const { createPerformanceStores } = require('./performance-store');
 const seasonSystem = require('./season-system');
+const { slashCommandsData, handleTournamentInteractions } = require('./tournamentSystem');
 const { initTierLeaderboard } = require('./tier-leaderboard');
 const {
   buildSeasonStartEmbed,
@@ -412,6 +413,7 @@ if (!SUPABASE_URL || !SUPABASE_KEY) {
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
   auth: { persistSession: false }
 });
+global.supabase = supabase;
 const performanceStores = createPerformanceStores({
   supabase,
   logger: {
@@ -7152,6 +7154,11 @@ async function applyMatchOutcome(state, outcome, userId) {
 }
 
 async function handleInteraction(interaction) {
+  // 👇 ON AJOUTE CES DEUX LIGNES ICI 👇
+  const handledByTournament = await handleTournamentInteractions(interaction);
+  if (handledByTournament) return; 
+
+  // Le reste de ton code d'origine reste identique en dessous :
   if (
     (interaction.isButton() || interaction.isModalSubmit() || interaction.isStringSelectMenu()) &&
     interaction.customId?.startsWith('room')
@@ -8257,7 +8264,12 @@ async function onReady(readyClient) {
 
   await predictions.registerCommands(buildAdminSlashCommands());
 
-  await syncTiersWithRoles().catch((err) => errorLog('Initial tier sync failed:', err));
+  // On fusionne les commandes admin existantes avec les nouvelles commandes de tournoi
+  const allCommands = [
+    ...buildAdminSlashCommands(),
+    ...slashCommandsData
+  ];
+  await predictions.registerCommands(allCommands);
   if (tierSyncInterval) {
     clearInterval(tierSyncInterval);
   }
