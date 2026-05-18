@@ -12,16 +12,18 @@ const {
     ButtonBuilder, 
     ButtonStyle, 
     ActionRowBuilder,
+    StringSelectMenuBuilder,
+    StringSelectMenuOptionBuilder,
     MessageFlags,
     AttachmentBuilder 
 } = require('discord.js');
 const path = require('path');
 const fs = require('fs');
 
-// Configuration des couleurs (Bleu foncé comme demandé)
-const EMBED_COLOR_MAIN = 0x0A192F;   
-const EMBED_COLOR_DETAIL = 0x0A192F; 
-const EMBED_COLOR_CREATE = 0x0A2E1A; 
+// Configuration des couleurs : BLANC pur
+const EMBED_COLOR_MAIN = 0xFFFFFF;   
+const EMBED_COLOR_DETAIL = 0xFFFFFF; 
+const EMBED_COLOR_DELETE = 0xFFFFFF; 
 const FOOTER_TEXT = "La course vers le first Tier A continue !";
 
 /**
@@ -45,7 +47,7 @@ function getTournamentIconAttachment() {
 }
 
 /**
- * Convertit une chaîne de caractères ou un timestamp en balise de temps Discord (@time)
+ * Convertit une chaîne de caractères ou un timestamp en balise de temps Discord
  */
 function parseDiscordTimestamp(dateStr, format = 'F') {
     if (!dateStr) return "Non définie";
@@ -97,7 +99,7 @@ async function buildMainMenu() {
 
         embed.addFields({
             name: `**${t.name}**`,
-            value: `📅 ${discordTime}  |  💰 \`${t.cashprize}\`  |  👥 \`${currentRegistered}/${t.max_teams} ${statusIcon}\`  |  ${statusText}`,
+            value: `📅 ${discordTime}  |  💰 ${t.cashprize}  |  👥 \`${currentRegistered}/${t.max_teams} ${statusIcon}\`  |  ${statusText}`,
             inline: false
         });
     });
@@ -115,7 +117,7 @@ async function buildMainMenu() {
 }
 
 /**
- * Met à jour le menu principal en utilisant l'objet interaction de manière sécurisée
+ * Met à jour le menu principal de manière synchronisée
  */
 async function refreshMainMenuDirect(interaction) {
     if (!interaction) return;
@@ -158,12 +160,12 @@ async function refreshMainMenuDirect(interaction) {
 }
 
 /**
- * Intercepteur principal des interactions (Commandes et Boutons)
+ * Intercepteur principal des interactions (Commandes, Boutons, Select Menus)
  */
 async function handleTournamentInteractions(interaction) {
     if (!interaction) return false;
 
-    // 1. GESTION DES CLICS SUR LES BOUTONS
+    // 1. GESTION DES CLICS SUR LES BOUTONS (Affichage d'une Cup)
     if (interaction.isButton() && interaction.customId?.startsWith('cup_btn:')) {
         try {
             await interaction.deferReply({ flags: [MessageFlags.Ephemeral] }).catch(() => null);
@@ -197,8 +199,8 @@ async function handleTournamentInteractions(interaction) {
             .setDescription(`La Cup organisée par ${organizerMention}\n📅 Début : ${fullTime} (${relativeTime})\n\u200b`)
             .setColor(EMBED_COLOR_DETAIL)
             .addFields(
-                { name: "💰  Cashprize", value: `**${t.cashprize}** ✅`, inline: true },
-                { name: "👥  Équipes", value: `**${t.max_teams} MAX** ❗`, inline: true },
+                { name: "💰  Cashprize / Récompense", value: t.cashprize, inline: true },
+                { name: "👥  Équipes Max", value: `**${t.max_teams}**`, inline: true },
                 { name: "📋  Inscrits", value: `**${currentRegistered}/${t.max_teams}**`, inline: true },
                 { name: "🔗  Inscriptions", value: channelMention, inline: true },
                 { name: "📊  Statut", value: statusText, inline: true }
@@ -222,10 +224,34 @@ async function handleTournamentInteractions(interaction) {
         return true;
     }
 
-    // 2. GESTION DES COMMANDES SLASH
+    // 2. INTERCEPTION DU SELECT MENU DE SUPPRESSION
+    if (interaction.isStringSelectMenu() && interaction.customId === 'cup_delete_select') {
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] }).catch(() => null);
+        const selectedSlug = interaction.values[0];
+
+        // Suppression en base de données
+        const { error } = await global.supabase
+            .from('lfn_tournaments')
+            .delete()
+            .eq('slug', selectedSlug);
+
+        if (error) {
+            await interaction.followUp({ content: "❌ Erreur lors de la suppression du tournoi dans la base Supabase.", flags: [MessageFlags.Ephemeral] }).catch(() => null);
+            return true;
+        }
+
+        await interaction.followUp({ content: `✅ Le tournoi (\`${selectedSlug}\`) a bien été définitivement supprimé !`, flags: [MessageFlags.Ephemeral] }).catch(() => null);
+        
+        // On rafraîchit le menu d'affichage général automatiquement
+        await refreshMainMenuDirect(interaction);
+        return true;
+    }
+
+    // 3. GESTION DES COMMANDES SLASH
     if (interaction.isChatInputCommand()) {
         const { commandName } = interaction;
 
+        // COMMAND : /cup_menu
         if (commandName === 'cup_menu') {
             await interaction.deferReply({ flags: [MessageFlags.Ephemeral] }).catch(() => null);
 
@@ -247,7 +273,7 @@ async function handleTournamentInteractions(interaction) {
                 }
 
                 if (!targetChannel || typeof targetChannel.send !== 'function') {
-                    await interaction.followUp({ content: "❌ Impossible d'envoyer le menu ici : salon introuvable.", flags: [MessageFlags.Ephemeral] }).catch(() => null);
+                    await interaction.followUp({ content: "❌ Impossible de générer le menu dans ce salon.", flags: [MessageFlags.Ephemeral] }).catch(() => null);
                     return true;
                 }
 
@@ -263,11 +289,12 @@ async function handleTournamentInteractions(interaction) {
 
                 await interaction.followUp({ content: "✅ Menu principal initialisé !", flags: [MessageFlags.Ephemeral] }).catch(() => null);
             } catch (sendError) {
-                await interaction.followUp({ content: "❌ Impossible d'envoyer le menu. Vérifie les permissions du bot.", flags: [MessageFlags.Ephemeral] }).catch(() => null);
+                await interaction.followUp({ content: "❌ Impossible d'envoyer le menu. Vérifie les permissions.", flags: [MessageFlags.Ephemeral] }).catch(() => null);
             }
             return true;
         }
 
+        // COMMAND : /cup_create
         if (commandName === 'cup_create') {
             await interaction.deferReply({ flags: [MessageFlags.Ephemeral] }).catch(() => null);
 
@@ -277,6 +304,9 @@ async function handleTournamentInteractions(interaction) {
             const cashprize = interaction.options.getString('cashprize');
             const signupChannel = interaction.options.getChannel('signup_channel');
             const bannerAttachment = interaction.options.getAttachment('banner');
+            
+            // Récupération du paramètre optionnel de l'organisateur (Fallback sur l'auteur de la commande)
+            const targetOrganizer = interaction.options.getUser('organizer') || interaction.user;
 
             if (maxTeams < 2 || maxTeams > 256) {
                 await interaction.followUp({ content: "❌ Le paramètre `max_teams` doit être configuré entre 2 et 256.", flags: [MessageFlags.Ephemeral] }).catch(() => null);
@@ -293,7 +323,7 @@ async function handleTournamentInteractions(interaction) {
                 .select('*', { count: 'exact', head: true });
 
             if (countErr) {
-                await interaction.followUp({ content: "❌ Erreur d'accès à Supabase.", flags: [MessageFlags.Ephemeral] }).catch(() => null);
+                await interaction.followUp({ content: "❌ Erreur de liaison Supabase.", flags: [MessageFlags.Ephemeral] }).catch(() => null);
                 return true;
             }
 
@@ -308,9 +338,9 @@ async function handleTournamentInteractions(interaction) {
                     max_teams: maxTeams,
                     registered_teams: 0,
                     date_string: dateStr,
-                    cashprize: cashprize,
+                    cashprize: cashprize, // Stocké avec les structures de rôles intactes
                     signup_channel_id: signupChannel.id,
-                    organizer_id: interaction.user.id,
+                    organizer_id: targetOrganizer.id, // ID de l'organisateur configuré
                     banner_url: bannerUrl 
                 });
 
@@ -318,14 +348,14 @@ async function handleTournamentInteractions(interaction) {
 
             const confirmEmbed = new EmbedBuilder()
                 .setTitle("✅  Tournoi créé avec succès")
-                .setColor(EMBED_COLOR_CREATE)
+                .setColor(EMBED_COLOR_MAIN)
                 .addFields(
                     { name: "Nom", value: name, inline: true },
+                    { name: "Organisateur", value: `<@${targetOrganizer.id}>`, inline: true },
                     { name: "Équipes max", value: String(maxTeams), inline: true },
                     { name: "Date", value: displayTime, inline: true },
-                    { name: "Cashprize", value: cashprize, inline: true },
-                    { name: "Salon", value: `<#${signupChannel.id}>`, inline: true },
-                    { name: "ID interne (Slug)", value: `\`${slug}\``, inline: true }
+                    { name: "Cashprize / Rôles", value: cashprize, inline: true },
+                    { name: "Salon d'inscription", value: `<#${signupChannel.id}>`, inline: true }
                 )
                 .setFooter({ text: FOOTER_TEXT });
 
@@ -339,6 +369,7 @@ async function handleTournamentInteractions(interaction) {
             return true;
         }
 
+        // COMMAND : /cup_list
         if (commandName === 'cup_list') {
             await interaction.deferReply({ flags: [MessageFlags.Ephemeral] }).catch(() => null);
 
@@ -365,8 +396,48 @@ async function handleTournamentInteractions(interaction) {
                 .setColor(EMBED_COLOR_MAIN)
                 .setFooter({ text: FOOTER_TEXT });
 
-            // Modification effectuée ici : 'interaction.followUp' au lieu de 'interaction.followup.send'
             await interaction.followUp({ embeds: [listEmbed], flags: [MessageFlags.Ephemeral] }).catch(() => null);
+            return true;
+        }
+
+        // COMMAND : /cup_delete (Nouvelle commande)
+        if (commandName === 'cup_delete') {
+            await interaction.deferReply({ flags: [MessageFlags.Ephemeral] }).catch(() => null);
+
+            const { data: tournaments, error } = await global.supabase
+                .from('lfn_tournaments')
+                .select('*')
+                .order('created_at', { ascending: true });
+
+            if (error || !tournaments || tournaments.length === 0) {
+                await interaction.followUp({ content: "❌ Aucun tournoi enregistré trouvé dans la base de données.", flags: [MessageFlags.Ephemeral] }).catch(() => null);
+                return true;
+            }
+
+            // Génération du menu déroulant
+            const selectMenu = new StringSelectMenuBuilder()
+                .setCustomId('cup_delete_select')
+                .setPlaceholder('Sélectionne la Cup à supprimer définitivement...');
+
+            tournaments.forEach((t) => {
+                const desc = t.cashprize.replace(/<@&|>/g, ''); // Nettoyage rapide pour la description courte
+                selectMenu.addOptions(
+                    new StringSelectMenuOptionBuilder()
+                        .setLabel(t.name.substring(0, 99))
+                        .setDescription(`ID: ${t.slug} | Prize: ${desc.substring(0, 50)}`)
+                        .setValue(t.slug)
+                        .setEmoji('🗑️')
+                );
+            });
+
+            const deleteEmbed = new EmbedBuilder()
+                .setTitle("🗑️  Suppression d'un tournoi")
+                .setDescription("Choisis le tournoi à retirer à l'aide de la liste déroulante ci-dessous.\n*Attention, cette action supprimera la cup instantanément et mettra à jour le menu principal.*")
+                .setColor(EMBED_COLOR_DELETE);
+
+            const row = new ActionRowBuilder().addComponents(selectMenu);
+
+            await interaction.followUp({ embeds: [deleteEmbed], components: [row], flags: [MessageFlags.Ephemeral] }).catch(() => null);
             return true;
         }
     }
@@ -387,13 +458,19 @@ const slashCommandsData = [
         .addStringOption(opt => opt.setName('name').setDescription('Nom de la compétition').setRequired(true))
         .addIntegerOption(opt => opt.setName('max_teams').setDescription("Nombre maximum d'équipes acceptées (2-256)").setRequired(true))
         .addStringOption(opt => opt.setName('date').setDescription('Timestamp Unix pur (ex: 1716573600) ou format ISO (YYYY-MM-DD)').setRequired(true))
-        .addStringOption(opt => opt.setName('cashprize').setDescription('Récompense promise (ex: 50€, rôles...)').setRequired(true))
+        .addStringOption(opt => opt.setName('cashprize').setDescription('Récompense promise (ex: 50€, @Role Gagnant...)').setRequired(true))
         .addChannelOption(opt => opt.setName('signup_channel').setDescription("Lien vers le salon dédié aux inscriptions").setRequired(true))
-        .addAttachmentOption(opt => opt.setName('banner').setDescription("L'image de la bannière du tournoi").setRequired(false)),
+        .addUserOption(opt => opt.setName('organizer').setDescription("Mentionne le membre responsable de la Cup (Optionnel)").setRequired(false))
+        .addAttachmentOption(opt => opt.setName('banner').setDescription("L'image de la bannière du tournoi (Optionnel)").setRequired(false)),
 
     new SlashCommandBuilder()
         .setName('cup_list')
-        .setDescription("Affiche la liste textuelle épurée des compétitions actives.")
+        .setDescription("Affiche la liste textuelle épurée des compétitions actives."),
+
+    new SlashCommandBuilder()
+        .setName('cup_delete')
+        .setDescription("Supprime définitivement un tournoi actif via une liste déroulante.")
+        .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
 ];
 
 module.exports = {
