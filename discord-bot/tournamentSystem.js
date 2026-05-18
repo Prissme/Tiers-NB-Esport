@@ -71,7 +71,7 @@ async function buildMainMenu() {
         .setDescription("Clique sur une cup pour voir les détails, les conditions d'inscription et le cashprize.\n\u200b")
         .setColor(EMBED_COLOR_MAIN)
         .setTimestamp()
-        .setImage('attachment://Tournois.webp') // Mis en GRAND au centre de l'embed
+        .setImage('attachment://Tournois.webp')
         .setFooter({ text: FOOTER_TEXT });
 
     const { data: tournaments, error } = await global.supabase
@@ -115,7 +115,7 @@ async function buildMainMenu() {
 }
 
 /**
- * Met à jour le menu principal en utilisant directement l'objet interaction (Évite les conflits de cache)
+ * Met à jour le menu principal en utilisant l'objet interaction de manière sécurisée
  */
 async function refreshMainMenuDirect(interaction) {
     if (!interaction) return;
@@ -129,7 +129,6 @@ async function refreshMainMenuDirect(interaction) {
     if (error || !menuRef) return;
 
     try {
-        // Au lieu de fetch le client, on utilise le channel de l'interaction courante si c'est le même
         let channel = interaction.channel;
         if (!channel && interaction.client) {
             channel = await interaction.client.channels.fetch(menuRef.channel_id).catch(() => null);
@@ -137,7 +136,6 @@ async function refreshMainMenuDirect(interaction) {
         
         if (!channel) return;
 
-        // Récupération ultra-sécurisée du message
         const message = await channel.messages.fetch(menuRef.message_id).catch(() => null);
         if (!message || typeof message.edit !== 'function') return;
 
@@ -155,7 +153,7 @@ async function refreshMainMenuDirect(interaction) {
 
         await message.edit({ embeds: [embed], components: rows, files: files }).catch(() => null);
     } catch (err) {
-        console.warn(`[Tournament] Synchronisation silencieuse du menu ignorée.`);
+        console.warn(`[Tournament] Synchronisation du menu ignorée.`);
     }
 }
 
@@ -182,7 +180,7 @@ async function handleTournamentInteractions(interaction) {
             .maybeSingle();
 
         if (error || !t) {
-            await interaction.followup.send({ content: "❌ Ce tournoi n'existe plus.", flags: [MessageFlags.Ephemeral] }).catch(() => null);
+            await interaction.followUp({ content: "❌ Ce tournoi n'existe plus.", flags: [MessageFlags.Ephemeral] }).catch(() => null);
             return true;
         }
 
@@ -218,9 +216,8 @@ async function handleTournamentInteractions(interaction) {
         const fileIcon = getTournamentIconAttachment();
         if (fileIcon) files.push(fileIcon);
 
-        await interaction.followup.send({ embeds: [detailEmbed], files: files, flags: [MessageFlags.Ephemeral] }).catch(() => null);
+        await interaction.followUp({ embeds: [detailEmbed], files: files, flags: [MessageFlags.Ephemeral] }).catch(() => null);
         
-        // Rafraîchissement en arrière-plan sans bloquer ni crasher
         await refreshMainMenuDirect(interaction);
         return true;
     }
@@ -244,9 +241,13 @@ async function handleTournamentInteractions(interaction) {
             if (fileIcon) files.push(fileIcon);
 
             try {
-                const targetChannel = interaction.channel;
+                let targetChannel = interaction.channel;
                 if (!targetChannel || typeof targetChannel.send !== 'function') {
-                    await interaction.followup.send({ content: "❌ Impossible d'envoyer le menu ici : le bot n'a pas accès aux fonctions d'écriture de ce salon.", flags: [MessageFlags.Ephemeral] }).catch(() => null);
+                    targetChannel = await interaction.client.channels.fetch(interaction.channelId).catch(() => null);
+                }
+
+                if (!targetChannel || typeof targetChannel.send !== 'function') {
+                    await interaction.followUp({ content: "❌ Impossible d'envoyer le menu ici : salon introuvable.", flags: [MessageFlags.Ephemeral] }).catch(() => null);
                     return true;
                 }
 
@@ -260,9 +261,9 @@ async function handleTournamentInteractions(interaction) {
                         message_id: msg.id
                     });
 
-                await interaction.followup.send({ content: "✅ Menu principal initialisé !", flags: [MessageFlags.Ephemeral] }).catch(() => null);
+                await interaction.followUp({ content: "✅ Menu principal initialisé !", flags: [MessageFlags.Ephemeral] }).catch(() => null);
             } catch (sendError) {
-                await interaction.followup.send({ content: "❌ Impossible d'envoyer le menu. Vérifie les permissions du bot.", flags: [MessageFlags.Ephemeral] }).catch(() => null);
+                await interaction.followUp({ content: "❌ Impossible d'envoyer le menu. Vérifie les permissions du bot.", flags: [MessageFlags.Ephemeral] }).catch(() => null);
             }
             return true;
         }
@@ -278,12 +279,12 @@ async function handleTournamentInteractions(interaction) {
             const bannerAttachment = interaction.options.getAttachment('banner');
 
             if (maxTeams < 2 || maxTeams > 256) {
-                await interaction.followup.send({ content: "❌ Le paramètre `max_teams` doit être configuré entre 2 et 256.", flags: [MessageFlags.Ephemeral] }).catch(() => null);
+                await interaction.followUp({ content: "❌ Le paramètre `max_teams` doit être configuré entre 2 et 256.", flags: [MessageFlags.Ephemeral] }).catch(() => null);
                 return true;
             }
 
             if (name.length > 80) {
-                await interaction.followup.send({ content: "❌ Le titre ne doit pas dépasser 80 caractères.", flags: [MessageFlags.Ephemeral] }).catch(() => null);
+                await interaction.followUp({ content: "❌ Le titre ne doit pas dépasser 80 caractères.", flags: [MessageFlags.Ephemeral] }).catch(() => null);
                 return true;
             }
 
@@ -292,7 +293,7 @@ async function handleTournamentInteractions(interaction) {
                 .select('*', { count: 'exact', head: true });
 
             if (countErr) {
-                await interaction.followup.send({ content: "❌ Erreur d'accès à Supabase.", flags: [MessageFlags.Ephemeral] }).catch(() => null);
+                await interaction.followUp({ content: "❌ Erreur d'accès à Supabase.", flags: [MessageFlags.Ephemeral] }).catch(() => null);
                 return true;
             }
 
@@ -332,7 +333,7 @@ async function handleTournamentInteractions(interaction) {
                 confirmEmbed.setImage(bannerUrl);
             }
 
-            await interaction.followup.send({ embeds: [confirmEmbed], flags: [MessageFlags.Ephemeral] }).catch(() => null);
+            await interaction.followUp({ embeds: [confirmEmbed], flags: [MessageFlags.Ephemeral] }).catch(() => null);
 
             await refreshMainMenuDirect(interaction);
             return true;
@@ -347,7 +348,7 @@ async function handleTournamentInteractions(interaction) {
                 .order('created_at', { ascending: true });
 
             if (error || !tournaments || tournaments.length === 0) {
-                await interaction.followup.send({ content: "Aucun tournoi actif répertorié.", flags: [MessageFlags.Ephemeral] }).catch(() => null);
+                await interaction.followUp({ content: "Aucun tournoi actif répertorié.", flags: [MessageFlags.Ephemeral] }).catch(() => null);
                 return true;
             }
 
@@ -364,7 +365,8 @@ async function handleTournamentInteractions(interaction) {
                 .setColor(EMBED_COLOR_MAIN)
                 .setFooter({ text: FOOTER_TEXT });
 
-            await interaction.followup.send({ embeds: [listEmbed], flags: [MessageFlags.Ephemeral] }).catch(() => null);
+            // Modification effectuée ici : 'interaction.followUp' au lieu de 'interaction.followup.send'
+            await interaction.followUp({ embeds: [listEmbed], flags: [MessageFlags.Ephemeral] }).catch(() => null);
             return true;
         }
     }
