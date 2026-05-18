@@ -18,13 +18,15 @@ const {
 const path = require('path');
 const fs = require('fs');
 
-// Couleur demandée : Bleu foncé
+// Configuration des couleurs (Bleu foncé comme demandé)
 const EMBED_COLOR_MAIN = 0x0A192F;   
 const EMBED_COLOR_DETAIL = 0x0A192F; 
 const EMBED_COLOR_CREATE = 0x0A2E1A; 
 const FOOTER_TEXT = "La course vers le first Tier A continue !";
 
-// Fonction d'aide pour localiser de manière sûre le fichier Tournois.webp
+/**
+ * Fonction d'aide pour localiser de manière sûre le fichier Tournois.webp
+ */
 function getTournamentIconAttachment() {
     const pathsToTest = [
         path.join(__dirname, '../public/Tournois.webp'),
@@ -43,7 +45,7 @@ function getTournamentIconAttachment() {
 }
 
 /**
- * Convertit une chaîne de caractères ou un timestamp en balise de temps Discord
+ * Convertit une chaîne de caractères ou un timestamp en balise de temps Discord (@time)
  */
 function parseDiscordTimestamp(dateStr, format = 'F') {
     if (!dateStr) return "Non définie";
@@ -60,13 +62,16 @@ function parseDiscordTimestamp(dateStr, format = 'F') {
     return dateStr;
 }
 
+/**
+ * Génère l'embed du menu principal
+ */
 async function buildMainMenu() {
     const embed = new EmbedBuilder()
         .setTitle("🎮  Tournois disponibles")
         .setDescription("Clique sur une cup pour voir les détails, les conditions d'inscription et le cashprize.\n\u200b")
         .setColor(EMBED_COLOR_MAIN)
         .setTimestamp()
-        .setImage('attachment://Tournois.webp') // En GRAND au milieu de l'embed
+        .setImage('attachment://Tournois.webp') // Mis en GRAND au centre de l'embed
         .setFooter({ text: FOOTER_TEXT });
 
     const { data: tournaments, error } = await global.supabase
@@ -109,6 +114,9 @@ async function buildMainMenu() {
     return { embed, buttons };
 }
 
+/**
+ * Met à jour le menu principal de manière ultra-sécurisée
+ */
 async function refreshMainMenu(client, guildId) {
     const { data: menuRef, error } = await global.supabase
         .from('lfn_tournament_menus')
@@ -119,11 +127,24 @@ async function refreshMainMenu(client, guildId) {
     if (error || !menuRef) return;
 
     try {
-        const channel = await client.channels.fetch(menuRef.channel_id);
+        // Recherche dans le cache d'abord pour obtenir un objet complet
+        let channel = client.channels.cache.get(menuRef.channel_id);
+        if (!channel) {
+            channel = await client.channels.fetch(menuRef.channel_id).catch(() => null);
+        }
+        
         if (!channel || !channel.isTextBased()) return;
 
-        const message = await channel.messages.fetch(menuRef.message_id);
-        if (!message) return;
+        let message = channel.messages.cache.get(menuRef.message_id);
+        if (!message) {
+            message = await channel.messages.fetch(menuRef.message_id).catch(() => null);
+        }
+
+        // Sécurité anti-crash : Vérifie si le message existe et possède la fonction d'édition
+        if (!message || typeof message.edit !== 'function') {
+            console.warn(`[Tournament] Mise à jour automatique annulée : Le message d'origine n'est pas modifiable.`);
+            return;
+        }
 
         const { embed, buttons } = await buildMainMenu();
         
@@ -139,11 +160,15 @@ async function refreshMainMenu(client, guildId) {
 
         await message.edit({ embeds: [embed], components: rows, files: files });
     } catch (err) {
-        console.warn(`[Tournament] Synchronisation du menu ignorée : ${err.message}`);
+        console.warn(`[Tournament] Erreur gérée lors de la synchronisation du menu : ${err.message}`);
     }
 }
 
+/**
+ * Intercepteur principal des interactions (Commandes et Boutons)
+ */
 async function handleTournamentInteractions(interaction) {
+    // 1. GESTION DES CLICS SUR LES BOUTONS
     if (interaction.isButton() && interaction.customId?.startsWith('cup_btn:')) {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const slug = interaction.customId.split(':')[1];
@@ -178,13 +203,14 @@ async function handleTournamentInteractions(interaction) {
                 { name: "🔗  Inscriptions", value: channelMention, inline: true },
                 { name: "📊  Statut", value: statusText, inline: true }
             )
-            .setImage('attachment://Tournois.webp')
+            .setImage('attachment://Tournois.webp') // Par défaut en grand
             .setFooter({ text: FOOTER_TEXT })
             .setTimestamp(new Date(t.created_at));
 
+        // Si l'event a sa propre bannière (argument dans /cup_create), elle prend la place principale
         if (t.banner_url) {
             detailEmbed.setImage(t.banner_url);
-            detailEmbed.setThumbnail('attachment://Tournois.webp');
+            detailEmbed.setThumbnail('attachment://Tournois.webp'); // Le logo passe sur le côté
         }
 
         const files = [];
@@ -195,25 +221,12 @@ async function handleTournamentInteractions(interaction) {
         return true;
     }
 
+    // 2. GESTION DES COMMANDES SLASH
     if (interaction.isChatInputCommand()) {
         const { commandName } = interaction;
 
         if (commandName === 'cup_menu') {
             await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
-
-            let textChannel = interaction.channel;
-            if (!textChannel || typeof textChannel.send !== 'function') {
-                try {
-                    textChannel = await interaction.client.channels.fetch(interaction.channelId);
-                } catch (e) {
-                    textChannel = null;
-                }
-            }
-
-            if (!textChannel || !textChannel.isTextBased()) {
-                await interaction.followup.send({ content: "❌ Impossible d'accéder au salon textuel.", flags: [MessageFlags.Ephemeral] });
-                return true;
-            }
 
             const { embed, buttons } = await buildMainMenu();
             const rows = [];
@@ -226,17 +239,27 @@ async function handleTournamentInteractions(interaction) {
             const fileIcon = getTournamentIconAttachment();
             if (fileIcon) files.push(fileIcon);
 
-            const msg = await textChannel.send({ embeds: [embed], components: rows, files: files });
+            try {
+                if (!interaction.channel || typeof interaction.channel.send !== 'function') {
+                    await interaction.followup.send({ content: "❌ Le bot ne peut pas écrire dans ce salon.", flags: [MessageFlags.Ephemeral] });
+                    return true;
+                }
 
-            await global.supabase
-                .from('lfn_tournament_menus')
-                .upsert({
-                    guild_id: interaction.guild.id,
-                    channel_id: textChannel.id,
-                    message_id: msg.id
-                });
+                const msg = await interaction.channel.send({ embeds: [embed], components: rows, files: files });
 
-            await interaction.followup.send({ content: "✅ Menu principal initialisé !", flags: [MessageFlags.Ephemeral] });
+                await global.supabase
+                    .from('lfn_tournament_menus')
+                    .upsert({
+                        guild_id: interaction.guild.id,
+                        channel_id: interaction.channel.id,
+                        message_id: msg.id
+                    });
+
+                await interaction.followup.send({ content: "✅ Menu principal initialisé !", flags: [MessageFlags.Ephemeral] });
+            } catch (sendError) {
+                console.error("[Tournament] Échec d'envoi du menu principal :", sendError);
+                await interaction.followup.send({ content: "❌ Impossible d'envoyer le menu. Vérifie les permissions du bot.", flags: [MessageFlags.Ephemeral] });
+            }
             return true;
         }
 
@@ -316,7 +339,7 @@ async function handleTournamentInteractions(interaction) {
 
             const { data: tournaments, error } = await global.supabase
                 .from('lfn_tournaments')
-                .select('*', { count: 'exact' })
+                .select('*')
                 .order('created_at', { ascending: true });
 
             if (error || !tournaments || tournaments.length === 0) {
