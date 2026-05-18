@@ -115,34 +115,31 @@ async function buildMainMenu() {
 }
 
 /**
- * Met à jour le menu principal de manière ultra-sécurisée
+ * Met à jour le menu principal en utilisant directement l'objet interaction (Évite les conflits de cache)
  */
-async function refreshMainMenu(client, guildId) {
+async function refreshMainMenuDirect(interaction) {
+    if (!interaction) return;
+    
     const { data: menuRef, error } = await global.supabase
         .from('lfn_tournament_menus')
         .select('*')
-        .eq('guild_id', guildId)
+        .eq('guild_id', interaction.guildId || interaction.guild?.id)
         .maybeSingle();
 
     if (error || !menuRef) return;
 
     try {
-        let channel = client.channels.cache.get(menuRef.channel_id);
-        if (!channel) {
-            channel = await client.channels.fetch(menuRef.channel_id).catch(() => null);
+        // Au lieu de fetch le client, on utilise le channel de l'interaction courante si c'est le même
+        let channel = interaction.channel;
+        if (!channel && interaction.client) {
+            channel = await interaction.client.channels.fetch(menuRef.channel_id).catch(() => null);
         }
         
-        if (!channel || !channel.isTextBased() || typeof channel.send !== 'function') return;
+        if (!channel) return;
 
-        let message = channel.messages.cache.get(menuRef.message_id);
-        if (!message) {
-            message = await channel.messages.fetch(menuRef.message_id).catch(() => null);
-        }
-
-        if (!message || typeof message.edit !== 'function') {
-            console.warn(`[Tournament] Mise à jour automatique annulée : Le message d'origine n'est pas modifiable.`);
-            return;
-        }
+        // Récupération ultra-sécurisée du message
+        const message = await channel.messages.fetch(menuRef.message_id).catch(() => null);
+        if (!message || typeof message.edit !== 'function') return;
 
         const { embed, buttons } = await buildMainMenu();
         
@@ -156,9 +153,9 @@ async function refreshMainMenu(client, guildId) {
         const fileIcon = getTournamentIconAttachment();
         if (fileIcon) files.push(fileIcon);
 
-        await message.edit({ embeds: [embed], components: rows, files: files });
+        await message.edit({ embeds: [embed], components: rows, files: files }).catch(() => null);
     } catch (err) {
-        console.warn(`[Tournament] Erreur gérée lors de la synchronisation du menu : ${err.message}`);
+        console.warn(`[Tournament] Synchronisation silencieuse du menu ignorée.`);
     }
 }
 
@@ -166,9 +163,16 @@ async function refreshMainMenu(client, guildId) {
  * Intercepteur principal des interactions (Commandes et Boutons)
  */
 async function handleTournamentInteractions(interaction) {
+    if (!interaction) return false;
+
     // 1. GESTION DES CLICS SUR LES BOUTONS
     if (interaction.isButton() && interaction.customId?.startsWith('cup_btn:')) {
-        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        try {
+            await interaction.deferReply({ flags: [MessageFlags.Ephemeral] }).catch(() => null);
+        } catch (e) {
+            return true;
+        }
+
         const slug = interaction.customId.split(':')[1];
 
         const { data: t, error } = await global.supabase
@@ -178,7 +182,7 @@ async function handleTournamentInteractions(interaction) {
             .maybeSingle();
 
         if (error || !t) {
-            await interaction.followup.send({ content: "❌ Ce tournoi n'existe plus.", flags: [MessageFlags.Ephemeral] });
+            await interaction.followup.send({ content: "❌ Ce tournoi n'existe plus.", flags: [MessageFlags.Ephemeral] }).catch(() => null);
             return true;
         }
 
@@ -214,7 +218,10 @@ async function handleTournamentInteractions(interaction) {
         const fileIcon = getTournamentIconAttachment();
         if (fileIcon) files.push(fileIcon);
 
-        await interaction.followup.send({ embeds: [detailEmbed], files: files, flags: [MessageFlags.Ephemeral] });
+        await interaction.followup.send({ embeds: [detailEmbed], files: files, flags: [MessageFlags.Ephemeral] }).catch(() => null);
+        
+        // Rafraîchissement en arrière-plan sans bloquer ni crasher
+        await refreshMainMenuDirect(interaction);
         return true;
     }
 
@@ -223,7 +230,7 @@ async function handleTournamentInteractions(interaction) {
         const { commandName } = interaction;
 
         if (commandName === 'cup_menu') {
-            await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+            await interaction.deferReply({ flags: [MessageFlags.Ephemeral] }).catch(() => null);
 
             const { embed, buttons } = await buildMainMenu();
             const rows = [];
@@ -237,14 +244,9 @@ async function handleTournamentInteractions(interaction) {
             if (fileIcon) files.push(fileIcon);
 
             try {
-                // SÉCURITÉ ABSOLUE : Récupération forcée du salon textuel via l'ID global si interaction.channel est vide
-                let targetChannel = interaction.channel;
+                const targetChannel = interaction.channel;
                 if (!targetChannel || typeof targetChannel.send !== 'function') {
-                    targetChannel = await interaction.client.channels.fetch(interaction.channelId).catch(() => null);
-                }
-
-                if (!targetChannel || typeof targetChannel.send !== 'function') {
-                    await interaction.followup.send({ content: "❌ Impossible d'envoyer le menu ici : impossible de valider les fonctions d'écriture de ce salon.", flags: [MessageFlags.Ephemeral] });
+                    await interaction.followup.send({ content: "❌ Impossible d'envoyer le menu ici : le bot n'a pas accès aux fonctions d'écriture de ce salon.", flags: [MessageFlags.Ephemeral] }).catch(() => null);
                     return true;
                 }
 
@@ -258,16 +260,15 @@ async function handleTournamentInteractions(interaction) {
                         message_id: msg.id
                     });
 
-                await interaction.followup.send({ content: "✅ Menu principal initialisé !", flags: [MessageFlags.Ephemeral] });
+                await interaction.followup.send({ content: "✅ Menu principal initialisé !", flags: [MessageFlags.Ephemeral] }).catch(() => null);
             } catch (sendError) {
-                console.error("[Tournament] Échec d'envoi du menu principal :", sendError);
-                await interaction.followup.send({ content: "❌ Impossible d'envoyer le menu. Vérifie les permissions du bot.", flags: [MessageFlags.Ephemeral] });
+                await interaction.followup.send({ content: "❌ Impossible d'envoyer le menu. Vérifie les permissions du bot.", flags: [MessageFlags.Ephemeral] }).catch(() => null);
             }
             return true;
         }
 
         if (commandName === 'cup_create') {
-            await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+            await interaction.deferReply({ flags: [MessageFlags.Ephemeral] }).catch(() => null);
 
             const name = interaction.options.getString('name');
             const maxTeams = interaction.options.getInteger('max_teams');
@@ -277,12 +278,12 @@ async function handleTournamentInteractions(interaction) {
             const bannerAttachment = interaction.options.getAttachment('banner');
 
             if (maxTeams < 2 || maxTeams > 256) {
-                await interaction.followup.send({ content: "❌ Le paramètre `max_teams` doit être configuré entre 2 et 256.", flags: [MessageFlags.Ephemeral] });
+                await interaction.followup.send({ content: "❌ Le paramètre `max_teams` doit être configuré entre 2 et 256.", flags: [MessageFlags.Ephemeral] }).catch(() => null);
                 return true;
             }
 
             if (name.length > 80) {
-                await interaction.followup.send({ content: "❌ Le titre ne doit pas dépasser 80 caractères.", flags: [MessageFlags.Ephemeral] });
+                await interaction.followup.send({ content: "❌ Le titre ne doit pas dépasser 80 caractères.", flags: [MessageFlags.Ephemeral] }).catch(() => null);
                 return true;
             }
 
@@ -291,7 +292,7 @@ async function handleTournamentInteractions(interaction) {
                 .select('*', { count: 'exact', head: true });
 
             if (countErr) {
-                await interaction.followup.send({ content: "❌ Erreur d'accès à Supabase.", flags: [MessageFlags.Ephemeral] });
+                await interaction.followup.send({ content: "❌ Erreur d'accès à Supabase.", flags: [MessageFlags.Ephemeral] }).catch(() => null);
                 return true;
             }
 
@@ -331,14 +332,14 @@ async function handleTournamentInteractions(interaction) {
                 confirmEmbed.setImage(bannerUrl);
             }
 
-            await interaction.followup.send({ embeds: [confirmEmbed], flags: [MessageFlags.Ephemeral] });
+            await interaction.followup.send({ embeds: [confirmEmbed], flags: [MessageFlags.Ephemeral] }).catch(() => null);
 
-            await refreshMainMenu(interaction.client, interaction.guild.id);
+            await refreshMainMenuDirect(interaction);
             return true;
         }
 
         if (commandName === 'cup_list') {
-            await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+            await interaction.deferReply({ flags: [MessageFlags.Ephemeral] }).catch(() => null);
 
             const { data: tournaments, error } = await global.supabase
                 .from('lfn_tournaments')
@@ -346,7 +347,7 @@ async function handleTournamentInteractions(interaction) {
                 .order('created_at', { ascending: true });
 
             if (error || !tournaments || tournaments.length === 0) {
-                await interaction.followup.send({ content: "Aucun tournoi actif répertorié.", flags: [MessageFlags.Ephemeral] });
+                await interaction.followup.send({ content: "Aucun tournoi actif répertorié.", flags: [MessageFlags.Ephemeral] }).catch(() => null);
                 return true;
             }
 
@@ -363,7 +364,7 @@ async function handleTournamentInteractions(interaction) {
                 .setColor(EMBED_COLOR_MAIN)
                 .setFooter({ text: FOOTER_TEXT });
 
-            await interaction.followup.send({ embeds: [listEmbed], flags: [MessageFlags.Ephemeral] });
+            await interaction.followup.send({ embeds: [listEmbed], flags: [MessageFlags.Ephemeral] }).catch(() => null);
             return true;
         }
     }
@@ -395,6 +396,5 @@ const slashCommandsData = [
 
 module.exports = {
     handleTournamentInteractions,
-    slashCommandsData,
-    refreshMainMenu
+    slashCommandsData
 };
