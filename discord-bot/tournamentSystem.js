@@ -13,15 +13,56 @@ const {
     ButtonStyle, 
     ActionRowBuilder,
     MessageFlags,
-    AttachmentBuilder // Indispensable pour attacher l'image locale Tournois.webp
+    AttachmentBuilder 
 } = require('discord.js');
 const path = require('path');
+const fs = require('fs');
 
-// Couleur demandée : Bleu foncé (ex: #0A192F ou 0x0A192F)
+// Couleur demandée : Bleu foncé
 const EMBED_COLOR_MAIN = 0x0A192F;   
 const EMBED_COLOR_DETAIL = 0x0A192F; 
 const EMBED_COLOR_CREATE = 0x0A2E1A; 
 const FOOTER_TEXT = "La course vers le first Tier A continue !";
+
+// Fonction d'aide pour localiser de manière sûre le fichier Tournois.webp
+function getTournamentIconAttachment() {
+    const pathsToTest = [
+        path.join(__dirname, '../public/Tournois.webp'),
+        path.join(__dirname, './public/Tournois.webp'),
+        path.join(__dirname, 'public/Tournois.webp'),
+        path.join(process.cwd(), 'public/Tournois.webp')
+    ];
+
+    for (const p of pathsToTest) {
+        if (fs.existsSync(p)) {
+            return new AttachmentBuilder(p, { name: 'Tournois.webp' });
+        }
+    }
+    console.warn("[Tournament] ATTENTION : Fichier 'Tournois.webp' introuvable.");
+    return null;
+}
+
+/**
+ * Convertit une chaîne de caractères ou un timestamp en balise de temps Discord
+ * Supporte le format brut (ex: "1716573600") ou une date texte si convertible.
+ */
+function parseDiscordTimestamp(dateStr, format = 'F') {
+    if (!dateStr) return "Non définie";
+    
+    // Si c'est déjà un timestamp pur fourni par l'admin (ex: 1716573600)
+    if (/^\d+$/.test(dateStr.trim())) {
+        return `<t:${dateStr.trim()}:${format}>`;
+    }
+
+    // Tente de convertir une date standard en Timestamp Unix
+    const parsed = Date.parse(dateStr);
+    if (!isNaN(parsed)) {
+        return `<t:${Math.floor(parsed / 1000)}:${format}>`;
+    }
+
+    // Fallback : Si c'est du texte libre (ex: "Ce soir à 20h"), Discord l'affichera en texte brut
+    return dateStr;
+}
 
 async function buildMainMenu() {
     const embed = new EmbedBuilder()
@@ -29,8 +70,8 @@ async function buildMainMenu() {
         .setDescription("Clique sur une cup pour voir les détails, les conditions d'inscription et le cashprize.\n\u200b")
         .setColor(EMBED_COLOR_MAIN)
         .setTimestamp()
-        // Ajout de l'image locale "Tournois.webp" comme Thumbnail de l'embed
-        .setThumbnail('attachment://Tournois.webp')
+        // Changement ici : .setImage au lieu de .setThumbnail pour l'avoir en GRAND
+        .setImage('attachment://Tournois.webp')
         .setFooter({ text: FOOTER_TEXT });
 
     const { data: tournaments, error } = await global.supabase
@@ -47,28 +88,30 @@ async function buildMainMenu() {
         return { embed, buttons: [] };
     }
 
-    const buttons = [];
     tournaments.forEach(t => {
         const currentRegistered = t.registered_teams || 0; 
         const remaining = t.max_teams - currentRegistered;
         const statusIcon = remaining > 0 ? "✅" : "🔴";
         const statusText = remaining > 0 ? "🟢 Ouvert" : "🔴 Complet";
 
+        // Traduction dynamique de la date en tag Discord interactif
+        const discordTime = parseDiscordTimestamp(t.date_string, 'f');
+
         embed.addFields({
             name: `**${t.name}**`,
-            value: `📅 \`${t.date_string}\`  |  💰 \`${t.cashprize}\`  |  👥 \`${currentRegistered}/${t.max_teams} ${statusIcon}\`  |  ${statusText}`,
+            value: `📅 ${discordTime}  |  💰 \`${t.cashprize}\`  |  👥 \`${currentRegistered}/${t.max_teams} ${statusIcon}\`  |  ${statusText}`,
             inline: false
         });
+    });
 
+    // Génération dynamique des boutons
+    const buttons = tournaments.map(t => {
         const label = t.name.length > 80 ? t.name.substring(0, 77) + "…" : t.name;
-        
-        buttons.push(
-            new ButtonBuilder()
-                .setCustomId(`cup_btn:${t.slug}`)
-                .setLabel(label)
-                .setStyle(ButtonStyle.Primary)
-                .setEmoji("🏆")
-        );
+        return new ButtonBuilder()
+            .setCustomId(`cup_btn:${t.slug}`)
+            .setLabel(label)
+            .setStyle(ButtonStyle.Primary)
+            .setEmoji("🏆");
     });
 
     return { embed, buttons };
@@ -85,7 +128,7 @@ async function refreshMainMenu(client, guildId) {
 
     try {
         const channel = await client.channels.fetch(menuRef.channel_id);
-        if (!channel) return;
+        if (!channel || !channel.isTextBased()) return;
 
         const message = await channel.messages.fetch(menuRef.message_id);
         if (!message) return;
@@ -98,12 +141,13 @@ async function refreshMainMenu(client, guildId) {
             rows.push(row);
         }
 
-        // On recrée l'attachement pour l'édition du menu si nécessaire
-        const file = new AttachmentBuilder(path.join(__dirname, '../public/Tournois.webp'));
+        const files = [];
+        const fileIcon = getTournamentIconAttachment();
+        if (fileIcon) files.push(fileIcon);
 
-        await message.edit({ embeds: [embed], components: rows, files: [file] });
+        await message.edit({ embeds: [embed], components: rows, files: files });
     } catch (err) {
-        console.warn(`[Tournament] Synchronisation du menu ignorée ou message introuvable pour la guilde : ${guildId}`);
+        console.warn(`[Tournament] Synchronisation du menu ignorée : ${err.message}`);
     }
 }
 
@@ -119,7 +163,7 @@ async function handleTournamentInteractions(interaction) {
             .maybeSingle();
 
         if (error || !t) {
-            await interaction.followup.send({ content: "❌ Ce tournoi n'existe plus dans la base de données.", flags: [MessageFlags.Ephemeral] });
+            await interaction.followup.send({ content: "❌ Ce tournoi n'existe plus.", flags: [MessageFlags.Ephemeral] });
             return true;
         }
 
@@ -127,30 +171,37 @@ async function handleTournamentInteractions(interaction) {
         const channelMention = `<#${t.signup_channel_id}>`;
         const currentRegistered = t.registered_teams || 0;
         const statusText = currentRegistered < t.max_teams ? "🟢 **Ouvert**" : "🔴 **Complet**";
+        
+        // Utilisation du temps relatif (ex: "dans 3 jours") et complet pour le détail
+        const fullTime = parseDiscordTimestamp(t.date_string, 'F');
+        const relativeTime = parseDiscordTimestamp(t.date_string, 'R');
 
         const detailEmbed = new EmbedBuilder()
             .setTitle(`🏆  ${t.name}`)
-            .setDescription(`La Cup organisée par ${organizerMention}\n\u200b`)
+            .setDescription(`La Cup organisée par ${organizerMention}\n📅 Début : ${fullTime} (${relativeTime})\n\u200b`)
             .setColor(EMBED_COLOR_DETAIL)
             .addFields(
                 { name: "💰  Cashprize", value: `**${t.cashprize}** ✅`, inline: true },
-                { name: "📅  Date", value: `**${t.date_string}**`, inline: true },
                 { name: "👥  Équipes", value: `**${t.max_teams} MAX** ❗`, inline: true },
                 { name: "📋  Inscrits", value: `**${currentRegistered}/${t.max_teams}**`, inline: true },
                 { name: "🔗  Inscriptions", value: channelMention, inline: true },
                 { name: "📊  Statut", value: statusText, inline: true }
             )
-            .setThumbnail('attachment://Tournois.webp')
+            .setImage('attachment://Tournois.webp') // Mis en GRAND aussi sur la vue détaillée si pas de bannière personnalisée
             .setFooter({ text: FOOTER_TEXT })
             .setTimestamp(new Date(t.created_at));
 
-        // Si l'événement possède une bannière enregistrée, on l'affiche sur l'embed de détail
+        // Si l'événement possède une bannière unique, elle remplace le grand visuel par défaut
         if (t.banner_url) {
             detailEmbed.setImage(t.banner_url);
+            detailEmbed.setThumbnail('attachment://Tournois.webp'); // On bascule le logo par défaut sur le côté
         }
 
-        const file = new AttachmentBuilder(path.join(__dirname, '../public/Tournois.webp'));
-        await interaction.followup.send({ embeds: [detailEmbed], files: [file], flags: [MessageFlags.Ephemeral] });
+        const files = [];
+        const fileIcon = getTournamentIconAttachment();
+        if (fileIcon) files.push(fileIcon);
+
+        await interaction.followup.send({ embeds: [detailEmbed], files: files, flags: [MessageFlags.Ephemeral] });
         return true;
     }
 
@@ -160,7 +211,15 @@ async function handleTournamentInteractions(interaction) {
         if (commandName === 'cup_menu') {
             await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
 
-            const textChannel = interaction.channel || await interaction.client.channels.fetch(interaction.channelId);
+            let textChannel = interaction.channel;
+            if (!textChannel || typeof textChannel.send !== 'function') {
+                try {
+                    textChannel = await interaction.client.channels.fetch(interaction.channelId);
+                } catch (e) {
+                    textChannel = null;
+                }
+            }
+
             if (!textChannel || !textChannel.isTextBased()) {
                 await interaction.followup.send({ content: "❌ Impossible d'accéder au salon textuel.", flags: [MessageFlags.Ephemeral] });
                 return true;
@@ -174,10 +233,11 @@ async function handleTournamentInteractions(interaction) {
                 rows.push(row);
             }
 
-            // Récupération et attachement de l'image locale dans le dossier public
-            const file = new AttachmentBuilder(path.join(__dirname, '../public/Tournois.webp'));
+            const files = [];
+            const fileIcon = getTournamentIconAttachment();
+            if (fileIcon) files.push(fileIcon);
 
-            const msg = await textChannel.send({ embeds: [embed], components: rows, files: [file] });
+            const msg = await textChannel.send({ embeds: [embed], components: rows, files: files });
 
             await global.supabase
                 .from('lfn_tournament_menus')
@@ -196,10 +256,9 @@ async function handleTournamentInteractions(interaction) {
 
             const name = interaction.options.getString('name');
             const maxTeams = interaction.options.getInteger('max_teams');
-            const dateStr = interaction.options.getString('date');
+            const dateStr = interaction.options.getString('date'); // Accepte un timestamp ou une date string valide
             const cashprize = interaction.options.getString('cashprize');
             const signupChannel = interaction.options.getChannel('signup_channel');
-            // Récupération de l'image (bannière) fournie en argument
             const bannerAttachment = interaction.options.getAttachment('banner');
 
             if (maxTeams < 2 || maxTeams > 256) {
@@ -208,7 +267,7 @@ async function handleTournamentInteractions(interaction) {
             }
 
             if (name.length > 80) {
-                await interaction.followup.send({ content: "❌ Le titre de la Cup ne doit pas dépasser le seuil de 80 caractères.", flags: [MessageFlags.Ephemeral] });
+                await interaction.followup.send({ content: "❌ Le titre ne doit pas dépasser 80 caractères.", flags: [MessageFlags.Ephemeral] });
                 return true;
             }
 
@@ -217,7 +276,7 @@ async function handleTournamentInteractions(interaction) {
                 .select('*', { count: 'exact', head: true });
 
             if (countErr) {
-                await interaction.followup.send({ content: "❌ Erreur d'accès à la table de données Supabase.", flags: [MessageFlags.Ephemeral] });
+                await interaction.followup.send({ content: "❌ Erreur d'accès à Supabase.", flags: [MessageFlags.Ephemeral] });
                 return true;
             }
 
@@ -235,8 +294,10 @@ async function handleTournamentInteractions(interaction) {
                     cashprize: cashprize,
                     signup_channel_id: signupChannel.id,
                     organizer_id: interaction.user.id,
-                    banner_url: bannerUrl // Optionnel : à ajouter dans ta colonne de BDD si souhaité
+                    banner_url: bannerUrl 
                 });
+
+            const displayTime = parseDiscordTimestamp(dateStr, 'F');
 
             const confirmEmbed = new EmbedBuilder()
                 .setTitle("✅  Tournoi créé avec succès")
@@ -244,7 +305,7 @@ async function handleTournamentInteractions(interaction) {
                 .addFields(
                     { name: "Nom", value: name, inline: true },
                     { name: "Équipes max", value: String(maxTeams), inline: true },
-                    { name: "Date", value: dateStr, inline: true },
+                    { name: "Date", value: displayTime, inline: true },
                     { name: "Cashprize", value: cashprize, inline: true },
                     { name: "Salon", value: `<#${signupChannel.id}>`, inline: true },
                     { name: "ID interne (Slug)", value: `\`${slug}\``, inline: true }
@@ -270,14 +331,15 @@ async function handleTournamentInteractions(interaction) {
                 .order('created_at', { ascending: true });
 
             if (error || !tournaments || tournaments.length === 0) {
-                await interaction.followup.send({ content: "Aucun tournoi actif répertorié pour le moment.", flags: [MessageFlags.Ephemeral] });
+                await interaction.followup.send({ content: "Aucun tournoi actif répertorié.", flags: [MessageFlags.Ephemeral] });
                 return true;
             }
 
             const lines = tournaments.map((t, i) => {
                 const currentRegistered = t.registered_teams || 0;
                 const icon = (t.max_teams - currentRegistered) > 0 ? "✅" : "🔴";
-                return `**${i + 1}.** \`${t.slug}\` — **${t.name}** · ${t.date_string} · ${t.cashprize} · \`[${currentRegistered}/${t.max_teams} ${icon}]\``;
+                const displayTime = parseDiscordTimestamp(t.date_string, 'd');
+                return `**${i + 1}.** \`${t.slug}\` — **${t.name}** · ${displayTime} · ${t.cashprize} · \`[${currentRegistered}/${t.max_teams} ${icon}]\``;
             });
 
             const listEmbed = new EmbedBuilder()
@@ -306,10 +368,9 @@ const slashCommandsData = [
         .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
         .addStringOption(opt => opt.setName('name').setDescription('Nom de la compétition').setRequired(true))
         .addIntegerOption(opt => opt.setName('max_teams').setDescription("Nombre maximum d'équipes acceptées (2-256)").setRequired(true))
-        .addStringOption(opt => opt.setName('date').setDescription('Date et heure de l’événement (ex: 24 Mai - 20h)').setRequired(true))
+        .addStringOption(opt => opt.setName('date').setDescription('Timestamp Unix pur (ex: 1716573600) ou format ISO (YYYY-MM-DD)').setRequired(true))
         .addStringOption(opt => opt.setName('cashprize').setDescription('Récompense promise (ex: 50€, rôles...)').setRequired(true))
         .addChannelOption(opt => opt.setName('signup_channel').setDescription("Lien vers le salon dédié aux inscriptions").setRequired(true))
-        // Ajout de l'option d'attachement d'image (Bannière de l'event)
         .addAttachmentOption(opt => opt.setName('banner').setDescription("L'image de la bannière du tournoi").setRequired(false)),
 
     new SlashCommandBuilder()
