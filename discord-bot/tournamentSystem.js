@@ -127,20 +127,18 @@ async function refreshMainMenu(client, guildId) {
     if (error || !menuRef) return;
 
     try {
-        // Recherche dans le cache d'abord pour obtenir un objet complet
         let channel = client.channels.cache.get(menuRef.channel_id);
         if (!channel) {
             channel = await client.channels.fetch(menuRef.channel_id).catch(() => null);
         }
         
-        if (!channel || !channel.isTextBased()) return;
+        if (!channel || !channel.isTextBased() || typeof channel.send !== 'function') return;
 
         let message = channel.messages.cache.get(menuRef.message_id);
         if (!message) {
             message = await channel.messages.fetch(menuRef.message_id).catch(() => null);
         }
 
-        // Sécurité anti-crash : Vérifie si le message existe et possède la fonction d'édition
         if (!message || typeof message.edit !== 'function') {
             console.warn(`[Tournament] Mise à jour automatique annulée : Le message d'origine n'est pas modifiable.`);
             return;
@@ -203,14 +201,13 @@ async function handleTournamentInteractions(interaction) {
                 { name: "🔗  Inscriptions", value: channelMention, inline: true },
                 { name: "📊  Statut", value: statusText, inline: true }
             )
-            .setImage('attachment://Tournois.webp') // Par défaut en grand
+            .setImage('attachment://Tournois.webp')
             .setFooter({ text: FOOTER_TEXT })
             .setTimestamp(new Date(t.created_at));
 
-        // Si l'event a sa propre bannière (argument dans /cup_create), elle prend la place principale
         if (t.banner_url) {
             detailEmbed.setImage(t.banner_url);
-            detailEmbed.setThumbnail('attachment://Tournois.webp'); // Le logo passe sur le côté
+            detailEmbed.setThumbnail('attachment://Tournois.webp');
         }
 
         const files = [];
@@ -240,18 +237,24 @@ async function handleTournamentInteractions(interaction) {
             if (fileIcon) files.push(fileIcon);
 
             try {
-                if (!interaction.channel || typeof interaction.channel.send !== 'function') {
-                    await interaction.followup.send({ content: "❌ Le bot ne peut pas écrire dans ce salon.", flags: [MessageFlags.Ephemeral] });
+                // SÉCURITÉ ABSOLUE : Récupération forcée du salon textuel via l'ID global si interaction.channel est vide
+                let targetChannel = interaction.channel;
+                if (!targetChannel || typeof targetChannel.send !== 'function') {
+                    targetChannel = await interaction.client.channels.fetch(interaction.channelId).catch(() => null);
+                }
+
+                if (!targetChannel || typeof targetChannel.send !== 'function') {
+                    await interaction.followup.send({ content: "❌ Impossible d'envoyer le menu ici : impossible de valider les fonctions d'écriture de ce salon.", flags: [MessageFlags.Ephemeral] });
                     return true;
                 }
 
-                const msg = await interaction.channel.send({ embeds: [embed], components: rows, files: files });
+                const msg = await targetChannel.send({ embeds: [embed], components: rows, files: files });
 
                 await global.supabase
                     .from('lfn_tournament_menus')
                     .upsert({
                         guild_id: interaction.guild.id,
-                        channel_id: interaction.channel.id,
+                        channel_id: targetChannel.id,
                         message_id: msg.id
                     });
 
