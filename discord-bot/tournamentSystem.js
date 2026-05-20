@@ -65,12 +65,22 @@ function parseDiscordTimestamp(dateStr, format = 'F') {
 }
 
 /**
- * Génère l'embed du menu principal (Style V1 avec PTV.webp dans le coin)
+ * Génère l'embed du menu principal (Avec le texte promotionnel à la fin)
  */
 async function buildMainMenu() {
+    // Intégration de ta promotion à la fin de la description principale
+    const descriptionText = 
+        "Clique sur une cup pour voir les détails, les conditions d'inscription et le cashprize.\n\n" +
+        "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n" +
+        "💡 **Tu veux TON propre tournoi ?**\n\n" +
+        "Je peux organiser un tournoi personnalisé pour toi (format, règles, cashprize…)\n\n" +
+        "👉 **Prix : 9,99€**\n" +
+        "📩 **DM-moi si t’es chaud**\n" +
+        "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\u200b";
+
     const embed = new EmbedBuilder()
         .setTitle("VOICI LES TOURNOIS QUI ARRIVENT SUR PTV")
-        .setDescription("Clique sur une cup pour voir les détails, les conditions d'inscription et le cashprize.\n\u200b")
+        .setDescription(descriptionText)
         .setColor(EMBED_COLOR_MAIN)
         .setTimestamp()
         .setThumbnail('attachment://PTV.webp') // Image PTV.webp dans le coin droit
@@ -150,7 +160,6 @@ async function refreshMainMenuDirect(interaction) {
             rows.push(row);
         }
 
-        // Chargement des deux fichiers nécessaires pour le menu principal
         const files = [];
         const fileTournois = getPublicAttachment('Tournois.webp');
         const filePTV = getPublicAttachment('PTV.webp');
@@ -209,12 +218,11 @@ async function handleTournamentInteractions(interaction) {
                 { name: "🔗  Inscriptions", value: channelMention, inline: true },
                 { name: "📊  Statut", value: statusText, inline: true }
             )
-            .setThumbnail('attachment://PTV.webp') // PTV.webp reste dans le coin des détails
+            .setThumbnail('attachment://PTV.webp')
             .setImage('attachment://Tournois.webp')
             .setFooter({ text: FOOTER_TEXT })
             .setTimestamp(new Date(t.created_at));
 
-        // Si une bannière personnalisée a été configurée à la création
         if (t.banner_url) {
             detailEmbed.setImage(t.banner_url);
         }
