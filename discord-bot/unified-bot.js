@@ -8384,6 +8384,9 @@ async function handleMessage(message) {
       case 'lfn':
         await handleLfnCommand(message, args);
         break;
+      case 'draft':
+        await handleDraftCommand(message, args);
+        break;
       case 'aide':
       case 'help':
         await handleHelpCommand(message, args);
