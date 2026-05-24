@@ -71,7 +71,15 @@ const ALL = [
   'Melodie',
   'Byron',
   'Draco',
-  'Lumi'
+  'Lumi',
+  'Glowy',
+  'Kit',
+  'Najia',
+  'Gray',   // Ajouté
+  'Damian', // Ajouté
+  'Sirius', // Ajouté
+  'Colette',// Ajouté
+  'Ziggy'   // Ajouté
 ];
 
 const MAP_PRIORITY = {
@@ -84,6 +92,11 @@ const MAP_PRIORITY = {
   Moe: 2,
   Finx: 2,
   Lumi: 2,
+  Kit: 2,
+  Najia: 2,
+  Gray: 2,   // Forte priorité suite à la victoire
+  Damian: 2, // Forte priorité suite à la victoire
+  Sirius: 2, // Forte priorité suite à la victoire
   Brock: 1,
   Colt: 2,
   Gene: 1,
@@ -119,10 +132,14 @@ const MAP_PRIORITY = {
   Byron: 1,
   Poco: 1,
   Draco: 1,
+  Glowy: 1,
+  Colette: 1,
+  Ziggy: 1,
   Trunk: 0,
   Hank: 0,
   Ash: 0,
-  Frank: 0
+  Frank: 0,
+  Shade: 0
 };
 
 const COUNTER_BY_USER_PICK = {
@@ -146,7 +163,7 @@ const COUNTER_BY_USER_PICK = {
   Carl: ['Shelly', 'Spike'],
   Mina: ['Gene', 'Belle'],
   Otis: ['Gene', 'Belle', 'Spike', 'Colt'],
-  Alli: ['Shelly', 'Spike', 'Nita'],
+  Alli: ['Shelly', 'Spike', 'Nita', 'Kit', 'Bull'],
   Griff: ['Belle', 'Gene'],
   Meeple: ['Belle', 'Gene', 'Mortis', 'Emz'],
   Squeak: ['Gene', 'Belle'],
@@ -173,14 +190,19 @@ const COUNTER_BY_USER_PICK = {
   Byron: ['Mortis', 'Crow'],
   Draco: ['Spike', 'Otis'],
   Lumi: ['Gene', 'Belle'],
-  Shade: ['Mortis', 'Frank', 'Emz']
+  Shade: ['Mortis', 'Frank', 'Emz', 'Kit', 'Najia'],
+  Glowy: ['Kit', 'Bull', 'Najia'],
+  // --- NOUVEAUX MATCH-UPS ---
+  Kit: ['Gray', 'Damian', 'Sirius'],
+  Colette: ['Gray', 'Damian', 'Sirius'],
+  Ziggy: ['Gray', 'Damian', 'Sirius']
 };
 
 const USER_FIRST_TURN = ['USER', 'AI', 'AI', 'USER', 'USER', 'AI'];
 const AI_FIRST_TURN = ['AI', 'USER', 'USER', 'AI', 'AI', 'USER'];
 const TURN = USER_FIRST_TURN;
 
-const SUPPORTS = new Set(['Gus', 'Pam', 'Ruffs', 'Poco', 'Byron', 'Lumi']);
+const SUPPORTS = new Set(['Gus', 'Pam', 'Ruffs', 'Poco', 'Byron', 'Lumi', 'Kit', 'Gray']);
 const MELEES = new Set([
   'Frank',
   'Bull',
@@ -194,10 +216,12 @@ const MELEES = new Set([
   'Rosa',
   'Darryl',
   'Draco',
-  'Trunk'
+  'Trunk',
+  'Shade',
+  'Damian'
 ]);
-const SNIPERS_POKE = new Set(['Piper', 'Belle', 'Brock', 'Colt', 'Rico', 'Maisie', 'Janet']);
-const DIVE_UNITS = new Set(['Mortis', 'Alli', 'Crow', 'Lily', 'Kenji', 'Melodie']);
+const SNIPERS_POKE = new Set(['Piper', 'Belle', 'Brock', 'Colt', 'Rico', 'Maisie', 'Janet', 'Najia', 'Colette']);
+const DIVE_UNITS = new Set(['Mortis', 'Alli', 'Crow', 'Lily', 'Kenji', 'Melodie', 'Glowy', 'Sirius', 'Ziggy']);
 const DISABLES = new Set(['Spike', 'Otis', 'Rico', 'Cordelius']);
 
 const NAME_LOOKUP = ALL.reduce((acc, name) => {
@@ -238,7 +262,8 @@ function getMetaConfig() {
     supportPressurePenalty: 2.0,
     hankPenalty: 1.0,
     kenjiPenalty: 0.5,
-    frankPenalty: 0.8
+    frankPenalty: 0.8,
+    defeatCompositionPenalty: 1.5
   };
 }
 
@@ -264,6 +289,26 @@ function evaluateDraft(picks, metaProfile = META_DEFAULT) {
 
   const has = (x) => picks.includes(x);
 
+  // --- LOGIQUE DE DÉFAITE HISTORIQUE 1 (Glowy, Shade, Alli vs Kit, Bull, Najia) ---
+  if (has('Glowy') && has('Shade') && has('Alli')) {
+    score -= cfg.defeatCompositionPenalty;
+  }
+  if (has('Kit') && has('Bull') && has('Najia')) {
+    score += 1.8;
+  }
+  if (has('Kit') && has('Bull')) score += 0.6;
+  if (has('Kit') && has('Najia')) score += 0.4;
+
+  // --- LOGIQUE DE DÉFAITE HISTORIQUE 2 (Gray, Damian, Sirius vs Kit, Colette, Ziggy) ---
+  if (has('Gray') && has('Damian') && has('Sirius')) {
+    score += 1.8; // Gros bonus car cette compo a prouvé sa supériorité complète
+  }
+  if (has('Kit') && has('Colette') && has('Ziggy')) {
+    score -= cfg.defeatCompositionPenalty; // Pénalité si on réunit la compo perdante
+  }
+  if (has('Gray') && has('Damian')) score += 0.5;
+  if (has('Gray') && has('Sirius')) score += 0.5;
+
   if (
     has('Tara') ||
     has('Gene') ||
@@ -282,7 +327,9 @@ function evaluateDraft(picks, metaProfile = META_DEFAULT) {
     has('Finx') ||
     has('Rico') ||
     has('Lumi') ||
-    has('Charlie')
+    has('Charlie') ||
+    has('Najia') ||
+    has('Colette')
   ) {
     score += 1;
   }
@@ -336,7 +383,7 @@ function evaluateDraft(picks, metaProfile = META_DEFAULT) {
     if (!hasHardStop) score -= cfg.doubleDiveNoStopPenalty;
   }
 
-  if (has('Gus') || has('Pam') || has('Ruffs') || has('Poco') || has('Byron') || has('Lumi')) score += 0.5;
+  if (has('Gus') || has('Pam') || has('Ruffs') || has('Poco') || has('Byron') || has('Lumi') || has('Kit') || has('Gray')) score += 0.5;
 
   const hasDisable = has('Spike') || has('Otis') || has('Rico');
   if (hasDisable) score += 1;
@@ -354,16 +401,16 @@ function evaluateDraft(picks, metaProfile = META_DEFAULT) {
     has('Amber');
   if (hasZone && hasDive) score += 1;
 
-  if (has('Bull')) score -= 1.5;
+  if (has('Bull')) score -= 0.5;
   if (has('Hank')) score -= cfg.hankPenalty;
   if (has('Frank')) score -= cfg.frankPenalty;
   if (has('Ash')) score -= 0.5;
   if (has('Kenji')) score -= cfg.kenjiPenalty;
 
-  const supports = ['Gus', 'Ruffs', 'Pam', 'Poco', 'Byron', 'Lumi'].filter((s) => has(s)).length;
+  const supports = ['Gus', 'Ruffs', 'Pam', 'Poco', 'Byron', 'Lumi', 'Kit', 'Gray'].filter((s) => has(s)).length;
   if (supports >= 2) score -= cfg.supportPressurePenalty;
 
-  const melees = ['Frank', 'Bull', 'Hank', 'Ash', 'El Primo', 'Mortis', 'Sam', 'Kenji', 'Lily', 'Trunk'].filter((m) => has(m)).length;
+  const melees = ['Frank', 'Bull', 'Hank', 'Ash', 'El Primo', 'Mortis', 'Sam', 'Kenji', 'Lily', 'Trunk', 'Shade', 'Damian'].filter((m) => has(m)).length;
   if (melees >= 2) score -= 1.5;
 
   return score;
@@ -562,19 +609,27 @@ function buildVictoryArguments(session) {
   addReason(winnerMetrics.supports - loserMetrics.supports, 'Plus de sustain via supports.');
   addReason(winnerMetrics.dives - loserMetrics.dives, 'Pression dive plus élevée.');
   addReason(loserMetrics.melees - winnerMetrics.melees, 'Moins d’exposition aux compos mêlée.');
-  if (
-    winnerPicks.includes('Bull') &&
-    winnerPicks.includes('Colt') &&
-    winnerPicks.includes('Spike')
-  ) {
+  
+  if (winnerPicks.includes('Bull') && winnerPicks.includes('Colt') && winnerPicks.includes('Spike')) {
     addReason(1.6, 'Synergie Bull/Colt/Spike solide sur cette map.');
   }
-  if (
-    winnerPicks.includes('Mortis') &&
-    winnerPicks.includes('Frank') &&
-    winnerPicks.includes('Emz')
-  ) {
+  if (winnerPicks.includes('Mortis') && winnerPicks.includes('Frank') && winnerPicks.includes('Emz')) {
     addReason(1.6, 'Synergie Mortis/Frank/Emz solide sur cette map.');
+  }
+  
+  // Arguments textuels basés sur les défaites historiques
+  if (winnerPicks.includes('Kit') && winnerPicks.includes('Bull') && winnerPicks.includes('Najia')) {
+    addReason(2.0, 'Utilisation complète de la composition Kit/Bull/Najia, historiquement dominante.');
+  }
+  if (loserPicks.includes('Glowy') && loserPicks.includes('Shade') && loserPicks.includes('Alli')) {
+    addReason(2.0, 'Faiblesse critique : La composition adverse (Glowy/Shade/Alli) s’est déjà inclinée face à ce type de contre.');
+  }
+  
+  if (winnerPicks.includes('Gray') && winnerPicks.includes('Damian') && winnerPicks.includes('Sirius')) {
+    addReason(2.0, 'Domination tactique via l’alignement parfait de Gray/Damian/Sirius.');
+  }
+  if (loserPicks.includes('Kit') && loserPicks.includes('Colette') && loserPicks.includes('Ziggy')) {
+    addReason(2.0, 'Vulnérabilité majeure : L’équipe adverse a forcé un trio (Kit/Colette/Ziggy) historiquement contré par cette composition.');
   }
 
   const counterReasonMap = new Map();
