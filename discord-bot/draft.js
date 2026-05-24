@@ -2,6 +2,7 @@
 
 const META_DEFAULT = 'BUFFIES';
 
+// Mise à jour de la Meta selon tes indications (valeur de 1 pour les BUFFIES)
 const META_POWER = {
   BUFFIES: {
     Shelly: 1,
@@ -10,7 +11,15 @@ const META_POWER = {
     Colt: 1,
     Frank: 1,
     Emz: 1,
-    Bull: 0.6
+    Bull: 1,     // Upgradé à 1
+    Edgar: 1,    // Ajouté
+    Colette: 1,  // Ajouté
+    Griff: 1,    // Ajouté
+    Crow: 1,     // Ajouté
+    Leon: 1,     // Ajouté
+    Nita: 1,     // Ajouté
+    Bo: 1,       // Ajouté
+    Bibi: 1      // Ajouté
   }
 };
 
@@ -22,17 +31,18 @@ const ALL = [
   'Penny', 'Gale', 'Janet', 'Amber', 'Charlie', 'Lily', 'Hank', 'Moe', 'Chester', 'Finx',
   'Kenji', 'Ash', 'Rico', 'Melodie', 'Byron', 'Draco', 'Lumi',
   'Glowy', 'Kit', 'Najia', 'Gray', 'Damian', 'Sirius', 'Colette', 'Ziggy',
-  'Berry', 'Dynamike', 'Bo' // Ajoutés
+  'Berry', 'Dynamike', 'Bo', 'Stu', 'Bolt',
+  'Pierce', 'Angelo', 'Bibi', 'Pearl', 'Edgar' // Ajouts des nouveaux venus et manquants
 ];
 
 const MAP_PRIORITY = {
   Piper: 2, Belle: 2, Tara: 2, Juju: 2, Mina: 2, Cordelius: 2, Moe: 2, Finx: 2, Lumi: 2,
   Kit: 2, Najia: 2, Gray: 2, Damian: 2, Sirius: 2, Colt: 2, Spike: 2, Bull: 2, Emz: 2,
-  Shelly: 2, Dynamike: 2, Bo: 1, Berry: 1, // Priorités ajustées
-  Brock: 1, Gene: 1, Sandy: 1, Rosa: 1, Mortis: 1, Buster: 1, Pam: 1, Gus: 1, Ruffs: 1,
+  Shelly: 2, Dynamike: 2, Chester: 2, Crow: 2, Gene: 2, Bolt: 2, Pierce: 2, Angelo: 2, // Pierce et Angelo prioritaires
+  Bo: 1, Berry: 1, Stu: 1, Brock: 1, Sandy: 1, Rosa: 1, Mortis: 1, Buster: 1, Pam: 1, Gus: 1, Ruffs: 1,
   Carl: 1, Otis: 1, Alli: 1, Griff: 1, Meeple: 1, Squeak: 1, Surge: 1, Sam: 1, Maisie: 1,
-  Penny: 1, Gale: 1, Janet: 1, Amber: 1, Charlie: 1, Lily: 1, Rico: 1, Chester: 1,
-  Kenji: 1, Melodie: 1, Byron: 1, Poco: 1, Draco: 1, Glowy: 1, Colette: 1, Ziggy: 1,
+  Penny: 1, Gale: 1, Janet: 1, Amber: 1, Charlie: 1, Lily: 1, Rico: 1, Pearl: 1, Edgar: 1, Nita: 1, Leon: 1,
+  Kenji: 1, Melodie: 1, Byron: 1, Poco: 1, Draco: 1, Glowy: 1, Colette: 1, Ziggy: 1, Bibi: 1,
   Trunk: 0, Hank: 0, Ash: 0, Frank: 0, Shade: 0
 };
 
@@ -44,8 +54,8 @@ const COUNTER_BY_USER_PICK = {
   Jessie: ['Belle'],
   Nita: ['Belle'],
   Poco: ['Spike', 'Emz'],
-  Piper: ['Gene'],
-  Brock: ['Gene'],
+  Piper: ['Gene', 'Angelo'],
+  Brock: ['Gene', 'Moe', 'Sirius', 'Angelo', 'Pierce'],
   Mortis: ['Shelly', 'Spike', 'Nita'],
   Frank: ['Shelly', 'Spike', 'Colt', 'Bull'],
   Buster: ['Spike', 'Colt', 'Belle'],
@@ -53,12 +63,12 @@ const COUNTER_BY_USER_PICK = {
   Pam: ['Spike', 'Belle'],
   Gus: ['Mortis', 'Leon'],
   Juju: ['Gene', 'Belle'],
-  Ruffs: ['Spike', 'Belle'],
+  Ruffs: ['Spike', 'Belle', 'Gene', 'Glowy'],
   Carl: ['Shelly', 'Spike'],
   Mina: ['Gene', 'Belle'],
-  Otis: ['Gene', 'Belle', 'Spike', 'Colt'],
+  Otis: ['Gene', 'Belle', 'Spike', 'Colt', 'Crow', 'Chester'],
   Alli: ['Shelly', 'Spike', 'Nita', 'Kit', 'Bull'],
-  Griff: ['Belle', 'Gene'],
+  Griff: ['Belle', 'Gene', 'Moe', 'Finx', 'Pierce'],
   Meeple: ['Belle', 'Gene', 'Mortis', 'Emz'],
   Squeak: ['Gene', 'Belle'],
   Surge: ['Otis', 'Belle', 'Gene'],
@@ -75,13 +85,13 @@ const COUNTER_BY_USER_PICK = {
   Lily: ['Shelly', 'Spike', 'Emz'],
   Hank: ['Spike', 'Otis', 'Colt'],
   Moe: ['Belle', 'Gene', 'Piper'],
-  Chester: ['Gene', 'Belle'],
+  Chester: ['Gene', 'Belle', 'Glowy', 'Pierce'],
   Finx: ['Belle', 'Gene', 'Piper'],
-  Kenji: ['Shelly', 'Spike', 'Otis', 'Dynamike'], // Shelly éclate Kenji, Dynamike le zone de loin
+  Kenji: ['Shelly', 'Spike', 'Otis', 'Dynamike'],
   Ash: ['Shelly', 'Emz', 'Spike'],
   Rico: ['Piper', 'Gene', 'Spike'],
   Melodie: ['Gene', 'Belle', 'Otis'],
-  Byron: ['Mortis', 'Crow', 'Dynamike'], // Les lanceurs comme Dynamike détruisent les healers immobiles
+  Byron: ['Mortis', 'Crow', 'Dynamike', 'Gene', 'Glowy', 'Angelo'],
   Berry: ['Dynamike', 'Mortis'],
   Draco: ['Spike', 'Otis'],
   Lumi: ['Gene', 'Belle'],
@@ -89,8 +99,16 @@ const COUNTER_BY_USER_PICK = {
   Glowy: ['Kit', 'Bull', 'Najia', 'Sirius'],
   Alli: ['Kit', 'Bull', 'Najia'],
   Kit: ['Gray', 'Damian', 'Sirius'],
-  Colette: ['Gray', 'Damian', 'Sirius'],
-  Ziggy: ['Gray', 'Damian', 'Sirius']
+  Colette: ['Gray', 'Damian', 'Sirius', 'Crow', 'Moe'],
+  Ziggy: ['Gray', 'Damian', 'Sirius'],
+  Stu: ['Crow', 'Meeple'],
+  Colt: ['Gene', 'Glowy'],
+  Bolt: ['Gene', 'Chester', 'Glowy', 'Shelly'],
+  // Nouveaux contres
+  Najia: ['Pierce', 'Crow'],
+  Pearl: ['Angelo', 'Pierce'],
+  Pierce: ['Sirius', 'Glowy', 'Mortis'],
+  Angelo: ['Leon', 'Sirius']
 };
 
 const USER_FIRST_TURN = ['USER', 'AI', 'AI', 'USER', 'USER', 'AI'];
@@ -104,14 +122,14 @@ const SUPPORTS = new Set(['Gus', 'Pam', 'Ruffs', 'Poco', 'Byron', 'Lumi', 'Kit',
 
 const MELEES = new Set([
   'Frank', 'Bull', 'Hank', 'Ash', 'El Primo', 'Mortis', 'Sam', 'Kenji', 'Lily', 'Rosa', 'Darryl', 'Draco', 'Trunk',
-  'Shade', 'Damian'
+  'Shade', 'Damian', 'Bolt', 'Bibi', 'Edgar' // Ajout de Bibi et Edgar
 ]); 
 
-const SNIPERS_POKE = new Set(['Piper', 'Belle', 'Brock', 'Colt', 'Rico', 'Maisie', 'Janet', 'Najia', 'Colette', 'Dynamike', 'Bo']); 
+const SNIPERS_POKE = new Set(['Piper', 'Belle', 'Brock', 'Colt', 'Rico', 'Maisie', 'Janet', 'Najia', 'Colette', 'Dynamike', 'Bo', 'Griff', 'Pierce', 'Angelo', 'Pearl']); // Ajout de Pierce, Angelo, Pearl
 
-const DIVE_UNITS = new Set(['Mortis', 'Alli', 'Crow', 'Lily', 'Kenji', 'Melodie', 'Glowy', 'Sirius', 'Ziggy']); 
+const DIVE_UNITS = new Set(['Mortis', 'Alli', 'Crow', 'Lily', 'Kenji', 'Melodie', 'Glowy', 'Sirius', 'Ziggy', 'Stu', 'Bolt', 'Edgar']); 
 
-const DISABLES = new Set(['Spike', 'Otis', 'Rico', 'Cordelius', 'Bo']);
+const DISABLES = new Set(['Spike', 'Otis', 'Rico', 'Cordelius', 'Bo', 'Gene', 'Chester', 'Mina']);
 
 const NAME_LOOKUP = ALL.reduce((acc, name) => {
   acc.set(normalizeName(name), name);
@@ -152,6 +170,7 @@ function getMetaConfig() {
   };
 }
 
+// Calcule la puissance de la meta (prend désormais en compte les gros buffs)
 function metaPowerOf(brawler, metaProfile) {
   return (META_POWER[metaProfile] && META_POWER[metaProfile][brawler]) || 0;
 }
@@ -182,23 +201,41 @@ function evaluateDraft(picks, metaProfile = META_DEFAULT) {
   // 1. Kit/Bull/Najia vs Glowy/Shade/Alli
   if (has('Kit') && has('Bull') && has('Najia')) score += 2.0;
   if (has('Glowy') && has('Shade') && has('Alli')) score -= cfg.defeatCompositionPenalty;
-  if (has('Kit') && (has('Bull') || has('Frank') || has('Damian'))) score += 0.8; 
 
   // 2. Gray/Damian/Sirius vs Kit/Colette/Ziggy
   if (has('Gray') && has('Damian') && has('Sirius')) score += 2.0;
   if (has('Kit') && has('Colette') && has('Ziggy')) score -= cfg.defeatCompositionPenalty;
-  if (has('Gray') && (has('Damian') || has('Sirius') || has('Bull'))) score += 0.7;
 
   // 3. Shelly/Dynamike/Bo vs Byron/Berry/Kenji
-  if (has('Shelly') && has('Dynamike') && has('Bo')) {
-    score += 2.0; // Énorme bonus pour cette composition équilibrée et anti-mêlée
+  if (has('Shelly') && has('Dynamike') && has('Bo')) score += 2.0;
+  if (has('Byron') && has('Berry') && has('Kenji')) score -= 1.8;
+
+  // 4. Crow/Chester/Meeple vs Otis/Stu/Colette
+  if (has('Crow') && has('Chester') && has('Meeple')) score += 2.0;
+  if (has('Otis') && has('Stu') && has('Colette')) score -= cfg.defeatCompositionPenalty;
+
+  // 5. Glowy/Gene/Chester vs Bolt/Byron/Ruffs
+  if (has('Glowy') && has('Gene') && has('Chester')) score += 2.0;
+  if (has('Bolt') && has('Byron') && has('Ruffs')) score -= cfg.defeatCompositionPenalty;
+
+  // 6. Moe/Finx/Sirius vs Colette/Brock/Griff
+  if (has('Moe') && has('Finx') && has('Sirius')) score += 2.0;
+  if (has('Colette') && has('Brock') && has('Griff')) score -= cfg.defeatCompositionPenalty;
+
+  // 7. Crow/Pierce/Alli vs Najia/Chester/Griff (Pression à mi-distance + Ouverture de Dive)
+  if (has('Crow') && has('Pierce') && has('Alli')) {
+    score += 2.2;
   }
-  if (has('Byron') && has('Berry') && has('Kenji')) {
-    score -= 1.8; // Très forte pénalité : Compo "hypercarry" fragile, sans dégâts si Kenji est bloqué
+  if (has('Najia') && has('Chester') && has('Griff')) {
+    score -= cfg.defeatCompositionPenalty; // Trop vulnérable à l'étouffement par poison + poke continu
   }
-  // Logique : Accumuler deux healers passifs (Byron + Berry) fait perdre la pression de zone
-  if (has('Byron') && has('Berry')) {
-    score -= 1.0;
+
+  // 8. Angelo/Pierce/Mina vs Byron/Pearl/Brock (Out-range chirurgical & burst)
+  if (has('Angelo') && has('Pierce') && has('Mina')) {
+    score += 2.2;
+  }
+  if (has('Byron') && has('Pearl') && has('Brock')) {
+    score -= cfg.defeatCompositionPenalty; // Manque de mobilité face à du lourd poke à distance
   }
 
   // --- LOGIQUE GÉNÉRALE DES ARCHÉTYPES ---
@@ -206,26 +243,10 @@ function evaluateDraft(picks, metaProfile = META_DEFAULT) {
     has('Tara') || has('Gene') || has('Belle') || has('Juju') || has('Mina') || has('Otis') ||
     has('Griff') || has('Meeple') || has('Squeak') || has('Spike') || has('Cordelius') ||
     has('Emz') || has('Maisie') || has('Moe') || has('Finx') || has('Rico') || has('Lumi') ||
-    has('Charlie') || has('Najia') || has('Colette') || has('Dynamike')
+    has('Charlie') || has('Najia') || has('Colette') || has('Dynamike') || has('Chester') || has('Pierce') || has('Angelo')
   ) {
     score += 1;
   }
-
-  if (has('Colt') || has('Spike') || has('Carl') || has('Emz') || has('Rico') || has('Chester')) {
-    score += 1;
-  }
-
-  if (has('Squeak')) score += 1;
-  if (has('Colt') && has('Squeak')) score += 1;
-  if (has('Surge') && has('Trunk')) score -= 1;
-
-  if (has('Spike') && has('Frank') && has('Lily')) score += 1.5;
-  if (has('Emz') && has('Maisie') && has('Rico')) score -= 1;
-  if (has('Frank') && has('Alli') && has('Carl')) score += 1.2;
-  if (has('Bull') && has('Colt') && has('Spike')) score += 1.4;
-  if (has('Mortis') && has('Frank') && has('Emz')) score += 1.4;
-
-  if (has('Buster') || has('Rosa') || has('Sam') || has('Ash') || has('Draco')) score += 1;
 
   // Équilibre des rôles
   const diveCount = [...DIVE_UNITS].filter((d) => has(d)).length;
@@ -233,7 +254,7 @@ function evaluateDraft(picks, metaProfile = META_DEFAULT) {
   if (hasDive) score += 1;
 
   if (diveCount >= 2) {
-    const hasHardStop = has('Otis') || has('Spike') || has('Rico') || has('Cordelius') || has('Shelly');
+    const hasHardStop = has('Otis') || has('Spike') || has('Rico') || has('Cordelius') || has('Shelly') || has('Chester');
     if (!hasHardStop) score -= cfg.doubleDiveNoStopPenalty;
   }
 
@@ -241,11 +262,11 @@ function evaluateDraft(picks, metaProfile = META_DEFAULT) {
   if (supportCount > 0) score += 0.5;
   if (supportCount >= 2) score -= cfg.supportPressurePenalty; 
 
-  const hasDisable = has('Spike') || has('Otis') || has('Rico') || has('Bo');
+  const hasDisable = has('Spike') || has('Otis') || has('Rico') || has('Bo') || has('Gene') || has('Chester') || has('Mina');
   if (hasDisable) score += 1;
   if (hasDive && hasDisable) score += cfg.comebackBonus;
 
-  if (has('Bull')) score -= 0.3;
+  if (has('Bull')) score += 0.2; // Remonté grâce aux buffs meta
   if (has('Hank')) score -= cfg.hankPenalty;
   if (has('Frank')) score -= cfg.frankPenalty;
   if (has('Kenji')) score -= cfg.kenjiPenalty;
@@ -395,31 +416,30 @@ function buildVictoryArguments(session) {
   const reasons = [];
   const addReason = (score, text) => { if (score > 0) reasons.push({ score, text }); };
 
-  // NOUVELLE RAISON HISTORIQUE DE VICTOIRE
-  if (winnerPicks.includes('Shelly') && winnerPicks.includes('Dynamike') && winnerPicks.includes('Bo')) {
-    addReason(2.5, 'Victoire par Équilibre & Anti-Dive : Shelly bloque l’assassin, Dynamike détruit les lignes arrières à couvert, Bo contrôle la zone.');
+  // --- NOUVELLES RAISONS SÉQUENCES DUELS ---
+  if (winnerPicks.includes('Crow') && winnerPicks.includes('Pierce') && winnerPicks.includes('Alli')) {
+    addReason(2.5, 'Victoire par Étouffement : La pression de Crow et Pierce à mi-distance force le recul adverse, libérant l’espace pour le dive d’Alli.');
   }
-  if (loserPicks.includes('Byron') && loserPicks.includes('Berry') && loserPicks.includes('Kenji')) {
-    addReason(2.5, 'Erreur d’excès (Hypercarry) : La composition dépendait entièrement de Kenji ; le double Support passif a manqué cruellement de dégâts.');
+  if (winnerPicks.includes('Angelo') && winnerPicks.includes('Pierce') && winnerPicks.includes('Mina')) {
+    addReason(2.5, 'Victoire par Sniper Burst : Angelo et Pierce détruisent les lignes de vue adverses à très longue portée sous la protection de Mina.');
+  }
+  if (loserPicks.includes('Byron') && loserPicks.includes('Pearl') && loserPicks.includes('Brock')) {
+    addReason(2.5, 'Faiblesse de portée/mobilité : Composition trop prévisible et linéaire, incapable de rivaliser avec des snipers à lourd burst.');
   }
 
   // Raisons historiques précédentes
-  if (winnerPicks.includes('Kit') && winnerPicks.includes('Bull') && winnerPicks.includes('Najia')) {
-    addReason(2.5, 'Victoire par Pocket-Sustain : Kit immunise/soigne Bull au corps-à-corps pendant que Najia gère les distances.');
+  if (winnerPicks.includes('Glowy') && winnerPicks.includes('Gene') && winnerPicks.includes('Chester')) {
+    addReason(2.5, 'Victoire par Rupture de Stratégie : Le Grab de Gene intercepte la cible clé ou brise les formations fermées.');
   }
-  if (loserPicks.includes('Glowy') && loserPicks.includes('Shade') && loserPicks.includes('Alli')) {
-    addReason(2.5, 'Défaut majeur : Composition full agression/dive contrée par manque de contrôle ou de sustain face aux remparts.');
-  }
-  if (winnerPicks.includes('Gray') && winnerPicks.includes('Damian') && winnerPicks.includes('Sirius')) {
-    addReason(2.5, 'Victoire par Mobilité & Rupture : Le TP de Gray permet à Damian de bloquer les lignes et à Sirius d’assassiner les carrys.');
+  if (winnerPicks.includes('Shelly') && winnerPicks.includes('Dynamike') && winnerPicks.includes('Bo')) {
+    addReason(2.5, 'Victoire par Équilibre & Anti-Dive : Shelly bloque l’assassin, Dynamike détruit les lignes arrières à couvert, Bo contrôle la zone.');
   }
 
-  // Logique de rôle
-  if (winnerMetrics.snipers > loserMetrics.snipers && loserMetrics.melees > 0 && winnerPicks.includes('Dynamike')) {
-    addReason(1.5, 'Avantage de couverture : Le dynamiteur punit lourdement les cibles lentes ou statiques derrière les obstacles.');
-  }
-  if (winnerPicks.includes('Shelly') && loserMetrics.dives > 0) {
-    addReason(1.5, 'Hard Counter : Shelly désamorce instantanément toutes les tentatives de dive ou de corps-à-corps.');
+  // Arguments liés aux Buffs Meta
+  const winnerMetaCount = winnerPicks.filter(b => metaPowerOf(b, session.metaProfile) === 1).length;
+  const loserMetaCount = loserPicks.filter(b => metaPowerOf(b, session.metaProfile) === 1).length;
+  if (winnerMetaCount > loserMetaCount) {
+    addReason(1.8, 'Avantage Meta substantiel : L’équipe profite pleinement des brawlers lourdement buffés (BUFFIES) sur cette version.');
   }
 
   addReason(winnerMetrics.mapPriority - loserMetrics.mapPriority, 'Priorité de map et de portée plus forte.');
