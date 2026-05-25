@@ -6486,7 +6486,10 @@ async function handleDraftFreeInput(message) {
   if (session.phase === 'BAN') {
     const result = draft.applyUserBan(session, brawler);
     if (!result.ok) {
-      await message.reply({ content: 'Impossible de bannir ce brawler maintenant.', allowedMentions: { repliedUser: false } });
+      await message.reply({
+        content: 'Impossible de bannir ce brawler maintenant.',
+        allowedMentions: { repliedUser: false }
+      });
       return true;
     }
     if (session.phase === 'DRAFT') {
@@ -6498,24 +6501,55 @@ async function handleDraftFreeInput(message) {
 
   if (session.phase === 'DRAFT') {
     if (draft.isDraftDone(session)) {
-      await message.reply({ content: 'La draft est déjà terminée.', allowedMentions: { repliedUser: false } });
+      await message.reply({
+        content: 'La draft est déjà terminée.',
+        allowedMentions: { repliedUser: false }
+      });
       return true;
     }
     if (draft.getTurn(session) !== 'USER') {
-      await message.reply({ content: "Ce n'est pas encore ton tour.", allowedMentions: { repliedUser: false } });
+      await message.reply({
+        content: "Ce n'est pas encore ton tour.",
+        allowedMentions: { repliedUser: false }
+      });
       return true;
     }
     const result = draft.applyUserPick(session, brawler);
     if (!result.ok) {
-      await message.reply({ content: 'Impossible de pick ce brawler maintenant.', allowedMentions: { repliedUser: false } });
+      await message.reply({
+        content: 'Impossible de pick ce brawler maintenant.',
+        allowedMentions: { repliedUser: false }
+      });
       return true;
     }
+
     draft.runAiPicks(session);
     await sendOrUpdateDraftMessage(session, message.channel);
+
     if (draft.isDraftDone(session)) {
       await persistDraftResult(session, message);
       await announceDraftResult(session, message);
+
+      const sortedAiPicks = [...session.aiPicks].sort().join(',');
+      const evalRow = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId(`draft_eval_ai:${sortedAiPicks}:up`)
+          .setLabel('Bonne Draft (IA)')
+          .setEmoji('👍')
+          .setStyle(ButtonStyle.Success),
+        new ButtonBuilder()
+          .setCustomId(`draft_eval_ai:${sortedAiPicks}:down`)
+          .setLabel('Mauvaise Draft (IA)')
+          .setEmoji('👎')
+          .setStyle(ButtonStyle.Danger)
+      );
+
+      await message.channel.send({
+        content: '📊 Comment évalues-tu la draft de l\'IA ?',
+        components: [evalRow]
+      });
     }
+
     return true;
   }
 
