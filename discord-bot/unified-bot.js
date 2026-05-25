@@ -6135,8 +6135,8 @@ function buildDraftEmbed(session) {
   const victoryArgs = draft.buildVictoryArguments(session);
   const isDone = draft.isDraftDone(session);
   const turn = draft.getTurn(session);
-
   let description = '';
+
   if (session.phase === 'BAN') {
     description = 'Écris le nom d’un brawler pour le bannir (3 bans).';
   } else if (!isDone) {
@@ -6148,34 +6148,38 @@ function buildDraftEmbed(session) {
   const embed = new EmbedBuilder()
     .setTitle('Draft IA')
     .setDescription(description)
-    .setColor(0x9b59b6)
+    // On met l'embed en doré quand la draft est finie, sinon en violet
+    .setColor(isDone ? 0xf1c40f : 0x9b59b6) 
     .setTimestamp(new Date());
 
   embed.addFields(
     { name: 'Phase', value: session.phase === 'BAN' ? `Bans (${session.userBans.length}/3)` : 'Draft', inline: true },
     { name: 'Tour', value: isDone ? 'Terminé' : turn === 'USER' ? 'Toi' : 'IA', inline: true },
-    { name: 'First pick', value: session.firstPick === 'AI' ? 'IA' : 'Toi', inline: true },
-    { name: 'Meta', value: session.metaProfile, inline: true },
-    { name: 'IA bans', value: formatDraftList(aiBans) },
-    { name: 'Tes bans', value: formatDraftList(session.userBans) },
-    { name: 'Tes picks', value: formatDraftList(session.userPicks) },
-    { name: 'IA picks', value: formatDraftList(session.aiPicks) },
-    { name: `Pool dispo (${available.length})`, value: formatDraftList(available) }
+    { name: 'First pick', value: session.firstPick === 'USER' ? 'Toi' : 'IA', inline: true },
+    { name: 'Tes Bans', value: formatDraftList(session.userBans), inline: true },
+    { name: 'IA Bans', value: formatDraftList(aiBans), inline: true },
+    { name: '\u200B', value: '\u200B', inline: true }, // Permet d'aligner la grille proprement
+    { name: 'Tes Picks', value: formatDraftList(session.userPicks), inline: true },
+    { name: 'IA Picks', value: formatDraftList(session.aiPicks), inline: true }
   );
 
-  if (summary) {
+  // AJOUT DES RÉSULTATS EN GROS
+  if (isDone && summary) {
     const chance = draft.estimateWinChance(summary.userScore, summary.aiScore);
-    const verdict =
-      summary.winner === 'user' ? '✅ Tu gagnes la draft' : summary.winner === 'ai' ? '❌ IA gagne la draft' : '🤝 Draft équilibrée';
-    embed.addFields({
-      name: 'Résultat',
-      value: `Toi ${summary.userScore.toFixed(2)} / IA ${summary.aiScore.toFixed(2)}\nChance de victoire (toi): ${chance}%\n${verdict}`
+    const verdict = summary.winner === 'user' ? '✅ VICTOIRE' : summary.winner === 'ai' ? '❌ DÉFAITE' : '🤝 ÉGALITÉ';
+    
+    embed.addFields({ 
+      name: '🏆 RÉSULTAT FINAL', 
+      value: `**${verdict}**\nChance de victoire : **${chance}%**`, 
+      inline: false 
     });
-    if (victoryArgs?.length) {
-      embed.addFields({
-        name: 'Arguments',
-        value: victoryArgs.map((arg, index) => `${index + 1}. ${arg}`).join('\n')
-      });
+
+    if (victoryArgs && victoryArgs.length > 0) {
+       embed.addFields({ 
+         name: '🧠 Analyse de la Draft', 
+         value: `- ${victoryArgs.join('\n- ')}`, 
+         inline: false 
+       });
     }
   }
 
@@ -6183,24 +6187,28 @@ function buildDraftEmbed(session) {
 }
 
 async function sendOrUpdateDraftMessage(session, channel) {
-  if (!channel?.isTextBased()) {
-    return null;
-  }
   const embed = buildDraftEmbed(session);
   let message = null;
 
+  // On supprime l'ancien message pour éviter qu'il se perde dans un chat actif
   if (session.interfaceMessageId) {
     try {
-      message = await channel.messages.fetch(session.interfaceMessageId);
-      await message.edit({ embeds: [embed] });
-      return message;
+      const oldMessage = await channel.messages.fetch(session.interfaceMessageId);
+      await oldMessage.delete();
     } catch (err) {
-      warn('Unable to edit draft interface message, sending a new one:', err?.message || err);
+      // Ignorer l'erreur si le message a déjà été supprimé manuellement
     }
   }
 
+  // On envoie toujours un nouveau message en bas du chat
   message = await channel.send({ embeds: [embed] });
   session.interfaceMessageId = message.id;
+
+  // Lancer l'annonce des résultats si ce n'est pas déjà fait
+  if (draft.isDraftDone(session) && !session.resultAnnounced) {
+    await announceDraftResult(session, message);
+  }
+
   return message;
 }
 
