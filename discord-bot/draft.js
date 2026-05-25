@@ -287,14 +287,39 @@ function pickAI({ available, lastUserPick, aiPicks = [], userPicks = [], metaPro
   for (const candidate of available) {
     let currentAiPicks = [...aiPicks, candidate];
     let aiScore = evaluateDraft(currentAiPicks, metaProfile);
-    
-    // Intégration des Hard-Counters directs (+2.5 d'avantage contextuel)
+
     if (lastUserPick && (COUNTER_BY_USER_PICK[lastUserPick] || []).includes(candidate)) {
       aiScore += 2.5;
     }
 
+    // --- NOUVEAU : lookahead sur les trios communautaires ---
+    // Si on a déjà 2 picks + ce candidat = trio complet, le bonus est déjà dans evaluateDraft
+    // Si on a 0 ou 1 pick, on simule les meilleurs trios possibles avec ce candidat
+    if (currentAiPicks.length < 3) {
+      const remaining = available.filter(b => b !== candidate && !aiPicks.includes(b));
+      let bestTrioBonus = 0;
+      for (const b2 of remaining.slice(0, 15)) { // limite perf
+        const simulatedTrio = [...currentAiPicks, b2].slice(0, 3);
+        if (simulatedTrio.length === 3) {
+          const sorted = [...simulatedTrio].sort();
+          const cacheKey = `${sorted[0]}_${sorted[1]}_${sorted[2]}`;
+          if (COMMUNITY_DRAFTS_CACHE.has(cacheKey)) {
+            const v = COMMUNITY_DRAFTS_CACHE.get(cacheKey);
+            const total = v.upvotes + v.downvotes;
+            if (total >= 3) {
+              const ratio = v.upvotes / total;
+              if (ratio >= 0.70) bestTrioBonus = Math.max(bestTrioBonus, 2.0);
+              if (ratio <= 0.35) bestTrioBonus = Math.min(bestTrioBonus, -2.5);
+            }
+          }
+        }
+      }
+      aiScore += bestTrioBonus;
+    }
+    // --- FIN NOUVEAU ---
+
     let userScore = evaluateDraft(userPicks, metaProfile);
-    let delta = aiScore - userScore; // Calcul d'écart pour éviter l'approche gloutonne
+    let delta = aiScore - userScore;
 
     if (delta > bestDelta) {
       bestDelta = delta;
