@@ -6223,38 +6223,6 @@ async function announceDraftResult(session, message) {
   }
   session.resultAnnounced = true;
 }
-draft.runAiPicks(session);
-    await sendOrUpdateDraftMessage(session, message.channel);
-
-    if (draft.isDraftDone(session)) {
-      await persistDraftResult(session, message);
-      await announceDraftResult(session, message);
-
-      const sortedAiPicks = [...session.aiPicks].sort().join(',');
-      const evalRow = new ActionRowBuilder().addComponents(
-        new ButtonBuilder()
-          .setCustomId(`draft_eval_ai:${sortedAiPicks}:up`)
-          .setLabel('Bonne Draft (IA)')
-          .setEmoji('👍')
-          .setStyle(ButtonStyle.Success),
-        new ButtonBuilder()
-          .setCustomId(`draft_eval_ai:${sortedAiPicks}:down`)
-          .setLabel('Mauvaise Draft (IA)')
-          .setEmoji('👎')
-          .setStyle(ButtonStyle.Danger)
-      );
-
-      await message.channel.send({
-        content: '📊 Comment évalues-tu la draft de l\'IA ?',
-        components: [evalRow]
-      });
-    }
-
-    return true;
-  } // fermeture du if (session.phase === 'DRAFT')
-
-  return false;
-} // fermeture de handleDraftFreeInput
 
 function formatDraftStatus(session) {
   const aiBans = draft.getAIBans(session);
