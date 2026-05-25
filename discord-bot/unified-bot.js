@@ -6407,6 +6407,7 @@ async function handleDraftCommand(message, args) {
         await announceDraftResult(session, message);
 
         const sortedAiPicks = [...session.aiPicks].sort().join(',');
+        const sortedUserPicks = [...session.userPicks].sort().join(',');
         const evalRow = new ActionRowBuilder().addComponents(
           new ButtonBuilder()
             .setCustomId(`draft_eval_ai:${sortedAiPicks}:up`)
@@ -6417,7 +6418,12 @@ async function handleDraftCommand(message, args) {
             .setCustomId(`draft_eval_ai:${sortedAiPicks}:down`)
             .setLabel('Mauvaise Draft (IA)')
             .setEmoji('👎')
-            .setStyle(ButtonStyle.Danger)
+            .setStyle(ButtonStyle.Danger),
+          new ButtonBuilder()
+            .setCustomId(`draft_ok_user:${sortedUserPicks}`)
+            .setLabel('Draft OK')
+            .setEmoji('🤝')
+            .setStyle(ButtonStyle.Secondary)
         );
 
         await message.channel.send({
@@ -6499,6 +6505,7 @@ async function handleDraftFreeInput(message) {
       await announceDraftResult(session, message);
 
       const sortedAiPicks = [...session.aiPicks].sort().join(',');
+      const sortedUserPicks = [...session.userPicks].sort().join(',');
       const evalRow = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
           .setCustomId(`draft_eval_ai:${sortedAiPicks}:up`)
@@ -6509,7 +6516,12 @@ async function handleDraftFreeInput(message) {
           .setCustomId(`draft_eval_ai:${sortedAiPicks}:down`)
           .setLabel('Mauvaise Draft (IA)')
           .setEmoji('👎')
-          .setStyle(ButtonStyle.Danger)
+          .setStyle(ButtonStyle.Danger),
+        new ButtonBuilder()
+          .setCustomId(`draft_ok_user:${sortedUserPicks}`)
+          .setLabel('Draft OK')
+          .setEmoji('🤝')
+          .setStyle(ButtonStyle.Secondary)
       );
 
       await message.channel.send({
@@ -7311,7 +7323,54 @@ async function handleInteraction(interaction) {
     }
 
     return;
-  } 
+  }
+
+  if (interaction.isButton() && interaction.customId.startsWith('draft_ok_user:')) {
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+
+    try {
+      const brawlersPart = interaction.customId.replace('draft_ok_user:', '');
+      const [b1, b2, b3] = brawlersPart.split(',');
+
+      if (!b1 || !b2 || !b3) {
+        await interaction.editReply({ content: '❌ Données de draft invalides.' });
+        return;
+      }
+
+      const { data: existing, error: fetchError } = await supabase
+        .from('draft_community_evals')
+        .select('id, mid_votes')
+        .eq('brawler_1', b1)
+        .eq('brawler_2', b2)
+        .eq('brawler_3', b3)
+        .maybeSingle();
+
+      if (fetchError) throw new Error(fetchError.message);
+
+      if (existing) {
+        const { error: updateError } = await supabase
+          .from('draft_community_evals')
+          .update({ mid_votes: (existing.mid_votes || 0) + 1 })
+          .eq('id', existing.id);
+        if (updateError) throw new Error(updateError.message);
+      } else {
+        const { error: insertError } = await supabase
+          .from('draft_community_evals')
+          .insert({ brawler_1: b1, brawler_2: b2, brawler_3: b3, upvotes: 0, downvotes: 0, mid_votes: 1 });
+        if (insertError) throw new Error(insertError.message);
+      }
+
+      await interaction.editReply({
+        content: `🤝 Noté — **${b1} / ${b2} / ${b3}** signalé comme compo serrée/viable.`
+      });
+    } catch (err) {
+      errorLog('Failed to record draft_ok_user vote:', err);
+      await interaction.editReply({ content: '❌ Impossible d\'enregistrer le vote. Réessaie plus tard.' });
+    }
+
+    return;
+  }
+
   if (interaction.isButton()) {
     if (interaction.customId === 'help_pl') {
       await interaction.reply({
