@@ -1,14 +1,9 @@
 'use strict';
 
-const META_DEFAULT = 'BUFFIES';
+const META_DEFAULT = 'STANDARD';
 
-// Mise à jour de la Meta (valeur de 1 pour les BUFFIES)
-const META_POWER = {
-  BUFFIES: {
-    Shelly: 1, Mortis: 1, Spike: 1, Colt: 1, Frank: 1, Emz: 1, Bull: 1, 
-    Edgar: 1, Colette: 1, Griff: 1, Crow: 1, Leon: 1, Nita: 1, Bo: 1, Bibi: 1
-  }
-};
+// META_POWER supprimé (plus de bonus BUFFIES)
+const META_POWER = {};
 
 const ALL = [
   'Shelly', 'Colt', 'Brock', 'Nita', 'Jessie', 'Bull', 'Rosa', 'El Primo', 'Poco', 'Darryl',
@@ -23,14 +18,22 @@ const ALL = [
 ];
 
 const MAP_PRIORITY = {
+  // Priorité 2 — top picks
   Piper: 2, Belle: 2, Tara: 2, Juju: 2, Mina: 2, Cordelius: 2, Moe: 2, Finx: 2, Lumi: 2,
   Kit: 2, Najia: 2, Gray: 2, Damian: 2, Sirius: 2, Colt: 2, Spike: 2, Bull: 2, Emz: 2,
   Shelly: 2, Dynamike: 2, Chester: 2, Crow: 2, Gene: 2, Bolt: 2, Pierce: 2, Angelo: 2, Charlie: 2,
-  Bo: 1, Berry: 1, Stu: 1, Brock: 1, Sandy: 1, Rosa: 1, Mortis: 1, Buster: 1, Pam: 1, Gus: 1, Ruffs: 1,
-  Carl: 1, Otis: 1, Alli: 1, Griff: 1, Meeple: 1, Squeak: 1, Surge: 1, Sam: 1, Maisie: 1,
-  Penny: 1, Gale: 1, Janet: 1, Amber: 1, Charlie: 1, Lily: 1, Rico: 1, Pearl: 1, Edgar: 1, Nita: 1, Leon: 1,
-  Kenji: 1, Melodie: 1, Byron: 1, Poco: 1, Draco: 1, Glowy: 1, Colette: 1, Ziggy: 1, Bibi: 1, Lou: 1, Fang: 1,
-  Ash: 1, Nova: 1, Meg: 1, Shade: 1, Clancy: 1,
+
+  // Priorité 1 — picks solides
+  Bo: 1, Berry: 1, Stu: 1, Brock: 1, Sandy: 1, Rosa: 1, Mortis: 1, Buster: 1, Pam: 1,
+  Gus: 1, Ruffs: 1, Carl: 1, Otis: 1, Alli: 1, Griff: 1, Meeple: 1, Squeak: 1, Surge: 1,
+  Sam: 1, Maisie: 1, Penny: 1, Gale: 1, Janet: 1, Amber: 1, Lily: 1, Rico: 1, Pearl: 1,
+  Edgar: 1, Nita: 1, Leon: 1, Kenji: 1, Melodie: 1, Byron: 1, Poco: 1, Draco: 1, Glowy: 1,
+  Colette: 1, Ziggy: 1, Bibi: 1, Lou: 1, Fang: 1, Ash: 1, Nova: 1, Meg: 1, Shade: 1,
+  Clancy: 1, Max: 1,
+  // Ajouts manquants
+  Jessie: 1, 'El Primo': 1, Darryl: 1,
+
+  // Priorité 0 — sous-optimaux
   Trunk: 0, Hank: 0, Frank: 0
 };
 
@@ -100,7 +103,11 @@ const COUNTER_BY_USER_PICK = {
   Fang: ['Surge', 'Shelly'],
   Bo: ['Nova', 'Colette', 'Emz'],
   Meg: ['Crow', 'Leon'],
-  Edgar: ['Gale', 'Clancy', 'Shelly']
+  Edgar: ['Gale', 'Clancy', 'Shelly'],
+  Max: ['Shelly', 'Crow'],
+  Sandy: ['Gene', 'Otis'],
+  Darryl: ['Shelly', 'Spike'],
+  Jessie: ['Belle', 'Mortis'],
 };
 
 const USER_FIRST_TURN = ['USER', 'AI', 'AI', 'USER', 'USER', 'AI'];
@@ -110,10 +117,10 @@ const TURN = USER_FIRST_TURN;
 // =========================================================================
 // RÔLES STRATÉGIQUES & CONFIG
 // =========================================================================
-const SUPPORTS = new Set(['Gus', 'Pam', 'Ruffs', 'Poco', 'Byron', 'Lumi', 'Kit', 'Gray', 'Berry']); 
-const MELEES = new Set(['Frank', 'Bull', 'Hank', 'Ash', 'El Primo', 'Mortis', 'Sam', 'Kenji', 'Lily', 'Rosa', 'Darryl', 'Draco', 'Trunk', 'Shade', 'Damian', 'Bolt', 'Bibi', 'Edgar', 'Fang', 'Nova', 'Meg']); 
-const SNIPERS_POKE = new Set(['Piper', 'Belle', 'Brock', 'Colt', 'Rico', 'Maisie', 'Janet', 'Najia', 'Colette', 'Dynamike', 'Bo', 'Griff', 'Pierce', 'Angelo', 'Pearl', 'Charlie', 'Penny', 'Lou', 'Amber']); 
-const DIVE_UNITS = new Set(['Mortis', 'Alli', 'Crow', 'Lily', 'Kenji', 'Melodie', 'Glowy', 'Sirius', 'Ziggy', 'Stu', 'Bolt', 'Edgar', 'Leon', 'Fang', 'Shade']); 
+const SUPPORTS = new Set(['Gus', 'Pam', 'Ruffs', 'Poco', 'Byron', 'Lumi', 'Kit', 'Gray', 'Berry']);
+const MELEES = new Set(['Frank', 'Bull', 'Hank', 'Ash', 'El Primo', 'Mortis', 'Sam', 'Kenji', 'Lily', 'Rosa', 'Darryl', 'Draco', 'Trunk', 'Shade', 'Damian', 'Bolt', 'Bibi', 'Edgar', 'Fang', 'Nova', 'Meg']);
+const SNIPERS_POKE = new Set(['Piper', 'Belle', 'Brock', 'Colt', 'Rico', 'Maisie', 'Janet', 'Najia', 'Colette', 'Dynamike', 'Bo', 'Griff', 'Pierce', 'Angelo', 'Pearl', 'Charlie', 'Penny', 'Lou', 'Amber']);
+const DIVE_UNITS = new Set(['Mortis', 'Alli', 'Crow', 'Lily', 'Kenji', 'Melodie', 'Glowy', 'Sirius', 'Ziggy', 'Stu', 'Bolt', 'Edgar', 'Leon', 'Fang', 'Shade']);
 const DISABLES = new Set(['Spike', 'Otis', 'Rico', 'Cordelius', 'Bo', 'Gene', 'Chester', 'Mina', 'Charlie', 'Lou', 'Emz', 'Gale']);
 
 let COMMUNITY_DRAFTS_CACHE = new Map();
@@ -161,7 +168,9 @@ function getMetaConfig() {
   };
 }
 
-function metaPowerOf(brawler, metaProfile) { return (META_POWER[metaProfile] && META_POWER[metaProfile][brawler]) || 0; }
+// metaPowerOf retourne toujours 0 (bonus BUFFIES supprimé)
+function metaPowerOf(brawler, metaProfile) { return 0; }
+
 function metaHpBonusOf(brawler) {
   if (brawler === 'Mina') return 0;
   if (MELEES.has(brawler)) return 0.6;
@@ -242,8 +251,8 @@ function evaluateDraft(picks, metaProfile = META_DEFAULT) {
       const total = v.upvotes + v.downvotes;
       if (total >= 3) {
         const ratio = v.upvotes / total;
-        if (ratio >= 0.70) score += 3.0; // Forte approbation communautaire
-        if (ratio <= 0.35) score -= 3.5; // Désapprobation communautaire
+        if (ratio >= 0.70) score += 3.0;
+        if (ratio <= 0.35) score -= 3.5;
       }
     }
   }
@@ -292,13 +301,10 @@ function pickAI({ available, lastUserPick, aiPicks = [], userPicks = [], metaPro
       aiScore += 2.5;
     }
 
-    // --- NOUVEAU : lookahead sur les trios communautaires ---
-    // Si on a déjà 2 picks + ce candidat = trio complet, le bonus est déjà dans evaluateDraft
-    // Si on a 0 ou 1 pick, on simule les meilleurs trios possibles avec ce candidat
     if (currentAiPicks.length < 3) {
       const remaining = available.filter(b => b !== candidate && !aiPicks.includes(b));
       let bestTrioBonus = 0;
-      for (const b2 of remaining.slice(0, 15)) { // limite perf
+      for (const b2 of remaining.slice(0, 15)) {
         const simulatedTrio = [...currentAiPicks, b2].slice(0, 3);
         if (simulatedTrio.length === 3) {
           const sorted = [...simulatedTrio].sort();
@@ -316,7 +322,6 @@ function pickAI({ available, lastUserPick, aiPicks = [], userPicks = [], metaPro
       }
       aiScore += bestTrioBonus;
     }
-    // --- FIN NOUVEAU ---
 
     let userScore = evaluateDraft(userPicks, metaProfile);
     let delta = aiScore - userScore;
@@ -334,12 +339,66 @@ function firstPickScore(brawler, metaProfile = META_DEFAULT) {
   return (MAP_PRIORITY[brawler] || 0) + metaPowerOf(brawler, metaProfile) + metaHpBonusOf(brawler) + evaluateDraft([brawler], metaProfile);
 }
 
-function computeAIBans(metaProfile, bannedByUser) {
+/**
+ * Calcule les bans IA selon qui pick en premier.
+ *
+ * - Si l'IA pick en premier (firstPick === 'AI') :
+ *   Elle banne les meilleurs picks adverses (ce qui gênerait l'utilisateur pour contrer son ouverture).
+ *   Stratégie offensive : bannir les counters potentiels de ses futurs picks.
+ *
+ * - Si l'IA pick en second (firstPick === 'USER') :
+ *   Elle banne les meilleurs picks du pool (pour forcer l'utilisateur à se rabattre sur du sous-optimal).
+ *   Stratégie défensive : bannir les meilleures options du pool global.
+ */
+function computeAIBans(metaProfile, bannedByUser, firstPick = 'USER') {
   const candidates = ALL.filter((b) => !bannedByUser.has(b));
+
+  if (firstPick === 'AI') {
+    // L'IA pick en premier : elle identifie ses 3 meilleurs picks potentiels,
+    // puis banne les counters de ces picks parmi les brawlers disponibles.
+    const topAIPicks = [...candidates]
+      .map((b) => ({ b, s: firstPickScore(b, metaProfile) }))
+      .sort((x, y) => y.s - x.s)
+      .slice(0, 5)
+      .map((x) => x.b);
+
+    // Collecter tous les counters potentiels des top picks IA
+    const counterSet = new Set();
+    for (const pick of topAIPicks) {
+      for (const counter of (COUNTER_BY_USER_PICK[pick] || [])) {
+        if (candidates.includes(counter)) counterSet.add(counter);
+      }
+    }
+
+    // Parmi ces counters, bannir les 3 les mieux scorés
+    const counterBans = [...counterSet]
+      .map((b) => ({ b, s: firstPickScore(b, metaProfile) }))
+      .sort((x, y) => y.s - x.s)
+      .slice(0, 3)
+      .map((x) => x.b);
+
+    // Si on a moins de 3 counters, compléter avec les meilleurs picks du pool
+    if (counterBans.length < 3) {
+      const alreadyBanned = new Set(counterBans);
+      const fillers = [...candidates]
+        .filter((b) => !alreadyBanned.has(b))
+        .map((b) => ({ b, s: firstPickScore(b, metaProfile) }))
+        .sort((x, y) => y.s - x.s)
+        .slice(0, 3 - counterBans.length)
+        .map((x) => x.b);
+      return [...counterBans, ...fillers];
+    }
+
+    return counterBans;
+  }
+
+  // firstPick === 'USER' : l'IA pick en second, stratégie défensive
+  // Bannir les 3 meilleurs picks du pool pour affaiblir le choix adverse
   return [...candidates]
     .map((b) => ({ b, s: firstPickScore(b, metaProfile) }))
     .sort((x, y) => y.s - x.s)
-    .slice(0, 3).map((x) => x.b);
+    .slice(0, 3)
+    .map((x) => x.b);
 }
 
 function createSession(ownerId, metaProfile = META_DEFAULT, options = {}) {
@@ -353,7 +412,9 @@ function createSession(ownerId, metaProfile = META_DEFAULT, options = {}) {
   };
 }
 
-function getAIBans(session) { return computeAIBans(session.metaProfile, new Set(session.userBans)); }
+function getAIBans(session) {
+  return computeAIBans(session.metaProfile, new Set(session.userBans), session.firstPick);
+}
 function getGlobalBans(session) { return new Set([...getAIBans(session), ...session.userBans]); }
 function getAvailable(session) { const bans = getGlobalBans(session); const taken = new Set([...session.userPicks, ...session.aiPicks]); return ALL.filter((b) => !bans.has(b) && !taken.has(b)); }
 function getTurn(session) { const order = session.turnOrder || TURN; return session.step >= order.length ? null : order[session.step]; }
@@ -419,9 +480,9 @@ function buildVictoryArguments(session) {
   const reasons = [];
   const add = (score, text) => { if (score > 0) reasons.push({ score, text }); };
 
-  if (winnerPicks.includes('Clancy') && winnerPicks.includes('Gale') && winnerPicks.includes('Byron')) add(2.9, 'Gale neutralise totalement les sauts d’Edgar, tandis que Clancy monte en puissance sous les soins de Byron.');
+  if (winnerPicks.includes('Clancy') && winnerPicks.includes('Gale') && winnerPicks.includes('Byron')) add(2.9, 'Gale neutralise totalement les sauts d\'Edgar, tandis que Clancy monte en puissance sous les soins de Byron.');
   if (winnerPicks.includes('Sam') && winnerPicks.includes('Nova') && winnerPicks.includes('Crow')) add(2.8, 'Sam punit violemment le corps-à-corps tandis que le poison de Crow révèle les buissons.');
-  if (winnerPicks.includes('Ash') && winnerPicks.includes('Ruffs') && winnerPicks.includes('Otis')) add(2.9, 'Les améliorations de Ruffs et le silence d’Otis permettent à Ash (Carry) de détruire la frontline.');
+  if (winnerPicks.includes('Ash') && winnerPicks.includes('Ruffs') && winnerPicks.includes('Otis')) add(2.9, 'Les améliorations de Ruffs et le silence d\'Otis permettent à Ash (Carry) de détruire la frontline.');
 
   add(wM.mapPriority - lM.mapPriority, 'Meilleure priorité de map et contrôle des lignes à distance.');
   add(wM.metaPower - lM.metaPower, 'Valeur intrinsèque et puissance brute des brawlers supérieures.');
