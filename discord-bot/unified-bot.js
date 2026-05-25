@@ -7239,6 +7239,77 @@ async function handleInteraction(interaction) {
     return;
   }
 
+  // --- Évaluation communautaire des drafts ---
+  if (interaction.isButton() && interaction.customId.startsWith('draft_eval_ai:')) {
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+
+    try {
+      const parts = interaction.customId.split(':');
+      // format : draft_eval_ai:b1,b2,b3:up|down
+      const brawlersPart = parts[1] || '';
+      const voteType = parts[2]; // 'up' ou 'down'
+      const [b1, b2, b3] = brawlersPart.split(',');
+
+      if (!b1 || !b2 || !b3 || !['up', 'down'].includes(voteType)) {
+        await interaction.editReply({
+          content: '❌ Vote invalide. Réessaie depuis une nouvelle draft.'
+        });
+        return;
+      }
+
+      const voteField = voteType === 'up' ? 'upvotes' : 'downvotes';
+
+      const { data: existing, error: fetchError } = await supabase
+        .from('draft_community_evals')
+        .select('id, upvotes, downvotes')
+        .eq('brawler_1', b1)
+        .eq('brawler_2', b2)
+        .eq('brawler_3', b3)
+        .maybeSingle();
+
+      if (fetchError) {
+        throw new Error(fetchError.message);
+      }
+
+      if (existing) {
+        const { error: updateError } = await supabase
+          .from('draft_community_evals')
+          .update({ [voteField]: (existing[voteField] || 0) + 1 })
+          .eq('id', existing.id);
+
+        if (updateError) {
+          throw new Error(updateError.message);
+        }
+      } else {
+        const { error: insertError } = await supabase
+          .from('draft_community_evals')
+          .insert({
+            brawler_1: b1,
+            brawler_2: b2,
+            brawler_3: b3,
+            upvotes: voteType === 'up' ? 1 : 0,
+            downvotes: voteType === 'down' ? 1 : 0
+          });
+
+        if (insertError) {
+          throw new Error(insertError.message);
+        }
+      }
+
+      await interaction.editReply({
+        content: voteType === 'up'
+          ? '👍 Merci ! Ton avis positif a été enregistré.'
+          : '👎 Merci ! Ton avis négatif a été enregistré.'
+      });
+    } catch (err) {
+      errorLog('Failed to record draft community eval:', err);
+      await interaction.editReply({
+        content: '❌ Impossible d\'enregistrer ton vote pour le moment. Réessaie plus tard.'
+      });
+    }
+
+    return;
+  } 
   if (interaction.isButton()) {
     if (interaction.customId === 'help_pl') {
       await interaction.reply({
