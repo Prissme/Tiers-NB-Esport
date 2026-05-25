@@ -6223,6 +6223,38 @@ async function announceDraftResult(session, message) {
   }
   session.resultAnnounced = true;
 }
+draft.runAiPicks(session);
+    await sendOrUpdateDraftMessage(session, message.channel);
+
+    if (draft.isDraftDone(session)) {
+      await persistDraftResult(session, message);
+      await announceDraftResult(session, message);
+
+      const sortedAiPicks = [...session.aiPicks].sort().join(',');
+      const evalRow = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId(`draft_eval_ai:${sortedAiPicks}:up`)
+          .setLabel('Bonne Draft (IA)')
+          .setEmoji('👍')
+          .setStyle(ButtonStyle.Success),
+        new ButtonBuilder()
+          .setCustomId(`draft_eval_ai:${sortedAiPicks}:down`)
+          .setLabel('Mauvaise Draft (IA)')
+          .setEmoji('👎')
+          .setStyle(ButtonStyle.Danger)
+      );
+
+      await message.channel.send({
+        content: '📊 Comment évalues-tu la draft de l\'IA ?',
+        components: [evalRow]
+      });
+    }
+
+    return true;
+  } // fermeture du if (session.phase === 'DRAFT')
+
+  return false;
+} // fermeture de handleDraftFreeInput
 
 function formatDraftStatus(session) {
   const aiBans = draft.getAIBans(session);
@@ -6387,27 +6419,49 @@ async function handleDraftCommand(message, args) {
   }
 
   if (command === 'pick') {
-    const rawName = args.slice(1).join(' ');
-    const brawler = draft.resolveBrawler(rawName);
-    if (!brawler) {
-      await message.reply({ content: 'Brawler inconnu. Vérifie le nom exact.', allowedMentions: { repliedUser: false } });
-      return;
-    }
-    const result = draft.applyUserPick(session, brawler);
-    if (!result.ok) {
-      await message.reply({ content: 'Impossible de pick ce brawler maintenant.', allowedMentions: { repliedUser: false } });
-      return;
-    }
-    draft.runAiPicks(session);
-    if (draft.isDraftDone(session)) {
-      await persistDraftResult(session, message);
+      const rawName = args.slice(1).join(' ');
+      const brawler = draft.resolveBrawler(rawName);
+      if (!brawler) {
+        await message.reply({ content: 'Brawler inconnu. Vérifie le nom exact.', allowedMentions: { repliedUser: false } });
+        return;
+      }
+      const result = draft.applyUserPick(session, brawler);
+      if (!result.ok) {
+        await message.reply({ content: 'Impossible de pick ce brawler maintenant.', allowedMentions: { repliedUser: false } });
+        return;
+      }
+
+      draft.runAiPicks(session);
+
+      if (draft.isDraftDone(session)) {
+        await persistDraftResult(session, message);
+        await sendOrUpdateDraftMessage(session, message.channel);
+        await announceDraftResult(session, message);
+
+        const sortedAiPicks = [...session.aiPicks].sort().join(',');
+        const evalRow = new ActionRowBuilder().addComponents(
+          new ButtonBuilder()
+            .setCustomId(`draft_eval_ai:${sortedAiPicks}:up`)
+            .setLabel('Bonne Draft (IA)')
+            .setEmoji('👍')
+            .setStyle(ButtonStyle.Success),
+          new ButtonBuilder()
+            .setCustomId(`draft_eval_ai:${sortedAiPicks}:down`)
+            .setLabel('Mauvaise Draft (IA)')
+            .setEmoji('👎')
+            .setStyle(ButtonStyle.Danger)
+        );
+
+        await message.channel.send({
+          content: '📊 Comment évalues-tu la draft de l\'IA ?',
+          components: [evalRow]
+        });
+        return;
+      }
+
       await sendOrUpdateDraftMessage(session, message.channel);
-      await announceDraftResult(session, message);
       return;
     }
-    await sendOrUpdateDraftMessage(session, message.channel);
-    return;
-  }
 
   await message.reply({ content: 'Commande draft inconnue. Utilise `!draft help`.', allowedMentions: { repliedUser: false } });
 }
@@ -8270,6 +8324,7 @@ async function onReady(readyClient) {
     ...slashCommandsData
   ];
   await predictions.registerCommands(allCommands);
+  // Sync tiers périodique
   if (tierSyncInterval) {
     clearInterval(tierSyncInterval);
   }
@@ -8277,20 +8332,39 @@ async function onReady(readyClient) {
     syncTiersWithRoles().catch((err) => errorLog('Tier sync failed:', err));
   }, TIER_SYNC_INTERVAL_MS);
 
-  await syncWorstPlayerRole(guild).catch((err) => warn('Initial worst player role sync failed:', err?.message || err));
+  // Sync worst player role
+  await syncWorstPlayerRole(guild).catch((err) =>
+    warn('Initial worst player role sync failed:', err?.message || err)
+  );
   if (worstPlayerRoleInterval) {
     clearInterval(worstPlayerRoleInterval);
   }
   worstPlayerRoleInterval = setInterval(() => {
-    syncWorstPlayerRole(guild).catch((err) => warn('Worst player role sync failed:', err?.message || err));
+    syncWorstPlayerRole(guild).catch((err) =>
+      warn('Worst player role sync failed:', err?.message || err)
+    );
   }, WORST_PLAYER_ROLE_SYNC_INTERVAL_MS);
 
+  // Restauration de l'état PL
   await restorePLState();
-  // await applyInactivityPenalties();
-// setInterval(() => {
-//   applyInactivityPenalties().catch(err => errorLog('Inactivity penalties failed:', err));
-// }, 60 * 60 * 1000);
+
+  // Tier leaderboard
   initTierLeaderboard(readyClient, guild, supabase, SITE_BASE_URL);
+
+  // Cache communautaire des drafts
+  try {
+    await draft.refreshCommunityDraftsCache(supabase);
+    log('Community drafts cache initialized.');
+  } catch (err) {
+    warn('Failed to initialize community drafts cache:', err?.message || err);
+  }
+  setInterval(() => {
+    draft.refreshCommunityDraftsCache(supabase).catch((err) =>
+      warn('Community drafts cache refresh failed:', err?.message || err)
+    );
+  }, 60 * 60 * 1000);
+
+  // Démarrage de la file PL
   await processPLQueue();
 }
 
