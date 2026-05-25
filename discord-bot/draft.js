@@ -12,7 +12,7 @@ const META_POWER = {
     Frank: 1,
     Emz: 1,
     Bull: 1,
-    Edgar: 1,     // Notre hardcarry buffé
+    Edgar: 1,
     Colette: 1,
     Griff: 1,
     Crow: 1,
@@ -32,7 +32,7 @@ const ALL = [
   'Kenji', 'Ash', 'Rico', 'Melodie', 'Byron', 'Draco', 'Lumi',
   'Glowy', 'Kit', 'Najia', 'Gray', 'Damian', 'Sirius', 'Colette', 'Ziggy',
   'Berry', 'Dynamike', 'Bo', 'Stu', 'Bolt',
-  'Pierce', 'Angelo', 'Bibi', 'Pearl', 'Edgar', 'Lou', 'Fang' // Ajout de Fang
+  'Pierce', 'Angelo', 'Bibi', 'Pearl', 'Edgar', 'Lou', 'Fang', 'Nova', 'Meg', 'Clancy' // Ajout de Clancy
 ];
 
 const MAP_PRIORITY = {
@@ -43,7 +43,8 @@ const MAP_PRIORITY = {
   Carl: 1, Otis: 1, Alli: 1, Griff: 1, Meeple: 1, Squeak: 1, Surge: 1, Sam: 1, Maisie: 1,
   Penny: 1, Gale: 1, Janet: 1, Amber: 1, Charlie: 1, Lily: 1, Rico: 1, Pearl: 1, Edgar: 1, Nita: 1, Leon: 1,
   Kenji: 1, Melodie: 1, Byron: 1, Poco: 1, Draco: 1, Glowy: 1, Colette: 1, Ziggy: 1, Bibi: 1, Lou: 1, Fang: 1,
-  Trunk: 0, Hank: 0, Ash: 0, Frank: 0, Shade: 0
+  Ash: 1, Nova: 1, Meg: 1, Shade: 1, Clancy: 1,
+  Trunk: 0, Hank: 0, Frank: 0
 };
 
 const COUNTER_BY_USER_PICK = {
@@ -53,64 +54,66 @@ const COUNTER_BY_USER_PICK = {
   Darryl: ['Shelly'],
   Jessie: ['Belle'],
   Nita: ['Belle'],
-  Poco: ['Spike', 'Emz'],
+  Poco: ['Spike', 'Emz', 'Shade'],
   Piper: ['Gene', 'Angelo'],
   Brock: ['Gene', 'Moe', 'Sirius', 'Angelo', 'Pierce'],
-  Mortis: ['Shelly', 'Spike', 'Nita', 'Charlie'],
-  Frank: ['Shelly', 'Spike', 'Colt', 'Bull', 'Edgar', 'Colette'], // Edgar et Colette gèrent Frank
+  Mortis: ['Shelly', 'Spike', 'Nita', 'Charlie', 'Sam', 'Chester'],
+  Frank: ['Shelly', 'Spike', 'Colt', 'Bull', 'Edgar', 'Colette'],
   Buster: ['Spike', 'Colt', 'Belle'],
   Tara: ['Gene', 'Belle'],
   Pam: ['Spike', 'Belle'],
   Gus: ['Mortis', 'Leon'],
   Juju: ['Gene', 'Belle'],
-  Ruffs: ['Spike', 'Belle', 'Gene', 'Glowy'],
+  Ruffs: ['Spike', 'Belle', 'Gene', 'Glowy', 'Pierce'],
   Carl: ['Shelly', 'Spike'],
   Mina: ['Gene', 'Belle', 'Crow'],
   Otis: ['Gene', 'Belle', 'Spike', 'Colt', 'Crow', 'Chester'],
-  Alli: ['Shelly', 'Spike', 'Nita', 'Kit', 'Bull'],
+  Alli: ['Shelly', 'Spike', 'Nita', 'Kit', 'Bull', 'Otis', 'Crow'],
   Griff: ['Belle', 'Gene', 'Moe', 'Finx', 'Pierce'],
-  Meeple: ['Belle', 'Gene', 'Mortis', 'Emz', 'Crow'],
-  Squeak: ['Gene', 'Belle'],
+  Meeple: ['Belle', 'Gene', 'Mortis', 'Emz', 'Crow', 'Shade', 'Griff'],
+  Squeak: ['Gene', 'Belle', 'Kenji'],
   Surge: ['Otis', 'Belle', 'Gene'],
   Trunk: ['Colt', 'Spike', 'Emz'],
   Sam: ['Shelly', 'Spike', 'Otis'],
   Cordelius: ['Belle', 'Gene', 'Otis'],
-  Emz: ['Gene', 'Piper'],
+  Emz: ['Gene', 'Piper', 'Moe'],
   Maisie: ['Belle', 'Gene'],
   Penny: ['Mortis', 'Gale', 'Gene'],
   Gale: ['Gene', 'Belle', 'Mortis'],
   Janet: ['Belle', 'Gene', 'Piper', 'Spike', 'Colt'],
-  Amber: ['Spike', 'Otis', 'Gene'],
+  Amber: ['Spike', 'Otis', 'Gene', 'Ash'],
   Charlie: ['Gene', 'Belle', 'Spike'],
-  Lily: ['Shelly', 'Spike', 'Emz'],
+  Lily: ['Shelly', 'Spike', 'Emz', 'Ash'],
   Hank: ['Spike', 'Otis', 'Colt'],
-  Moe: ['Belle', 'Gene', 'Piper'],
-  Chester: ['Gene', 'Belle', 'Glowy', 'Pierce', 'Bolt'],
-  Finx: ['Belle', 'Gene', 'Piper'],
+  Moe: ['Belle', 'Gene', 'Piper', 'Kenji'],
+  Chester: ['Gene', 'Belle', 'Glowy', 'Pierce', 'Bolt', 'Ash', 'Otis', 'Griff', 'Najia'],
+  Finx: ['Belle', 'Gene', 'Piper', 'Ash', 'Crow'],
   Kenji: ['Shelly', 'Spike', 'Otis', 'Dynamike'],
-  Ash: ['Shelly', 'Emz', 'Spike'],
+  Ash: ['Shelly', 'Emz', 'Spike', 'Shade', 'Griff'],
   Rico: ['Piper', 'Gene', 'Spike'],
   Melodie: ['Gene', 'Belle', 'Otis'],
   Byron: ['Mortis', 'Crow', 'Dynamike', 'Gene', 'Glowy', 'Angelo'],
-  Berry: ['Dynamike', 'Mortis'],
+  Berry: ['Dynamike', 'Mortis', 'Byron'],
   Draco: ['Spike', 'Otis'],
   Lumi: ['Gene', 'Belle'],
   Shade: ['Mortis', 'Frank', 'Emz', 'Kit', 'Najia', 'Damian'],
   Glowy: ['Kit', 'Bull', 'Najia', 'Sirius', 'Bolt'],
-  Alli: ['Kit', 'Bull', 'Najia'],
   Kit: ['Gray', 'Damian', 'Sirius'],
-  Colette: ['Gray', 'Damian', 'Sirius', 'Crow', 'Moe'],
+  Colette: ['Gray', 'Damian', 'Sirius', 'Crow', 'Moe', 'Ash', 'Shade', 'Najia'],
   Ziggy: ['Gray', 'Damian', 'Sirius'],
   Stu: ['Crow', 'Meeple'],
   Colt: ['Gene', 'Glowy'],
   Bolt: ['Gene', 'Chester', 'Glowy', 'Shelly'],
-  Najia: ['Pierce', 'Crow'],
-  Pearl: ['Angelo', 'Pierce'],
-  Pierce: ['Sirius', 'Glowy', 'Mortis', 'Bolt'],
+  Najia: ['Pierce', 'Crow', 'Moe'],
+  Pearl: ['Angelo', 'Pierce', 'Otis'],
+  Pierce: ['Sirius', 'Glowy', 'Mortis', 'Bolt', 'Edgar'],
   Angelo: ['Leon', 'Sirius'],
-  Leon: ['Charlie', 'Angelo'],
+  Leon: ['Charlie', 'Angelo', 'Crow'],
   Dynamike: ['Edgar', 'Mortis'],
-  Fang: ['Surge', 'Shelly']
+  Fang: ['Surge', 'Shelly'],
+  Bo: ['Nova', 'Colette', 'Emz'],
+  Meg: ['Crow', 'Leon'],
+  Edgar: ['Gale', 'Clancy', 'Shelly'] // Gale et Clancy sont d'excellentes réponses à Edgar
 };
 
 const USER_FIRST_TURN = ['USER', 'AI', 'AI', 'USER', 'USER', 'AI'];
@@ -124,14 +127,14 @@ const SUPPORTS = new Set(['Gus', 'Pam', 'Ruffs', 'Poco', 'Byron', 'Lumi', 'Kit',
 
 const MELEES = new Set([
   'Frank', 'Bull', 'Hank', 'Ash', 'El Primo', 'Mortis', 'Sam', 'Kenji', 'Lily', 'Rosa', 'Darryl', 'Draco', 'Trunk',
-  'Shade', 'Damian', 'Bolt', 'Bibi', 'Edgar', 'Fang'
+  'Shade', 'Damian', 'Bolt', 'Bibi', 'Edgar', 'Fang', 'Nova', 'Meg'
 ]); 
 
-const SNIPERS_POKE = new Set(['Piper', 'Belle', 'Brock', 'Colt', 'Rico', 'Maisie', 'Janet', 'Najia', 'Colette', 'Dynamike', 'Bo', 'Griff', 'Pierce', 'Angelo', 'Pearl', 'Charlie', 'Penny', 'Lou']); 
+const SNIPERS_POKE = new Set(['Piper', 'Belle', 'Brock', 'Colt', 'Rico', 'Maisie', 'Janet', 'Najia', 'Colette', 'Dynamike', 'Bo', 'Griff', 'Pierce', 'Angelo', 'Pearl', 'Charlie', 'Penny', 'Lou', 'Amber']); 
 
-const DIVE_UNITS = new Set(['Mortis', 'Alli', 'Crow', 'Lily', 'Kenji', 'Melodie', 'Glowy', 'Sirius', 'Ziggy', 'Stu', 'Bolt', 'Edgar', 'Leon', 'Fang']); 
+const DIVE_UNITS = new Set(['Mortis', 'Alli', 'Crow', 'Lily', 'Kenji', 'Melodie', 'Glowy', 'Sirius', 'Ziggy', 'Stu', 'Bolt', 'Edgar', 'Leon', 'Fang', 'Shade']); 
 
-const DISABLES = new Set(['Spike', 'Otis', 'Rico', 'Cordelius', 'Bo', 'Gene', 'Chester', 'Mina', 'Charlie', 'Lou']);
+const DISABLES = new Set(['Spike', 'Otis', 'Rico', 'Cordelius', 'Bo', 'Gene', 'Chester', 'Mina', 'Charlie', 'Lou', 'Emz', 'Gale']);
 
 const NAME_LOOKUP = ALL.reduce((acc, name) => {
   acc.set(normalizeName(name), name);
@@ -229,12 +232,51 @@ function evaluateDraft(picks, metaProfile = META_DEFAULT) {
   if (has('Charlie') && has('Leon') && has('Angelo')) score += 2.2;
   if (has('Gene') && has('Mortis') && has('Belle')) score -= cfg.defeatCompositionPenalty;
 
-  // 10. Edgar/Colette/Surge vs Dynamike/Frank/Fang (Edgar Hardcarry)
-  if (has('Edgar') && has('Colette') && has('Surge')) {
-    score += 2.7; // Fort bonus pour la capacité d'Edgar à atomiser cette compo
+  if (has('Edgar') && has('Colette') && has('Surge')) score += 2.7;
+  if (has('Dynamike') && has('Frank') && has('Fang')) score -= cfg.defeatCompositionPenalty;
+
+  if (has('Ash') && has('Moe') && has('Najia')) score += 2.8;
+  if (has('Colette') && has('Chester') && has('Lily')) score -= cfg.defeatCompositionPenalty;
+
+  if (has('Ash') && has('Ruffs') && has('Otis')) score += 2.9;
+  if (has('Chester') && has('Amber') && has('Finx')) score -= cfg.defeatCompositionPenalty;
+
+  if (has('Kenji') && has('Crow') && has('Otis')) score += 2.8;
+  if (has('Pearl') && has('Chester') && has('Alli')) score -= cfg.defeatCompositionPenalty;
+
+  if (has('Shade') && has('Lumi') && has('Colette')) score += 2.6;
+  if (has('Ash') && has('Poco') && has('Chester')) score -= cfg.defeatCompositionPenalty;
+
+  if (has('Ash') && has('Griff') && has('Chester')) score += 2.7;
+  if (has('Edgar') && has('Colette') && has('Meeple')) score -= cfg.defeatCompositionPenalty;
+
+  if (has('Chester') && has('Shade') && has('Pierce')) score += 2.6;
+  if (has('Colette') && has('Meeple') && has('Ruffs')) score -= cfg.defeatCompositionPenalty;
+
+  if (has('Nova') && has('Crow') && has('Leon')) score += 2.8;
+  if (has('Edgar') && has('Bo') && has('Meg')) score -= cfg.defeatCompositionPenalty;
+
+  if (has('Kenji') && has('Colette') && has('Chester')) score += 2.6;
+  if (has('Moe') && has('Bo') && has('Leon')) score -= cfg.defeatCompositionPenalty;
+
+  if (has('Najia') && has('Emz') && has('Edgar')) score += 2.7;
+  if (has('Chester') && has('Meeple') && has('Pierce')) score -= cfg.defeatCompositionPenalty;
+
+  if (has('Moe') && has('Crow') && has('Finx')) score += 2.7;
+  if (has('Najia') && has('Emz') && has('Chester')) score -= cfg.defeatCompositionPenalty;
+
+  if (has('Sam') && has('Nova') && has('Crow')) score += 2.8;
+  if (has('Sirius') && has('Najia') && has('Mortis')) score -= cfg.defeatCompositionPenalty;
+
+  if (has('Chester') && has('Najia') && has('Kenji')) score += 2.6;
+  if (has('Colette') && has('Mortis') && has('Squeak')) score -= cfg.defeatCompositionPenalty;
+
+  // 24. Clancy/Gale/Byron vs Edgar/Berry/Charlie
+  if (has('Clancy') && has('Gale') && has('Byron')) {
+    score += 2.9; // Contre parfait anti-dive (Gale repousse, Clancy burst, Byron anti-heal)
   }
-  if (has('Dynamike') && has('Frank') && has('Fang')) {
-    score -= cfg.defeatCompositionPenalty; // Trop lents ou vulnérables face au saut d'Edgar buffé
+  if (has('Edgar') && has('Berry') && has('Charlie')) {
+    score -= cfg.defeatCompositionPenalty;
   }
 
   // --- LOGIQUE GÉNÉRALE DES ARCHÉTYPES ---
@@ -242,7 +284,7 @@ function evaluateDraft(picks, metaProfile = META_DEFAULT) {
     has('Tara') || has('Gene') || has('Belle') || has('Juju') || has('Mina') || has('Otis') ||
     has('Griff') || has('Meeple') || has('Squeak') || has('Spike') || has('Cordelius') ||
     has('Emz') || has('Maisie') || has('Moe') || has('Finx') || has('Rico') || has('Lumi') ||
-    has('Charlie') || has('Najia') || has('Colette') || has('Dynamike') || has('Chester') || has('Pierce') || has('Angelo')
+    has('Charlie') || has('Najia') || has('Colette') || has('Dynamike') || has('Chester') || has('Pierce') || has('Angelo') || has('Amber')
   ) {
     score += 1;
   }
@@ -252,7 +294,7 @@ function evaluateDraft(picks, metaProfile = META_DEFAULT) {
   if (hasDive) score += 1;
 
   if (diveCount >= 2) {
-    const hasHardStop = has('Otis') || has('Spike') || has('Rico') || has('Cordelius') || has('Shelly') || has('Chester') || has('Charlie') || has('Lou');
+    const hasHardStop = has('Otis') || has('Spike') || has('Rico') || has('Cordelius') || has('Shelly') || has('Chester') || has('Charlie') || has('Lou') || has('Emz') || has('Gale');
     if (!hasHardStop) score -= cfg.doubleDiveNoStopPenalty;
   }
 
@@ -260,7 +302,7 @@ function evaluateDraft(picks, metaProfile = META_DEFAULT) {
   if (supportCount > 0) score += 0.5;
   if (supportCount >= 2) score -= cfg.supportPressurePenalty; 
 
-  const hasDisable = has('Spike') || has('Otis') || has('Rico') || has('Bo') || has('Gene') || has('Chester') || has('Mina') || has('Charlie') || has('Lou');
+  const hasDisable = has('Spike') || has('Otis') || has('Rico') || has('Bo') || has('Gene') || has('Chester') || has('Mina') || has('Charlie') || has('Lou') || has('Emz') || has('Gale');
   if (hasDisable) score += 1;
   if (hasDive && hasDisable) score += cfg.comebackBonus;
 
@@ -268,6 +310,11 @@ function evaluateDraft(picks, metaProfile = META_DEFAULT) {
   if (has('Hank')) score -= cfg.hankPenalty;
   if (has('Frank')) score -= cfg.frankPenalty;
   if (has('Kenji')) score -= cfg.kenjiPenalty;
+  
+  // Appliquer la pénalité d'Ash uniquement s'il n'est pas dans un de ses trios fétiches
+  if (has('Ash') && !(has('Moe') && has('Najia')) && !(has('Ruffs') && has('Otis')) && !(has('Griff') && has('Chester'))) {
+    score -= 1.0; 
+  }
 
   const meleeCount = [...MELEES].filter((m) => has(m)).length;
   if (meleeCount >= 2) score -= 1.5;
@@ -414,11 +461,37 @@ function buildVictoryArguments(session) {
   const reasons = [];
   const addReason = (score, text) => { if (score > 0) reasons.push({ score, text }); };
 
-  // --- NOUVELLE EXPLICATION HISTORIQUE : Edgar Hardcarry ---
+  // --- STRATÉGIES HISTORIQUES INTÉGRÉES ---
+  if (winnerPicks.includes('Clancy') && winnerPicks.includes('Gale') && winnerPicks.includes('Byron')) {
+    addReason(2.9, 'Victoire par Mur Anti-Dive : Gale neutralise totalement les sauts d’Edgar, tandis que Clancy monte en puissance pour désintégrer la frontline sous les soins de Byron.');
+  }
+  if (winnerPicks.includes('Sam') && winnerPicks.includes('Nova') && winnerPicks.includes('Crow')) {
+    addReason(2.8, 'Victoire par Brisure de Dive : Sam punit violemment le corps-à-corps de Mortis tandis que le poison de Crow révèle les buissons.');
+  }
+  if (winnerPicks.includes('Nova') && winnerPicks.includes('Crow') && winnerPicks.includes('Leon')) {
+    addReason(2.8, 'Victoire par Infiltration Furtive : L’anti-heal de Crow et la foudre de Leon paralysent Bo/Meg, ouvrant la voie à la charge de Nova.');
+  }
+  if (winnerPicks.includes('Ash') && winnerPicks.includes('Griff') && winnerPicks.includes('Chester')) {
+    addReason(2.7, 'Victoire par Barrière Anti-Assassin : Le burst de Griff à bout portant et les contrôles de Chester foudroient Edgar et Meeple.');
+  }
+  if (winnerPicks.includes('Najia') && winnerPicks.includes('Emz') && winnerPicks.includes('Edgar')) {
+    addReason(2.7, 'Victoire par Confinement Territorial : Le gaz d’Emz bloque le centre, permettant à Edgar d’assassiner Pierce en toute impunité.');
+  }
+  if (winnerPicks.includes('Moe') && winnerPicks.includes('Crow') && winnerPicks.includes('Finx')) {
+    addReason(2.7, 'Victoire par Percée de Ligne : Crow sature l’équipe adverse de poison, permettant à Moe d’entrer en mode machine et d’effacer Emz/Najia.');
+  }
+  if (winnerPicks.includes('Ash') && winnerPicks.includes('Ruffs') && winnerPicks.includes('Otis')) {
+    addReason(2.9, 'Victoire par Juggernaut Boosté : Les améliorations de Ruffs et le silence d’Otis ont permis à Ash (Carry) de piétiner Chester et Ambre.');
+  }
+  if (winnerPicks.includes('Kenji') && winnerPicks.includes('Crow') && winnerPicks.includes('Otis')) {
+    addReason(2.8, 'Victoire par Érosion Mentale : Le poison de Crow (Buffies) et le silence d’Otis bloquent Pearl/Alli, offrant des proies faciles à Kenji.');
+  }
+  if (winnerPicks.includes('Ash') && winnerPicks.includes('Moe') && winnerPicks.includes('Najia')) {
+    addReason(2.8, 'Victoire par Hardcarry d’Ash : Sa jauge de rage maxée par le poke adverse l’a transformé en forteresse mobile inarrêtable face à Colette/Chester.');
+  }
   if (winnerPicks.includes('Edgar') && winnerPicks.includes('Colette') && winnerPicks.includes('Surge')) {
     addReason(2.8, 'Victoire par Hardcarry d’Edgar : Edgar (Buffies) efface instantanément Dynamike et exploite le manque de réponses au corps-à-corps de Frank/Fang.');
   }
-
   if (winnerPicks.includes('Crow') && winnerPicks.includes('Edgar') && winnerPicks.includes('Chester')) {
     addReason(2.7, 'Victoire par Asphyxie Meta : Le poison de Crow (Carry/Buffies) bloque la régénération adverse et étouffe Mina, Stu et Meeple.');
   }
@@ -450,7 +523,7 @@ function buildVictoryArguments(session) {
   }
 
   const sorted = reasons.sort((a, b) => b.score - a.score).map((item) => item.text);
-  while (sorted.length < 3) sorted.push('Meilleure coherence d’équipe sur la draft.');
+  while (sorted.length < 3) sorted.push('Meilleure cohérence d’équipe sur la draft.');
   return sorted.slice(0, 3);
 }
 
