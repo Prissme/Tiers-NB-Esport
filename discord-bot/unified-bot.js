@@ -8466,15 +8466,14 @@ async function onReady(readyClient) {
   // ==========================================
   // ENREGISTREMENT UNIQUE DES COMMANDES SLASH
   // ==========================================
-  const allCommands = [
-  ...buildAdminSlashCommands(),
-  ...slashCommandsData,
-  ...bracketPredictions.slashCommands
-];
+  // ==========================================
+  // ENREGISTREMENT UNIQUE DES COMMANDES SLASH
+  // ==========================================
   const allCommands = [
     ...buildAdminSlashCommands(),
     ...slashCommandsData,
-    ...tournamentPredictions.slashCommands  // ← Ligne ajoutée et fusionnée proprement
+    ...tournamentPredictions.slashCommands,
+    ...bracketPredictions.slashCommands
   ];
   await predictions.registerCommands(allCommands); 
   
@@ -8511,7 +8510,12 @@ async function onReady(readyClient) {
     client: readyClient
   });
 
-  bracketPredictions.init({ supabase, guildId: DISCORD_GUILD_ID, client: readyClient });
+  bracketPredictions.init({ 
+    supabase, 
+    guildId: DISCORD_GUILD_ID, 
+    client: readyClient 
+  });
+
   // Cache communautaire des drafts (Version Intelligence Temps Réel)
   try {
     await draft.refreshCommunityDraftsCache(supabase);
