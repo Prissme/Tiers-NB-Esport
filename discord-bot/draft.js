@@ -142,6 +142,11 @@ function findBrawlerInText(text) {
 
 // Cache communautaire Supabase
 // Remplace ta fonction existante dans draft.js
+// =========================================================================
+// CACHE COMMUNAUTAIRE & INTELLIGENCE EN TEMPS RÉEL
+// =========================================================================
+
+// Cache mis à jour à la volée
 async function refreshCommunityDraftsCache(supabaseClient) {
   if (!supabaseClient) return;
   try {
@@ -165,14 +170,14 @@ async function refreshCommunityDraftsCache(supabaseClient) {
 
       const brawlers = [row.brawler_1, row.brawler_2, row.brawler_3].filter(Boolean);
 
-      // 1. Stockage du trio strict (si 3 brawlers présents)
+      // 1. Enregistrement du Trio strict
       if (brawlers.length === 3) {
         const sortedTrio = [...brawlers].sort();
         const trioKey = `${sortedTrio[0]}_${sortedTrio[1]}_${sortedTrio[2]}`;
         newCache.trios.set(trioKey, { up, down, total });
       }
 
-      // 2. Décomposition en Paires (Duos) pour l'apprentissage global
+      // 2. Décomposition en Duos (Paires) pour l'apprentissage en temps réel
       for (let i = 0; i < brawlers.length; i++) {
         for (let j = i + 1; j < brawlers.length; j++) {
           const sortedPair = [brawlers[i], brawlers[j]].sort();
@@ -190,9 +195,9 @@ async function refreshCommunityDraftsCache(supabaseClient) {
     }
 
     COMMUNITY_DRAFTS_CACHE = newCache;
-    console.log(`[Draft AI] Cerveau temps réel synchronisé : ${newCache.trios.size} trios et ${newCache.pairs.size} synergies de duos chargées.`);
+    console.log(`[Draft AI] Cerveau temps réel synchronisé : ${newCache.trios.size} trios et ${newCache.pairs.size} synergies de duos.`);
   } catch (err) {
-    console.error("[Draft AI] Erreur de synchronisation en temps réel :", err);
+    console.error("[Draft AI] Erreur de synchronisation du cache:", err);
   }
 }
 
@@ -203,7 +208,6 @@ function getMetaConfig() {
   };
 }
 
-// metaPowerOf retourne toujours 0 (bonus BUFFIES supprimé)
 function metaPowerOf(brawler, metaProfile) { return 0; }
 
 function metaHpBonusOf(brawler) {
@@ -277,9 +281,8 @@ function evaluateDraft(picks, metaProfile = META_DEFAULT) {
   if (has('Clancy') && has('Gale') && has('Byron')) score += 2.9;
   if (has('Edgar') && has('Berry') && has('Charlie')) score -= cfg.defeatCompositionPenalty;
 
-// --- CONNECTIVITÉ SUPABASE EN TEMPS RÉEL (DYNAMIC SYNERGIES) ---
+  // --- CONNECTIVITÉ SUPABASE EN TEMPS RÉEL (DYNAMIC SYNERGIES) ---
   if (COMMUNITY_DRAFTS_CACHE && COMMUNITY_DRAFTS_CACHE.pairs) {
-    // Évaluation des paires (duos) en cours de construction (Fonctionne dès le 2ème pick !)
     for (let i = 0; i < picks.length; i++) {
       for (let j = i + 1; j < picks.length; j++) {
         const sortedPair = [picks[i], picks[j]].sort();
@@ -287,23 +290,21 @@ function evaluateDraft(picks, metaProfile = META_DEFAULT) {
 
         if (COMMUNITY_DRAFTS_CACHE.pairs.has(pairKey)) {
           const data = COMMUNITY_DRAFTS_CACHE.pairs.get(pairKey);
-          // On demande un minimum de 2 votes globaux sur cette combinaison pour lui faire confiance
-          if (data.total >= 2) {
+          if (data && data.total >= 2) {
             const ratio = data.up / data.total;
-            if (ratio >= 0.65) score += 1.5; // Bonus de synergie dynamique
-            if (ratio <= 0.35) score -= 1.5; // Malus de mauvaise association dynamique
+            if (ratio >= 0.65) score += 1.5;
+            if (ratio <= 0.35) score -= 1.5;
           }
         }
       }
     }
 
-    // Évaluation du trio strict (quand la compo est complète)
     if (picks.length === 3) {
       const sortedTrio = [...picks].sort();
       const trioKey = `${sortedTrio[0]}_${sortedTrio[1]}_${sortedTrio[2]}`;
-      if (COMMUNITY_DRAFTS_CACHE.trios.has(trioKey)) {
+      if (COMMUNITY_DRAFTS_CACHE.trios && COMMUNITY_DRAFTS_CACHE.trios.has(trioKey)) {
         const data = COMMUNITY_DRAFTS_CACHE.trios.get(trioKey);
-        if (data.total >= 3) {
+        if (data && data.total >= 3) {
           const ratio = data.up / data.total;
           if (ratio >= 0.70) score += 2.0;
           if (ratio <= 0.35) score -= 2.5;
@@ -356,23 +357,19 @@ function pickAI({ available, lastUserPick, aiPicks = [], userPicks = [], metaPro
       aiScore += 2.5;
     }
 
-    // CORRECTION ICI : Adaptation à la structure temps réel de COMMUNITY_DRAFTS_CACHE
     if (currentAiPicks.length < 3) {
       const remaining = available.filter(b => b !== candidate && !aiPicks.includes(b));
       let bestTrioBonus = 0;
-      
       for (const b2 of remaining.slice(0, 15)) {
         const simulatedTrio = [...currentAiPicks, b2].slice(0, 3);
         if (simulatedTrio.length === 3) {
           const sorted = [...simulatedTrio].sort();
           const cacheKey = `${sorted[0]}_${sorted[1]}_${sorted[2]}`;
           
-          // On vérifie dans .trios et non plus à la racine du cache
           if (COMMUNITY_DRAFTS_CACHE && COMMUNITY_DRAFTS_CACHE.trios && COMMUNITY_DRAFTS_CACHE.trios.has(cacheKey)) {
             const v = COMMUNITY_DRAFTS_CACHE.trios.get(cacheKey);
-            const total = v.total || (v.upvotes + v.downvotes);
-            if (total >= 3) {
-              const ratio = v.up / total;
+            if (v && v.total >= 3) {
+              const ratio = v.up / v.total;
               if (ratio >= 0.70) bestTrioBonus = Math.max(bestTrioBonus, 2.0);
               if (ratio <= 0.35) bestTrioBonus = Math.min(bestTrioBonus, -2.5);
             }
