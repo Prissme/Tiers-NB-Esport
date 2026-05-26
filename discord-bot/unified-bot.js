@@ -8461,18 +8461,16 @@ async function onReady(readyClient) {
   await predictions.registerCommands(buildAdminSlashCommands());
 
   // On fusionne les commandes admin existantes avec les nouvelles commandes de tournoi
-  const allCommands = [
-  ...buildAdminSlashCommands(),
-  ...slashCommandsData,
-  ...tournamentPredictions.slashCommands  // ← ajouter cette ligne
-];
-await predictions.registerCommands(allCommands); 
-  
+  // ==========================================
+  // ENREGISTREMENT UNIQUE DES COMMANDES SLASH
+  // ==========================================
   const allCommands = [
     ...buildAdminSlashCommands(),
-    ...slashCommandsData
+    ...slashCommandsData,
+    ...tournamentPredictions.slashCommands  // ← Ligne ajoutée et fusionnée proprement
   ];
-  await predictions.registerCommands(allCommands);
+  await predictions.registerCommands(allCommands); 
+  
   // Sync tiers périodique
   if (tierSyncInterval) {
     clearInterval(tierSyncInterval);
@@ -8501,12 +8499,12 @@ await predictions.registerCommands(allCommands);
   initTierLeaderboard(readyClient, guild, supabase, SITE_BASE_URL);
   
   tournamentPredictions.init({
-  supabase,
-  guildId: DISCORD_GUILD_ID,
-  client: readyClient
-});
+    supabase,
+    guildId: DISCORD_GUILD_ID,
+    client: readyClient
+  });
 
-  // Cache communautaire des drafts
+  // Cache communautaire des drafts (Version Intelligence Temps Réel)
   try {
     await draft.refreshCommunityDraftsCache(supabase);
     log('Community drafts cache initialized.');
@@ -8530,6 +8528,19 @@ async function handleMessage(message) {
 
   const content = message.content.trim();
 
+  // ==========================================
+  // SÉCURITÉ & RESTRICTION DU SALON DE DRAFT
+  // ==========================================
+  const ALLOWED_DRAFT_CHANNEL = '1508933887882035220';
+  
+  if (message.channel.id !== ALLOWED_DRAFT_CHANNEL) {
+    // Si l'utilisateur tente d'écrire un brawler ou d'utiliser la commande !draft hors du salon autorisé, on bloque.
+    const brawlerFound = draft.findBrawlerInText ? draft.findBrawlerInText(content) : false;
+    if (brawlerFound || content.toLowerCase().startsWith('!draft')) {
+      return; // Le bot ignore silencieusement pour ne pas spammer
+    }
+  }
+
   if (!message.guild || message.guild.id !== DISCORD_GUILD_ID) {
     if (content.startsWith('!')) {
       await message.channel.send('PTV ON TOP :) @everyone');
@@ -8538,6 +8549,7 @@ async function handleMessage(message) {
   }
 
   if (!content.startsWith('!')) {
+    // Analyse l'écriture des brawlers (uniquement lancée si on est dans le bon salon grâce à la sécurité du dessus)
     const handledDraft = await handleDraftFreeInput(message);
     if (handledDraft) {
       return;
