@@ -356,19 +356,23 @@ function pickAI({ available, lastUserPick, aiPicks = [], userPicks = [], metaPro
       aiScore += 2.5;
     }
 
+    // CORRECTION ICI : Adaptation à la structure temps réel de COMMUNITY_DRAFTS_CACHE
     if (currentAiPicks.length < 3) {
       const remaining = available.filter(b => b !== candidate && !aiPicks.includes(b));
       let bestTrioBonus = 0;
+      
       for (const b2 of remaining.slice(0, 15)) {
         const simulatedTrio = [...currentAiPicks, b2].slice(0, 3);
         if (simulatedTrio.length === 3) {
           const sorted = [...simulatedTrio].sort();
           const cacheKey = `${sorted[0]}_${sorted[1]}_${sorted[2]}`;
-          if (COMMUNITY_DRAFTS_CACHE.has(cacheKey)) {
-            const v = COMMUNITY_DRAFTS_CACHE.get(cacheKey);
-            const total = v.upvotes + v.downvotes;
+          
+          // On vérifie dans .trios et non plus à la racine du cache
+          if (COMMUNITY_DRAFTS_CACHE && COMMUNITY_DRAFTS_CACHE.trios && COMMUNITY_DRAFTS_CACHE.trios.has(cacheKey)) {
+            const v = COMMUNITY_DRAFTS_CACHE.trios.get(cacheKey);
+            const total = v.total || (v.upvotes + v.downvotes);
             if (total >= 3) {
-              const ratio = v.upvotes / total;
+              const ratio = v.up / total;
               if (ratio >= 0.70) bestTrioBonus = Math.max(bestTrioBonus, 2.0);
               if (ratio <= 0.35) bestTrioBonus = Math.min(bestTrioBonus, -2.5);
             }
