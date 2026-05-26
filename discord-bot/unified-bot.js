@@ -28,6 +28,7 @@ const draft = require('./draft');
 const { createPerformanceStores } = require('./performance-store');
 const seasonSystem = require('./season-system');
 const { slashCommandsData, handleTournamentInteractions } = require('./tournamentSystem');
+const tournamentPredictions = require('./tournament-predictions');
 const { initTierLeaderboard } = require('./tier-leaderboard');
 const {
   buildSeasonStartEmbed,
@@ -7231,6 +7232,7 @@ async function applyMatchOutcome(state, outcome, userId) {
 
 async function handleInteraction(interaction) {
   //  ON AJOUTE CES DEUX LIGNES ICI 
+  if (await tournamentPredictions.handleInteraction(interaction)) return;
   const handledByTournament = await handleTournamentInteractions(interaction);
   if (handledByTournament) return; 
 
@@ -8460,6 +8462,13 @@ async function onReady(readyClient) {
 
   // On fusionne les commandes admin existantes avec les nouvelles commandes de tournoi
   const allCommands = [
+  ...buildAdminSlashCommands(),
+  ...slashCommandsData,
+  ...tournamentPredictions.slashCommands  // ← ajouter cette ligne
+];
+await predictions.registerCommands(allCommands); 
+  
+  const allCommands = [
     ...buildAdminSlashCommands(),
     ...slashCommandsData
   ];
@@ -8490,6 +8499,12 @@ async function onReady(readyClient) {
 
   // Tier leaderboard
   initTierLeaderboard(readyClient, guild, supabase, SITE_BASE_URL);
+  
+  tournamentPredictions.init({
+  supabase,
+  guildId: DISCORD_GUILD_ID,
+  client: readyClient
+});
 
   // Cache communautaire des drafts
   try {
