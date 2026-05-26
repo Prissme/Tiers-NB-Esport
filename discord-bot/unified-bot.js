@@ -27,6 +27,7 @@ const predictions = require('./predictions');
 const draft = require('./draft');
 const { createPerformanceStores } = require('./performance-store');
 const seasonSystem = require('./season-system');
+const bracketPredictions = require('./bracket-predictions');
 const { slashCommandsData, handleTournamentInteractions } = require('./tournamentSystem');
 const tournamentPredictions = require('./tournament-predictions');
 const { initTierLeaderboard } = require('./tier-leaderboard');
@@ -7232,6 +7233,7 @@ async function applyMatchOutcome(state, outcome, userId) {
 
 async function handleInteraction(interaction) {
   //  ON AJOUTE CES DEUX LIGNES ICI 
+  if (await bracketPredictions.handleInteraction(interaction)) return;
   if (await tournamentPredictions.handleInteraction(interaction)) return;
   const handledByTournament = await handleTournamentInteractions(interaction);
   if (handledByTournament) return; 
@@ -8465,6 +8467,11 @@ async function onReady(readyClient) {
   // ENREGISTREMENT UNIQUE DES COMMANDES SLASH
   // ==========================================
   const allCommands = [
+  ...buildAdminSlashCommands(),
+  ...slashCommandsData,
+  ...bracketPredictions.slashCommands
+];
+  const allCommands = [
     ...buildAdminSlashCommands(),
     ...slashCommandsData,
     ...tournamentPredictions.slashCommands  // ← Ligne ajoutée et fusionnée proprement
@@ -8504,6 +8511,7 @@ async function onReady(readyClient) {
     client: readyClient
   });
 
+  bracketPredictions.init({ supabase, guildId: DISCORD_GUILD_ID, client: readyClient });
   // Cache communautaire des drafts (Version Intelligence Temps Réel)
   try {
     await draft.refreshCommunityDraftsCache(supabase);
