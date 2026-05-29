@@ -8543,7 +8543,7 @@ async function handleMessage(message) {
   // ==========================================
   // SÉCURITÉ & RESTRICTION DU SALON DE DRAFT
   // ==========================================
-  const ALLOWED_DRAFT_CHANNEL = '1508933887882035220';
+  const ALLOWED_DRAFT_CHANNEL = '1510006264602693804';
   
   if (message.channel.id !== ALLOWED_DRAFT_CHANNEL) {
     // Si l'utilisateur tente d'écrire un brawler ou d'utiliser la commande !draft hors du salon autorisé, on bloque.
