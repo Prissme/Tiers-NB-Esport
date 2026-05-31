@@ -81,9 +81,9 @@ const rulebooksByLocale: Record<"fr" | "en", Rulebook[]> = {
           id: "5",
           title: "Tier Thresholds",
           bullets: [
-            "Tier E: 0 to 9 points",
-            "Tier D: 10 to 19 points",
-            "Tier C: 20 to 34 points",
+            "Tier E: 0 to 4 points",
+            "Tier D: 5 to 14 points",
+            "Tier C: 15 to 34 points",
             "Tier B: 35 to 54 points",
             "Tier A: 55+ points",
             "Tier S is determined by global ranking position.",
@@ -91,11 +91,12 @@ const rulebooksByLocale: Record<"fr" | "en", Rulebook[]> = {
         },
         {
           id: "6",
-          title: "Points System — Wins",
+          title: "Points System — Match Results",
+          body: "Points are awarded based on the tier comparison between the two teams at the time of the match.",
           bullets: [
-            "Win against a team of the same tier: +1 point",
-            "Win against a team of a higher tier: +3 points",
-            "Win against a team of a lower tier: 0 points",
+            "Win against a higher-tier team (upset): +3 points for the winner, -2 points for the loser",
+            "Win against a team of the same tier: +2 points for the winner, -1 point for the loser",
+            "Win against a lower-tier team: +1 point for the winner, 0 points for the loser",
           ],
         },
         {
@@ -111,7 +112,8 @@ const rulebooksByLocale: Record<"fr" | "en", Rulebook[]> = {
         },
         {
           id: "8",
-          title: "Points System — Tournaments",
+          title: "Points System — Tournament Progression",
+          body: "Bonus points are awarded for each stage reached in a tournament, in addition to match win points.",
           bullets: [
             "8-team tournament: Semifinal +1, Final +2, Winner +3",
             "16-team tournament: Quarterfinal +1, Semifinal +2, Final +3, Winner +4",
@@ -377,9 +379,9 @@ const rulebooksByLocale: Record<"fr" | "en", Rulebook[]> = {
           id: "5",
           title: "Seuils de tiers",
           bullets: [
-            "Tier E : 0 à 9 points",
-            "Tier D : 10 à 19 points",
-            "Tier C : 20 à 34 points",
+            "Tier E : 0 à 4 points",
+            "Tier D : 5 à 14 points",
+            "Tier C : 15 à 34 points",
             "Tier B : 35 à 54 points",
             "Tier A : 55+ points",
             "Le Tier S dépend du classement global.",
@@ -387,11 +389,12 @@ const rulebooksByLocale: Record<"fr" | "en", Rulebook[]> = {
         },
         {
           id: "6",
-          title: "Système de points — Victoires",
+          title: "Système de points — Résultats de match",
+          body: "Les points sont attribués en fonction de la comparaison de tiers entre les deux équipes au moment du match.",
           bullets: [
-            "Victoire contre une équipe du même tier : +1 point",
-            "Victoire contre une équipe d'un tier supérieur : +3 points",
-            "Victoire contre une équipe d'un tier inférieur : 0 point",
+            "Victoire contre une équipe de tier supérieur (upset) : +3 pts pour le vainqueur, -2 pts pour le perdant",
+            "Victoire contre une équipe du même tier : +2 pts pour le vainqueur, -1 pt pour le perdant",
+            "Victoire contre une équipe de tier inférieur : +1 pt pour le vainqueur, 0 pt pour le perdant",
           ],
         },
         {
@@ -407,7 +410,8 @@ const rulebooksByLocale: Record<"fr" | "en", Rulebook[]> = {
         },
         {
           id: "8",
-          title: "Système de points — Tournois",
+          title: "Système de points — Progression en tournoi",
+          body: "Des points bonus sont attribués pour chaque tour atteint, en plus des points de victoire de match.",
           bullets: [
             "Tournoi 8 équipes : demi-finale +1, finale +2, vainqueur +3",
             "Tournoi 16 équipes : quart +1, demi +2, finale +3, vainqueur +4",
