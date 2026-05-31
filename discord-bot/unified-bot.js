@@ -5763,10 +5763,10 @@ function resolveTierByPoints(points) {
   if (safePoints >= 35) {
     return 'Tier B';
   }
-  if (safePoints >= 20) {
+  if (safePoints >= 15) {
     return 'Tier C';
   }
-  if (safePoints >= 10) {
+  if (safePoints >= 5) {
     return 'Tier D';
   }
   return 'Tier E';
@@ -6004,9 +6004,9 @@ async function handleTierCriteriaCommand(message) {
   const roleARef = formatRoleReference(message.guild, ROLE_TIER_A, 'Tier A');
   const roleSRef = formatRoleReference(message.guild, ROLE_TIER_S, 'Tier S');
   const rows = [
-    { tier: 'E', criteria: '0 à 9 points' },
-    { tier: 'D', criteria: '10 à 19 points' },
-    { tier: 'C', criteria: '20 à 34 points' },
+    { tier: 'E', criteria: '0 à 4 points' },
+    { tier: 'D', criteria: '5 à 14 points' },
+    { tier: 'C', criteria: '15 à 34 points' },
     { tier: 'B', criteria: '35 à 54 points' },
     { tier: 'A', criteria: `55+ points • ${roleARef}` },
     { tier: 'S', criteria: `Top players du Tier A • ${roleSRef}` }
