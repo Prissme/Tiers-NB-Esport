@@ -1545,6 +1545,19 @@ function buildAdminSlashCommands() {
       dm_permission: false
     },
     {
+      name: 'counters',
+      description: 'Liste les counters d\'un brawler',
+      dm_permission: false,
+      options: [
+        {
+          name: 'brawler',
+          description: 'Nom du brawler',
+          type: ApplicationCommandOptionType.String,
+          required: true
+        }
+      ]
+    },
+    {
       name: 'addplayer',
       description: localizeText({ fr: 'Ajouter le rôle joueur PL', en: 'Add PL player role' }),
       dm_permission: false,
@@ -1634,13 +1647,13 @@ async function handleAdminSlashCommand(interaction) {
 
   const command = interaction.commandName;
   if (
-    !['addelo', 'removeelo', 'addpoints', 'setws', 'setls', 'banpl', 'cancelmatch', 'sync', 'addplayer', 'removeplayer', 'resetelo'].includes(command)
+    !['addelo', 'removeelo', 'addpoints', 'setws', 'setls', 'banpl', 'cancelmatch', 'sync', 'addplayer', 'removeplayer', 'resetelo', 'counters'].includes(command)
   ) {
     return false;
   }
 
   const hasPermission = hasPLAdminAccess(interaction);
-  if (!hasPermission) {
+  if (!hasPermission && command !== 'counters') {
     await interaction.reply({
       content: localizeText({
         fr: "❌ Vous n'avez pas la permission d'utiliser cette commande.",
@@ -1858,6 +1871,53 @@ async function handleAdminSlashCommand(interaction) {
       flags: MessageFlags.Ephemeral
     });
 
+    return true;
+  }
+
+  if (command === 'counters') {
+    const rawName = interaction.options.getString('brawler', true);
+    const brawler = draft.resolveBrawler(rawName);
+
+    if (!brawler) {
+      await interaction.reply({ content: `❌ Brawler inconnu : **${rawName}**`, flags: MessageFlags.Ephemeral });
+      return true;
+    }
+
+    const directCounters = draft.COUNTER_BY_USER_PICK[brawler] || [];
+    const pairs = draft.COMMUNITY_DRAFTS_CACHE?.pairs;
+    const communityDuos = [];
+    if (pairs) {
+      for (const [key, data] of pairs.entries()) {
+        if (data.total < 2) continue;
+        const ratio = data.up / data.total;
+        if (ratio < 0.65) continue;
+        const [a, b] = key.split('_');
+        if (a === brawler || b === brawler) {
+          const partner = a === brawler ? b : a;
+          communityDuos.push({ partner, ratio: Math.round(ratio * 100) });
+        }
+      }
+      communityDuos.sort((a, b) => b.ratio - a.ratio);
+    }
+
+    const embed = new EmbedBuilder()
+      .setTitle(`🎯 Counters & Synergies — ${brawler}`)
+      .setColor(0xe74c3c)
+      .setTimestamp(new Date());
+
+    embed.addFields({
+      name: '🛡️ Counters directs',
+      value: directCounters.length ? directCounters.join(', ') : '—'
+    });
+
+    if (communityDuos.length) {
+      embed.addFields({
+        name: '🤝 Duos communautaires (win rate ≥65%)',
+        value: communityDuos.slice(0, 10).map(d => `${d.partner} (${d.ratio}%)`).join(', ')
+      });
+    }
+
+    await interaction.reply({ embeds: [embed] });
     return true;
   }
 
@@ -7266,6 +7326,18 @@ async function handleInteraction(interaction) {
   }
 
   // --- Évaluation communautaire des drafts ---
+  if (interaction.isButton() && interaction.customId === 'draft_lang_fr') {
+    currentLanguage = LANGUAGE_FR;
+    await interaction.reply({ content: '🇫🇷 Langue de draft passée en français.', flags: MessageFlags.Ephemeral });
+    return;
+  }
+
+  if (interaction.isButton() && interaction.customId === 'draft_lang_en') {
+    currentLanguage = LANGUAGE_EN;
+    await interaction.reply({ content: '🇬🇧 Draft language set to English.', flags: MessageFlags.Ephemeral });
+    return;
+  }
+
   if (interaction.isButton() && interaction.customId.startsWith('draft_eval_ai:')) {
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
