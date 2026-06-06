@@ -88,8 +88,6 @@ async function fetchTierPlayers() {
         player_id,
         points,
         tier,
-        updated_at,
-        created_at,
         players!inner(id, name, discord_id, active),
         lfn_player_profiles(player_id, country_code, team_id)
       `)
@@ -136,22 +134,6 @@ async function fetchTierPlayers() {
 
   const teamMap = new Map((teams || []).map((t) => [String(t.id), t]));
 
-  // Pénalité inactivité
-  const INACTIVITY_RULES = [
-    { days: 60, penalty: 10 },
-    { days: 30, penalty: 5 },
-    { days: 14, penalty: 2 },
-  ];
-
-  function computeInactivityPenalty(lastUpdate) {
-    if (!lastUpdate) return 0;
-    const parsed = new Date(lastUpdate);
-    if (isNaN(parsed.getTime())) return 0;
-    const daysSince = Math.floor((Date.now() - parsed.getTime()) / (1000 * 60 * 60 * 24));
-    const rule = INACTIVITY_RULES.find((r) => daysSince >= r.days);
-    return rule?.penalty ?? 0;
-  }
-
   const result = filtered
     .map((row) => {
       const player = row.players;
@@ -167,19 +149,16 @@ async function fetchTierPlayers() {
 
       const team = profile?.team_id ? teamMap.get(String(profile.team_id)) : null;
 
-      const basePoints = Number(row.points || 0);
-      const lastUpdate = row.updated_at || row.created_at || null;
-      const penalty = computeInactivityPenalty(lastUpdate);
-      const adjustedPoints = Math.max(0, basePoints - penalty);
+      const points = Number(row.points || 0);
 
-      if (adjustedPoints <= 0) return null;
+      if (points <= 0) return null;
 
       return {
         id: String(row.player_id),
         name: player.name || 'Joueur',
         discordId: player.discord_id || null,
         tier: row.tier || 'Tier E',
-        points: adjustedPoints,
+        points,
         countryCode,
         teamTag: team?.tag || null,
       };
@@ -216,7 +195,7 @@ async function fetchTierPlayersFallback(activeSeasonId) {
   while (keepFetching) {
     let query = _supabase
       .from('lfn_player_tier_points')
-      .select('player_id, points, tier, updated_at, created_at')
+      .select('player_id, points, tier')
       .order('points', { ascending: false })
       .range(from, from + PAGE_SIZE - 1);
 
@@ -265,21 +244,6 @@ async function fetchTierPlayersFallback(activeSeasonId) {
   const profileMap = new Map(profiles.map((p) => [String(p.player_id), p]));
   const teamMap = new Map(teams.map((t) => [String(t.id), t]));
 
-  const INACTIVITY_RULES = [
-    { days: 60, penalty: 10 },
-    { days: 30, penalty: 5 },
-    { days: 14, penalty: 2 },
-  ];
-
-  function computeInactivityPenalty(lastUpdate) {
-    if (!lastUpdate) return 0;
-    const parsed = new Date(lastUpdate);
-    if (isNaN(parsed.getTime())) return 0;
-    const daysSince = Math.floor((Date.now() - parsed.getTime()) / (1000 * 60 * 60 * 24));
-    const rule = INACTIVITY_RULES.find((r) => daysSince >= r.days);
-    return rule?.penalty ?? 0;
-  }
-
   const result = filtered
     .map((row) => {
       const pid = String(row.player_id);
@@ -290,18 +254,16 @@ async function fetchTierPlayersFallback(activeSeasonId) {
       const rawCountry = String(profile?.country_code || '').trim().toUpperCase();
       const countryCode = /^[A-Z]{2}$/.test(rawCountry) ? rawCountry : null;
 
-      const basePoints = Number(row.points || 0);
-      const penalty = computeInactivityPenalty(row.updated_at || row.created_at);
-      const adjustedPoints = Math.max(0, basePoints - penalty);
+      const points = Number(row.points || 0);
 
-      if (adjustedPoints <= 0) return null;
+      if (points <= 0) return null;
 
       return {
         id: pid,
         name: player.name || 'Joueur',
         discordId: player.discord_id || null,
         tier: row.tier || 'Tier E',
-        points: adjustedPoints,
+        points,
         countryCode,
         teamTag: null,
       };
