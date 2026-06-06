@@ -141,11 +141,10 @@ const rulebooksByLocale: Record<"fr" | "en", Rulebook[]> = {
         {
           id: "11",
           title: "Inactivity",
-          body: "Inactivity causes progressive point loss to keep the scene active and prevent frozen tiers.",
+          body: "Inactivity does not cause point loss. Players keep their acquired points even after a period without playing.",
           bullets: [
-            "14 days without playing: -2 points",
-            "30 days without playing: -5 points",
-            "60 days without playing: -10 points",
+            "No point penalty is applied for inactivity.",
+            "Tiers remain based on earned points and sporting results.",
           ],
         },
         {
@@ -154,7 +153,7 @@ const rulebooksByLocale: Record<"fr" | "en", Rulebook[]> = {
           bullets: [
             "Tier S represents the highest level.",
             "Condition: the player must be in the global Top 3 ranking.",
-            "Retention depends on performance and activity.",
+            "Retention depends on performance and earned points.",
             "A player leaving the Top 3 automatically loses Tier S.",
           ],
         },
@@ -439,11 +438,10 @@ const rulebooksByLocale: Record<"fr" | "en", Rulebook[]> = {
         {
           id: "11",
           title: "Inactivité",
-          body: "L'inactivité entraîne une perte progressive de points pour maintenir une scène active et éviter les tiers figés.",
+          body: "L'inactivité n'entraîne plus de perte de points. Les joueurs conservent leurs points acquis même après une période sans jouer.",
           bullets: [
-            "14 jours sans jouer : -2 points",
-            "1 mois sans jouer : -5 points",
-            "2 mois sans jouer : -10 points",
+            "Aucune pénalité de points n'est appliquée pour inactivité.",
+            "Les tiers restent basés sur les points gagnés et les résultats sportifs.",
           ],
         },
         {
@@ -452,7 +450,7 @@ const rulebooksByLocale: Record<"fr" | "en", Rulebook[]> = {
           bullets: [
             "Le Tier S représente le niveau le plus élevé.",
             "Condition : être dans le Top 3 global.",
-            "Le maintien dépend de la performance et de l'activité.",
+            "Le maintien dépend de la performance et des points gagnés.",
             "Toute sortie du Top 3 entraîne la perte automatique du Tier S.",
           ],
         },
