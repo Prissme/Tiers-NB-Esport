@@ -10,6 +10,7 @@ const { EmbedBuilder } = require('discord.js');
 
 const TIER_LEADERBOARD_CHANNEL_ID = '1505250882231468102';
 const TIER_LEADERBOARD_UPDATE_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
+const TIER_LEADERBOARD_MAX_PLAYERS = 100;
 
 const TIER_ORDER = ['Tier S', 'Tier A', 'Tier B', 'Tier C', 'Tier D', 'Tier E'];
 
@@ -177,8 +178,10 @@ async function fetchTierPlayers() {
       a.name.localeCompare(b.name, 'fr')
   );
 
-  console.log(`[TierLeaderboard] ${result.length} joueurs prêts à afficher.`);
-  return result;
+  const top = result.slice(0, TIER_LEADERBOARD_MAX_PLAYERS);
+
+  console.log(`[TierLeaderboard] ${result.length} joueurs éligibles, ${top.length} affichés (top ${TIER_LEADERBOARD_MAX_PLAYERS}).`);
+  return top;
 }
 
 // ── Fallback : requêtes séparées avec pagination ───────────
@@ -282,8 +285,10 @@ async function fetchTierPlayersFallback(activeSeasonId) {
       a.name.localeCompare(b.name, 'fr')
   );
 
-  console.log(`[TierLeaderboard] Fallback: ${result.length} joueurs prêts.`);
-  return result;
+  const top = result.slice(0, TIER_LEADERBOARD_MAX_PLAYERS);
+
+  console.log(`[TierLeaderboard] Fallback: ${result.length} joueurs éligibles, ${top.length} affichés (top ${TIER_LEADERBOARD_MAX_PLAYERS}).`);
+  return top;
 }
 
 // ── Construction de l'embed ────────────────────────────────
@@ -306,13 +311,12 @@ function buildTierEmbed(tier, players, startRank, totalPlayers, isFirstTier = fa
     .setTitle(embedTitle)
     .setColor(embedColor)
     .setTimestamp(new Date())
-    .setFooter({ text: 'LFN Esports • lfn-esports.fr' });
+    .setFooter({ text: 'LFN Esports' });
 
   // Description uniquement sur le premier embed
   if (isFirstTier) {
     embed.setDescription(
-      `**${totalPlayers} joueurs classés** — mis à jour toutes les 5 minutes\n` +
-      `[Voir le classement complet](https://www.lfn-esports.fr/classement)`
+      `**${totalPlayers} joueurs classés** — mis à jour toutes les 5 minutes`
     );
   }
 
@@ -328,7 +332,7 @@ function buildTierEmbed(tier, players, startRank, totalPlayers, isFirstTier = fa
       currentRank === 2 ? ' 🥈' :
       currentRank === 3 ? ' 🥉' : '';
 
-    lines.push(`**#${currentRank}**${medal} ${tierEmoji} ${flag} **${player.name}**${teamTag} • **${pts} pts**`);
+    lines.push(`**#${currentRank}**${medal} ${flag} **${player.name}**${teamTag} • **${pts} pts**`);
     currentRank++;
   }
 
@@ -436,6 +440,74 @@ async function sendOrUpdateTierLeaderboardEmbed() {
   console.log(`[TierLeaderboard] ${embeds.length} embed(s) postés pour ${totalPlayers} joueurs (1 embed par tier).`);
 }
 
+// ── Refresh des pseudos Discord ────────────────────────────
+
+/**
+ * Resynchronise le nom des joueurs du classement (top TIER_LEADERBOARD_MAX_PLAYERS)
+ * avec leur pseudo Discord actuel (surnom serveur ou nom d'utilisateur global),
+ * puis republie l'embed avec les noms à jour.
+ * Retourne un résumé { total, updated, unchanged, notFound, noDiscordId, errors }.
+ */
+async function refreshDiscordNames() {
+  if (!_guild || !_supabase) {
+    throw new Error('[TierLeaderboard] Module non initialisé.');
+  }
+
+  const players = await fetchTierPlayers();
+
+  const summary = { total: players.length, updated: 0, unchanged: 0, notFound: 0, noDiscordId: 0, errors: 0 };
+
+  for (const player of players) {
+    if (!player.discordId) {
+      summary.noDiscordId++;
+      continue;
+    }
+
+    let member = null;
+    try {
+      member = await _guild.members.fetch(player.discordId);
+    } catch (_) {
+      member = null;
+    }
+
+    if (!member) {
+      summary.notFound++;
+      continue;
+    }
+
+    const freshName = member.displayName || member.user?.username || null;
+    if (!freshName || freshName === player.name) {
+      summary.unchanged++;
+      continue;
+    }
+
+    const { error } = await _supabase
+      .from('players')
+      .update({ name: freshName })
+      .eq('id', player.id);
+
+    if (error) {
+      console.warn(`[TierLeaderboard] Échec mise à jour pseudo pour ${player.id}:`, error.message);
+      summary.errors++;
+      continue;
+    }
+
+    summary.updated++;
+  }
+
+  if (summary.updated > 0) {
+    await sendOrUpdateTierLeaderboardEmbed().catch((err) =>
+      console.error('[TierLeaderboard] Erreur en republiant après refresh des pseudos:', err)
+    );
+  }
+
+  console.log(
+    `[TierLeaderboard] Refresh pseudos: ${summary.updated} mis à jour, ${summary.unchanged} inchangés, ${summary.notFound} introuvables, ${summary.noDiscordId} sans discordId, ${summary.errors} erreurs (sur ${summary.total}).`
+  );
+
+  return summary;
+}
+
 // ── Initialisation ──────────────────────────────────────────
 
 function initTierLeaderboard(client, guild, supabase, siteBaseUrl = null) {
@@ -462,4 +534,4 @@ function initTierLeaderboard(client, guild, supabase, siteBaseUrl = null) {
   );
 }
 
-module.exports = { initTierLeaderboard };
+module.exports = { initTierLeaderboard, refreshDiscordNames };
