@@ -1,0 +1,287 @@
+const COUNTRIES = [
+  { code: "AD", name: "Andorre" },
+  { code: "AE", name: "Émirats arabes unis" },
+  { code: "AF", name: "Afghanistan" },
+  { code: "AG", name: "Antigua-et-Barbuda" },
+  { code: "AL", name: "Albanie" },
+  { code: "AM", name: "Arménie" },
+  { code: "AO", name: "Angola" },
+  { code: "AR", name: "Argentine" },
+  { code: "AT", name: "Autriche" },
+  { code: "AU", name: "Australie" },
+  { code: "AZ", name: "Azerbaïdjan" },
+  { code: "BA", name: "Bosnie-Herzégovine" },
+  { code: "BB", name: "Barbade" },
+  { code: "BD", name: "Bangladesh" },
+  { code: "BE", name: "Belgique" },
+  { code: "BF", name: "Burkina Faso" },
+  { code: "BG", name: "Bulgarie" },
+  { code: "BH", name: "Bahreïn" },
+  { code: "BI", name: "Burundi" },
+  { code: "BJ", name: "Bénin" },
+  { code: "BN", name: "Brunei" },
+  { code: "BO", name: "Bolivie" },
+  { code: "BR", name: "Brésil" },
+  { code: "BS", name: "Bahamas" },
+  { code: "BT", name: "Bhoutan" },
+  { code: "BW", name: "Botswana" },
+  { code: "BY", name: "Biélorussie" },
+  { code: "BZ", name: "Belize" },
+  { code: "CA", name: "Canada" },
+  { code: "CD", name: "Congo (RDC)" },
+  { code: "CF", name: "Centrafrique" },
+  { code: "CG", name: "Congo" },
+  { code: "CH", name: "Suisse" },
+  { code: "CI", name: "Côte d'Ivoire" },
+  { code: "CL", name: "Chili" },
+  { code: "CM", name: "Cameroun" },
+  { code: "CN", name: "Chine" },
+  { code: "CO", name: "Colombie" },
+  { code: "CR", name: "Costa Rica" },
+  { code: "CU", name: "Cuba" },
+  { code: "CV", name: "Cap-Vert" },
+  { code: "CY", name: "Chypre" },
+  { code: "CZ", name: "République tchèque" },
+  { code: "DE", name: "Allemagne" },
+  { code: "DJ", name: "Djibouti" },
+  { code: "DK", name: "Danemark" },
+  { code: "DM", name: "Dominique" },
+  { code: "DO", name: "République dominicaine" },
+  { code: "DZ", name: "Algérie" },
+  { code: "EC", name: "Équateur" },
+  { code: "EE", name: "Estonie" },
+  { code: "EG", name: "Égypte" },
+  { code: "ER", name: "Érythrée" },
+  { code: "ES", name: "Espagne" },
+  { code: "ET", name: "Éthiopie" },
+  { code: "FI", name: "Finlande" },
+  { code: "FJ", name: "Fidji" },
+  { code: "FM", name: "Micronésie" },
+  { code: "FR", name: "France" },
+  { code: "GA", name: "Gabon" },
+  { code: "GB", name: "Royaume-Uni" },
+  { code: "GD", name: "Grenade" },
+  { code: "GE", name: "Géorgie" },
+  { code: "GH", name: "Ghana" },
+  { code: "GM", name: "Gambie" },
+  { code: "GN", name: "Guinée" },
+  { code: "GQ", name: "Guinée équatoriale" },
+  { code: "GR", name: "Grèce" },
+  { code: "GT", name: "Guatemala" },
+  { code: "GW", name: "Guinée-Bissau" },
+  { code: "GY", name: "Guyana" },
+  { code: "HN", name: "Honduras" },
+  { code: "HR", name: "Croatie" },
+  { code: "HT", name: "Haïti" },
+  { code: "HU", name: "Hongrie" },
+  { code: "ID", name: "Indonésie" },
+  { code: "IE", name: "Irlande" },
+  { code: "IL", name: "Israël" },
+  { code: "IN", name: "Inde" },
+  { code: "IQ", name: "Irak" },
+  { code: "IR", name: "Iran" },
+  { code: "IS", name: "Islande" },
+  { code: "IT", name: "Italie" },
+  { code: "JM", name: "Jamaïque" },
+  { code: "JO", name: "Jordanie" },
+  { code: "JP", name: "Japon" },
+  { code: "KE", name: "Kenya" },
+  { code: "KG", name: "Kirghizistan" },
+  { code: "KH", name: "Cambodge" },
+  { code: "KI", name: "Kiribati" },
+  { code: "KM", name: "Comores" },
+  { code: "KN", name: "Saint-Kitts-et-Nevis" },
+  { code: "KP", name: "Corée du Nord" },
+  { code: "KR", name: "Corée du Sud" },
+  { code: "KW", name: "Koweït" },
+  { code: "KZ", name: "Kazakhstan" },
+  { code: "LA", name: "Laos" },
+  { code: "LB", name: "Liban" },
+  { code: "LC", name: "Sainte-Lucie" },
+  { code: "LI", name: "Liechtenstein" },
+  { code: "LK", name: "Sri Lanka" },
+  { code: "LR", name: "Liberia" },
+  { code: "LS", name: "Lesotho" },
+  { code: "LT", name: "Lituanie" },
+  { code: "LU", name: "Luxembourg" },
+  { code: "LV", name: "Lettonie" },
+  { code: "LY", name: "Libye" },
+  { code: "MA", name: "Maroc" },
+  { code: "MC", name: "Monaco" },
+  { code: "MD", name: "Moldavie" },
+  { code: "ME", name: "Monténégro" },
+  { code: "MG", name: "Madagascar" },
+  { code: "MH", name: "Îles Marshall" },
+  { code: "MK", name: "Macédoine du Nord" },
+  { code: "ML", name: "Mali" },
+  { code: "MM", name: "Myanmar" },
+  { code: "MN", name: "Mongolie" },
+  { code: "MR", name: "Mauritanie" },
+  { code: "MT", name: "Malte" },
+  { code: "MU", name: "Maurice" },
+  { code: "MV", name: "Maldives" },
+  { code: "MW", name: "Malawi" },
+  { code: "MX", name: "Mexique" },
+  { code: "MY", name: "Malaisie" },
+  { code: "MZ", name: "Mozambique" },
+  { code: "NA", name: "Namibie" },
+  { code: "NE", name: "Niger" },
+  { code: "NG", name: "Nigeria" },
+  { code: "NI", name: "Nicaragua" },
+  { code: "NL", name: "Pays-Bas" },
+  { code: "NO", name: "Norvège" },
+  { code: "NP", name: "Népal" },
+  { code: "NR", name: "Nauru" },
+  { code: "NZ", name: "Nouvelle-Zélande" },
+  { code: "OM", name: "Oman" },
+  { code: "PA", name: "Panama" },
+  { code: "PE", name: "Pérou" },
+  { code: "PG", name: "Papouasie-Nouvelle-Guinée" },
+  { code: "PH", name: "Philippines" },
+  { code: "PK", name: "Pakistan" },
+  { code: "PL", name: "Pologne" },
+  { code: "PT", name: "Portugal" },
+  { code: "PW", name: "Palaos" },
+  { code: "PY", name: "Paraguay" },
+  { code: "QA", name: "Qatar" },
+  { code: "RO", name: "Roumanie" },
+  { code: "RS", name: "Serbie" },
+  { code: "RU", name: "Russie" },
+  { code: "RW", name: "Rwanda" },
+  { code: "SA", name: "Arabie saoudite" },
+  { code: "SB", name: "Îles Salomon" },
+  { code: "SC", name: "Seychelles" },
+  { code: "SD", name: "Soudan" },
+  { code: "SE", name: "Suède" },
+  { code: "SG", name: "Singapour" },
+  { code: "SI", name: "Slovénie" },
+  { code: "SK", name: "Slovaquie" },
+  { code: "SL", name: "Sierra Leone" },
+  { code: "SM", name: "Saint-Marin" },
+  { code: "SN", name: "Sénégal" },
+  { code: "SO", name: "Somalie" },
+  { code: "SR", name: "Suriname" },
+  { code: "SS", name: "Soudan du Sud" },
+  { code: "ST", name: "São Tomé-et-Príncipe" },
+  { code: "SV", name: "Salvador" },
+  { code: "SY", name: "Syrie" },
+  { code: "SZ", name: "Eswatini" },
+  { code: "TD", name: "Tchad" },
+  { code: "TG", name: "Togo" },
+  { code: "TH", name: "Thaïlande" },
+  { code: "TJ", name: "Tadjikistan" },
+  { code: "TL", name: "Timor oriental" },
+  { code: "TM", name: "Turkménistan" },
+  { code: "TN", name: "Tunisie" },
+  { code: "TO", name: "Tonga" },
+  { code: "TR", name: "Turquie" },
+  { code: "TT", name: "Trinité-et-Tobago" },
+  { code: "TV", name: "Tuvalu" },
+  { code: "TZ", name: "Tanzanie" },
+  { code: "UA", name: "Ukraine" },
+  { code: "UG", name: "Ouganda" },
+  { code: "US", name: "États-Unis" },
+  { code: "UY", name: "Uruguay" },
+  { code: "UZ", name: "Ouzbékistan" },
+  { code: "VA", name: "Vatican" },
+  { code: "VC", name: "Saint-Vincent-et-les-Grenadines" },
+  { code: "VE", name: "Venezuela" },
+  { code: "VN", name: "Viêt Nam" },
+  { code: "VU", name: "Vanuatu" },
+  { code: "WS", name: "Samoa" },
+  { code: "YE", name: "Yémen" },
+  { code: "ZA", name: "Afrique du Sud" },
+  { code: "ZM", name: "Zambie" },
+  { code: "ZW", name: "Zimbabwe" },
+];
+
+// ── Normalisation / résolution ─────────────────────────────
+
+function normalize(str) {
+  return String(str || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '') // retire les accents
+    .replace(/['’]/g, ' ')
+    .replace(/[^a-zA-Z0-9]+/g, ' ')
+    .trim()
+    .toLowerCase();
+}
+
+const NAME_INDEX = new Map(
+  COUNTRIES.map((c) => [normalize(c.name), c])
+);
+
+// Alias courants (anglicismes, abréviations, variantes) → code ISO
+const ALIASES = {
+  'uk': 'GB',
+  'united kingdom': 'GB',
+  'angleterre': 'GB',
+  'grande bretagne': 'GB',
+  'usa': 'US',
+  'etats unis': 'US',
+  'united states': 'US',
+  'america': 'US',
+  'coree du sud': 'KR',
+  'south korea': 'KR',
+  'coree du nord': 'KP',
+  'north korea': 'KP',
+  'rdc': 'CD',
+  'drc': 'CD',
+  'emirats': 'AE',
+  'uae': 'AE',
+  'republique tcheque': 'CZ',
+  'czech republic': 'CZ',
+  'tchequie': 'CZ',
+  'russia': 'RU',
+  'germany': 'DE',
+  'deutschland': 'DE',
+  'espana': 'ES',
+  'italia': 'IT',
+  'brasil': 'BR',
+  'vietnam': 'VN',
+  'ivoire': 'CI'
+};
+
+/**
+ * Résout une entrée utilisateur (code ISO ou nom, FR/EN, avec ou sans accents)
+ * vers { code, name } ou null si aucune correspondance fiable.
+ */
+function resolveCountry(input) {
+  const raw = String(input || '').trim();
+  if (!raw) return null;
+
+  // Code ISO à deux lettres (ex: "fr", "BE")
+  if (/^[a-zA-Z]{2}$/.test(raw)) {
+    const code = raw.toUpperCase();
+    const exact = COUNTRIES.find((c) => c.code === code);
+    if (exact) return exact;
+  }
+
+  const normalized = normalize(raw);
+
+  // Correspondance exacte sur le nom normalisé
+  if (NAME_INDEX.has(normalized)) {
+    return NAME_INDEX.get(normalized);
+  }
+
+  // Alias connus
+  if (ALIASES[normalized]) {
+    const code = ALIASES[normalized];
+    return COUNTRIES.find((c) => c.code === code) || null;
+  }
+
+  // Correspondance partielle (le nom du pays commence par la saisie, ou l'inverse)
+  const partial = COUNTRIES.filter((c) => {
+    const n = normalize(c.name);
+    return n.startsWith(normalized) || normalized.startsWith(n);
+  });
+  if (partial.length === 1) return partial[0];
+
+  // Correspondance "contient" en dernier recours, seulement si non ambiguë
+  const contains = COUNTRIES.filter((c) => normalize(c.name).includes(normalized));
+  if (contains.length === 1) return contains[0];
+
+  return null;
+}
+
+module.exports = { COUNTRIES, resolveCountry, normalize };
