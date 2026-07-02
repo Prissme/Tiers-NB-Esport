@@ -115,6 +115,7 @@ const {
 const { createLogger } = require('./utils/logger');
 const { isMissingShieldColumnError, pickRandomMaps } = require('./utils/maps');
 const { parseDurationToMs, formatDurationMinutes, formatDiscordTimestamp } = require('./utils/time');
+const { resolveCountry } = require('./utils/countries');
 
 const { log, warn, errorLog } = createLogger(LOG_PREFIX);
 const queueStatusMessages = new Map();
@@ -4645,6 +4646,90 @@ async function handleWorldLeaderboardCommand(message) {
   }
 }
 
+async function handleCountryLeaderboardCommand(message, args) {
+  try {
+    const query = (args || []).join(' ').trim();
+
+    if (!query) {
+      await message.reply({
+        content: localizeText({
+          fr: 'Utilisation : `!countrylb <pays>` (ex: `!countrylb France`, `!countrylb BE`).',
+          en: 'Usage: `!countrylb <country>` (e.g. `!countrylb France`, `!countrylb BE`).'
+        }),
+        allowedMentions: { repliedUser: false }
+      });
+      return;
+    }
+
+    const country = resolveCountry(query);
+
+    if (!country) {
+      await message.reply({
+        content: localizeText({
+          fr: `❌ Pays introuvable : "${query}". Essaie avec le nom complet (ex: "France") ou le code ISO à 2 lettres (ex: "FR").`,
+          en: `❌ Country not found: "${query}". Try the full name (e.g. "France") or the 2-letter ISO code (e.g. "FR").`
+        }),
+        allowedMentions: { repliedUser: false }
+      });
+      return;
+    }
+
+    const allPlayers = await fetchSiteTierLeaderboard();
+    const countryPlayers = allPlayers
+      .filter((player) => String(player?.countryCode || '').toUpperCase() === country.code)
+      .sort((a, b) => Number(b?.points || 0) - Number(a?.points || 0));
+
+    if (!countryPlayers.length) {
+      await message.reply({
+        content: localizeText(
+          {
+            fr: `Aucun joueur classé pour ${toCountryFlag(country.code)} ${country.name} pour le moment.`,
+            en: `No ranked players for ${toCountryFlag(country.code)} ${country.name} yet.`
+          }
+        ),
+        allowedMentions: { repliedUser: false }
+      });
+      return;
+    }
+
+    const lines = countryPlayers.slice(0, 30).map((player, index) => {
+      const rank = index + 1;
+      const trophy = rank <= 3 ? `${TROPHY_EMOJI} ` : '';
+      const points = Math.round(Number(player?.points || 0));
+      const tier = player?.tier ? ` • ${player.tier}` : '';
+      return `**#${rank}** ${trophy}**${player.name}** • **${points} pts**${tier}`;
+    });
+
+    const flag = toCountryFlag(country.code);
+
+    await message.reply({
+      embeds: [
+        new EmbedBuilder()
+          .setColor(0x3498db)
+          .setTitle(`${flag} Classement — ${country.name}`)
+          .setDescription(lines.join('\n'))
+          .setFooter({
+            text: localizeText(
+              { fr: '{count} joueur(s) classé(s) pour {country}', en: '{count} ranked player(s) for {country}' },
+              { count: countryPlayers.length, country: country.name }
+            )
+          })
+          .setTimestamp(new Date())
+      ],
+      allowedMentions: { repliedUser: false }
+    });
+  } catch (error) {
+    errorLog('Failed to fetch country leaderboard:', error);
+    await message.reply({
+      content: localizeText({
+        fr: 'Erreur lors de la récupération du classement du pays.',
+        en: 'Failed to retrieve the country leaderboard.'
+      }),
+      allowedMentions: { repliedUser: false }
+    });
+  }
+}
+
 async function handleMapsCommand(message) {
   const frenchLines = [
     '🗺️ **Rotation des maps disponibles**',
@@ -6908,7 +6993,7 @@ async function handleInteraction(interaction) {
             .setTitle('Rubrique E-Sports')
             .setColor(0x0ea5e9)
             .setDescription(
-              ['`!tier`', '`!lfn`', '`!tierlb`', '`!worldlb`', '`!tiercriteria`', '`!synctiers`'].join('\n')
+              ['`!tier`', '`!lfn`', '`!tierlb`', '`!worldlb`', '`!countrylb`', '`!tiercriteria`', '`!synctiers`'].join('\n')
             )
         ]
       });
@@ -8043,6 +8128,10 @@ async function handleMessage(message) {
       case 'worldlb':
       case 'worldleaderboard':
         await handleWorldLeaderboardCommand(message, args);
+        break;
+      case 'countrylb':
+      case 'countryleaderboard':
+        await handleCountryLeaderboardCommand(message, args);
         break;
       case 'maps':
         await handleMapsCommand(message, args);
