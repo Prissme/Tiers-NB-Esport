@@ -30,7 +30,7 @@ const seasonSystem = require('./season-system');
 const bracketPredictions = require('./bracket-predictions');
 const { slashCommandsData, handleTournamentInteractions } = require('./tournamentSystem');
 const tournamentPredictions = require('./tournament-predictions');
-const { initTierLeaderboard } = require('./tier-leaderboard');
+const { initTierLeaderboard, refreshDiscordNames } = require('./tier-leaderboard');
 const { buildAdminSlashCommands } = require('./commands/admin-slash-commands');
 const {
   buildSeasonStartEmbed,
@@ -5239,6 +5239,53 @@ async function handleTierSyncCommand(message) {
   }
 }
 
+async function handleRefreshTierNamesCommand(message) {
+  const hasPermission = message.member?.permissions?.has(PermissionsBitField.Flags.ManageGuild);
+
+  if (!hasPermission) {
+    await message.reply({
+      content: localizeText({
+        fr: "❌ Vous n'avez pas la permission d'exécuter cette commande.",
+        en: "❌ You don't have permission to run this command."
+      })
+    });
+    return;
+  }
+
+  const response = await message.reply({
+    content: localizeText({
+      fr: '🔄 Rafraîchissement des pseudos Discord du classement en cours…',
+      en: '🔄 Refreshing Discord display names for the leaderboard…'
+    })
+  });
+
+  try {
+    const summary = await refreshDiscordNames();
+    await response.edit(
+      localizeText(
+        {
+          fr:
+            `✅ Pseudos rafraîchis : **${summary.updated}** mis à jour, **${summary.unchanged}** déjà à jour, ` +
+            `**${summary.notFound}** introuvables sur le serveur, **${summary.noDiscordId}** sans compte Discord lié` +
+            `${summary.errors ? `, **${summary.errors}** erreurs` : ''} (sur ${summary.total} joueurs classés).`,
+          en:
+            `✅ Display names refreshed: **${summary.updated}** updated, **${summary.unchanged}** already up to date, ` +
+            `**${summary.notFound}** not found on the server, **${summary.noDiscordId}** without a linked Discord account` +
+            `${summary.errors ? `, **${summary.errors}** errors` : ''} (out of ${summary.total} ranked players).`
+        }
+      )
+    );
+  } catch (err) {
+    errorLog('Failed to refresh tier leaderboard display names:', err);
+    await response.edit(
+      localizeText({
+        fr: "❌ Impossible de rafraîchir les pseudos. Consultez les logs pour plus d'informations.",
+        en: '❌ Unable to refresh display names. Check the logs for details.'
+      })
+    );
+  }
+}
+
 async function fetchPlayerTierDescription(playerId) {
   if (!playerId) {
     return '';
@@ -6993,7 +7040,7 @@ async function handleInteraction(interaction) {
             .setTitle('Rubrique E-Sports')
             .setColor(0x0ea5e9)
             .setDescription(
-              ['`!tier`', '`!lfn`', '`!tierlb`', '`!worldlb`', '`!countrylb`', '`!tiercriteria`', '`!synctiers`'].join('\n')
+              ['`!tier`', '`!lfn`', '`!tierlb`', '`!worldlb`', '`!countrylb`', '`!tiercriteria`', '`!synctiers`', '`!refreshnames`'].join('\n')
             )
         ]
       });
@@ -8150,6 +8197,11 @@ async function handleMessage(message) {
       case 'synctier':
       case 'synctiers':
         await handleTierSyncCommand(message, args);
+        break;
+      case 'refreshnames':
+      case 'refreshpseudos':
+      case 'syncnames':
+        await handleRefreshTierNamesCommand(message, args);
         break;
       case 'lfn':
         await handleLfnCommand(message, args);
