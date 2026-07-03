@@ -65,18 +65,11 @@ function parseDiscordTimestamp(dateStr, format = 'F') {
 }
 
 /**
- * Génère l'embed du menu principal (Avec le texte promotionnel à la fin)
+ * Génère l'embed du menu principal
  */
 async function buildMainMenu() {
-    // Intégration de ta promotion à la fin de la description principale
-    const descriptionText = 
-        "Clique sur une cup pour voir les détails, les conditions d'inscription et le cashprize.\n\n" +
-        "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n" +
-        "💡 **Tu veux TON propre tournoi ?**\n\n" +
-        "Je peux organiser un tournoi personnalisé pour toi (format, règles, cashprize…)\n\n" +
-        "👉 **Prix : 9,99€**\n" +
-        "📩 **DM-moi si t’es chaud**\n" +
-        "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\u200b";
+    const descriptionText =
+        "Clique sur une cup pour voir les détails, les conditions d'inscription et le cashprize.";
 
     const embed = new EmbedBuilder()
         .setTitle("VOICI LES TOURNOIS QUI ARRIVENT SUR PTV")
