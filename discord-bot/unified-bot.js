@@ -275,7 +275,6 @@ let tierSyncInterval = null;
 let worstPlayerRoleInterval = null;
 let botStarted = false;
 let supportsShieldColumns = true;
-let commandUsageCounter = 0;
 
 const QUEUE_CONFIGS = [{ maxEloDifference: null }];
 const QUEUE_COUNT = QUEUE_CONFIGS.length;
@@ -5646,37 +5645,6 @@ async function handleTierCriteriaCommand(message) {
   });
 }
 
-async function sendPeriodicPromotionEmbed(message) {
-  if (!message?.channel || commandUsageCounter % 20 !== 0) {
-    return;
-  }
-
-  const embed = new EmbedBuilder()
-    .setColor(0x2b1a3d)
-    .setTitle('Crée ta PROPRE CUP 🏆')
-    .setDescription(
-      [
-        'Tu veux voir ton nom sur une compétition ?',
-        '',
-        '👉 **Je t’organise ta propre cup :**',
-        '',
-        '• Organisation ✅',
-        '• Cast du direct 🎙️',
-        '• Hype 🔥',
-        '',
-        '👉 **Toi tu profites, je m’occupe de tout**',
-        '',
-        '💰 Format simple : ~9,99-19,99€',
-        '',
-        '👉 https://ko-fi.com/prissme'
-      ].join('\n')
-    );
-
-  await message.channel.send({ embeds: [embed] }).catch((err) => {
-    warn('Failed to send periodic promotion embed:', err?.message || err);
-  });
-}
-
 async function handleLfnCommand(message) {
   await message.reply({
     embeds: [
@@ -8131,7 +8099,6 @@ async function handleMessage(message) {
 
   const [commandName, ...args] = content.slice(1).split(/\s+/);
   const command = commandName.toLowerCase();
-  commandUsageCounter += 1;
 
   // === COMMANDES TEMPORAIREMENT DÉSACTIVÉES POUR SIMPLIFICATION ===
   const disabledCommands = new Set(['teams']);
@@ -8142,7 +8109,6 @@ async function handleMessage(message) {
         'Ces commandes sont temporairement désactivées pour simplifier le système compétitif. / These commands are temporarily disabled to simplify the competitive flow.',
       allowedMentions: { repliedUser: false }
     });
-    await sendPeriodicPromotionEmbed(message);
     return;
   }
 
@@ -8225,8 +8191,6 @@ async function handleMessage(message) {
       })
     });
   }
-
-  await sendPeriodicPromotionEmbed(message);
 }
 
 async function startUnifiedBot() {
