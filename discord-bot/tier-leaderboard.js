@@ -302,16 +302,14 @@ function buildTierEmbed(tier, players, startRank, totalPlayers, isFirstTier = fa
   
   let embedTitle;
   if (isFirstTier) {
-    embedTitle = '🏆 Classement Tiers — Prissme TV';
+    embedTitle = "🏆 TOP 100 BEST NULL'S BRAWL PLAYERS 🏆";
   } else {
     embedTitle = `${tierEmoji} ${tier}`;
   }
 
   const embed = new EmbedBuilder()
     .setTitle(embedTitle)
-    .setColor(embedColor)
-    .setTimestamp(new Date())
-    .setFooter({ text: 'LFN Esports' });
+    .setColor(embedColor);
 
   // Description uniquement sur le premier embed
   if (isFirstTier) {
@@ -344,7 +342,7 @@ function buildTierEmbed(tier, players, startRank, totalPlayers, isFirstTier = fa
   for (const line of lines) {
     const nextValue = currentFieldValue ? `${currentFieldValue}\n${line}` : line;
     if (nextValue.length > maxFieldLength && currentFieldValue) {
-      const fieldName = fieldIndex === 0 ? `${tierEmoji} ${tier} — ${players.length} joueur${players.length > 1 ? 's' : ''}` : `↳ ${tier} (suite)`;
+      const fieldName = fieldIndex === 0 ? `${tierEmoji} ${tier} — ${players.length} joueur${players.length > 1 ? 's' : ''}` : '\u200b';
       embed.addFields({ name: fieldName, value: currentFieldValue, inline: false });
       currentFieldValue = line;
       fieldIndex++;
@@ -354,7 +352,7 @@ function buildTierEmbed(tier, players, startRank, totalPlayers, isFirstTier = fa
   }
 
   if (currentFieldValue) {
-    const fieldName = fieldIndex === 0 ? `${tierEmoji} ${tier} — ${players.length} joueur${players.length > 1 ? 's' : ''}` : `↳ ${tier} (suite)`;
+    const fieldName = fieldIndex === 0 ? `${tierEmoji} ${tier} — ${players.length} joueur${players.length > 1 ? 's' : ''}` : '\u200b';
     embed.addFields({ name: fieldName, value: currentFieldValue, inline: false });
   }
 
@@ -423,7 +421,7 @@ async function sendOrUpdateTierLeaderboardEmbed() {
         m.author.id === _client.user?.id &&
         m.embeds?.length > 0 &&
         (
-          m.embeds[0]?.title?.includes('Classement Tiers') ||
+          m.embeds[0]?.title?.includes("BEST NULL'S BRAWL PLAYERS") ||
           m.embeds[0]?.title?.includes('Tier')
         )
     );
