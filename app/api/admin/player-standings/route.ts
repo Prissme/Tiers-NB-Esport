@@ -22,6 +22,7 @@ export async function PATCH(request: Request) {
       tier?: string;
       countryCode?: string;
       description?: string;
+      ballonDor?: number;
       seasonId?: string;
     };
     const playerId = String(body.playerId ?? "").trim();
@@ -29,6 +30,7 @@ export async function PATCH(request: Request) {
     const tier = String(body.tier ?? "").trim();
     const countryCode = String(body.countryCode ?? "FR").trim().toUpperCase();
     const description = String(body.description ?? "").trim();
+    const ballonDor = Number.isFinite(Number(body.ballonDor)) ? Math.max(0, Math.trunc(Number(body.ballonDor))) : 0;
     const requestedSeasonId = String(body.seasonId ?? "").trim();
 
     if (
@@ -89,6 +91,7 @@ export async function PATCH(request: Request) {
           player_id: playerId,
           country_code: countryCode,
           description,
+          ballon_dor: ballonDor,
           updated_at: new Date().toISOString(),
         },
         { onConflict: "player_id" }
@@ -130,6 +133,7 @@ export async function POST(request: Request) {
       points?: number;
       countryCode?: string;
       description?: string;
+      ballonDor?: number;
       seasonId?: string;
     };
 
@@ -138,6 +142,7 @@ export async function POST(request: Request) {
     const points = Number(body.points);
     const countryCode = String(body.countryCode ?? "FR").trim().toUpperCase();
     const description = String(body.description ?? "").trim();
+    const ballonDor = Number.isFinite(Number(body.ballonDor)) ? Math.max(0, Math.trunc(Number(body.ballonDor))) : 0;
     const requestedSeasonId = String(body.seasonId ?? "").trim();
 
     if (
@@ -210,6 +215,7 @@ export async function POST(request: Request) {
           player_id: createdPlayer.id,
           country_code: countryCode,
           description,
+          ballon_dor: ballonDor,
           updated_at: new Date().toISOString(),
         },
         { onConflict: "player_id" }
