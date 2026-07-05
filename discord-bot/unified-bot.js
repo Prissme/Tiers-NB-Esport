@@ -1997,7 +1997,7 @@ async function fetchSiteTierLeaderboard() {
 
   let query = supabase
     .from('lfn_player_tier_points')
-    .select('player_id, points, tier, players!inner(id, name, discord_id, active), lfn_player_profiles(player_id, country_code, team_id)')
+    .select('player_id, points, tier, players!inner(id, name, discord_id, active), lfn_player_profiles(player_id, country_code, ballon_dor, team_id)')
     .order('points', { ascending: false });
 
   if (activeSeasonId) {
@@ -2019,7 +2019,7 @@ async function fetchSiteTierLeaderboard() {
     if (!playerIds.length) return [];
 
     const { data: players } = await supabase.from('players').select('id, name, discord_id, active').in('id', playerIds);
-    const { data: profiles } = await supabase.from('lfn_player_profiles').select('player_id, country_code').in('player_id', playerIds);
+    const { data: profiles } = await supabase.from('lfn_player_profiles').select('player_id, country_code, ballon_dor').in('player_id', playerIds);
 
     const playerMap = new Map((players || []).map(p => [p.id, p]));
     const profileMap = new Map((profiles || []).map(p => [p.player_id, p]));
@@ -2036,6 +2036,7 @@ async function fetchSiteTierLeaderboard() {
         tier: row.tier || 'Tier E',
         points: Number(row.points || 0),
         countryCode,
+        ballonDor: Number(profile?.ballon_dor || 0),
       };
     }).filter(Boolean);
   }
@@ -2055,6 +2056,7 @@ async function fetchSiteTierLeaderboard() {
       tier: row.tier || 'Tier E',
       points: Number(row.points || 0),
       countryCode,
+      ballonDor: Number(profile?.ballon_dor || 0),
     };
   }).filter(Boolean)
     .sort((a, b) => b.points - a.points);
@@ -5331,8 +5333,7 @@ async function handleTierCommand(message) {
   const countryFlag = toCountryFlag(countryCode);
   const tierLabel = String(siteTierPlayer.tier || 'No Tier');
   const tierEmoji = formatTierEmoji(tierLabel);
-  const eloRankInfo = getEloRankByRating(playerProfile?.solo_elo);
-  const eloRankLabel = formatEloRankLabel(eloRankInfo);
+  const ballonDor = Number(siteTierPlayer.ballonDor || 0);
 
   await message.reply({
     embeds: [
@@ -5343,7 +5344,7 @@ async function handleTierCommand(message) {
         .addFields(
           { name: 'Classement global', value: `**${rankLabel}**`, inline: true },
           { name: 'Points', value: `**${Math.round(Number(siteTierPlayer.points || 0))}**`, inline: true },
-          { name: 'Rang PL', value: `**${eloRankLabel}**`, inline: true },
+          { name: "Ballon D'Or", value: `**🏆 ${ballonDor}**`, inline: true },
           { name: 'Pays', value: `**${countryFlag} ${countryCode}**`, inline: true }
         )
         .setThumbnail(targetUser.displayAvatarURL({ extension: 'png', size: 256 }))
