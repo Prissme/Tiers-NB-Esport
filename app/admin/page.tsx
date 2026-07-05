@@ -34,6 +34,7 @@ type TierPlayer = {
   points: number;
   countryCode?: string;
   description?: string;
+  ballonDor?: number;
 };
 
 const toFlag = (countryCode?: string) => {
@@ -58,6 +59,7 @@ type NewPlayerForm = {
   points: number;
   countryCode: string;
   description: string;
+  ballonDor: number;
 };
 
 const defaultNewPlayer: NewPlayerForm = {
@@ -66,6 +68,7 @@ const defaultNewPlayer: NewPlayerForm = {
   points: 0,
   countryCode: "FR",
   description: "",
+  ballonDor: 0,
 };
 
 export default function AdminPage() {
@@ -154,6 +157,7 @@ export default function AdminPage() {
     tier: string;
     countryCode: string;
     description: string;
+    ballonDor: number;
   }) => {
     const { playerId } = payload;
     setUpdatingPlayerId(playerId);
@@ -178,7 +182,7 @@ export default function AdminPage() {
   };
 
   const createTierPlayer = async () => {
-    const { name, tier, points, countryCode, description } = newPlayer;
+    const { name, tier, points, countryCode, description, ballonDor } = newPlayer;
     if (!name.trim()) {
       setErrorMessage("Le pseudo est obligatoire.");
       return;
@@ -192,7 +196,7 @@ export default function AdminPage() {
       const response = await fetch("/api/admin/player-standings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: name.trim(), tier, points, countryCode, description, seasonId }),
+        body: JSON.stringify({ name: name.trim(), tier, points, countryCode, description, ballonDor, seasonId }),
       });
       if (!response.ok) {
         const body = (await response.json()) as { error?: string };
@@ -523,6 +527,21 @@ export default function AdminPage() {
             </div>
 
             <div>
+              <label className="block text-xs uppercase tracking-[0.25em] text-white/50 mb-1">
+                Ballon d'Or
+              </label>
+              <input
+                type="number"
+                min={0}
+                value={newPlayer.ballonDor}
+                onChange={(e) =>
+                  setNewPlayer((prev) => ({ ...prev, ballonDor: Number(e.target.value) }))
+                }
+                className="surface-input"
+              />
+            </div>
+
+            <div>
               <button
                 type="button"
                 onClick={createTierPlayer}
@@ -620,7 +639,13 @@ export default function AdminPage() {
 type PlayerEditRowProps = {
   player: TierPlayer;
   updating: boolean;
-  onSave: (values: { points: number; tier: string; countryCode: string; description: string }) => void;
+  onSave: (values: {
+    points: number;
+    tier: string;
+    countryCode: string;
+    description: string;
+    ballonDor: number;
+  }) => void;
   onError: (msg: string) => void;
 };
 
@@ -631,6 +656,7 @@ function PlayerEditRow({ player, updating, onSave, onError }: PlayerEditRowProps
   const [points, setPoints] = useState(player.points);
   const [countryCode, setCountryCode] = useState(player.countryCode ?? "FR");
   const [description, setDescription] = useState(player.description ?? "");
+  const [ballonDor, setBallonDor] = useState(player.ballonDor ?? 0);
 
   const handleSave = () => {
     if (!Number.isInteger(points)) {
@@ -641,7 +667,11 @@ function PlayerEditRow({ player, updating, onSave, onError }: PlayerEditRowProps
       onError("Tier invalide.");
       return;
     }
-    onSave({ points, tier, countryCode: countryCode.toUpperCase(), description });
+    if (!Number.isInteger(ballonDor) || ballonDor < 0) {
+      onError("Le Ballon d'Or doit être un nombre entier positif.");
+      return;
+    }
+    onSave({ points, tier, countryCode: countryCode.toUpperCase(), description, ballonDor });
   };
 
   return (
@@ -702,6 +732,19 @@ function PlayerEditRow({ player, updating, onSave, onError }: PlayerEditRowProps
           rows={3}
           placeholder="Description affichée sur /classement et avec !tier"
           className="surface-textarea"
+        />
+      </div>
+      <div>
+        <label className="block text-xs uppercase tracking-[0.25em] text-white/50 mb-1">
+          Ballon d'Or
+        </label>
+        <input
+          type="number"
+          min={0}
+          value={ballonDor}
+          onChange={(e) => setBallonDor(Number(e.target.value))}
+          placeholder="Nombre de Ballon(s) d'Or"
+          className="surface-input"
         />
       </div>
     </div>
