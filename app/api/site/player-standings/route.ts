@@ -20,6 +20,7 @@ type PlayerProfileRow = {
   player_id: string;
   country_code: string | null;
   description: string | null;
+  ballon_dor?: number | null;
   team_id?: string | null;
 };
 
@@ -81,7 +82,7 @@ export async function GET(request: Request) {
         .eq("active", true)
         .order("name", { ascending: true }),
       pointsQuery,
-      supabase.from("lfn_player_profiles").select("player_id,country_code,description,team_id"),
+      supabase.from("lfn_player_profiles").select("player_id,country_code,description,ballon_dor,team_id"),
       supabase.from("lfn_teams").select("id,name,tag").eq("is_active", true),
     ]);
 
@@ -91,7 +92,7 @@ export async function GET(request: Request) {
     if (isMissingTeamIdColumn) {
       const fallbackProfiles = await supabase
         .from("lfn_player_profiles")
-        .select("player_id,country_code,description");
+        .select("player_id,country_code,description,ballon_dor");
       profileRows = fallbackProfiles.data;
       profileError = fallbackProfiles.error;
     }
@@ -123,6 +124,7 @@ export async function GET(request: Request) {
     });
     const countryByPlayerId = new Map<string, string>();
     const descriptionByPlayerId = new Map<string, string>();
+    const ballonDorByPlayerId = new Map<string, number>();
     const teamIdByPlayerId = new Map<string, string>();
     const teamsById = new Map<string, TeamRow>();
     (teamsRows as TeamRow[] | null)?.forEach((row) => {
@@ -132,6 +134,7 @@ export async function GET(request: Request) {
       (profileRows as PlayerProfileRow[] | null)?.forEach((row) => {
         countryByPlayerId.set(row.player_id, (row.country_code ?? "FR").toUpperCase());
         descriptionByPlayerId.set(row.player_id, (row.description ?? "").trim());
+        ballonDorByPlayerId.set(row.player_id, Number(row.ballon_dor ?? 0));
         if (row.team_id) {
           teamIdByPlayerId.set(row.player_id, row.team_id);
         }
@@ -154,6 +157,7 @@ export async function GET(request: Request) {
           inactivityPenalty: playerPoints?.inactivityPenalty ?? 0,
           countryCode: countryByPlayerId.get(player.id) ?? "FR",
           description: descriptionByPlayerId.get(player.id) ?? "",
+          ballonDor: ballonDorByPlayerId.get(player.id) ?? 0,
           teamId: team?.id ?? null,
           teamName: team?.name ?? null,
           teamTag: team?.tag ?? null,
