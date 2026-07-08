@@ -4590,16 +4590,26 @@ async function handleWorldLeaderboardCommand(message) {
 
     for (const player of allPlayers) {
       const normalizedCountryCode = String(player?.countryCode || 'FR').trim().toUpperCase();
-      const points = Math.round(Number(player?.points || 0));
+      const points = Number(player?.points || 0);
       const currentEntry = countries.get(normalizedCountryCode) || {
         countryCode: normalizedCountryCode,
-        points: 0,
+        playerPoints: [],
         players: 0
       };
 
-      currentEntry.points += Number.isFinite(points) ? points : 0;
+      currentEntry.playerPoints.push(Number.isFinite(points) ? points : 0);
       currentEntry.players += 1;
       countries.set(normalizedCountryCode, currentEntry);
+    }
+
+    // Points d'un pays = Top1 . (1/2)^0 + Top2 . (1/2)^1 + Top3 . (1/2)^2 + ...
+    for (const entry of countries.values()) {
+      const sortedPoints = entry.playerPoints.slice().sort((a, b) => b - a);
+      const weightedTotal = sortedPoints.reduce(
+        (sum, playerPoints, idx) => sum + playerPoints * Math.pow(0.5, idx),
+        0
+      );
+      entry.points = Math.round(weightedTotal * 100) / 100;
     }
 
     const countryRanking = Array.from(countries.values()).sort((a, b) => {
@@ -4616,7 +4626,7 @@ async function handleWorldLeaderboardCommand(message) {
       const rank = index + 1;
       const trophy = rank <= 3 ? `${TROPHY_EMOJI} ` : '';
       const flag = toCountryFlag(entry.countryCode);
-      return `**#${rank}** ${trophy}${flag} **${entry.countryCode}** • **${entry.points} pts** (${entry.players} joueur(s))`;
+      return `**#${rank}** ${trophy}${flag} **${entry.countryCode}** • **${entry.points.toFixed(2)} pts** (${entry.players} joueur(s))`;
     });
 
     await message.reply({
