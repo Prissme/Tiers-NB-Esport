@@ -7,7 +7,7 @@ import type { RatingWeights } from "../../lib/rating-weights";
 const BRAWLER_NAMES = Object.keys(MAP_PRIORITY).sort();
 
 const WEIGHT_LABELS: Record<keyof RatingWeights, string> = {
-  kd_coef: "Poids kills/morts",
+  kd_coef: "Poids du K/D",
   diff_mult_tier2: "Multiplicateur difficulté (tier 2 - top pick)",
   diff_mult_tier1: "Multiplicateur difficulté (tier 1 - solide)",
   diff_mult_tier0: "Multiplicateur difficulté (tier 0 - sous-optimal)",
@@ -17,12 +17,11 @@ const WEIGHT_LABELS: Record<keyof RatingWeights, string> = {
   counter_coef: "Poids counter (comp adverse)",
   mode_fit_bonus: "Bonus fit de mode",
   star_player_bonus: "Bonus Joueur Star",
+  dmg_heal_fit_coef: "Poids fit dégâts/soin",
 };
 
 type Breakdown = {
-  kills: number;
-  deaths: number;
-  netKD: number;
+  kd: number;
   brawler: string;
   brawlerPriority: 0 | 1 | 2;
   diffMultiplier: number;
@@ -39,15 +38,12 @@ type Breakdown = {
   modeFitBonus: number;
   starPlayer: boolean;
   starPlayerBonus: number;
+  degats: number | null;
+  soin: number | null;
+  dmgHealFitBonus: number;
 };
 
-type RatingResult = {
-  note: number;
-  computationId: string | null;
-  breakdown: Breakdown;
-  weightChanges?: WeightChange[];
-  neutralMatchResult?: boolean;
-};
+type RatingResult = { note: number; computationId: string | null; breakdown: Breakdown };
 
 type WeightChange = { key: keyof RatingWeights; before: number; after: number };
 
@@ -123,43 +119,55 @@ function BrawlerSearchSelect({
   );
 }
 
+// Clampe et arrondit à 1 décimale sur l'échelle 0-10.
+function clampScale(n: number) {
+  return Math.round(Math.max(0, Math.min(10, n)) * 10) / 10;
+}
+
 export default function PerformanceRatingForm() {
-  const [kills, setKills] = useState("2");
-  const [deaths, setDeaths] = useState("1");
+  const [kd, setKd] = useState("1.5");
   const [brawler, setBrawler] = useState("");
   const [comp, setComp] = useState<[string, string, string]>(["", "", ""]);
   const [opponentComp, setOpponentComp] = useState<[string, string, string]>(["", "", ""]);
   const [gameMode, setGameMode] = useState("");
   const [starPlayer, setStarPlayer] = useState(false);
-  const [matchResult, setMatchResult] = useState<"victory" | "defeat" | null>(null);
+  const [degats, setDegats] = useState("");
+  const [soin, setSoin] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<RatingResult | null>(null);
-  const [feedbackStars, setFeedbackStars] = useState<number | null>(null);
-  const [feedbackStatus, setFeedbackStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
   const [weightChanges, setWeightChanges] = useState<WeightChange[] | null>(null);
   const [directionStatus, setDirectionStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
   const [directionSent, setDirectionSent] = useState<"up" | "down" | null>(null);
 
   const canSubmit = useMemo(() => {
-    const killsNum = Number(kills);
-    const deathsNum = Number(deaths);
-    return (
-      brawler.trim().length > 0 &&
-      Number.isFinite(killsNum) &&
-      killsNum >= 0 &&
-      Number.isFinite(deathsNum) &&
-      deathsNum >= 0 &&
-      matchResult !== null
-    );
-  }, [kills, deaths, brawler, matchResult]);
+    const kdNum = Number(kd);
+    return brawler.trim().length > 0 && Number.isFinite(kdNum) && kdNum >= 0;
+  }, [kd, brawler]);
+
+  // Dégâts et Soin sont liés : remplir l'un infère automatiquement l'autre (échelle 0-10),
+  // sur le principe qu'un brawler qui tape beaucoup soigne peu, et inversement. Le champ
+  // déduit reste modifiable ensuite si besoin.
+  function handleDegatsChange(raw: string) {
+    setDegats(raw);
+    const n = Number(raw);
+    if (raw.trim() !== "" && Number.isFinite(n)) {
+      setSoin(String(clampScale(10 - n)));
+    }
+  }
+
+  function handleSoinChange(raw: string) {
+    setSoin(raw);
+    const n = Number(raw);
+    if (raw.trim() !== "" && Number.isFinite(n)) {
+      setDegats(String(clampScale(10 - n)));
+    }
+  }
 
   async function handleSubmit() {
     setLoading(true);
     setError(null);
     setResult(null);
-    setFeedbackStars(null);
-    setFeedbackStatus("idle");
     setWeightChanges(null);
     setDirectionStatus("idle");
     setDirectionSent(null);
@@ -168,14 +176,14 @@ export default function PerformanceRatingForm() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          kills: Number(kills),
-          deaths: Number(deaths),
+          kd: Number(kd),
           brawler,
           comp: comp.filter(Boolean),
           opponentComp: opponentComp.filter(Boolean),
           gameMode: gameMode || null,
           starPlayer,
-          matchResult,
+          degats: degats.trim() === "" ? null : Number(degats),
+          soin: soin.trim() === "" ? null : Number(soin),
         }),
       });
       const json = await res.json();
@@ -188,29 +196,6 @@ export default function PerformanceRatingForm() {
       setError(err instanceof Error ? err.message : "Erreur réseau.");
     } finally {
       setLoading(false);
-    }
-  }
-
-  async function submitFeedback(stars: number) {
-    if (!result?.computationId) return;
-    setFeedbackStars(stars);
-    setFeedbackStatus("sending");
-    setWeightChanges(null);
-    try {
-      const res = await fetch("/api/admin/performance-rating/feedback", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ computationId: result.computationId, stars }),
-      });
-      const json = await res.json();
-      if (!res.ok) {
-        setFeedbackStatus("error");
-        return;
-      }
-      setFeedbackStatus("sent");
-      setWeightChanges(json.changes ?? []);
-    } catch {
-      setFeedbackStatus("error");
     }
   }
 
@@ -239,29 +224,16 @@ export default function PerformanceRatingForm() {
 
   return (
     <div className="space-y-6 max-w-2xl">
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <label className="text-sm text-neutral-400">Kills</label>
-          <input
-            type="number"
-            step="1"
-            min="0"
-            value={kills}
-            onChange={(e) => setKills(e.target.value)}
-            className="w-full rounded-md border border-neutral-700 bg-neutral-900 px-3 py-2"
-          />
-        </div>
-        <div className="space-y-2">
-          <label className="text-sm text-neutral-400">Morts</label>
-          <input
-            type="number"
-            step="1"
-            min="0"
-            value={deaths}
-            onChange={(e) => setDeaths(e.target.value)}
-            className="w-full rounded-md border border-neutral-700 bg-neutral-900 px-3 py-2"
-          />
-        </div>
+      <div className="space-y-2">
+        <label className="text-sm text-neutral-400">K/D</label>
+        <input
+          type="number"
+          step="0.1"
+          min="0"
+          value={kd}
+          onChange={(e) => setKd(e.target.value)}
+          className="w-full rounded-md border border-neutral-700 bg-neutral-900 px-3 py-2"
+        />
       </div>
 
       <div className="space-y-2">
@@ -272,6 +244,37 @@ export default function PerformanceRatingForm() {
           placeholder="Rechercher un brawler..."
           showPriority
         />
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <label className="text-sm text-neutral-400">
+            Dégâts (0-10) <span className="text-neutral-600">— remplir l'un infère l'autre</span>
+          </label>
+          <input
+            type="number"
+            step="0.1"
+            min="0"
+            max="10"
+            value={degats}
+            onChange={(e) => handleDegatsChange(e.target.value)}
+            placeholder="Ex: 8"
+            className="w-full rounded-md border border-neutral-700 bg-neutral-900 px-3 py-2"
+          />
+        </div>
+        <div className="space-y-2">
+          <label className="text-sm text-neutral-400">Soin (0-10)</label>
+          <input
+            type="number"
+            step="0.1"
+            min="0"
+            max="10"
+            value={soin}
+            onChange={(e) => handleSoinChange(e.target.value)}
+            placeholder="Ex: 2"
+            className="w-full rounded-md border border-neutral-700 bg-neutral-900 px-3 py-2"
+          />
+        </div>
       </div>
 
       <div className="space-y-2">
@@ -350,32 +353,6 @@ export default function PerformanceRatingForm() {
         </div>
       </div>
 
-      <div className="space-y-2">
-        <label className="text-sm text-neutral-400">
-          Résultat du match <span className="text-neutral-600">(sert de vérité terrain : recale les poids de l'algo)</span>
-        </label>
-        <div className="flex gap-2">
-          <button
-            type="button"
-            onClick={() => setMatchResult("victory")}
-            className={`rounded-md px-4 py-2 text-sm font-medium border ${
-              matchResult === "victory" ? "bg-green-500 text-black border-green-500" : "border-neutral-700 text-neutral-300"
-            }`}
-          >
-            🏆 Victoire
-          </button>
-          <button
-            type="button"
-            onClick={() => setMatchResult("defeat")}
-            className={`rounded-md px-4 py-2 text-sm font-medium border ${
-              matchResult === "defeat" ? "bg-red-500 text-black border-red-500" : "border-neutral-700 text-neutral-300"
-            }`}
-          >
-            💀 Défaite
-          </button>
-        </div>
-      </div>
-
       <button
         type="button"
         disabled={!canSubmit || loading}
@@ -390,39 +367,7 @@ export default function PerformanceRatingForm() {
       {result && (
         <div className="rounded-lg border border-neutral-700 bg-neutral-900 p-4 space-y-3">
           <p className="text-3xl font-semibold">{result.note.toFixed(1)}/10</p>
-
-          {result.neutralMatchResult ? (
-            <p className="text-xs text-neutral-500">
-              Note trop proche de 5/10 pour trancher par rapport au résultat : aucun poids modifié.
-            </p>
-          ) : (
-            <div className="rounded-md border border-neutral-800 bg-black/30 p-3">
-              <p className="text-xs text-green-400 mb-2">
-                Poids recalés automatiquement suite au résultat ({matchResult === "victory" ? "victoire" : "défaite"}) :
-              </p>
-              {result.weightChanges && result.weightChanges.length > 0 ? (
-                <ul className="text-xs text-neutral-400 space-y-1 font-mono">
-                  {result.weightChanges.map((c) => (
-                    <li key={c.key}>
-                      {WEIGHT_LABELS[c.key]}: {c.before} → {c.after}{" "}
-                      <span className={c.after > c.before ? "text-green-400" : "text-red-400"}>
-                        ({c.after > c.before ? "+" : ""}
-                        {Math.round((c.after - c.before) * 1000) / 1000})
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="text-xs text-neutral-500">Aucun facteur concerné dans ce calcul.</p>
-              )}
-            </div>
-          )}
-
           <ul className="text-sm text-neutral-400 space-y-1">
-            <li>
-              {result.breakdown.kills} kills / {result.breakdown.deaths} morts → net {result.breakdown.netKD >= 0 ? "+" : ""}
-              {result.breakdown.netKD}
-            </li>
             <li>
               {result.breakdown.brawler} — priorité draft {result.breakdown.brawlerPriority} → multiplicateur{" "}
               {result.breakdown.diffMultiplier.toFixed(2)}x
@@ -472,6 +417,13 @@ export default function PerformanceRatingForm() {
                 Joueur Star: impact objectif reconnu malgré le K/D (
                 {result.breakdown.starPlayerBonus >= 0 ? "+" : ""}
                 {result.breakdown.starPlayerBonus})
+              </li>
+            )}
+            {(result.breakdown.degats !== null || result.breakdown.soin !== null) && (
+              <li>
+                Dégâts {result.breakdown.degats ?? 0}/10 — Soin {result.breakdown.soin ?? 0}/10: fit de rôle (
+                {result.breakdown.dmgHealFitBonus >= 0 ? "+" : ""}
+                {result.breakdown.dmgHealFitBonus})
               </li>
             )}
           </ul>
@@ -525,60 +477,11 @@ export default function PerformanceRatingForm() {
             {directionStatus === "error" && (
               <p className="text-xs text-red-400 mt-1">Échec de l'enregistrement.</p>
             )}
-          </div>
-
-          <div className="pt-2 border-t border-neutral-800">
-            <p className="text-sm text-neutral-400 mb-2">
-              Cette note te semble fiable ? Note-la pour ajuster l'algorithme en temps réel.
-            </p>
-            <div className="flex items-center gap-1">
-              {[0, 1, 2, 3, 4, 5].map((n) => (
-                <button
-                  key={n}
-                  type="button"
-                  disabled={!result.computationId || feedbackStatus === "sending"}
-                  onClick={() => submitFeedback(n)}
-                  title={`${n} étoile${n > 1 ? "s" : ""}`}
-                  className="text-2xl leading-none disabled:opacity-40"
-                  style={{ color: feedbackStars !== null && n <= feedbackStars ? "#facc15" : "#525252" }}
-                >
-                  ★
-                </button>
-              ))}
-            </div>
             {!result.computationId && (
               <p className="text-xs text-neutral-500 mt-1">
                 Ce calcul n'a pas pu être enregistré (table performance_rating_computations
                 manquante ?), le feedback n'est pas disponible.
               </p>
-            )}
-            {feedbackStatus === "sent" && (
-              <div className="mt-2 rounded-md border border-neutral-800 bg-black/30 p-3">
-                <p className="text-xs text-green-400 mb-2">
-                  Merci, feedback enregistré ({feedbackStars} ★). Voici ce que l'algo a modifié :
-                </p>
-                {weightChanges && weightChanges.length > 0 ? (
-                  <ul className="text-xs text-neutral-400 space-y-1 font-mono">
-                    {weightChanges.map((c) => (
-                      <li key={c.key}>
-                        {WEIGHT_LABELS[c.key]}: {c.before} → {c.after}{" "}
-                        <span className={c.after > c.before ? "text-green-400" : "text-red-400"}>
-                          ({c.after > c.before ? "+" : ""}
-                          {Math.round((c.after - c.before) * 1000) / 1000})
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="text-xs text-neutral-500">
-                    Aucun poids modifié (3 étoiles = jugé correct, ou aucun facteur concerné n'a été utilisé
-                    dans ce calcul).
-                  </p>
-                )}
-              </div>
-            )}
-            {feedbackStatus === "error" && (
-              <p className="text-xs text-red-400 mt-1">Échec de l'enregistrement du feedback.</p>
             )}
           </div>
         </div>
