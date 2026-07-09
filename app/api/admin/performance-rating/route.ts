@@ -61,7 +61,8 @@ export async function POST(request: Request) {
 
   try {
     const body = (await request.json()) as {
-      kd?: number;
+      kills?: number;
+      deaths?: number;
       brawler?: string;
       comp?: string[];
       opponentComp?: string[];
@@ -71,7 +72,8 @@ export async function POST(request: Request) {
       soin?: number | string | null;
     };
 
-    const kd = Number(body.kd);
+    const kills = Number(body.kills);
+    const deaths = Number(body.deaths);
     const brawler = String(body.brawler ?? "").trim();
     const comp = Array.isArray(body.comp)
       ? body.comp.map((b) => String(b ?? "").trim()).filter(Boolean).slice(0, 3)
@@ -90,15 +92,18 @@ export async function POST(request: Request) {
     const soin =
       body.soin === undefined || body.soin === null || body.soin === "" ? null : Number(body.soin);
 
-    if (!Number.isFinite(kd) || kd < 0 || !brawler) {
+    if (!Number.isFinite(kills) || kills < 0 || !Number.isFinite(deaths) || deaths < 0 || !brawler) {
       return NextResponse.json({ error: "Invalid payload." }, { status: 400 });
     }
-    if (degats !== null && (!Number.isFinite(degats) || degats < 0 || degats > 10)) {
-      return NextResponse.json({ error: "Dégâts invalides (0-10)." }, { status: 400 });
+    if (degats !== null && (!Number.isFinite(degats) || degats < 0)) {
+      return NextResponse.json({ error: "Dégâts invalides." }, { status: 400 });
     }
-    if (soin !== null && (!Number.isFinite(soin) || soin < 0 || soin > 10)) {
-      return NextResponse.json({ error: "Soin invalide (0-10)." }, { status: 400 });
+    if (soin !== null && (!Number.isFinite(soin) || soin < 0)) {
+      return NextResponse.json({ error: "Soin invalide." }, { status: 400 });
     }
+
+    // KD dérivé de Kills/Morts : convention 0 mort => KD = Kills (on évite la division par 0).
+    const kd = deaths > 0 ? kills / deaths : kills;
 
     const priority = getBrawlerPriority(brawler);
     if (priority === null) {
@@ -237,8 +242,8 @@ export async function POST(request: Request) {
     // qui n'est pas capturé par le K/D brut. Bonus fixe indépendant du reste.
     const starPlayerBonus = starPlayer ? weights.star_player_bonus : 0;
 
-    // Dégâts / Soin (0-10, champs liés côté formulaire) : bonus si le profil colle au rôle
-    // du brawler (dégâts pour un profil dégâts, soin pour un support), léger malus sinon.
+    // Dégâts / Soin (valeurs libres, champs liés côté formulaire) : bonus si le profil colle
+    // au rôle du brawler (dégâts pour un profil dégâts, soin pour un support), léger malus sinon.
     const dmgHealFitRaw = getDmgHealFitBonus(brawler, degats, soin);
     const dmgHealFitBonus = dmgHealFitRaw * weights.dmg_heal_fit_coef;
 
@@ -255,7 +260,9 @@ export async function POST(request: Request) {
     note = Math.round(note * 10) / 10;
 
     const breakdown = {
-      kd,
+      kills,
+      deaths,
+      kd: Math.round(kd * 100) / 100,
       brawler,
       brawlerPriority: priority,
       diffMultiplier,
@@ -281,7 +288,7 @@ export async function POST(request: Request) {
     const { data: inserted, error: insertError } = await supabase
       .from("performance_rating_computations")
       .insert({
-        kd,
+        kd: Math.round(kd * 100) / 100,
         brawler,
         brawler_priority: priority,
         comp,
