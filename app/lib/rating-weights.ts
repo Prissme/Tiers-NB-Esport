@@ -8,6 +8,7 @@ export type RatingWeights = {
   trio_synergy_coef: number;
   counter_coef: number;
   mode_fit_bonus: number;
+  star_player_bonus: number;
 };
 
 export const DEFAULT_WEIGHTS: RatingWeights = {
@@ -20,6 +21,7 @@ export const DEFAULT_WEIGHTS: RatingWeights = {
   trio_synergy_coef: 0.5,
   counter_coef: 0.8,
   mode_fit_bonus: 0.3,
+  star_player_bonus: 2.0,
 };
 
 // Bornes pour ne jamais laisser un poids partir en vrille avec des retours répétés.
@@ -33,6 +35,7 @@ const BOUNDS: Record<keyof RatingWeights, [number, number]> = {
   trio_synergy_coef: [0, 1.2],
   counter_coef: [0, 1.6],
   mode_fit_bonus: [0, 0.8],
+  star_player_bonus: [0.5, 4.0],
 };
 
 const LEARNING_RATE = 0.06;
@@ -59,6 +62,7 @@ export type ContributionFlags = {
   trioSynergyUsed: boolean;
   counterUsed: boolean;
   modeFitUsed: boolean;
+  starPlayerUsed: boolean;
 };
 
 // Ne bouge que les poids qui ont réellement pesé dans le calcul de cette note précise,
@@ -89,6 +93,9 @@ export function adjustWeights(current: RatingWeights, stars: number, flags: Cont
   }
   if (flags.modeFitUsed) {
     next.mode_fit_bonus = clamp(current.mode_fit_bonus * (1 + delta), BOUNDS.mode_fit_bonus);
+  }
+  if (flags.starPlayerUsed) {
+    next.star_player_bonus = clamp(current.star_player_bonus * (1 + delta), BOUNDS.star_player_bonus);
   }
 
   return next;

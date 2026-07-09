@@ -5,7 +5,7 @@ export const MAP_PRIORITY: Record<string, 0 | 1 | 2> = {
   Kit: 2, Najia: 2, Gray: 2, Damian: 2, Sirius: 2, Colt: 2, Spike: 2, Bull: 2, Emz: 2,
   Shelly: 2, Dynamike: 2, Chester: 2, Crow: 2, Gene: 2, Bolt: 2, Pierce: 2, Angelo: 2, Charlie: 2,
 
-  Bo: 1, Berry: 1, Stu: 1, Brock: 1, Sandy: 1, Rosa: 1, Mortis: 1, Buster: 1, Pam: 1,
+  Bo: 1, Berry: 1, Stu: 1, Brock: 1, Sandy: 1, Rosa: 1, Mortis: 1, Buster: 1, Pam: 1, Chuck: 1,
   Gus: 1, Ruffs: 1, Carl: 1, Otis: 1, Alli: 1, Griff: 1, Meeple: 1, Squeak: 1, Surge: 1,
   Sam: 1, Maisie: 1, Penny: 1, Gale: 1, Janet: 1, Amber: 1, Lily: 1, Rico: 1, Pearl: 1,
   Edgar: 1, Nita: 1, Leon: 1, Kenji: 1, Melodie: 1, Byron: 1, Poco: 1, Draco: 1, Glowy: 1,
@@ -114,7 +114,7 @@ export function getCounterEffect(brawler: string, opponentComp: string[]): numbe
 export const SUPPORTS = new Set(["Gus", "Pam", "Ruffs", "Poco", "Byron", "Lumi", "Kit", "Gray", "Berry"]);
 export const MELEES = new Set([
   "Frank", "Bull", "Hank", "Ash", "El Primo", "Mortis", "Sam", "Kenji", "Lily", "Rosa",
-  "Darryl", "Draco", "Trunk", "Shade", "Damian", "Bolt", "Bibi", "Edgar", "Fang", "Nova", "Meg", "Mico",
+  "Darryl", "Draco", "Trunk", "Shade", "Damian", "Bolt", "Bibi", "Edgar", "Fang", "Nova", "Meg", "Mico", "Chuck",
 ]);
 export const SNIPERS_POKE = new Set([
   "Piper", "Belle", "Brock", "Colt", "Rico", "Maisie", "Janet", "Najia", "Colette", "Dynamike",
