@@ -12,7 +12,7 @@ export type RatingWeights = {
 };
 
 export const DEFAULT_WEIGHTS: RatingWeights = {
-  kd_coef: 2.2,
+  kd_coef: 0.3,
   diff_mult_tier2: 1.0,
   diff_mult_tier1: 1.2,
   diff_mult_tier0: 1.45,
@@ -26,7 +26,7 @@ export const DEFAULT_WEIGHTS: RatingWeights = {
 
 // Bornes pour ne jamais laisser un poids partir en vrille avec des retours répétés.
 const BOUNDS: Record<keyof RatingWeights, [number, number]> = {
-  kd_coef: [1.0, 4.0],
+  kd_coef: [0.1, 0.7],
   diff_mult_tier2: [0.8, 1.6],
   diff_mult_tier1: [0.8, 2.0],
   diff_mult_tier0: [0.8, 2.4],
@@ -108,7 +108,7 @@ export function adjustWeights(current: RatingWeights, stars: number, flags: Cont
 export type Direction = "up" | "down";
 
 export type RawSignals = {
-  kdDelta: number; // kd - 1 (signe de la contribution K/D)
+  kdDelta: number; // kills - deaths (signe de la contribution kills/morts)
   brawlerPriority: 0 | 1 | 2;
   compRaw: number; // compAvgPriority - 1
   pairSynergyRaw: number;
@@ -134,22 +134,21 @@ function directionalAdjust(weight: number, bounds: [number, number], contributio
   return clamp(weight * (1 + move), bounds);
 }
 
-// --- Feedback résultat de match : victoire / défaite ---
-// Le principe : la note de performance doit être cohérente avec le résultat réel.
-// Une note haute (> 5.5) qui correspond à une victoire confirme que l'algo a bien
-// évalué l'impact du joueur -> on renforce les facteurs utilisés (direction "up").
-// Une note haute suivie d'une défaite veut dire que l'algo a surestimé l'impact du
-// joueur sur l'issue du match -> on atténue ces facteurs (direction "down").
-// Symétriquement pour une note basse (< 4.5) : défaite = confirmation (renforce),
-// victoire = l'algo a sous-estimé l'impact réel du joueur (atténue).
-// Zone neutre 4.5-5.5 : la note ne prend pas vraiment position, on ne touche à rien.
+// --- Résultat réel du match : victoire / défaite ---
+// Fourni en même temps que le K/D, la comp, etc. Sert de vérité terrain : la note
+// donnée doit être cohérente avec l'issue réelle du match.
+// Note haute (> 5.5) + victoire = confirmé -> on renforce les facteurs qui ont
+// produit cette note. Note haute + défaite = l'algo a surestimé l'impact du
+// joueur -> on atténue ces facteurs. Symétrique pour une note basse (< 4.5) :
+// défaite = confirmé (renforce), victoire = sous-estimé (atténue).
+// Zone neutre 4.5-5.5 : la note ne prend pas vraiment position, aucun ajustement.
 export type MatchResult = "victory" | "defeat";
 
 export function matchResultToDirection(note: number, matchResult: MatchResult): Direction | null {
   const ratedGood = note > 5.5;
   const ratedBad = note < 4.5;
 
-  if (!ratedGood && !ratedBad) return null; // note neutre, aucun signal exploitable
+  if (!ratedGood && !ratedBad) return null;
 
   const confirmed = (ratedGood && matchResult === "victory") || (ratedBad && matchResult === "defeat");
   return confirmed ? "up" : "down";
