@@ -4,9 +4,7 @@ import { createServerClient } from "../../../../../src/lib/supabase/server";
 import { withSchema } from "../../../../../src/lib/supabase/schema";
 import {
   DEFAULT_WEIGHTS,
-  adjustWeights,
   adjustWeightsDirectional,
-  type ContributionFlags,
   type Direction,
   type RatingWeights,
   type RawSignals,
@@ -28,7 +26,7 @@ type StoredBreakdown = {
   modeFitBonus: number;
   starPlayer: boolean;
   starPlayerBonus: number;
-  netKD: number;
+  kd: number;
 };
 
 function loadWeights(row: Record<string, number> | null): RatingWeights {
@@ -44,6 +42,7 @@ function loadWeights(row: Record<string, number> | null): RatingWeights {
         counter_coef: row.counter_coef,
         mode_fit_bonus: row.mode_fit_bonus,
         star_player_bonus: row.star_player_bonus,
+        dmg_heal_fit_coef: row.dmg_heal_fit_coef ?? DEFAULT_WEIGHTS.dmg_heal_fit_coef,
       }
     : DEFAULT_WEIGHTS;
 }
@@ -56,18 +55,13 @@ export async function POST(request: Request) {
   try {
     const body = (await request.json()) as {
       computationId?: string;
-      stars?: number;
       direction?: Direction;
     };
     const computationId = String(body.computationId ?? "").trim();
-    const stars = body.stars === undefined ? null : Number(body.stars);
     const direction = body.direction === "up" || body.direction === "down" ? body.direction : null;
 
-    if (!computationId || (stars === null && direction === null)) {
+    if (!computationId || direction === null) {
       return NextResponse.json({ error: "Invalid payload." }, { status: 400 });
-    }
-    if (stars !== null && (!Number.isInteger(stars) || stars < 0 || stars > 5)) {
-      return NextResponse.json({ error: "Invalid stars." }, { status: 400 });
     }
 
     const supabase = withSchema(createServerClient());
@@ -85,16 +79,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Computation not found." }, { status: 404 });
     }
 
-    if (stars !== null) {
-      const { error: updateError } = await supabase
-        .from("performance_rating_computations")
-        .update({ stars, rated_at: new Date().toISOString() })
-        .eq("id", computationId);
-      if (updateError) {
-        return NextResponse.json({ error: updateError.message }, { status: 500 });
-      }
-    }
-
     const breakdown = computation.breakdown as StoredBreakdown;
 
     const { data: weightsRow, error: weightsError } = await supabase
@@ -109,32 +93,17 @@ export async function POST(request: Request) {
 
     const currentWeights = loadWeights(weightsRow);
 
-    let nextWeights: RatingWeights;
-    if (direction) {
-      const raw: RawSignals = {
-        kdDelta: breakdown.netKD,
-        brawlerPriority: breakdown.brawlerPriority,
-        compRaw: breakdown.compAvgPriority - 1,
-        pairSynergyRaw: breakdown.pairSynergy,
-        trioSynergyRaw: breakdown.trioSynergy,
-        counterEffect: breakdown.counterEffect,
-        modeFitRaw: breakdown.modeFitBonus,
-        starPlayer: breakdown.starPlayer,
-      };
-      nextWeights = adjustWeightsDirectional(currentWeights, direction, raw);
-    } else {
-      const flags: ContributionFlags = {
-        kdUsed: breakdown.netKD !== 0,
-        brawlerPriority: breakdown.brawlerPriority,
-        compBonusUsed: breakdown.compPriorityBonus !== 0,
-        pairSynergyUsed: breakdown.pairSynergy !== 0,
-        trioSynergyUsed: breakdown.trioSynergy !== 0,
-        counterUsed: breakdown.counterEffect !== 0,
-        modeFitUsed: breakdown.modeFitBonus !== 0,
-        starPlayerUsed: (breakdown.starPlayerBonus ?? 0) !== 0,
-      };
-      nextWeights = adjustWeights(currentWeights, stars as number, flags);
-    }
+    const raw: RawSignals = {
+      kdDelta: breakdown.kd - 1,
+      brawlerPriority: breakdown.brawlerPriority,
+      compRaw: breakdown.compAvgPriority - 1,
+      pairSynergyRaw: breakdown.pairSynergy,
+      trioSynergyRaw: breakdown.trioSynergy,
+      counterEffect: breakdown.counterEffect,
+      modeFitRaw: breakdown.modeFitBonus,
+      starPlayer: breakdown.starPlayer,
+    };
+    const nextWeights = adjustWeightsDirectional(currentWeights, direction, raw);
 
     const { error: upsertError } = await supabase
       .from("performance_rating_weights")
