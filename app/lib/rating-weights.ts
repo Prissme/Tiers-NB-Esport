@@ -100,3 +100,77 @@ export function adjustWeights(current: RatingWeights, stars: number, flags: Cont
 
   return next;
 }
+
+// --- Feedback directionnel : "la note était trop basse" (up) ou "trop haute" (down) ---
+// Contrairement aux étoiles (qui disent juste si c'est fiable ou pas), la direction dit
+// explicitement dans quel sens corriger, donc on peut ajuster chaque poids en connaissance
+// de cause plutôt que de renforcer/atténuer en aveugle.
+export type Direction = "up" | "down";
+
+export type RawSignals = {
+  kdDelta: number; // kd - 1 (signe de la contribution K/D)
+  brawlerPriority: 0 | 1 | 2;
+  compRaw: number; // compAvgPriority - 1
+  pairSynergyRaw: number;
+  trioSynergyRaw: number;
+  counterEffect: number; // -1, 0, 1
+  modeFitRaw: number; // 0 ou >0
+  starPlayer: boolean;
+};
+
+const DIRECTIONAL_RATE = 0.08;
+
+function sign(n: number): number {
+  if (n > 0) return 1;
+  if (n < 0) return -1;
+  return 0;
+}
+
+function directionalAdjust(weight: number, bounds: [number, number], contributionSign: number, direction: Direction) {
+  if (contributionSign === 0) return weight;
+  const wantSign = direction === "up" ? 1 : -1;
+  // Si la contribution allait déjà dans le sens voulu, on l'amplifie ; sinon on la réduit.
+  const move = wantSign * contributionSign * DIRECTIONAL_RATE;
+  return clamp(weight * (1 + move), bounds);
+}
+
+export function adjustWeightsDirectional(current: RatingWeights, direction: Direction, raw: RawSignals): RatingWeights {
+  const next: RatingWeights = { ...current };
+
+  if (raw.kdDelta !== 0) {
+    const s = sign(raw.kdDelta);
+    next.kd_coef = directionalAdjust(current.kd_coef, BOUNDS.kd_coef, s, direction);
+    const tierKey = (["diff_mult_tier0", "diff_mult_tier1", "diff_mult_tier2"] as const)[raw.brawlerPriority];
+    next[tierKey] = directionalAdjust(current[tierKey], BOUNDS[tierKey], s, direction);
+  }
+  if (raw.compRaw !== 0) {
+    next.comp_bonus_coef = directionalAdjust(current.comp_bonus_coef, BOUNDS.comp_bonus_coef, sign(raw.compRaw), direction);
+  }
+  if (raw.pairSynergyRaw !== 0) {
+    next.pair_synergy_coef = directionalAdjust(
+      current.pair_synergy_coef,
+      BOUNDS.pair_synergy_coef,
+      sign(raw.pairSynergyRaw),
+      direction
+    );
+  }
+  if (raw.trioSynergyRaw !== 0) {
+    next.trio_synergy_coef = directionalAdjust(
+      current.trio_synergy_coef,
+      BOUNDS.trio_synergy_coef,
+      sign(raw.trioSynergyRaw),
+      direction
+    );
+  }
+  if (raw.counterEffect !== 0) {
+    next.counter_coef = directionalAdjust(current.counter_coef, BOUNDS.counter_coef, sign(raw.counterEffect), direction);
+  }
+  if (raw.modeFitRaw > 0) {
+    next.mode_fit_bonus = directionalAdjust(current.mode_fit_bonus, BOUNDS.mode_fit_bonus, 1, direction);
+  }
+  if (raw.starPlayer) {
+    next.star_player_bonus = directionalAdjust(current.star_player_bonus, BOUNDS.star_player_bonus, 1, direction);
+  }
+
+  return next;
+}
