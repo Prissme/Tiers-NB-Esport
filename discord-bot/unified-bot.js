@@ -123,6 +123,86 @@ const prisscupData = {
   messageIdByGuild: {}
 };
 const draftSessions = new Map();
+// Sessions de draft en attente de sélection de map (avant la création réelle
+// de la session de draft / phase de bans). Clé = channelId.
+const draftMapPending = new Map();
+
+const GAME_MODES = [
+  {
+    key: 'gemgrab',
+    label: 'Gem Grab',
+    emoji: '<:GemGrab:1436473738765008976>',
+    maps: ['Hard Rock Mine', 'Undermine', 'Double swoosh', 'Gem fort']
+  },
+  {
+    key: 'brawlball',
+    label: 'Brawlball',
+    emoji: '<:Brawlball:1436473735573143562>',
+    maps: ['Triple dribble', 'Sneaky Fields', 'Pinball Dreams', 'Center Stage']
+  },
+  {
+    key: 'bounty',
+    label: 'Bounty',
+    emoji: '<:Bounty:1436473727519948962>',
+    maps: ['Shooting Star', 'Hideout', 'Dry Season', 'Layer Cake']
+  },
+  {
+    key: 'heist',
+    label: 'Heist',
+    emoji: '<:Heist:1436473730812481546>',
+    maps: ['Bridge Too Far', 'Safe Zone', 'Pit Stop', 'Kaboom Canyon', 'Hot Potato']
+  },
+  {
+    key: 'hotzone',
+    label: 'Hot Zone',
+    emoji: '<:HotZone:1436473698491175137>',
+    maps: ['Open Business', 'Ring of fire', 'Dueling beetles', 'Parallel Plays']
+  },
+  {
+    key: 'knockout',
+    label: 'Knock Out',
+    emoji: '<:KnockOut:1436473703083937914>',
+    maps: ["Belle's Rock", 'Goldarm Gulch', 'Out in the open', 'Flaring Phoenix']
+  }
+];
+
+function getGameMode(modeKey) {
+  return GAME_MODES.find((m) => m.key === modeKey) || null;
+}
+
+function buildModeSelectRow(channelId) {
+  const select = new StringSelectMenuBuilder()
+    .setCustomId(`draft_mode_select:${channelId}`)
+    .setPlaceholder('Choisis un mode de jeu')
+    .addOptions(
+      GAME_MODES.map((mode) => ({
+        label: mode.label,
+        value: mode.key
+      }))
+    );
+  return new ActionRowBuilder().addComponents(select);
+}
+
+function buildMapSelectRow(channelId, modeKey) {
+  const mode = getGameMode(modeKey);
+  if (!mode) return null;
+  const select = new StringSelectMenuBuilder()
+    .setCustomId(`draft_map_select:${channelId}:${modeKey}`)
+    .setPlaceholder(`Choisis une map (${mode.label})`)
+    .addOptions(
+      mode.maps.map((mapName) => ({
+        label: mapName,
+        value: mapName
+      }))
+    );
+  return new ActionRowBuilder().addComponents(select);
+}
+
+function formatModeAndMap(session) {
+  const mode = session?.map ? getGameMode(session.map.mode) : null;
+  if (!mode || !session.map?.name) return null;
+  return `${mode.emoji} **${mode.label}** — ${session.map.name}`;
+}
 const simpleLobbyQueues = new Map();
 
 function isSimpleLobbyChannel(message) {
@@ -5724,6 +5804,11 @@ function formatDraftList(items) {
 
 function buildDraftEmbed(session) {
   const aiBans = draft.getAIBans(session);
+  // On ne révèle jamais les bans de l'IA tant que le joueur n'a pas terminé
+  // ses 3 bans : un brawler peut être banni des deux côtés, la surprise doit
+  // être préservée jusqu'à la fin de la phase de bans.
+  const aiBansVisible = session.phase !== 'BAN';
+  const aiBansDisplay = aiBansVisible ? formatDraftList(aiBans) : '❔ Cachés jusqu\u2019à la fin de tes bans';
   const available = draft.getAvailable(session);
   const summary = draft.summarizeResult(session);
   const victoryArgs = draft.buildVictoryArguments(session);
@@ -5746,12 +5831,17 @@ function buildDraftEmbed(session) {
     .setColor(isDone ? 0xf1c40f : 0x9b59b6) 
     .setTimestamp(new Date());
 
+  const mapLine = formatModeAndMap(session);
+  if (mapLine) {
+    embed.addFields({ name: 'Map', value: mapLine, inline: false });
+  }
+
   embed.addFields(
     { name: 'Phase', value: session.phase === 'BAN' ? `Bans (${session.userBans.length}/3)` : 'Draft', inline: true },
     { name: 'Tour', value: isDone ? 'Terminé' : turn === 'USER' ? 'Toi' : 'IA', inline: true },
     { name: 'First pick', value: session.firstPick === 'USER' ? 'Toi' : 'IA', inline: true },
     { name: 'Tes Bans', value: formatDraftList(session.userBans), inline: true },
-    { name: 'IA Bans', value: formatDraftList(aiBans), inline: true },
+    { name: 'IA Bans', value: aiBansDisplay, inline: true },
     { name: '\u200B', value: '\u200B', inline: true }, // Permet d'aligner la grille proprement
     { name: 'Tes Picks', value: formatDraftList(session.userPicks), inline: true },
     { name: 'IA Picks', value: formatDraftList(session.aiPicks), inline: true }
@@ -5828,6 +5918,9 @@ async function announceDraftResult(session, message) {
 
 function formatDraftStatus(session) {
   const aiBans = draft.getAIBans(session);
+  // Idem que dans l'embed : les bans IA restent cachés pendant la phase de bans.
+  const aiBansVisible = session.phase !== 'BAN';
+  const aiBansDisplay = aiBansVisible ? formatDraftList(aiBans) : '❔ Cachés jusqu\u2019à la fin de tes bans';
   const available = draft.getAvailable(session);
   const lines = [];
 
@@ -5837,7 +5930,7 @@ function formatDraftStatus(session) {
     lines.push('Phase draft');
   }
 
-  lines.push(`IA bans: ${formatDraftList(aiBans)}`);
+  lines.push(`IA bans: ${aiBansDisplay}`);
   lines.push(`Tes bans: ${formatDraftList(session.userBans)}`);
   lines.push(`Tes picks: ${formatDraftList(session.userPicks)}`);
   lines.push(`IA picks: ${formatDraftList(session.aiPicks)}`);
@@ -5931,22 +6024,9 @@ async function handleDraftCommand(message, args) {
     draftSessions.delete(channelId);
   }
 
-  if (!session) {
-    session = draft.createSession(message.author.id, draft.META_DEFAULT, { isAIDraft: true });
-    draftSessions.set(channelId, session);
-  }
-
-  const isAdmin = message.member?.permissions?.has(PermissionsBitField.Flags.Administrator);
-  if (session.ownerId !== message.author.id && !isAdmin) {
-    await message.reply({
-      content: 'Une draft est déjà en cours dans ce salon. Seul son créateur (ou un admin) peut la piloter.',
-      allowedMentions: { repliedUser: false }
-    });
-    return;
-  }
-
   if (command === 'reset') {
     draftSessions.delete(channelId);
+    draftMapPending.delete(channelId);
     await message.reply({ content: 'Draft réinitialisée. Utilise `!draft` pour recommencer.' });
     return;
   }
@@ -5955,10 +6035,52 @@ async function handleDraftCommand(message, args) {
     await message.reply({
       content:
         'Commandes draft:\n' +
-        '- `!draft` → démarre ou affiche la draft (interface)\n' +
+        '- `!draft` → choisis une map puis démarre la draft (interface)\n' +
         '- Tape simplement un nom de brawler pour ban/pick\n' +
         '- `!draft status` → afficher le statut\n' +
         '- `!draft reset` → reset la draft',
+      allowedMentions: { repliedUser: false }
+    });
+    return;
+  }
+
+  // Pas de session en cours : on démarre (ou on relance) le sélecteur de map
+  // avant de créer la vraie session de draft.
+  if (!session) {
+    const isAdminNoSession = message.member?.permissions?.has(PermissionsBitField.Flags.Administrator);
+    const pending = draftMapPending.get(channelId);
+
+    if (pending && pending.ownerId !== message.author.id && !isAdminNoSession) {
+      await message.reply({
+        content: 'Une sélection de map est déjà en cours dans ce salon. Seul son créateur (ou un admin) peut la piloter.',
+        allowedMentions: { repliedUser: false }
+      });
+      return;
+    }
+
+    if (pending) {
+      // Sélection déjà en cours : on renvoie simplement le sélecteur.
+      await message.reply({
+        content: `${message.author}, choisis d'abord un mode de jeu pour la draft 👇`,
+        components: [buildModeSelectRow(channelId)],
+        allowedMentions: { repliedUser: false }
+      });
+      return;
+    }
+
+    draftMapPending.set(channelId, { ownerId: message.author.id });
+    await message.reply({
+      content: `${message.author}, choisis d'abord un mode de jeu pour la draft 👇`,
+      components: [buildModeSelectRow(channelId)],
+      allowedMentions: { repliedUser: false }
+    });
+    return;
+  }
+
+  const isAdmin = message.member?.permissions?.has(PermissionsBitField.Flags.Administrator);
+  if (session.ownerId !== message.author.id && !isAdmin) {
+    await message.reply({
+      content: 'Une draft est déjà en cours dans ce salon. Seul son créateur (ou un admin) peut la piloter.',
       allowedMentions: { repliedUser: false }
     });
     return;
@@ -6867,6 +6989,73 @@ async function handleInteraction(interaction) {
   if (interaction.isButton() && interaction.customId === 'draft_lang_en') {
     currentLanguage = LANGUAGE_EN;
     await interaction.reply({ content: '🇬🇧 Draft language set to English.', flags: MessageFlags.Ephemeral });
+    return;
+  }
+
+  // --- Sélection de la map avant le démarrage de la draft ---
+  if (interaction.isStringSelectMenu() && interaction.customId.startsWith('draft_mode_select:')) {
+    const channelId = interaction.customId.split(':')[1];
+    const pending = draftMapPending.get(channelId);
+    const isAdminSelect = interaction.member?.permissions?.has(PermissionsBitField.Flags.Administrator);
+
+    if (!pending) {
+      await interaction.reply({ content: '❌ Cette sélection de map a expiré. Relance `!draft`.', flags: MessageFlags.Ephemeral });
+      return;
+    }
+    if (pending.ownerId !== interaction.user.id && !isAdminSelect) {
+      await interaction.reply({ content: "❌ Seul l'auteur de la draft (ou un admin) peut choisir la map.", flags: MessageFlags.Ephemeral });
+      return;
+    }
+
+    const modeKey = interaction.values[0];
+    const mode = getGameMode(modeKey);
+    if (!mode) {
+      await interaction.reply({ content: '❌ Mode de jeu inconnu.', flags: MessageFlags.Ephemeral });
+      return;
+    }
+
+    pending.mode = modeKey;
+
+    await interaction.update({
+      content: `${mode.emoji} **${mode.label}** — choisis maintenant la map 👇`,
+      components: [buildMapSelectRow(channelId, modeKey)]
+    });
+    return;
+  }
+
+  if (interaction.isStringSelectMenu() && interaction.customId.startsWith('draft_map_select:')) {
+    const [, channelId, modeKey] = interaction.customId.split(':');
+    const pending = draftMapPending.get(channelId);
+    const isAdminSelect = interaction.member?.permissions?.has(PermissionsBitField.Flags.Administrator);
+
+    if (!pending) {
+      await interaction.reply({ content: '❌ Cette sélection de map a expiré. Relance `!draft`.', flags: MessageFlags.Ephemeral });
+      return;
+    }
+    if (pending.ownerId !== interaction.user.id && !isAdminSelect) {
+      await interaction.reply({ content: "❌ Seul l'auteur de la draft (ou un admin) peut choisir la map.", flags: MessageFlags.Ephemeral });
+      return;
+    }
+
+    const mode = getGameMode(modeKey);
+    const mapName = interaction.values[0];
+    if (!mode || !mode.maps.includes(mapName)) {
+      await interaction.reply({ content: '❌ Map inconnue pour ce mode.', flags: MessageFlags.Ephemeral });
+      return;
+    }
+
+    draftMapPending.delete(channelId);
+
+    const session = draft.createSession(pending.ownerId, draft.META_DEFAULT, { isAIDraft: true });
+    session.map = { mode: modeKey, name: mapName };
+    draftSessions.set(channelId, session);
+
+    await interaction.update({
+      content: `${mode.emoji} **${mode.label}** — ${mapName} sélectionnée. Draft lancée juste en dessous 👇`,
+      components: []
+    });
+
+    await sendOrUpdateDraftMessage(session, interaction.channel);
     return;
   }
 
