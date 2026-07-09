@@ -8,7 +8,14 @@ import {
   getModeFitBonus,
   GAME_MODES,
 } from "../../../lib/brawler-priority";
-import { DEFAULT_WEIGHTS, type RatingWeights } from "../../../lib/rating-weights";
+import {
+  DEFAULT_WEIGHTS,
+  adjustWeightsDirectional,
+  matchResultToDirection,
+  type MatchResult,
+  type RatingWeights,
+  type RawSignals,
+} from "../../../lib/rating-weights";
 
 const ADMIN_COOKIE = "admin_session";
 
@@ -40,15 +47,18 @@ export async function POST(request: Request) {
 
   try {
     const body = (await request.json()) as {
-      kd?: number;
+      kills?: number;
+      deaths?: number;
       brawler?: string;
       comp?: string[];
       opponentComp?: string[];
       gameMode?: string;
       starPlayer?: boolean;
+      matchResult?: MatchResult;
     };
 
-    const kd = Number(body.kd);
+    const kills = Number(body.kills);
+    const deaths = Number(body.deaths);
     const brawler = String(body.brawler ?? "").trim();
     const comp = Array.isArray(body.comp)
       ? body.comp.map((b) => String(b ?? "").trim()).filter(Boolean).slice(0, 3)
@@ -60,9 +70,14 @@ export async function POST(request: Request) {
       ? (body.gameMode as string)
       : null;
     const starPlayer = body.starPlayer === true;
+    const matchResult =
+      body.matchResult === "victory" || body.matchResult === "defeat" ? body.matchResult : null;
 
-    if (!Number.isFinite(kd) || kd < 0 || !brawler) {
+    if (!Number.isFinite(kills) || kills < 0 || !Number.isFinite(deaths) || deaths < 0 || !brawler) {
       return NextResponse.json({ error: "Invalid payload." }, { status: 400 });
+    }
+    if (!matchResult) {
+      return NextResponse.json({ error: "matchResult (victory/defeat) is required." }, { status: 400 });
     }
 
     const priority = getBrawlerPriority(brawler);
@@ -201,9 +216,14 @@ export async function POST(request: Request) {
     // qui n'est pas capturé par le K/D brut. Bonus fixe indépendant du reste.
     const starPlayerBonus = starPlayer ? weights.star_player_bonus : 0;
 
+    // Différentiel net kills - morts. Contrairement au ratio K/D, ça distingue bien
+    // 0 kill / 2 morts (-2, correct) de 0 kill / 11 morts (-11, catastrophique) :
+    // un ratio brut aurait donné 0 dans les deux cas.
+    const netKD = kills - deaths;
+
     let note =
       5 +
-      (kd - 1) * weights.kd_coef * diffMultiplier +
+      netKD * weights.kd_coef * diffMultiplier +
       compPriorityBonus +
       synergyBonus +
       counterBonus +
@@ -213,7 +233,9 @@ export async function POST(request: Request) {
     note = Math.round(note * 10) / 10;
 
     const breakdown = {
-      kd,
+      kills,
+      deaths,
+      netKD,
       brawler,
       brawlerPriority: priority,
       diffMultiplier,
@@ -232,17 +254,57 @@ export async function POST(request: Request) {
       starPlayerBonus: Math.round(starPlayerBonus * 100) / 100,
     };
 
-    // Enregistre ce calcul (entrées + sortie + poids utilisés) pour pouvoir le noter ensuite.
+    // --- Le résultat réel du match sert de vérité terrain pour l'algo ---
+    // Note haute + victoire (ou note basse + défaite) = la note était cohérente,
+    // on renforce les facteurs qui l'ont produite. Note haute + défaite (ou note
+    // basse + victoire) = la note était à côté de la plaque, on les atténue.
+    const inferredDirection = matchResultToDirection(note, matchResult);
+    let nextWeights = weights;
+    let weightChanges: { key: keyof RatingWeights; before: number; after: number }[] = [];
+
+    if (inferredDirection) {
+      const raw: RawSignals = {
+        kdDelta: netKD,
+        brawlerPriority: priority,
+        compRaw: compAvgPriority - 1,
+        pairSynergyRaw: pairSynergy,
+        trioSynergyRaw: trioSynergy,
+        counterEffect,
+        modeFitRaw,
+        starPlayer,
+      };
+      nextWeights = adjustWeightsDirectional(weights, inferredDirection, raw);
+
+      const { error: upsertError } = await supabase
+        .from("performance_rating_weights")
+        .upsert({ id: 1, ...nextWeights, updated_at: new Date().toISOString() });
+
+      if (upsertError && upsertError.code !== "42P01") {
+        return NextResponse.json({ error: upsertError.message }, { status: 500 });
+      }
+
+      weightChanges = (Object.keys(nextWeights) as (keyof RatingWeights)[])
+        .filter((key) => nextWeights[key] !== weights[key])
+        .map((key) => ({
+          key,
+          before: Math.round(weights[key] * 1000) / 1000,
+          after: Math.round(nextWeights[key] * 1000) / 1000,
+        }));
+    }
+
+    // Enregistre ce calcul (entrées + sortie + résultat + poids utilisés).
     const { data: inserted, error: insertError } = await supabase
       .from("performance_rating_computations")
       .insert({
-        kd,
+        kills,
+        deaths,
         brawler,
         brawler_priority: priority,
         comp,
         opponent_comp: opponentComp,
         game_mode: gameMode,
         star_player: starPlayer,
+        match_result: matchResult,
         note,
         breakdown,
         weights_snapshot: weights,
@@ -258,6 +320,8 @@ export async function POST(request: Request) {
       note,
       computationId: inserted?.id ?? null,
       breakdown,
+      weightChanges,
+      neutralMatchResult: !inferredDirection,
     });
   } catch (error) {
     return NextResponse.json(
