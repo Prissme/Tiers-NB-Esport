@@ -121,11 +121,6 @@ function BrawlerSearchSelect({
   );
 }
 
-// Arrondit à 1 décimale, jamais négatif (mais pas de plafond).
-function roundNonNegative(n: number) {
-  return Math.round(Math.max(0, n) * 10) / 10;
-}
-
 export default function PerformanceRatingForm() {
   const [kills, setKills] = useState("8");
   const [deaths, setDeaths] = useState("2");
@@ -155,23 +150,15 @@ export default function PerformanceRatingForm() {
     );
   }, [kills, deaths, brawler]);
 
-  // Dégâts et Soin sont liés, sans plafond : remplir l'un infère automatiquement l'autre
-  // à une valeur plus basse (30% de la valeur saisie), sur le principe qu'un brawler qui
-  // tape beaucoup soigne peu, et inversement. Le champ déduit reste modifiable ensuite.
+  // Dégâts et Soin sont liés, mais sans valeur devinée : remplir l'un ne calcule PAS l'autre.
+  // On sait juste que le champ non rempli est inférieur à celui rempli (valeur inconnue),
+  // donc on l'indique en placeholder ("< X") sans jamais y mettre de faux chiffre.
   function handleDegatsChange(raw: string) {
     setDegats(raw);
-    const n = Number(raw);
-    if (raw.trim() !== "" && Number.isFinite(n)) {
-      setSoin(String(roundNonNegative(n * 0.3)));
-    }
   }
 
   function handleSoinChange(raw: string) {
     setSoin(raw);
-    const n = Number(raw);
-    if (raw.trim() !== "" && Number.isFinite(n)) {
-      setDegats(String(roundNonNegative(n * 0.3)));
-    }
   }
 
   async function handleSubmit() {
@@ -273,7 +260,7 @@ export default function PerformanceRatingForm() {
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <label className="text-sm text-neutral-400">
-            Dégâts <span className="text-neutral-600">— remplir l'un infère l'autre</span>
+            Dégâts <span className="text-neutral-600">— inconnu si vide, mais inférieur au Soin rempli</span>
           </label>
           <input
             type="number"
@@ -281,7 +268,7 @@ export default function PerformanceRatingForm() {
             min="0"
             value={degats}
             onChange={(e) => handleDegatsChange(e.target.value)}
-            placeholder="Ex: 12000"
+            placeholder={soin.trim() !== "" ? `< ${soin}` : "Ex: 12000"}
             className="w-full rounded-md border border-neutral-700 bg-neutral-900 px-3 py-2"
           />
         </div>
@@ -293,7 +280,7 @@ export default function PerformanceRatingForm() {
             min="0"
             value={soin}
             onChange={(e) => handleSoinChange(e.target.value)}
-            placeholder="Ex: 3000"
+            placeholder={degats.trim() !== "" ? `< ${degats}` : "Ex: 3000"}
             className="w-full rounded-md border border-neutral-700 bg-neutral-900 px-3 py-2"
           />
         </div>
