@@ -5973,6 +5973,19 @@ async function appendDraftResult(payload) {
   await fs.writeFile(DRAFT_RESULTS_PATH, `${JSON.stringify(entries, null, 2)}\n`);
 }
 
+// Construit un identifiant stable "mode|map" pour une session de draft,
+// utilisé pour les votes communautaires (une compo peut être forte sur une map
+// et nulle sur une autre).
+function getDraftMapInfo(session) {
+  const modeKey = session?.map?.mode || 'unknown';
+  const mapName = session?.map?.name || 'Unknown';
+  return {
+    modeKey,
+    mapName,
+    mapKey: `${modeKey}|${mapName}`
+  };
+}
+
 async function persistDraftResult(session, message) {
   if (session.resultSaved) {
     return;
@@ -6132,26 +6145,27 @@ async function handleDraftCommand(message, args) {
 
         const sortedAiPicks = [...session.aiPicks].sort().join(',');
         const sortedUserPicks = [...session.userPicks].sort().join(',');
+        const { mapKey, mapName } = getDraftMapInfo(session);
         const evalRow = new ActionRowBuilder().addComponents(
           new ButtonBuilder()
-            .setCustomId(`draft_eval_ai:${sortedAiPicks}:up`)
+            .setCustomId(`draft_eval_ai:${mapKey}:${sortedAiPicks}:up`)
             .setLabel('Bonne Draft (IA)')
             .setEmoji('👍')
             .setStyle(ButtonStyle.Success),
           new ButtonBuilder()
-            .setCustomId(`draft_eval_ai:${sortedAiPicks}:down`)
+            .setCustomId(`draft_eval_ai:${mapKey}:${sortedAiPicks}:down`)
             .setLabel('Mauvaise Draft (IA)')
             .setEmoji('👎')
             .setStyle(ButtonStyle.Danger),
           new ButtonBuilder()
-            .setCustomId(`draft_ok_user:${sortedUserPicks}`)
+            .setCustomId(`draft_ok_user:${mapKey}:${sortedUserPicks}`)
             .setLabel('Draft OK')
             .setEmoji('🤝')
             .setStyle(ButtonStyle.Secondary)
         );
 
         await message.channel.send({
-          content: '📊 Comment évalues-tu la draft de l\'IA ?',
+          content: `📊 Comment évalues-tu la draft de l'IA sur **${mapName}** ?`,
           components: [evalRow]
         });
         return;
@@ -6230,26 +6244,27 @@ async function handleDraftFreeInput(message) {
 
       const sortedAiPicks = [...session.aiPicks].sort().join(',');
       const sortedUserPicks = [...session.userPicks].sort().join(',');
+      const { mapKey, mapName } = getDraftMapInfo(session);
       const evalRow = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
-          .setCustomId(`draft_eval_ai:${sortedAiPicks}:up`)
+          .setCustomId(`draft_eval_ai:${mapKey}:${sortedAiPicks}:up`)
           .setLabel('Bonne Draft (IA)')
           .setEmoji('👍')
           .setStyle(ButtonStyle.Success),
         new ButtonBuilder()
-          .setCustomId(`draft_eval_ai:${sortedAiPicks}:down`)
+          .setCustomId(`draft_eval_ai:${mapKey}:${sortedAiPicks}:down`)
           .setLabel('Mauvaise Draft (IA)')
           .setEmoji('👎')
           .setStyle(ButtonStyle.Danger),
         new ButtonBuilder()
-          .setCustomId(`draft_ok_user:${sortedUserPicks}`)
+          .setCustomId(`draft_ok_user:${mapKey}:${sortedUserPicks}`)
           .setLabel('Draft OK')
           .setEmoji('🤝')
           .setStyle(ButtonStyle.Secondary)
       );
 
       await message.channel.send({
-        content: '📊 Comment évalues-tu la draft de l\'IA ?',
+        content: `📊 Comment évalues-tu la draft de l'IA sur **${mapName}** ?`,
         components: [evalRow]
       });
     }
@@ -7064,9 +7079,11 @@ async function handleInteraction(interaction) {
 
     try {
       const parts = interaction.customId.split(':');
-      // format : draft_eval_ai:b1,b2,b3:up|down
-      const brawlersPart = parts[1] || '';
-      const voteType = parts[2]; // 'up' ou 'down'
+      // format : draft_eval_ai:mode|map:b1,b2,b3:up|down
+      const mapKey = parts[1] || 'unknown|Unknown';
+      const brawlersPart = parts[2] || '';
+      const voteType = parts[3]; // 'up' ou 'down'
+      const [mapMode, mapName] = mapKey.split('|');
       const [b1, b2, b3] = brawlersPart.split(',');
 
       if (!b1 || !b2 || !b3 || !['up', 'down'].includes(voteType)) {
@@ -7084,6 +7101,8 @@ async function handleInteraction(interaction) {
         .eq('brawler_1', b1)
         .eq('brawler_2', b2)
         .eq('brawler_3', b3)
+        .eq('map_mode', mapMode || 'unknown')
+        .eq('map_name', mapName || 'Unknown')
         .maybeSingle();
 
       if (fetchError) {
@@ -7106,6 +7125,8 @@ async function handleInteraction(interaction) {
             brawler_1: b1,
             brawler_2: b2,
             brawler_3: b3,
+            map_mode: mapMode || 'unknown',
+            map_name: mapName || 'Unknown',
             upvotes: voteType === 'up' ? 1 : 0,
             downvotes: voteType === 'down' ? 1 : 0
           });
@@ -7117,8 +7138,8 @@ async function handleInteraction(interaction) {
 
       await interaction.editReply({
         content: voteType === 'up'
-          ? '👍 Merci ! Ton avis positif a été enregistré.'
-          : '👎 Merci ! Ton avis négatif a été enregistré.'
+          ? `👍 Merci ! Ton avis positif sur **${mapName || 'cette map'}** a été enregistré.`
+          : `👎 Merci ! Ton avis négatif sur **${mapName || 'cette map'}** a été enregistré.`
       });
     } catch (err) {
       errorLog('Failed to record draft community eval:', err);
@@ -7134,7 +7155,12 @@ async function handleInteraction(interaction) {
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
     try {
-      const brawlersPart = interaction.customId.replace('draft_ok_user:', '');
+      const rest = interaction.customId.replace('draft_ok_user:', '');
+      const parts = rest.split(':');
+      // format : draft_ok_user:mode|map:b1,b2,b3
+      const mapKey = parts[0] || 'unknown|Unknown';
+      const brawlersPart = parts[1] || '';
+      const [mapMode, mapName] = mapKey.split('|');
       const [b1, b2, b3] = brawlersPart.split(',');
 
       if (!b1 || !b2 || !b3) {
@@ -7148,6 +7174,8 @@ async function handleInteraction(interaction) {
         .eq('brawler_1', b1)
         .eq('brawler_2', b2)
         .eq('brawler_3', b3)
+        .eq('map_mode', mapMode || 'unknown')
+        .eq('map_name', mapName || 'Unknown')
         .maybeSingle();
 
       if (fetchError) throw new Error(fetchError.message);
@@ -7161,12 +7189,21 @@ async function handleInteraction(interaction) {
       } else {
         const { error: insertError } = await supabase
           .from('draft_community_evals')
-          .insert({ brawler_1: b1, brawler_2: b2, brawler_3: b3, upvotes: 0, downvotes: 0, mid_votes: 1 });
+          .insert({
+            brawler_1: b1,
+            brawler_2: b2,
+            brawler_3: b3,
+            map_mode: mapMode || 'unknown',
+            map_name: mapName || 'Unknown',
+            upvotes: 0,
+            downvotes: 0,
+            mid_votes: 1
+          });
         if (insertError) throw new Error(insertError.message);
       }
 
       await interaction.editReply({
-        content: `🤝 Noté — **${b1} / ${b2} / ${b3}** signalé comme compo serrée/viable.`
+        content: `🤝 Noté — **${b1} / ${b2} / ${b3}** signalé comme compo serrée/viable sur **${mapName || 'cette map'}**.`
       });
     } catch (err) {
       errorLog('Failed to record draft_ok_user vote:', err);
