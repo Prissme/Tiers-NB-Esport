@@ -128,6 +128,8 @@ export default function PerformanceRatingForm() {
   const [feedbackStars, setFeedbackStars] = useState<number | null>(null);
   const [feedbackStatus, setFeedbackStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
   const [weightChanges, setWeightChanges] = useState<WeightChange[] | null>(null);
+  const [directionStatus, setDirectionStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
+  const [directionSent, setDirectionSent] = useState<"up" | "down" | null>(null);
 
   const canSubmit = useMemo(() => {
     const kdNum = Number(kd);
@@ -141,6 +143,8 @@ export default function PerformanceRatingForm() {
     setFeedbackStars(null);
     setFeedbackStatus("idle");
     setWeightChanges(null);
+    setDirectionStatus("idle");
+    setDirectionSent(null);
     try {
       const res = await fetch("/api/admin/performance-rating", {
         method: "POST",
@@ -187,6 +191,29 @@ export default function PerformanceRatingForm() {
       setWeightChanges(json.changes ?? []);
     } catch {
       setFeedbackStatus("error");
+    }
+  }
+
+  async function submitDirection(direction: "up" | "down") {
+    if (!result?.computationId) return;
+    setDirectionSent(direction);
+    setDirectionStatus("sending");
+    setWeightChanges(null);
+    try {
+      const res = await fetch("/api/admin/performance-rating/feedback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ computationId: result.computationId, direction }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        setDirectionStatus("error");
+        return;
+      }
+      setDirectionStatus("sent");
+      setWeightChanges(json.changes ?? []);
+    } catch {
+      setDirectionStatus("error");
     }
   }
 
@@ -357,6 +384,57 @@ export default function PerformanceRatingForm() {
               </li>
             )}
           </ul>
+
+          <div className="pt-2 border-t border-neutral-800">
+            <p className="text-sm text-neutral-400 mb-2">Cette note était trop basse ou trop haute ?</p>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                disabled={!result.computationId || directionStatus === "sending"}
+                onClick={() => submitDirection("up")}
+                title="Le score était trop bas"
+                className="flex items-center gap-1 rounded-md border border-neutral-700 px-3 py-2 text-sm disabled:opacity-40"
+                style={directionSent === "up" ? { borderColor: "#4ade80", color: "#4ade80" } : undefined}
+              >
+                ↑ Trop basse
+              </button>
+              <button
+                type="button"
+                disabled={!result.computationId || directionStatus === "sending"}
+                onClick={() => submitDirection("down")}
+                title="Le score était trop haut"
+                className="flex items-center gap-1 rounded-md border border-neutral-700 px-3 py-2 text-sm disabled:opacity-40"
+                style={directionSent === "down" ? { borderColor: "#f87171", color: "#f87171" } : undefined}
+              >
+                ↓ Trop haute
+              </button>
+            </div>
+            {directionStatus === "sent" && weightChanges && (
+              <div className="mt-2 rounded-md border border-neutral-800 bg-black/30 p-3">
+                <p className="text-xs text-green-400 mb-2">
+                  Poids ajustés vers {directionSent === "up" ? "le haut" : "le bas"} :
+                </p>
+                {weightChanges.length > 0 ? (
+                  <ul className="text-xs text-neutral-400 space-y-1 font-mono">
+                    {weightChanges.map((c) => (
+                      <li key={c.key}>
+                        {WEIGHT_LABELS[c.key]}: {c.before} → {c.after}{" "}
+                        <span className={c.after > c.before ? "text-green-400" : "text-red-400"}>
+                          ({c.after > c.before ? "+" : ""}
+                          {Math.round((c.after - c.before) * 1000) / 1000})
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-xs text-neutral-500">Aucun facteur concerné dans ce calcul.</p>
+                )}
+              </div>
+            )}
+            {directionStatus === "error" && (
+              <p className="text-xs text-red-400 mt-1">Échec de l'enregistrement.</p>
+            )}
+          </div>
 
           <div className="pt-2 border-t border-neutral-800">
             <p className="text-sm text-neutral-400 mb-2">
