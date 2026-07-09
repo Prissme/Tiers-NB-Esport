@@ -57,6 +57,7 @@ export async function POST(request: Request) {
       trioSynergy: number;
       counterEffect: number;
       modeFitBonus: number;
+      starPlayerBonus: number;
       kd: number;
     };
 
@@ -68,6 +69,7 @@ export async function POST(request: Request) {
       trioSynergyUsed: breakdown.trioSynergy !== 0,
       counterUsed: breakdown.counterEffect !== 0,
       modeFitUsed: breakdown.modeFitBonus !== 0,
+      starPlayerUsed: (breakdown.starPlayerBonus ?? 0) !== 0,
     };
 
     const { data: weightsRow, error: weightsError } = await supabase
@@ -91,6 +93,7 @@ export async function POST(request: Request) {
           trio_synergy_coef: weightsRow.trio_synergy_coef,
           counter_coef: weightsRow.counter_coef,
           mode_fit_bonus: weightsRow.mode_fit_bonus,
+          star_player_bonus: weightsRow.star_player_bonus,
         }
       : DEFAULT_WEIGHTS;
 
