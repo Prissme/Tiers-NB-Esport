@@ -16,6 +16,7 @@ const WEIGHT_LABELS: Record<keyof RatingWeights, string> = {
   trio_synergy_coef: "Poids synergie trio",
   counter_coef: "Poids counter (comp adverse)",
   mode_fit_bonus: "Bonus fit de mode",
+  star_player_bonus: "Bonus Joueur Star",
 };
 
 type Breakdown = {
@@ -34,6 +35,8 @@ type Breakdown = {
   counterBonus: number;
   gameMode: string | null;
   modeFitBonus: number;
+  starPlayer: boolean;
+  starPlayerBonus: number;
 };
 
 type RatingResult = { note: number; computationId: string | null; breakdown: Breakdown };
@@ -118,6 +121,7 @@ export default function PerformanceRatingForm() {
   const [comp, setComp] = useState<[string, string, string]>(["", "", ""]);
   const [opponentComp, setOpponentComp] = useState<[string, string, string]>(["", "", ""]);
   const [gameMode, setGameMode] = useState("");
+  const [starPlayer, setStarPlayer] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<RatingResult | null>(null);
@@ -147,6 +151,7 @@ export default function PerformanceRatingForm() {
           comp: comp.filter(Boolean),
           opponentComp: opponentComp.filter(Boolean),
           gameMode: gameMode || null,
+          starPlayer,
         }),
       });
       const json = await res.json();
@@ -259,6 +264,32 @@ export default function PerformanceRatingForm() {
         </div>
       </div>
 
+      <div className="space-y-2">
+        <label className="text-sm text-neutral-400">
+          Joueur Star ? <span className="text-neutral-600">(impact décisif sur l'objectif malgré un K/D faible — ex: hard focus coffre en Braquage)</span>
+        </label>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => setStarPlayer(true)}
+            className={`rounded-md px-4 py-2 text-sm font-medium border ${
+              starPlayer ? "bg-yellow-500 text-black border-yellow-500" : "border-neutral-700 text-neutral-300"
+            }`}
+          >
+            Oui
+          </button>
+          <button
+            type="button"
+            onClick={() => setStarPlayer(false)}
+            className={`rounded-md px-4 py-2 text-sm font-medium border ${
+              !starPlayer ? "bg-neutral-700 text-white border-neutral-700" : "border-neutral-700 text-neutral-300"
+            }`}
+          >
+            Non
+          </button>
+        </div>
+      </div>
+
       <button
         type="button"
         disabled={!canSubmit || loading}
@@ -316,6 +347,13 @@ export default function PerformanceRatingForm() {
                 Mode {result.breakdown.gameMode}: fit de rôle (
                 {result.breakdown.modeFitBonus >= 0 ? "+" : ""}
                 {result.breakdown.modeFitBonus})
+              </li>
+            )}
+            {result.breakdown.starPlayer && (
+              <li>
+                Joueur Star: impact objectif reconnu malgré le K/D (
+                {result.breakdown.starPlayerBonus >= 0 ? "+" : ""}
+                {result.breakdown.starPlayerBonus})
               </li>
             )}
           </ul>
