@@ -6,8 +6,10 @@ import {
   DEFAULT_WEIGHTS,
   adjustWeights,
   adjustWeightsDirectional,
+  matchResultToDirection,
   type ContributionFlags,
   type Direction,
+  type MatchResult,
   type RatingWeights,
   type RawSignals,
 } from "../../../../lib/rating-weights";
@@ -58,12 +60,15 @@ export async function POST(request: Request) {
       computationId?: string;
       stars?: number;
       direction?: Direction;
+      matchResult?: MatchResult;
     };
     const computationId = String(body.computationId ?? "").trim();
     const stars = body.stars === undefined ? null : Number(body.stars);
     const direction = body.direction === "up" || body.direction === "down" ? body.direction : null;
+    const matchResult =
+      body.matchResult === "victory" || body.matchResult === "defeat" ? body.matchResult : null;
 
-    if (!computationId || (stars === null && direction === null)) {
+    if (!computationId || (stars === null && direction === null && matchResult === null)) {
       return NextResponse.json({ error: "Invalid payload." }, { status: 400 });
     }
     if (stars !== null && (!Number.isInteger(stars) || stars < 0 || stars > 5)) {
@@ -74,7 +79,7 @@ export async function POST(request: Request) {
 
     const { data: computation, error: fetchError } = await supabase
       .from("performance_rating_computations")
-      .select("id, breakdown, weights_snapshot")
+      .select("id, note, breakdown, weights_snapshot")
       .eq("id", computationId)
       .maybeSingle();
 
@@ -95,6 +100,16 @@ export async function POST(request: Request) {
       }
     }
 
+    if (matchResult !== null) {
+      const { error: updateError } = await supabase
+        .from("performance_rating_computations")
+        .update({ match_result: matchResult, match_result_at: new Date().toISOString() })
+        .eq("id", computationId);
+      if (updateError) {
+        return NextResponse.json({ error: updateError.message }, { status: 500 });
+      }
+    }
+
     const breakdown = computation.breakdown as StoredBreakdown;
 
     const { data: weightsRow, error: weightsError } = await supabase
@@ -109,8 +124,34 @@ export async function POST(request: Request) {
 
     const currentWeights = loadWeights(weightsRow);
 
-    let nextWeights: RatingWeights;
-    if (direction) {
+    let nextWeights: RatingWeights = currentWeights;
+    let appliedDirection: Direction | null = null;
+    let neutralMatchResult = false;
+
+    if (matchResult) {
+      // Le résultat réel du match sert de vérité terrain : si la note donnée par
+      // l'algo était cohérente avec l'issue (bonne note + victoire, ou mauvaise
+      // note + défaite), on renforce les facteurs qui ont produit cette note.
+      // Sinon on les atténue, exactement comme pour un feedback "trop haute/basse"
+      // manuel, sauf que là c'est le résultat du match qui tranche.
+      const inferredDirection = matchResultToDirection(computation.note as number, matchResult);
+      if (inferredDirection) {
+        const raw: RawSignals = {
+          kdDelta: breakdown.kd - 1,
+          brawlerPriority: breakdown.brawlerPriority,
+          compRaw: breakdown.compAvgPriority - 1,
+          pairSynergyRaw: breakdown.pairSynergy,
+          trioSynergyRaw: breakdown.trioSynergy,
+          counterEffect: breakdown.counterEffect,
+          modeFitRaw: breakdown.modeFitBonus,
+          starPlayer: breakdown.starPlayer,
+        };
+        nextWeights = adjustWeightsDirectional(currentWeights, inferredDirection, raw);
+        appliedDirection = inferredDirection;
+      } else {
+        neutralMatchResult = true;
+      }
+    } else if (direction) {
       const raw: RawSignals = {
         kdDelta: breakdown.kd - 1,
         brawlerPriority: breakdown.brawlerPriority,
@@ -122,6 +163,7 @@ export async function POST(request: Request) {
         starPlayer: breakdown.starPlayer,
       };
       nextWeights = adjustWeightsDirectional(currentWeights, direction, raw);
+      appliedDirection = direction;
     } else {
       const flags: ContributionFlags = {
         kdUsed: breakdown.kd !== 1,
@@ -136,12 +178,14 @@ export async function POST(request: Request) {
       nextWeights = adjustWeights(currentWeights, stars as number, flags);
     }
 
-    const { error: upsertError } = await supabase
-      .from("performance_rating_weights")
-      .upsert({ id: 1, ...nextWeights, updated_at: new Date().toISOString() });
+    if (nextWeights !== currentWeights) {
+      const { error: upsertError } = await supabase
+        .from("performance_rating_weights")
+        .upsert({ id: 1, ...nextWeights, updated_at: new Date().toISOString() });
 
-    if (upsertError) {
-      return NextResponse.json({ error: upsertError.message }, { status: 500 });
+      if (upsertError) {
+        return NextResponse.json({ error: upsertError.message }, { status: 500 });
+      }
     }
 
     const changes = (Object.keys(nextWeights) as (keyof RatingWeights)[])
@@ -152,7 +196,13 @@ export async function POST(request: Request) {
         after: Math.round(nextWeights[key] * 1000) / 1000,
       }));
 
-    return NextResponse.json({ ok: true, weights: nextWeights, changes });
+    return NextResponse.json({
+      ok: true,
+      weights: nextWeights,
+      changes,
+      appliedDirection,
+      neutralMatchResult,
+    });
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Unable to save feedback." },
