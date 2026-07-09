@@ -2,7 +2,13 @@ import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { createServerClient } from "../../../../src/lib/supabase/server";
 import { withSchema } from "../../../../src/lib/supabase/schema";
-import { DIFFICULTY_MULTIPLIER, getBrawlerPriority } from "../../../lib/brawler-priority";
+import {
+  getBrawlerPriority,
+  getCounterEffect,
+  getModeFitBonus,
+  GAME_MODES,
+} from "../../../lib/brawler-priority";
+import { DEFAULT_WEIGHTS, type RatingWeights } from "../../../lib/rating-weights";
 
 const ADMIN_COOKIE = "admin_session";
 
@@ -37,6 +43,8 @@ export async function POST(request: Request) {
       kd?: number;
       brawler?: string;
       comp?: string[];
+      opponentComp?: string[];
+      gameMode?: string;
     };
 
     const kd = Number(body.kd);
@@ -44,6 +52,12 @@ export async function POST(request: Request) {
     const comp = Array.isArray(body.comp)
       ? body.comp.map((b) => String(b ?? "").trim()).filter(Boolean).slice(0, 3)
       : [];
+    const opponentComp = Array.isArray(body.opponentComp)
+      ? body.opponentComp.map((b) => String(b ?? "").trim()).filter(Boolean).slice(0, 3)
+      : [];
+    const gameMode = GAME_MODES.includes(body.gameMode as (typeof GAME_MODES)[number])
+      ? (body.gameMode as string)
+      : null;
 
     if (!Number.isFinite(kd) || kd < 0 || !brawler) {
       return NextResponse.json({ error: "Invalid payload." }, { status: 400 });
@@ -54,10 +68,40 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: `Brawler inconnu du bot de draft: ${brawler}` }, { status: 400 });
     }
 
-    const diffMultiplier = DIFFICULTY_MULTIPLIER[priority];
+    // --- Poids actuels (ajustés en temps réel par les retours étoiles) ---
+    const supabase = withSchema(createServerClient());
+    const { data: weightsRow, error: weightsError } = await supabase
+      .from("performance_rating_weights")
+      .select("*")
+      .eq("id", 1)
+      .maybeSingle();
+
+    if (weightsError && weightsError.code !== "42P01") {
+      return NextResponse.json({ error: weightsError.message }, { status: 500 });
+    }
+
+    const weights: RatingWeights = weightsRow
+      ? {
+          kd_coef: weightsRow.kd_coef,
+          diff_mult_tier2: weightsRow.diff_mult_tier2,
+          diff_mult_tier1: weightsRow.diff_mult_tier1,
+          diff_mult_tier0: weightsRow.diff_mult_tier0,
+          comp_bonus_coef: weightsRow.comp_bonus_coef,
+          pair_synergy_coef: weightsRow.pair_synergy_coef,
+          trio_synergy_coef: weightsRow.trio_synergy_coef,
+          counter_coef: weightsRow.counter_coef,
+          mode_fit_bonus: weightsRow.mode_fit_bonus,
+        }
+      : DEFAULT_WEIGHTS;
+
+    const diffMultiplierByTier = {
+      2: weights.diff_mult_tier2,
+      1: weights.diff_mult_tier1,
+      0: weights.diff_mult_tier0,
+    } as const;
+    const diffMultiplier = diffMultiplierByTier[priority];
 
     // --- Synergies communautaires réelles depuis Supabase (draft_community_evals) ---
-    const supabase = withSchema(createServerClient());
     const { data, error } = await supabase
       .from("draft_community_evals")
       .select("brawler_1, brawler_2, brawler_3, upvotes, downvotes, mid_votes");
@@ -138,27 +182,71 @@ export async function POST(request: Request) {
     const compAvgPriority = compPriorities.length
       ? compPriorities.reduce((a, b) => a + b, 0) / compPriorities.length
       : 1;
-    const compPriorityBonus = (compAvgPriority - 1) * 0.5;
+    const compPriorityBonus = (compAvgPriority - 1) * weights.comp_bonus_coef;
 
-    const synergyBonus = pairSynergy * 0.5 + trioSynergy * 0.5;
+    const synergyBonus = pairSynergy * weights.pair_synergy_coef + trioSynergy * weights.trio_synergy_coef;
 
-    let note = 5 + (kd - 1) * 2.2 * diffMultiplier + compPriorityBonus + synergyBonus;
+    // Contre mécaniquement la comp adverse (ou en est victime), d'après COUNTER_BY_USER_PICK.
+    const counterEffect = getCounterEffect(brawler, opponentComp); // -1, 0, ou 1
+    const counterBonus = counterEffect * weights.counter_coef;
+
+    // Bonus léger si le rôle du brawler colle au mode de jeu choisi.
+    const modeFitRaw = getModeFitBonus(brawler, gameMode); // 0 ou 0.3 (référence de forme, pas de valeur)
+    const modeFitBonus = modeFitRaw > 0 ? weights.mode_fit_bonus : 0;
+
+    let note =
+      5 +
+      (kd - 1) * weights.kd_coef * diffMultiplier +
+      compPriorityBonus +
+      synergyBonus +
+      counterBonus +
+      modeFitBonus;
     note = Math.max(0, Math.min(10, note));
+    note = Math.round(note * 10) / 10;
 
-    return NextResponse.json({
-      note: Math.round(note * 10) / 10,
-      breakdown: {
+    const breakdown = {
+      kd,
+      brawler,
+      brawlerPriority: priority,
+      diffMultiplier,
+      compAvgPriority: Math.round(compAvgPriority * 100) / 100,
+      compPriorityBonus: Math.round(compPriorityBonus * 100) / 100,
+      pairSynergy: Math.round(pairSynergy * 100) / 100,
+      trioSynergy: Math.round(trioSynergy * 100) / 100,
+      pairDetails,
+      trioDetail,
+      opponentComp,
+      counterEffect,
+      counterBonus: Math.round(counterBonus * 100) / 100,
+      gameMode,
+      modeFitBonus: Math.round(modeFitBonus * 100) / 100,
+    };
+
+    // Enregistre ce calcul (entrées + sortie + poids utilisés) pour pouvoir le noter ensuite.
+    const { data: inserted, error: insertError } = await supabase
+      .from("performance_rating_computations")
+      .insert({
         kd,
         brawler,
-        brawlerPriority: priority,
-        diffMultiplier,
-        compAvgPriority: Math.round(compAvgPriority * 100) / 100,
-        compPriorityBonus: Math.round(compPriorityBonus * 100) / 100,
-        pairSynergy: Math.round(pairSynergy * 100) / 100,
-        trioSynergy: Math.round(trioSynergy * 100) / 100,
-        pairDetails,
-        trioDetail,
-      },
+        brawler_priority: priority,
+        comp,
+        opponent_comp: opponentComp,
+        game_mode: gameMode,
+        note,
+        breakdown,
+        weights_snapshot: weights,
+      })
+      .select("id")
+      .single();
+
+    if (insertError && insertError.code !== "42P01") {
+      return NextResponse.json({ error: insertError.message }, { status: 500 });
+    }
+
+    return NextResponse.json({
+      note,
+      computationId: inserted?.id ?? null,
+      breakdown,
     });
   } catch (error) {
     return NextResponse.json(
