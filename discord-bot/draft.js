@@ -14,14 +14,15 @@ const ALL = [
   'Kenji', 'Ash', 'Rico', 'Melodie', 'Byron', 'Draco', 'Lumi',
   'Glowy', 'Kit', 'Najia', 'Gray', 'Damian', 'Sirius', 'Colette', 'Ziggy',
   'Berry', 'Dynamike', 'Bo', 'Stu', 'Bolt',
-  'Pierce', 'Angelo', 'Bibi', 'Pearl', 'Edgar', 'Lou', 'Fang', 'Nova', 'Meg', 'Clancy'
+  'Pierce', 'Angelo', 'Bibi', 'Pearl', 'Edgar', 'Lou', 'Fang', 'Nova', 'Meg', 'Clancy',
+  'Barley', 'Doug', 'Sprout', 'Nani', 'Tick', 'Grom', 'Willow'
 ];
 
 const MAP_PRIORITY = {
   // Priorité 2 — top picks
   Piper: 2, Belle: 2, Tara: 2, Juju: 2, Mina: 2, Cordelius: 2, Moe: 2, Finx: 2, Lumi: 2,
   Kit: 2, Najia: 2, Gray: 2, Damian: 2, Sirius: 2, Colt: 2, Spike: 2, Bull: 2, Emz: 2,
-  Shelly: 2, Dynamike: 2, Chester: 2, Crow: 2, Gene: 2, Bolt: 2, Pierce: 2, Angelo: 2, Charlie: 2,
+  Shelly: 2, Dynamike: 2, Chester: 2, Crow: 2, Gene: 2, Bolt: 2, Pierce: 2, Angelo: 2, Charlie: 2, Nani: 2,
 
   // Priorité 1 — picks solides
   Bo: 1, Berry: 1, Stu: 1, Brock: 1, Sandy: 1, Rosa: 1, Mortis: 1, Buster: 1, Pam: 1,
@@ -31,7 +32,7 @@ const MAP_PRIORITY = {
   Colette: 1, Ziggy: 1, Bibi: 1, Lou: 1, Fang: 1, Ash: 1, Nova: 1, Meg: 1, Shade: 1,
   Clancy: 1, Max: 1,
   // Ajouts manquants
-  Jessie: 1, 'El Primo': 1, Darryl: 1,
+  Jessie: 1, 'El Primo': 1, Darryl: 1, Barley: 1, Doug: 1, Sprout: 1, Tick: 1, Grom: 1, Willow: 1,
 
   // Priorité 0 — sous-optimaux
   Trunk: 0, Hank: 0, Frank: 0
@@ -108,6 +109,13 @@ const COUNTER_BY_USER_PICK = {
   Sandy: ['Gene', 'Otis'],
   Darryl: ['Shelly', 'Spike'],
   Jessie: ['Belle', 'Mortis'],
+  Barley: ['Gene', 'Belle', 'Mortis', 'Edgar'],
+  Doug: ['Mortis', 'Crow', 'Dynamike', 'Gene', 'Angelo'],
+  Sprout: ['Gene', 'Belle', 'Mortis', 'Crow'],
+  Nani: ['Gene', 'Angelo', 'Leon', 'Mortis'],
+  Tick: ['Edgar', 'Mortis', 'Leon'],
+  Grom: ['Edgar', 'Mortis', 'Gene'],
+  Willow: ['Mortis', 'Leon', 'Angelo'],
 };
 
 const USER_FIRST_TURN = ['USER', 'AI', 'AI', 'USER', 'USER', 'AI'];
@@ -117,11 +125,11 @@ const TURN = USER_FIRST_TURN;
 // =========================================================================
 // RÔLES STRATÉGIQUES & CONFIG
 // =========================================================================
-const SUPPORTS = new Set(['Gus', 'Pam', 'Ruffs', 'Poco', 'Byron', 'Lumi', 'Kit', 'Gray', 'Berry']);
+const SUPPORTS = new Set(['Gus', 'Pam', 'Ruffs', 'Poco', 'Byron', 'Lumi', 'Kit', 'Gray', 'Berry', 'Doug']);
 const MELEES = new Set(['Frank', 'Bull', 'Hank', 'Ash', 'El Primo', 'Mortis', 'Sam', 'Kenji', 'Lily', 'Rosa', 'Darryl', 'Draco', 'Trunk', 'Shade', 'Damian', 'Bolt', 'Bibi', 'Edgar', 'Fang', 'Nova', 'Meg']);
-const SNIPERS_POKE = new Set(['Piper', 'Belle', 'Brock', 'Colt', 'Rico', 'Maisie', 'Janet', 'Najia', 'Colette', 'Dynamike', 'Bo', 'Griff', 'Pierce', 'Angelo', 'Pearl', 'Charlie', 'Penny', 'Lou', 'Amber']);
+const SNIPERS_POKE = new Set(['Piper', 'Belle', 'Brock', 'Colt', 'Rico', 'Maisie', 'Janet', 'Najia', 'Colette', 'Dynamike', 'Bo', 'Griff', 'Pierce', 'Angelo', 'Pearl', 'Charlie', 'Penny', 'Lou', 'Amber', 'Barley', 'Sprout', 'Nani', 'Tick', 'Grom']);
 const DIVE_UNITS = new Set(['Mortis', 'Alli', 'Crow', 'Lily', 'Kenji', 'Melodie', 'Glowy', 'Sirius', 'Ziggy', 'Stu', 'Bolt', 'Edgar', 'Leon', 'Fang', 'Shade']);
-const DISABLES = new Set(['Spike', 'Otis', 'Rico', 'Cordelius', 'Bo', 'Gene', 'Chester', 'Mina', 'Charlie', 'Lou', 'Emz', 'Gale']);
+const DISABLES = new Set(['Spike', 'Otis', 'Rico', 'Cordelius', 'Bo', 'Gene', 'Chester', 'Mina', 'Charlie', 'Lou', 'Emz', 'Gale', 'Sprout', 'Willow']);
 
 let COMMUNITY_DRAFTS_CACHE = new Map();
 
