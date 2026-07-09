@@ -459,17 +459,23 @@ function computeAIBans(metaProfile, bannedByUser, firstPick = 'USER') {
 
 function createSession(ownerId, metaProfile = META_DEFAULT, options = {}) {
   const firstPick = options.firstPick || (Math.random() < 0.5 ? 'USER' : 'AI');
+  // Les bans IA sont calculés une seule fois, dès la création de la session,
+  // AVANT que l'utilisateur ait banni quoi que ce soit. Ils ne dépendent donc
+  // jamais des bans de l'utilisateur et ne doivent pas être affichés tant que
+  // celui-ci n'a pas terminé ses 3 bans (voir unified-bot.js).
+  const aiBans = computeAIBans(metaProfile, new Set(), firstPick);
   return {
     id: `${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
     ownerId, metaProfile, firstPick, turnOrder: firstPick === 'AI' ? AI_FIRST_TURN : USER_FIRST_TURN,
     isAIDraft: options.isAIDraft ?? true,
-    phase: 'BAN', userBans: [], userPicks: [], aiPicks: [], step: 0,
+    phase: 'BAN', userBans: [], aiBans, userPicks: [], aiPicks: [], step: 0,
     resultSaved: false, resultAnnounced: false
   };
 }
 
 function getAIBans(session) {
-  return computeAIBans(session.metaProfile, new Set(session.userBans), session.firstPick);
+  // Bans figés au moment de la création de la session (voir createSession).
+  return session.aiBans || [];
 }
 function getGlobalBans(session) { return new Set([...getAIBans(session), ...session.userBans]); }
 function getAvailable(session) { const bans = getGlobalBans(session); const taken = new Set([...session.userPicks, ...session.aiPicks]); return ALL.filter((b) => !bans.has(b) && !taken.has(b)); }
@@ -477,7 +483,10 @@ function getTurn(session) { const order = session.turnOrder || TURN; return sess
 function isDraftDone(session) { return session.step >= (session.turnOrder || TURN).length; }
 
 function applyUserBan(session, brawler) {
-  if (session.phase !== 'BAN' || session.userBans.length >= 3 || getAIBans(session).includes(brawler) || session.userBans.includes(brawler)) return { ok: false };
+  // Un brawler banni côté IA peut aussi être banni côté joueur (ban commun
+  // possible des deux côtés) : on ne bloque plus ce cas. On empêche
+  // uniquement de bannir deux fois le même brawler soi-même.
+  if (session.phase !== 'BAN' || session.userBans.length >= 3 || session.userBans.includes(brawler)) return { ok: false };
   session.userBans.push(brawler);
   if (session.userBans.length >= 3) { session.phase = 'DRAFT'; session.step = 0; }
   return { ok: true };
