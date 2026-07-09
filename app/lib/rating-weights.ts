@@ -134,6 +134,27 @@ function directionalAdjust(weight: number, bounds: [number, number], contributio
   return clamp(weight * (1 + move), bounds);
 }
 
+// --- Feedback résultat de match : victoire / défaite ---
+// Le principe : la note de performance doit être cohérente avec le résultat réel.
+// Une note haute (> 5.5) qui correspond à une victoire confirme que l'algo a bien
+// évalué l'impact du joueur -> on renforce les facteurs utilisés (direction "up").
+// Une note haute suivie d'une défaite veut dire que l'algo a surestimé l'impact du
+// joueur sur l'issue du match -> on atténue ces facteurs (direction "down").
+// Symétriquement pour une note basse (< 4.5) : défaite = confirmation (renforce),
+// victoire = l'algo a sous-estimé l'impact réel du joueur (atténue).
+// Zone neutre 4.5-5.5 : la note ne prend pas vraiment position, on ne touche à rien.
+export type MatchResult = "victory" | "defeat";
+
+export function matchResultToDirection(note: number, matchResult: MatchResult): Direction | null {
+  const ratedGood = note > 5.5;
+  const ratedBad = note < 4.5;
+
+  if (!ratedGood && !ratedBad) return null; // note neutre, aucun signal exploitable
+
+  const confirmed = (ratedGood && matchResult === "victory") || (ratedBad && matchResult === "defeat");
+  return confirmed ? "up" : "down";
+}
+
 export function adjustWeightsDirectional(current: RatingWeights, direction: Direction, raw: RawSignals): RatingWeights {
   const next: RatingWeights = { ...current };
 
