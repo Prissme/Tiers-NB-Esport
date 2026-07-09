@@ -9,10 +9,11 @@ export type RatingWeights = {
   counter_coef: number;
   mode_fit_bonus: number;
   star_player_bonus: number;
+  dmg_heal_fit_coef: number;
 };
 
 export const DEFAULT_WEIGHTS: RatingWeights = {
-  kd_coef: 0.3,
+  kd_coef: 2.2,
   diff_mult_tier2: 1.0,
   diff_mult_tier1: 1.2,
   diff_mult_tier0: 1.45,
@@ -22,11 +23,12 @@ export const DEFAULT_WEIGHTS: RatingWeights = {
   counter_coef: 0.8,
   mode_fit_bonus: 0.3,
   star_player_bonus: 2.0,
+  dmg_heal_fit_coef: 0.4,
 };
 
 // Bornes pour ne jamais laisser un poids partir en vrille avec des retours répétés.
 const BOUNDS: Record<keyof RatingWeights, [number, number]> = {
-  kd_coef: [0.1, 0.7],
+  kd_coef: [1.0, 4.0],
   diff_mult_tier2: [0.8, 1.6],
   diff_mult_tier1: [0.8, 2.0],
   diff_mult_tier0: [0.8, 2.4],
@@ -36,79 +38,21 @@ const BOUNDS: Record<keyof RatingWeights, [number, number]> = {
   counter_coef: [0, 1.6],
   mode_fit_bonus: [0, 0.8],
   star_player_bonus: [0.5, 4.0],
+  dmg_heal_fit_coef: [0, 0.8],
 };
-
-const LEARNING_RATE = 0.06;
 
 function clamp(value: number, [min, max]: [number, number]) {
   return Math.max(min, Math.min(max, value));
 }
 
-// Signal d'ajustement : 0-1 étoile => on réduit l'influence des facteurs qui ont
-// contribué à cette note (elle était jugée peu fiable). 4-5 étoiles => on renforce
-// légèrement ces mêmes facteurs (la note était jugée fiable). 2-3 étoiles => neutre.
-export function starsToDelta(stars: number): number {
-  if (stars <= 1) return -LEARNING_RATE;
-  if (stars >= 4) return LEARNING_RATE * 0.6; // on renforce moins fort qu'on ne corrige
-  if (stars === 2) return -LEARNING_RATE * 0.4;
-  return 0; // 3 étoiles = jugé correct, on ne bouge rien
-}
-
-export type ContributionFlags = {
-  kdUsed: boolean;
-  brawlerPriority: 0 | 1 | 2;
-  compBonusUsed: boolean;
-  pairSynergyUsed: boolean;
-  trioSynergyUsed: boolean;
-  counterUsed: boolean;
-  modeFitUsed: boolean;
-  starPlayerUsed: boolean;
-};
-
-// Ne bouge que les poids qui ont réellement pesé dans le calcul de cette note précise,
-// pour ne pas pénaliser des facteurs qui n'étaient même pas en jeu.
-export function adjustWeights(current: RatingWeights, stars: number, flags: ContributionFlags): RatingWeights {
-  const delta = starsToDelta(stars);
-  if (delta === 0) return current;
-
-  const next: RatingWeights = { ...current };
-
-  if (flags.kdUsed) {
-    next.kd_coef = clamp(current.kd_coef * (1 + delta), BOUNDS.kd_coef);
-  }
-  const tierKey = (["diff_mult_tier0", "diff_mult_tier1", "diff_mult_tier2"] as const)[flags.brawlerPriority];
-  next[tierKey] = clamp(current[tierKey] * (1 + delta), BOUNDS[tierKey]);
-
-  if (flags.compBonusUsed) {
-    next.comp_bonus_coef = clamp(current.comp_bonus_coef * (1 + delta), BOUNDS.comp_bonus_coef);
-  }
-  if (flags.pairSynergyUsed) {
-    next.pair_synergy_coef = clamp(current.pair_synergy_coef * (1 + delta), BOUNDS.pair_synergy_coef);
-  }
-  if (flags.trioSynergyUsed) {
-    next.trio_synergy_coef = clamp(current.trio_synergy_coef * (1 + delta), BOUNDS.trio_synergy_coef);
-  }
-  if (flags.counterUsed) {
-    next.counter_coef = clamp(current.counter_coef * (1 + delta), BOUNDS.counter_coef);
-  }
-  if (flags.modeFitUsed) {
-    next.mode_fit_bonus = clamp(current.mode_fit_bonus * (1 + delta), BOUNDS.mode_fit_bonus);
-  }
-  if (flags.starPlayerUsed) {
-    next.star_player_bonus = clamp(current.star_player_bonus * (1 + delta), BOUNDS.star_player_bonus);
-  }
-
-  return next;
-}
-
 // --- Feedback directionnel : "la note était trop basse" (up) ou "trop haute" (down) ---
-// Contrairement aux étoiles (qui disent juste si c'est fiable ou pas), la direction dit
-// explicitement dans quel sens corriger, donc on peut ajuster chaque poids en connaissance
-// de cause plutôt que de renforcer/atténuer en aveugle.
+// Seul feedback restant. Il dit explicitement dans quel sens corriger, donc chaque poids
+// concerné est ajusté en connaissance de cause plutôt qu'en aveugle (contrairement à
+// l'ancien système d'étoiles 0-5, supprimé).
 export type Direction = "up" | "down";
 
 export type RawSignals = {
-  kdDelta: number; // kills - deaths (signe de la contribution kills/morts)
+  kdDelta: number; // kd - 1 (signe de la contribution K/D)
   brawlerPriority: 0 | 1 | 2;
   compRaw: number; // compAvgPriority - 1
   pairSynergyRaw: number;
@@ -132,26 +76,6 @@ function directionalAdjust(weight: number, bounds: [number, number], contributio
   // Si la contribution allait déjà dans le sens voulu, on l'amplifie ; sinon on la réduit.
   const move = wantSign * contributionSign * DIRECTIONAL_RATE;
   return clamp(weight * (1 + move), bounds);
-}
-
-// --- Résultat réel du match : victoire / défaite ---
-// Fourni en même temps que le K/D, la comp, etc. Sert de vérité terrain : la note
-// donnée doit être cohérente avec l'issue réelle du match.
-// Note haute (> 5.5) + victoire = confirmé -> on renforce les facteurs qui ont
-// produit cette note. Note haute + défaite = l'algo a surestimé l'impact du
-// joueur -> on atténue ces facteurs. Symétrique pour une note basse (< 4.5) :
-// défaite = confirmé (renforce), victoire = sous-estimé (atténue).
-// Zone neutre 4.5-5.5 : la note ne prend pas vraiment position, aucun ajustement.
-export type MatchResult = "victory" | "defeat";
-
-export function matchResultToDirection(note: number, matchResult: MatchResult): Direction | null {
-  const ratedGood = note > 5.5;
-  const ratedBad = note < 4.5;
-
-  if (!ratedGood && !ratedBad) return null;
-
-  const confirmed = (ratedGood && matchResult === "victory") || (ratedBad && matchResult === "defeat");
-  return confirmed ? "up" : "down";
 }
 
 export function adjustWeightsDirectional(current: RatingWeights, direction: Direction, raw: RawSignals): RatingWeights {
