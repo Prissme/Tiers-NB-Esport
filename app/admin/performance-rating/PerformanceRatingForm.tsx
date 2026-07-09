@@ -21,6 +21,8 @@ const WEIGHT_LABELS: Record<keyof RatingWeights, string> = {
 };
 
 type Breakdown = {
+  kills: number;
+  deaths: number;
   kd: number;
   brawler: string;
   brawlerPriority: 0 | 1 | 2;
@@ -119,13 +121,14 @@ function BrawlerSearchSelect({
   );
 }
 
-// Clampe et arrondit à 1 décimale sur l'échelle 0-10.
-function clampScale(n: number) {
-  return Math.round(Math.max(0, Math.min(10, n)) * 10) / 10;
+// Arrondit à 1 décimale, jamais négatif (mais pas de plafond).
+function roundNonNegative(n: number) {
+  return Math.round(Math.max(0, n) * 10) / 10;
 }
 
 export default function PerformanceRatingForm() {
-  const [kd, setKd] = useState("1.5");
+  const [kills, setKills] = useState("8");
+  const [deaths, setDeaths] = useState("2");
   const [brawler, setBrawler] = useState("");
   const [comp, setComp] = useState<[string, string, string]>(["", "", ""]);
   const [opponentComp, setOpponentComp] = useState<[string, string, string]>(["", "", ""]);
@@ -141,18 +144,25 @@ export default function PerformanceRatingForm() {
   const [directionSent, setDirectionSent] = useState<"up" | "down" | null>(null);
 
   const canSubmit = useMemo(() => {
-    const kdNum = Number(kd);
-    return brawler.trim().length > 0 && Number.isFinite(kdNum) && kdNum >= 0;
-  }, [kd, brawler]);
+    const killsNum = Number(kills);
+    const deathsNum = Number(deaths);
+    return (
+      brawler.trim().length > 0 &&
+      Number.isFinite(killsNum) &&
+      killsNum >= 0 &&
+      Number.isFinite(deathsNum) &&
+      deathsNum >= 0
+    );
+  }, [kills, deaths, brawler]);
 
-  // Dégâts et Soin sont liés : remplir l'un infère automatiquement l'autre (échelle 0-10),
-  // sur le principe qu'un brawler qui tape beaucoup soigne peu, et inversement. Le champ
-  // déduit reste modifiable ensuite si besoin.
+  // Dégâts et Soin sont liés, sans plafond : remplir l'un infère automatiquement l'autre
+  // à une valeur plus basse (30% de la valeur saisie), sur le principe qu'un brawler qui
+  // tape beaucoup soigne peu, et inversement. Le champ déduit reste modifiable ensuite.
   function handleDegatsChange(raw: string) {
     setDegats(raw);
     const n = Number(raw);
     if (raw.trim() !== "" && Number.isFinite(n)) {
-      setSoin(String(clampScale(10 - n)));
+      setSoin(String(roundNonNegative(n * 0.3)));
     }
   }
 
@@ -160,7 +170,7 @@ export default function PerformanceRatingForm() {
     setSoin(raw);
     const n = Number(raw);
     if (raw.trim() !== "" && Number.isFinite(n)) {
-      setDegats(String(clampScale(10 - n)));
+      setDegats(String(roundNonNegative(n * 0.3)));
     }
   }
 
@@ -176,7 +186,8 @@ export default function PerformanceRatingForm() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          kd: Number(kd),
+          kills: Number(kills),
+          deaths: Number(deaths),
           brawler,
           comp: comp.filter(Boolean),
           opponentComp: opponentComp.filter(Boolean),
@@ -224,16 +235,29 @@ export default function PerformanceRatingForm() {
 
   return (
     <div className="space-y-6 max-w-2xl">
-      <div className="space-y-2">
-        <label className="text-sm text-neutral-400">K/D</label>
-        <input
-          type="number"
-          step="0.1"
-          min="0"
-          value={kd}
-          onChange={(e) => setKd(e.target.value)}
-          className="w-full rounded-md border border-neutral-700 bg-neutral-900 px-3 py-2"
-        />
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <label className="text-sm text-neutral-400">Kills</label>
+          <input
+            type="number"
+            step="1"
+            min="0"
+            value={kills}
+            onChange={(e) => setKills(e.target.value)}
+            className="w-full rounded-md border border-neutral-700 bg-neutral-900 px-3 py-2"
+          />
+        </div>
+        <div className="space-y-2">
+          <label className="text-sm text-neutral-400">Morts</label>
+          <input
+            type="number"
+            step="1"
+            min="0"
+            value={deaths}
+            onChange={(e) => setDeaths(e.target.value)}
+            className="w-full rounded-md border border-neutral-700 bg-neutral-900 px-3 py-2"
+          />
+        </div>
       </div>
 
       <div className="space-y-2">
@@ -249,29 +273,27 @@ export default function PerformanceRatingForm() {
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <label className="text-sm text-neutral-400">
-            Dégâts (0-10) <span className="text-neutral-600">— remplir l'un infère l'autre</span>
+            Dégâts <span className="text-neutral-600">— remplir l'un infère l'autre</span>
           </label>
           <input
             type="number"
             step="0.1"
             min="0"
-            max="10"
             value={degats}
             onChange={(e) => handleDegatsChange(e.target.value)}
-            placeholder="Ex: 8"
+            placeholder="Ex: 12000"
             className="w-full rounded-md border border-neutral-700 bg-neutral-900 px-3 py-2"
           />
         </div>
         <div className="space-y-2">
-          <label className="text-sm text-neutral-400">Soin (0-10)</label>
+          <label className="text-sm text-neutral-400">Soin</label>
           <input
             type="number"
             step="0.1"
             min="0"
-            max="10"
             value={soin}
             onChange={(e) => handleSoinChange(e.target.value)}
-            placeholder="Ex: 2"
+            placeholder="Ex: 3000"
             className="w-full rounded-md border border-neutral-700 bg-neutral-900 px-3 py-2"
           />
         </div>
@@ -421,7 +443,7 @@ export default function PerformanceRatingForm() {
             )}
             {(result.breakdown.degats !== null || result.breakdown.soin !== null) && (
               <li>
-                Dégâts {result.breakdown.degats ?? 0}/10 — Soin {result.breakdown.soin ?? 0}/10: fit de rôle (
+                Dégâts {result.breakdown.degats ?? 0} — Soin {result.breakdown.soin ?? 0}: fit de rôle (
                 {result.breakdown.dmgHealFitBonus >= 0 ? "+" : ""}
                 {result.breakdown.dmgHealFitBonus})
               </li>
