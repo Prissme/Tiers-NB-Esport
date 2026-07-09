@@ -45,6 +45,7 @@ export async function POST(request: Request) {
       comp?: string[];
       opponentComp?: string[];
       gameMode?: string;
+      starPlayer?: boolean;
     };
 
     const kd = Number(body.kd);
@@ -58,6 +59,7 @@ export async function POST(request: Request) {
     const gameMode = GAME_MODES.includes(body.gameMode as (typeof GAME_MODES)[number])
       ? (body.gameMode as string)
       : null;
+    const starPlayer = body.starPlayer === true;
 
     if (!Number.isFinite(kd) || kd < 0 || !brawler) {
       return NextResponse.json({ error: "Invalid payload." }, { status: 400 });
@@ -91,6 +93,7 @@ export async function POST(request: Request) {
           trio_synergy_coef: weightsRow.trio_synergy_coef,
           counter_coef: weightsRow.counter_coef,
           mode_fit_bonus: weightsRow.mode_fit_bonus,
+          star_player_bonus: weightsRow.star_player_bonus,
         }
       : DEFAULT_WEIGHTS;
 
@@ -194,13 +197,18 @@ export async function POST(request: Request) {
     const modeFitRaw = getModeFitBonus(brawler, gameMode); // 0 ou 0.3 (référence de forme, pas de valeur)
     const modeFitBonus = modeFitRaw > 0 ? weights.mode_fit_bonus : 0;
 
+    // "Joueur Star" : impact décisif sur l'objectif (ex: hard focus coffre en Braquage)
+    // qui n'est pas capturé par le K/D brut. Bonus fixe indépendant du reste.
+    const starPlayerBonus = starPlayer ? weights.star_player_bonus : 0;
+
     let note =
       5 +
       (kd - 1) * weights.kd_coef * diffMultiplier +
       compPriorityBonus +
       synergyBonus +
       counterBonus +
-      modeFitBonus;
+      modeFitBonus +
+      starPlayerBonus;
     note = Math.max(0, Math.min(10, note));
     note = Math.round(note * 10) / 10;
 
@@ -220,6 +228,8 @@ export async function POST(request: Request) {
       counterBonus: Math.round(counterBonus * 100) / 100,
       gameMode,
       modeFitBonus: Math.round(modeFitBonus * 100) / 100,
+      starPlayer,
+      starPlayerBonus: Math.round(starPlayerBonus * 100) / 100,
     };
 
     // Enregistre ce calcul (entrées + sortie + poids utilisés) pour pouvoir le noter ensuite.
@@ -232,6 +242,7 @@ export async function POST(request: Request) {
         comp,
         opponent_comp: opponentComp,
         game_mode: gameMode,
+        star_player: starPlayer,
         note,
         breakdown,
         weights_snapshot: weights,
