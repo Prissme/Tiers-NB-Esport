@@ -2,8 +2,21 @@
 
 import { useMemo, useState } from "react";
 import { MAP_PRIORITY, GAME_MODES } from "../../lib/brawler-priority";
+import type { RatingWeights } from "../../lib/rating-weights";
 
 const BRAWLER_NAMES = Object.keys(MAP_PRIORITY).sort();
+
+const WEIGHT_LABELS: Record<keyof RatingWeights, string> = {
+  kd_coef: "Poids du K/D",
+  diff_mult_tier2: "Multiplicateur difficulté (tier 2 - top pick)",
+  diff_mult_tier1: "Multiplicateur difficulté (tier 1 - solide)",
+  diff_mult_tier0: "Multiplicateur difficulté (tier 0 - sous-optimal)",
+  comp_bonus_coef: "Poids niveau de comp",
+  pair_synergy_coef: "Poids synergie duo",
+  trio_synergy_coef: "Poids synergie trio",
+  counter_coef: "Poids counter (comp adverse)",
+  mode_fit_bonus: "Bonus fit de mode",
+};
 
 type Breakdown = {
   kd: number;
@@ -25,6 +38,80 @@ type Breakdown = {
 
 type RatingResult = { note: number; computationId: string | null; breakdown: Breakdown };
 
+type WeightChange = { key: keyof RatingWeights; before: number; after: number };
+
+// --- Sélecteur de brawler avec recherche ---
+function BrawlerSearchSelect({
+  value,
+  onChange,
+  placeholder = "Aucun",
+  showPriority = false,
+}: {
+  value: string;
+  onChange: (name: string) => void;
+  placeholder?: string;
+  showPriority?: boolean;
+}) {
+  const [query, setQuery] = useState("");
+  const [open, setOpen] = useState(false);
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return BRAWLER_NAMES;
+    return BRAWLER_NAMES.filter((name) => name.toLowerCase().includes(q));
+  }, [query]);
+
+  return (
+    <div className="relative">
+      <input
+        type="text"
+        value={open ? query : value || ""}
+        placeholder={placeholder}
+        onFocus={() => {
+          setQuery("");
+          setOpen(true);
+        }}
+        onChange={(e) => setQuery(e.target.value)}
+        onBlur={() => window.setTimeout(() => setOpen(false), 120)}
+        className="w-full rounded-md border border-neutral-700 bg-neutral-900 px-3 py-2"
+      />
+      {open && (
+        <div className="absolute z-10 mt-1 max-h-56 w-full overflow-y-auto rounded-md border border-neutral-700 bg-neutral-900 shadow-lg">
+          <button
+            type="button"
+            onMouseDown={() => {
+              onChange("");
+              setQuery("");
+              setOpen(false);
+            }}
+            className="block w-full px-3 py-2 text-left text-sm text-neutral-500 hover:bg-neutral-800"
+          >
+            {placeholder}
+          </button>
+          {filtered.length === 0 && (
+            <p className="px-3 py-2 text-sm text-neutral-500">Aucun brawler trouvé.</p>
+          )}
+          {filtered.map((name) => (
+            <button
+              key={name}
+              type="button"
+              onMouseDown={() => {
+                onChange(name);
+                setQuery("");
+                setOpen(false);
+              }}
+              className="block w-full px-3 py-2 text-left text-sm hover:bg-neutral-800"
+            >
+              {name}
+              {showPriority && <span className="text-neutral-500"> (priorité {MAP_PRIORITY[name]})</span>}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function PerformanceRatingForm() {
   const [kd, setKd] = useState("1.5");
   const [brawler, setBrawler] = useState("");
@@ -36,6 +123,7 @@ export default function PerformanceRatingForm() {
   const [result, setResult] = useState<RatingResult | null>(null);
   const [feedbackStars, setFeedbackStars] = useState<number | null>(null);
   const [feedbackStatus, setFeedbackStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
+  const [weightChanges, setWeightChanges] = useState<WeightChange[] | null>(null);
 
   const canSubmit = useMemo(() => {
     const kdNum = Number(kd);
@@ -48,6 +136,7 @@ export default function PerformanceRatingForm() {
     setResult(null);
     setFeedbackStars(null);
     setFeedbackStatus("idle");
+    setWeightChanges(null);
     try {
       const res = await fetch("/api/admin/performance-rating", {
         method: "POST",
@@ -77,17 +166,20 @@ export default function PerformanceRatingForm() {
     if (!result?.computationId) return;
     setFeedbackStars(stars);
     setFeedbackStatus("sending");
+    setWeightChanges(null);
     try {
       const res = await fetch("/api/admin/performance-rating/feedback", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ computationId: result.computationId, stars }),
       });
+      const json = await res.json();
       if (!res.ok) {
         setFeedbackStatus("error");
         return;
       }
       setFeedbackStatus("sent");
+      setWeightChanges(json.changes ?? []);
     } catch {
       setFeedbackStatus("error");
     }
@@ -109,41 +201,27 @@ export default function PerformanceRatingForm() {
 
       <div className="space-y-2">
         <label className="text-sm text-neutral-400">Brawler joué</label>
-        <select
+        <BrawlerSearchSelect
           value={brawler}
-          onChange={(e) => setBrawler(e.target.value)}
-          className="w-full rounded-md border border-neutral-700 bg-neutral-900 px-3 py-2"
-        >
-          <option value="">Choisir un brawler</option>
-          {BRAWLER_NAMES.map((name) => (
-            <option key={name} value={name}>
-              {name} (priorité {MAP_PRIORITY[name]})
-            </option>
-          ))}
-        </select>
+          onChange={setBrawler}
+          placeholder="Rechercher un brawler..."
+          showPriority
+        />
       </div>
 
       <div className="space-y-2">
         <label className="text-sm text-neutral-400">Composition jouée (jusqu'à 3 brawlers)</label>
         <div className="grid grid-cols-3 gap-2">
           {[0, 1, 2].map((i) => (
-            <select
+            <BrawlerSearchSelect
               key={i}
               value={comp[i]}
-              onChange={(e) => {
+              onChange={(name) => {
                 const next = [...comp] as [string, string, string];
-                next[i] = e.target.value;
+                next[i] = name;
                 setComp(next);
               }}
-              className="rounded-md border border-neutral-700 bg-neutral-900 px-3 py-2"
-            >
-              <option value="">Aucun</option>
-              {BRAWLER_NAMES.map((name) => (
-                <option key={name} value={name}>
-                  {name}
-                </option>
-              ))}
-            </select>
+            />
           ))}
         </div>
       </div>
@@ -168,23 +246,15 @@ export default function PerformanceRatingForm() {
         <label className="text-sm text-neutral-400">Composition adverse (jusqu'à 3 brawlers)</label>
         <div className="grid grid-cols-3 gap-2">
           {[0, 1, 2].map((i) => (
-            <select
+            <BrawlerSearchSelect
               key={i}
               value={opponentComp[i]}
-              onChange={(e) => {
+              onChange={(name) => {
                 const next = [...opponentComp] as [string, string, string];
-                next[i] = e.target.value;
+                next[i] = name;
                 setOpponentComp(next);
               }}
-              className="rounded-md border border-neutral-700 bg-neutral-900 px-3 py-2"
-            >
-              <option value="">Aucun</option>
-              {BRAWLER_NAMES.map((name) => (
-                <option key={name} value={name}>
-                  {name}
-                </option>
-              ))}
-            </select>
+            />
           ))}
         </div>
       </div>
@@ -276,7 +346,29 @@ export default function PerformanceRatingForm() {
               </p>
             )}
             {feedbackStatus === "sent" && (
-              <p className="text-xs text-green-400 mt-1">Merci, les poids ont été ajustés.</p>
+              <div className="mt-2 rounded-md border border-neutral-800 bg-black/30 p-3">
+                <p className="text-xs text-green-400 mb-2">
+                  Merci, feedback enregistré ({feedbackStars} ★). Voici ce que l'algo a modifié :
+                </p>
+                {weightChanges && weightChanges.length > 0 ? (
+                  <ul className="text-xs text-neutral-400 space-y-1 font-mono">
+                    {weightChanges.map((c) => (
+                      <li key={c.key}>
+                        {WEIGHT_LABELS[c.key]}: {c.before} → {c.after}{" "}
+                        <span className={c.after > c.before ? "text-green-400" : "text-red-400"}>
+                          ({c.after > c.before ? "+" : ""}
+                          {Math.round((c.after - c.before) * 1000) / 1000})
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-xs text-neutral-500">
+                    Aucun poids modifié (3 étoiles = jugé correct, ou aucun facteur concerné n'a été utilisé
+                    dans ce calcul).
+                  </p>
+                )}
+              </div>
             )}
             {feedbackStatus === "error" && (
               <p className="text-xs text-red-400 mt-1">Échec de l'enregistrement du feedback.</p>
