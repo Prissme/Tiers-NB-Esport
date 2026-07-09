@@ -2,12 +2,50 @@ import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { createServerClient } from "../../../../../src/lib/supabase/server";
 import { withSchema } from "../../../../../src/lib/supabase/schema";
-import { DEFAULT_WEIGHTS, adjustWeights, type ContributionFlags, type RatingWeights } from "../../../../lib/rating-weights";
+import {
+  DEFAULT_WEIGHTS,
+  adjustWeights,
+  adjustWeightsDirectional,
+  type ContributionFlags,
+  type Direction,
+  type RatingWeights,
+  type RawSignals,
+} from "../../../../lib/rating-weights";
 
 const ADMIN_COOKIE = "admin_session";
 
 function isAdmin() {
   return cookies().get(ADMIN_COOKIE)?.value === "1";
+}
+
+type StoredBreakdown = {
+  brawlerPriority: 0 | 1 | 2;
+  compAvgPriority: number;
+  compPriorityBonus: number;
+  pairSynergy: number;
+  trioSynergy: number;
+  counterEffect: number;
+  modeFitBonus: number;
+  starPlayer: boolean;
+  starPlayerBonus: number;
+  kd: number;
+};
+
+function loadWeights(row: Record<string, number> | null): RatingWeights {
+  return row
+    ? {
+        kd_coef: row.kd_coef,
+        diff_mult_tier2: row.diff_mult_tier2,
+        diff_mult_tier1: row.diff_mult_tier1,
+        diff_mult_tier0: row.diff_mult_tier0,
+        comp_bonus_coef: row.comp_bonus_coef,
+        pair_synergy_coef: row.pair_synergy_coef,
+        trio_synergy_coef: row.trio_synergy_coef,
+        counter_coef: row.counter_coef,
+        mode_fit_bonus: row.mode_fit_bonus,
+        star_player_bonus: row.star_player_bonus,
+      }
+    : DEFAULT_WEIGHTS;
 }
 
 export async function POST(request: Request) {
@@ -16,12 +54,20 @@ export async function POST(request: Request) {
   }
 
   try {
-    const body = (await request.json()) as { computationId?: string; stars?: number };
+    const body = (await request.json()) as {
+      computationId?: string;
+      stars?: number;
+      direction?: Direction;
+    };
     const computationId = String(body.computationId ?? "").trim();
-    const stars = Number(body.stars);
+    const stars = body.stars === undefined ? null : Number(body.stars);
+    const direction = body.direction === "up" || body.direction === "down" ? body.direction : null;
 
-    if (!computationId || !Number.isInteger(stars) || stars < 0 || stars > 5) {
+    if (!computationId || (stars === null && direction === null)) {
       return NextResponse.json({ error: "Invalid payload." }, { status: 400 });
+    }
+    if (stars !== null && (!Number.isInteger(stars) || stars < 0 || stars > 5)) {
+      return NextResponse.json({ error: "Invalid stars." }, { status: 400 });
     }
 
     const supabase = withSchema(createServerClient());
@@ -39,38 +85,17 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Computation not found." }, { status: 404 });
     }
 
-    const { error: updateError } = await supabase
-      .from("performance_rating_computations")
-      .update({ stars, rated_at: new Date().toISOString() })
-      .eq("id", computationId);
-
-    if (updateError) {
-      return NextResponse.json({ error: updateError.message }, { status: 500 });
+    if (stars !== null) {
+      const { error: updateError } = await supabase
+        .from("performance_rating_computations")
+        .update({ stars, rated_at: new Date().toISOString() })
+        .eq("id", computationId);
+      if (updateError) {
+        return NextResponse.json({ error: updateError.message }, { status: 500 });
+      }
     }
 
-    // --- Ajustement en temps réel des poids, uniquement sur les facteurs qui ont
-    // réellement pesé dans CE calcul précis ---
-    const breakdown = computation.breakdown as {
-      brawlerPriority: 0 | 1 | 2;
-      compPriorityBonus: number;
-      pairSynergy: number;
-      trioSynergy: number;
-      counterEffect: number;
-      modeFitBonus: number;
-      starPlayerBonus: number;
-      kd: number;
-    };
-
-    const flags: ContributionFlags = {
-      kdUsed: breakdown.kd !== 1,
-      brawlerPriority: breakdown.brawlerPriority,
-      compBonusUsed: breakdown.compPriorityBonus !== 0,
-      pairSynergyUsed: breakdown.pairSynergy !== 0,
-      trioSynergyUsed: breakdown.trioSynergy !== 0,
-      counterUsed: breakdown.counterEffect !== 0,
-      modeFitUsed: breakdown.modeFitBonus !== 0,
-      starPlayerUsed: (breakdown.starPlayerBonus ?? 0) !== 0,
-    };
+    const breakdown = computation.breakdown as StoredBreakdown;
 
     const { data: weightsRow, error: weightsError } = await supabase
       .from("performance_rating_weights")
@@ -82,22 +107,34 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: weightsError.message }, { status: 500 });
     }
 
-    const currentWeights: RatingWeights = weightsRow
-      ? {
-          kd_coef: weightsRow.kd_coef,
-          diff_mult_tier2: weightsRow.diff_mult_tier2,
-          diff_mult_tier1: weightsRow.diff_mult_tier1,
-          diff_mult_tier0: weightsRow.diff_mult_tier0,
-          comp_bonus_coef: weightsRow.comp_bonus_coef,
-          pair_synergy_coef: weightsRow.pair_synergy_coef,
-          trio_synergy_coef: weightsRow.trio_synergy_coef,
-          counter_coef: weightsRow.counter_coef,
-          mode_fit_bonus: weightsRow.mode_fit_bonus,
-          star_player_bonus: weightsRow.star_player_bonus,
-        }
-      : DEFAULT_WEIGHTS;
+    const currentWeights = loadWeights(weightsRow);
 
-    const nextWeights = adjustWeights(currentWeights, stars, flags);
+    let nextWeights: RatingWeights;
+    if (direction) {
+      const raw: RawSignals = {
+        kdDelta: breakdown.kd - 1,
+        brawlerPriority: breakdown.brawlerPriority,
+        compRaw: breakdown.compAvgPriority - 1,
+        pairSynergyRaw: breakdown.pairSynergy,
+        trioSynergyRaw: breakdown.trioSynergy,
+        counterEffect: breakdown.counterEffect,
+        modeFitRaw: breakdown.modeFitBonus,
+        starPlayer: breakdown.starPlayer,
+      };
+      nextWeights = adjustWeightsDirectional(currentWeights, direction, raw);
+    } else {
+      const flags: ContributionFlags = {
+        kdUsed: breakdown.kd !== 1,
+        brawlerPriority: breakdown.brawlerPriority,
+        compBonusUsed: breakdown.compPriorityBonus !== 0,
+        pairSynergyUsed: breakdown.pairSynergy !== 0,
+        trioSynergyUsed: breakdown.trioSynergy !== 0,
+        counterUsed: breakdown.counterEffect !== 0,
+        modeFitUsed: breakdown.modeFitBonus !== 0,
+        starPlayerUsed: (breakdown.starPlayerBonus ?? 0) !== 0,
+      };
+      nextWeights = adjustWeights(currentWeights, stars as number, flags);
+    }
 
     const { error: upsertError } = await supabase
       .from("performance_rating_weights")
