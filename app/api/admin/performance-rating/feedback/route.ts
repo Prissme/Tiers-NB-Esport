@@ -104,7 +104,15 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: upsertError.message }, { status: 500 });
     }
 
-    return NextResponse.json({ ok: true, weights: nextWeights });
+    const changes = (Object.keys(nextWeights) as (keyof RatingWeights)[])
+      .filter((key) => nextWeights[key] !== currentWeights[key])
+      .map((key) => ({
+        key,
+        before: Math.round(currentWeights[key] * 1000) / 1000,
+        after: Math.round(nextWeights[key] * 1000) / 1000,
+      }));
+
+    return NextResponse.json({ ok: true, weights: nextWeights, changes });
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Unable to save feedback." },
