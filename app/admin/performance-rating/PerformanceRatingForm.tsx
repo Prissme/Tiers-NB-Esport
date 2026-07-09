@@ -130,6 +130,10 @@ export default function PerformanceRatingForm() {
   const [weightChanges, setWeightChanges] = useState<WeightChange[] | null>(null);
   const [directionStatus, setDirectionStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
   const [directionSent, setDirectionSent] = useState<"up" | "down" | null>(null);
+  const [matchResultStatus, setMatchResultStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
+  const [matchResultSent, setMatchResultSent] = useState<"victory" | "defeat" | null>(null);
+  const [matchResultChanges, setMatchResultChanges] = useState<WeightChange[] | null>(null);
+  const [matchResultNeutral, setMatchResultNeutral] = useState(false);
 
   const canSubmit = useMemo(() => {
     const kdNum = Number(kd);
@@ -145,6 +149,10 @@ export default function PerformanceRatingForm() {
     setWeightChanges(null);
     setDirectionStatus("idle");
     setDirectionSent(null);
+    setMatchResultStatus("idle");
+    setMatchResultSent(null);
+    setMatchResultChanges(null);
+    setMatchResultNeutral(false);
     try {
       const res = await fetch("/api/admin/performance-rating", {
         method: "POST",
@@ -214,6 +222,31 @@ export default function PerformanceRatingForm() {
       setWeightChanges(json.changes ?? []);
     } catch {
       setDirectionStatus("error");
+    }
+  }
+
+  async function submitMatchResult(matchResult: "victory" | "defeat") {
+    if (!result?.computationId) return;
+    setMatchResultSent(matchResult);
+    setMatchResultStatus("sending");
+    setMatchResultChanges(null);
+    setMatchResultNeutral(false);
+    try {
+      const res = await fetch("/api/admin/performance-rating/feedback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ computationId: result.computationId, matchResult }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        setMatchResultStatus("error");
+        return;
+      }
+      setMatchResultStatus("sent");
+      setMatchResultChanges(json.changes ?? []);
+      setMatchResultNeutral(Boolean(json.neutralMatchResult));
+    } catch {
+      setMatchResultStatus("error");
     }
   }
 
@@ -384,6 +417,62 @@ export default function PerformanceRatingForm() {
               </li>
             )}
           </ul>
+
+          <div className="pt-2 border-t border-neutral-800">
+            <p className="text-sm text-neutral-400 mb-2">
+              Résultat réel du match ? Ça recale l'algo selon si la note collait au résultat.
+            </p>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                disabled={!result.computationId || matchResultStatus === "sending"}
+                onClick={() => submitMatchResult("victory")}
+                className="flex items-center gap-1 rounded-md border border-neutral-700 px-3 py-2 text-sm disabled:opacity-40"
+                style={matchResultSent === "victory" ? { borderColor: "#4ade80", color: "#4ade80" } : undefined}
+              >
+                🏆 Victoire
+              </button>
+              <button
+                type="button"
+                disabled={!result.computationId || matchResultStatus === "sending"}
+                onClick={() => submitMatchResult("defeat")}
+                className="flex items-center gap-1 rounded-md border border-neutral-700 px-3 py-2 text-sm disabled:opacity-40"
+                style={matchResultSent === "defeat" ? { borderColor: "#f87171", color: "#f87171" } : undefined}
+              >
+                💀 Défaite
+              </button>
+            </div>
+            {matchResultStatus === "sent" && matchResultNeutral && (
+              <p className="text-xs text-neutral-500 mt-2">
+                Note trop proche de 5/10 pour trancher : aucun poids modifié.
+              </p>
+            )}
+            {matchResultStatus === "sent" && !matchResultNeutral && (
+              <div className="mt-2 rounded-md border border-neutral-800 bg-black/30 p-3">
+                <p className="text-xs text-green-400 mb-2">
+                  {matchResultSent === "victory" ? "Victoire" : "Défaite"} enregistrée. Poids ajustés :
+                </p>
+                {matchResultChanges && matchResultChanges.length > 0 ? (
+                  <ul className="text-xs text-neutral-400 space-y-1 font-mono">
+                    {matchResultChanges.map((c) => (
+                      <li key={c.key}>
+                        {WEIGHT_LABELS[c.key]}: {c.before} → {c.after}{" "}
+                        <span className={c.after > c.before ? "text-green-400" : "text-red-400"}>
+                          ({c.after > c.before ? "+" : ""}
+                          {Math.round((c.after - c.before) * 1000) / 1000})
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-xs text-neutral-500">Aucun facteur concerné dans ce calcul.</p>
+                )}
+              </div>
+            )}
+            {matchResultStatus === "error" && (
+              <p className="text-xs text-red-400 mt-1">Échec de l'enregistrement du résultat.</p>
+            )}
+          </div>
 
           <div className="pt-2 border-t border-neutral-800">
             <p className="text-sm text-neutral-400 mb-2">Cette note était trop basse ou trop haute ?</p>
