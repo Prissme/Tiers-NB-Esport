@@ -60,7 +60,12 @@ const MAP_PRIORITY = {
   Trunk: 0, Hank: 0, Frank: 0
 };
 
-const COUNTER_BY_USER_PICK = {
+// FALLBACK_COUNTERS = table de secours (cold start) utilisée UNIQUEMENT quand on n'a pas
+// encore assez de vrais résultats de matchs pour un brawler donné (cf. REAL_RESULTS_CACHE
+// et getLearnedCounters plus bas). Dès que suffisamment de matchs réels sont reportés via
+// !draft resultat / les boutons "Vrai résultat", ces données codées en dur sont ignorées
+// au profit des counters observés en jeu.
+const FALLBACK_COUNTERS = {
   Bull: ['Shelly', 'Spike', 'Edgar'],
   Rosa: ['Shelly', 'Spike'],
   'El Primo': ['Shelly', 'Spike'],
@@ -160,9 +165,131 @@ let COMMUNITY_DRAFTS_CACHE = { byMap: new Map(), global: { trios: new Map(), pai
 
 const MIN_SAMPLES = { pairs: 2, trios: 3 };
 
+// =========================================================================
+// APPRENTISSAGE CONTINU BASÉ SUR LES VRAIS RÉSULTATS DE MATCHS
+// =========================================================================
+// Contrairement à COMMUNITY_DRAFTS_CACHE (basé sur des votes/opinions "j'aime / j'aime pas"),
+// REAL_RESULTS_CACHE est construit à partir des victoires/défaites RÉELLEMENT reportées par
+// les joueurs après avoir joué la partie (table draft_matches, colonne real_winner).
+// C'est une source de vérité plus fiable : on lui fait donc plus confiance (seuils
+// d'échantillons plus bas, bonus plus marqués) et elle prime sur les votes communautaires,
+// qui priment eux-mêmes sur les tables codées en dur (FALLBACK_COUNTERS / trios manuels),
+// qui ne servent plus que de "cold start" tant qu'on manque de données réelles.
+let REAL_RESULTS_CACHE = {
+  byMap: new Map(),
+  global: { trios: new Map(), pairs: new Map(), counters: new Map() }
+};
+
+const MIN_SAMPLES_REAL = { pairs: 2, trios: 2, counters: 2 };
+
+// Recharge REAL_RESULTS_CACHE depuis Supabase à partir des drafts dont le résultat réel
+// (real_winner) a été reporté par un joueur. Pour chaque match :
+//  - les brawlers du camp GAGNANT forment des paires/trios "positifs"
+//  - les brawlers du camp PERDANT forment des paires/trios "négatifs"
+//  - pour chaque brawler gagnant W face à un brawler perdant L, on incrémente la stat de
+//    counter W->L (W a battu L dans ce contexte), ce qui remplace petit à petit
+//    FALLBACK_COUNTERS par de la donnée observée en jeu.
+async function refreshRealResultsCache(supabaseClient) {
+  if (!supabaseClient) return;
+  try {
+    const { data, error } = await supabaseClient
+      .from('draft_matches')
+      .select('user_picks, ai_picks, map_mode, map_name, real_winner')
+      .not('real_winner', 'is', null)
+      .neq('real_winner', 'draw');
+    if (error) throw error;
+
+    const byMap = new Map();
+    const global = { trios: new Map(), pairs: new Map(), counters: new Map() };
+
+    const ensureMapBucket = (mapKey) => {
+      if (!byMap.has(mapKey)) byMap.set(mapKey, { trios: new Map(), pairs: new Map(), counters: new Map() });
+      return byMap.get(mapKey);
+    };
+    const bump = (bucket, kind, key, isWin) => {
+      const current = bucket[kind].get(key) || { up: 0, down: 0, total: 0 };
+      if (isWin) current.up += 1; else current.down += 1;
+      current.total += 1;
+      bucket[kind].set(key, current);
+    };
+
+    for (const row of (data || [])) {
+      const winnerPicks = row.real_winner === 'user' ? (row.user_picks || []) : (row.ai_picks || []);
+      const loserPicks = row.real_winner === 'user' ? (row.ai_picks || []) : (row.user_picks || []);
+      if (winnerPicks.length < 2) continue;
+
+      const mapKey = buildMapKey(row.map_mode, row.map_name);
+      const mapBucket = ensureMapBucket(mapKey);
+
+      // Paires côté gagnant = paires "positives", côté perdant = paires "négatives"
+      for (let i = 0; i < winnerPicks.length; i++) {
+        for (let j = i + 1; j < winnerPicks.length; j++) {
+          const sorted = [winnerPicks[i], winnerPicks[j]].sort();
+          const key = `${sorted[0]}_${sorted[1]}`;
+          bump(mapBucket, 'pairs', key, true);
+          bump(global, 'pairs', key, true);
+        }
+      }
+      for (let i = 0; i < loserPicks.length; i++) {
+        for (let j = i + 1; j < loserPicks.length; j++) {
+          const sorted = [loserPicks[i], loserPicks[j]].sort();
+          const key = `${sorted[0]}_${sorted[1]}`;
+          bump(mapBucket, 'pairs', key, false);
+          bump(global, 'pairs', key, false);
+        }
+      }
+
+      // Trios stricts (uniquement si le camp a bien 3 picks)
+      if (winnerPicks.length === 3) {
+        const sorted = [...winnerPicks].sort();
+        const key = `${sorted[0]}_${sorted[1]}_${sorted[2]}`;
+        bump(mapBucket, 'trios', key, true);
+        bump(global, 'trios', key, true);
+      }
+      if (loserPicks.length === 3) {
+        const sorted = [...loserPicks].sort();
+        const key = `${sorted[0]}_${sorted[1]}_${sorted[2]}`;
+        bump(mapBucket, 'trios', key, false);
+        bump(global, 'trios', key, false);
+      }
+
+      // Counters : chaque brawler gagnant W vs chaque brawler perdant L de ce match
+      for (const w of winnerPicks) {
+        for (const l of loserPicks) {
+          if (w === l) continue;
+          const key = `${w}->${l}`;
+          bump(mapBucket, 'counters', key, true);
+          bump(global, 'counters', key, true);
+          // La relation inverse (L a affronté W et a perdu) compte comme un échantillon
+          // négatif pour "L counter W", sans quoi seule la moitié du signal serait captée.
+          const reverseKey = `${l}->${w}`;
+          bump(mapBucket, 'counters', reverseKey, false);
+          bump(global, 'counters', reverseKey, false);
+        }
+      }
+    }
+
+    REAL_RESULTS_CACHE = { byMap, global };
+    console.log(`[Draft AI] Apprentissage réel synchronisé : ${byMap.size} maps, ${global.trios.size} trios et ${global.pairs.size} paires basés sur des vrais résultats de matchs.`);
+  } catch (err) {
+    console.error("[Draft AI] Erreur de synchronisation du cache de résultats réels:", err);
+  }
+}
+
 // Cherche d'abord la stat sur la map précise (si assez d'échantillons), sinon retombe sur
-// l'agrégat global toutes maps confondues. Retourne aussi la "source" pour debug/monitoring.
+// l'agrégat global toutes maps confondues. Priorité : résultats réels > votes communautaires.
+// Retourne aussi la "source" pour debug/monitoring.
 function getSynergyStat(kind, key, mapKey) {
+  const realMapBucket = mapKey ? REAL_RESULTS_CACHE.byMap.get(mapKey) : null;
+  const realMapStat = realMapBucket ? realMapBucket[kind].get(key) : null;
+  if (realMapStat && realMapStat.total >= MIN_SAMPLES_REAL[kind]) {
+    return { stat: realMapStat, source: 'real_map' };
+  }
+  const realGlobalStat = REAL_RESULTS_CACHE.global[kind].get(key);
+  if (realGlobalStat && realGlobalStat.total >= MIN_SAMPLES_REAL[kind]) {
+    return { stat: realGlobalStat, source: 'real_global' };
+  }
+
   const mapBucket = mapKey ? COMMUNITY_DRAFTS_CACHE.byMap.get(mapKey) : null;
   const mapStat = mapBucket ? mapBucket[kind].get(key) : null;
   if (mapStat && mapStat.total >= MIN_SAMPLES[kind]) {
@@ -173,6 +300,66 @@ function getSynergyStat(kind, key, mapKey) {
     return { stat: globalStat, source: 'global' };
   }
   return null;
+}
+
+// Renvoie la liste des brawlers qui contrent réellement `brawler`, triés du plus fiable
+// au moins fiable, en se basant sur REAL_RESULTS_CACHE.counters ; si aucun échantillon
+// suffisant n'existe encore, on retombe sur FALLBACK_COUNTERS (table codée en dur).
+function getLearnedCounters(brawler, mapKey) {
+  const results = [];
+  const seen = new Set();
+
+  const collect = (bucket) => {
+    if (!bucket) return;
+    for (const [key, stat] of bucket.counters.entries()) {
+      const [w, l] = key.split('->');
+      if (l !== brawler || seen.has(w)) continue;
+      if (stat.total < MIN_SAMPLES_REAL.counters) continue;
+      const ratio = stat.up / stat.total;
+      if (ratio >= 0.55) {
+        results.push({ brawler: w, ratio, samples: stat.total });
+        seen.add(w);
+      }
+    }
+  };
+
+  const mapBucket = mapKey ? REAL_RESULTS_CACHE.byMap.get(mapKey) : null;
+  collect(mapBucket);
+  collect(REAL_RESULTS_CACHE.global);
+
+  if (results.length > 0) {
+    return results.sort((a, b) => b.ratio - a.ratio).map((r) => r.brawler);
+  }
+
+  // Cold start : pas encore assez de vrais résultats pour ce brawler → table de secours.
+  return FALLBACK_COUNTERS[brawler] || [];
+}
+
+// Bonus/malus de score à appliquer quand `candidate` fait suite à `lastUserPick`, basé en
+// priorité sur les vrais résultats observés (ratio de victoires précis), et sur un bonus
+// fixe de secours si on ne dispose pas encore d'assez de données réelles.
+function getCounterBonus(lastUserPick, candidate, mapKey) {
+  if (!lastUserPick) return 0;
+
+  const key = `${candidate}->${lastUserPick}`;
+  const mapBucket = mapKey ? REAL_RESULTS_CACHE.byMap.get(mapKey) : null;
+  const mapStat = mapBucket ? mapBucket.counters.get(key) : null;
+  if (mapStat && mapStat.total >= MIN_SAMPLES_REAL.counters) {
+    const ratio = mapStat.up / mapStat.total;
+    if (ratio >= 0.55) return 1.5 + ratio; // jusqu'à ~2.5 pour un counter quasi systématique
+    if (ratio <= 0.45) return -1.0;
+  } else {
+    const globalStat = REAL_RESULTS_CACHE.global.counters.get(key);
+    if (globalStat && globalStat.total >= MIN_SAMPLES_REAL.counters) {
+      const ratio = globalStat.up / globalStat.total;
+      if (ratio >= 0.55) return 1.5 + ratio;
+      if (ratio <= 0.45) return -1.0;
+    }
+  }
+
+  // Cold start : table de secours codée en dur.
+  if ((FALLBACK_COUNTERS[lastUserPick] || []).includes(candidate)) return 2.5;
+  return 0;
 }
 
 const NAME_LOOKUP = ALL.reduce((acc, name) => { acc.set(normalizeName(name), name); return acc; }, new Map());
@@ -278,6 +465,62 @@ function metaHpBonusOf(brawler) {
   return 0.3;
 }
 
+// FALLBACK_TRIOS = table de secours (cold start), utilisée uniquement tant qu'aucun vrai
+// résultat de match / vote communautaire suffisant n'existe pour le trio en question
+// (cf. boucle dans evaluateDraft). Ce sont les anciens bonus/malus "TRIOS HISTORIQUES
+// MANUELS", conservés comme point de départ raisonnable avant que l'apprentissage réel
+// prenne le relais.
+const FALLBACK_TRIOS = [
+  { trio: ['Kit', 'Bull', 'Najia'], bonus: 2.0 },
+  { trio: ['Glowy', 'Shade', 'Alli'], bonus: -1.5 },
+  { trio: ['Gray', 'Damian', 'Sirius'], bonus: 2.0 },
+  { trio: ['Kit', 'Colette', 'Ziggy'], bonus: -1.5 },
+  { trio: ['Shelly', 'Dynamike', 'Bo'], bonus: 2.0 },
+  { trio: ['Byron', 'Berry', 'Kenji'], bonus: -1.8 },
+  { trio: ['Crow', 'Chester', 'Meeple'], bonus: 2.0 },
+  { trio: ['Otis', 'Stu', 'Colette'], bonus: -1.5 },
+  { trio: ['Glowy', 'Gene', 'Chester'], bonus: 2.0 },
+  { trio: ['Bolt', 'Byron', 'Ruffs'], bonus: -1.5 },
+  { trio: ['Moe', 'Finx', 'Sirius'], bonus: 2.0 },
+  { trio: ['Colette', 'Brock', 'Griff'], bonus: -1.5 },
+  { trio: ['Angelo', 'Pierce', 'Mina'], bonus: 2.2 },
+  { trio: ['Byron', 'Pearl', 'Brock'], bonus: -1.5 },
+  { trio: ['Edgar', 'Crow', 'Chester'], bonus: 2.5 },
+  { trio: ['Mina', 'Stu', 'Meeple'], bonus: -1.5 },
+  { trio: ['Bolt', 'Penny', 'Crow'], bonus: 2.5 },
+  { trio: ['Pierce', 'Lou', 'Chester'], bonus: -1.5 },
+  { trio: ['Charlie', 'Leon', 'Angelo'], bonus: 2.2 },
+  { trio: ['Gene', 'Mortis', 'Belle'], bonus: -1.5 },
+  { trio: ['Edgar', 'Colette', 'Surge'], bonus: 2.7 },
+  { trio: ['Dynamike', 'Frank', 'Fang'], bonus: -1.5 },
+  { trio: ['Ash', 'Moe', 'Najia'], bonus: 2.8 },
+  { trio: ['Colette', 'Chester', 'Lily'], bonus: -1.5 },
+  { trio: ['Ash', 'Ruffs', 'Otis'], bonus: 2.9 },
+  { trio: ['Chester', 'Amber', 'Finx'], bonus: -1.5 },
+  { trio: ['Kenji', 'Crow', 'Otis'], bonus: 2.8 },
+  { trio: ['Pearl', 'Chester', 'Alli'], bonus: -1.5 },
+  { trio: ['Shade', 'Lumi', 'Colette'], bonus: 2.6 },
+  { trio: ['Ash', 'Poco', 'Chester'], bonus: -1.5 },
+  { trio: ['Ash', 'Griff', 'Chester'], bonus: 2.7 },
+  { trio: ['Edgar', 'Colette', 'Meeple'], bonus: -1.5 },
+  { trio: ['Chester', 'Shade', 'Pierce'], bonus: 2.6 },
+  { trio: ['Colette', 'Meeple', 'Ruffs'], bonus: -1.5 },
+  { trio: ['Nova', 'Crow', 'Leon'], bonus: 2.8 },
+  { trio: ['Edgar', 'Bo', 'Meg'], bonus: -1.5 },
+  { trio: ['Kenji', 'Colette', 'Chester'], bonus: 2.6 },
+  { trio: ['Moe', 'Bo', 'Leon'], bonus: -1.5 },
+  { trio: ['Najia', 'Emz', 'Edgar'], bonus: 2.7 },
+  { trio: ['Chester', 'Meeple', 'Pierce'], bonus: -1.5 },
+  { trio: ['Moe', 'Crow', 'Finx'], bonus: 2.7 },
+  { trio: ['Najia', 'Emz', 'Chester'], bonus: -1.5 },
+  { trio: ['Sam', 'Nova', 'Crow'], bonus: 2.8 },
+  { trio: ['Sirius', 'Najia', 'Mortis'], bonus: -1.5 },
+  { trio: ['Chester', 'Najia', 'Kenji'], bonus: 2.6 },
+  { trio: ['Colette', 'Mortis', 'Squeak'], bonus: -1.5 },
+  { trio: ['Clancy', 'Gale', 'Byron'], bonus: 2.9 },
+  { trio: ['Edgar', 'Berry', 'Charlie'], bonus: -1.5 }
+];
+
 // =========================================================================
 // ÉVALUATION DE LA STRATÉGIE
 // =========================================================================
@@ -291,55 +534,19 @@ function evaluateDraft(picks, metaProfile = META_DEFAULT, mapKey = null) {
 
   const has = (x) => picks.includes(x);
 
-  // --- TRIOS HISTORIQUES MANUELS ---
-  if (has('Kit') && has('Bull') && has('Najia')) score += 2.0;
-  if (has('Glowy') && has('Shade') && has('Alli')) score -= cfg.defeatCompositionPenalty;
-  if (has('Gray') && has('Damian') && has('Sirius')) score += 2.0;
-  if (has('Kit') && has('Colette') && has('Ziggy')) score -= cfg.defeatCompositionPenalty;
-  if (has('Shelly') && has('Dynamike') && has('Bo')) score += 2.0;
-  if (has('Byron') && has('Berry') && has('Kenji')) score -= 1.8;
-  if (has('Crow') && has('Chester') && has('Meeple')) score += 2.0;
-  if (has('Otis') && has('Stu') && has('Colette')) score -= cfg.defeatCompositionPenalty;
-  if (has('Glowy') && has('Gene') && has('Chester')) score += 2.0;
-  if (has('Bolt') && has('Byron') && has('Ruffs')) score -= cfg.defeatCompositionPenalty;
-  if (has('Moe') && has('Finx') && has('Sirius')) score += 2.0;
-  if (has('Colette') && has('Brock') && has('Griff')) score -= cfg.defeatCompositionPenalty;
-  if (has('Angelo') && has('Pierce') && has('Mina')) score += 2.2;
-  if (has('Byron') && has('Pearl') && has('Brock')) score -= cfg.defeatCompositionPenalty;
-  if (has('Edgar') && has('Crow') && has('Chester')) score += 2.5;
-  if (has('Mina') && has('Stu') && has('Meeple')) score -= cfg.defeatCompositionPenalty;
-  if (has('Bolt') && has('Penny') && has('Crow')) score += 2.5;
-  if (has('Pierce') && has('Lou') && has('Chester')) score -= cfg.defeatCompositionPenalty;
-  if (has('Charlie') && has('Leon') && has('Angelo')) score += 2.2;
-  if (has('Gene') && has('Mortis') && has('Belle')) score -= cfg.defeatCompositionPenalty;
-  if (has('Edgar') && has('Colette') && has('Surge')) score += 2.7;
-  if (has('Dynamike') && has('Frank') && has('Fang')) score -= cfg.defeatCompositionPenalty;
-  if (has('Ash') && has('Moe') && has('Najia')) score += 2.8;
-  if (has('Colette') && has('Chester') && has('Lily')) score -= cfg.defeatCompositionPenalty;
-  if (has('Ash') && has('Ruffs') && has('Otis')) score += 2.9;
-  if (has('Chester') && has('Amber') && has('Finx')) score -= cfg.defeatCompositionPenalty;
-  if (has('Kenji') && has('Crow') && has('Otis')) score += 2.8;
-  if (has('Pearl') && has('Chester') && has('Alli')) score -= cfg.defeatCompositionPenalty;
-  if (has('Shade') && has('Lumi') && has('Colette')) score += 2.6;
-  if (has('Ash') && has('Poco') && has('Chester')) score -= cfg.defeatCompositionPenalty;
-  if (has('Ash') && has('Griff') && has('Chester')) score += 2.7;
-  if (has('Edgar') && has('Colette') && has('Meeple')) score -= cfg.defeatCompositionPenalty;
-  if (has('Chester') && has('Shade') && has('Pierce')) score += 2.6;
-  if (has('Colette') && has('Meeple') && has('Ruffs')) score -= cfg.defeatCompositionPenalty;
-  if (has('Nova') && has('Crow') && has('Leon')) score += 2.8;
-  if (has('Edgar') && has('Bo') && has('Meg')) score -= cfg.defeatCompositionPenalty;
-  if (has('Kenji') && has('Colette') && has('Chester')) score += 2.6;
-  if (has('Moe') && has('Bo') && has('Leon')) score -= cfg.defeatCompositionPenalty;
-  if (has('Najia') && has('Emz') && has('Edgar')) score += 2.7;
-  if (has('Chester') && has('Meeple') && has('Pierce')) score -= cfg.defeatCompositionPenalty;
-  if (has('Moe') && has('Crow') && has('Finx')) score += 2.7;
-  if (has('Najia') && has('Emz') && has('Chester')) score -= cfg.defeatCompositionPenalty;
-  if (has('Sam') && has('Nova') && has('Crow')) score += 2.8;
-  if (has('Sirius') && has('Najia') && has('Mortis')) score -= cfg.defeatCompositionPenalty;
-  if (has('Chester') && has('Najia') && has('Kenji')) score += 2.6;
-  if (has('Colette') && has('Mortis') && has('Squeak')) score -= cfg.defeatCompositionPenalty;
-  if (has('Clancy') && has('Gale') && has('Byron')) score += 2.9;
-  if (has('Edgar') && has('Berry') && has('Charlie')) score -= cfg.defeatCompositionPenalty;
+  // --- TRIOS : apprentissage réel > votes communautaires > table de secours ---
+  // FALLBACK_TRIOS n'est appliquée QUE si aucune donnée réelle/communautaire suffisante
+  // n'existe encore pour ce trio précis (cf. getSynergyStat plus bas, qui a déjà la
+  // priorité et vérifie exactement les mêmes clés). Ainsi, dès que des vrais résultats de
+  // matchs s'accumulent pour un trio donné, le bonus codé en dur est automatiquement
+  // remplacé par le ratio de victoires observé.
+  for (const { trio, bonus } of FALLBACK_TRIOS) {
+    if (!trio.every(has)) continue;
+    const sorted = [...trio].sort();
+    const trioKey = `${sorted[0]}_${sorted[1]}_${sorted[2]}`;
+    if (getSynergyStat('trios', trioKey, mapKey)) continue; // déjà couvert par de la vraie donnée
+    score += bonus;
+  }
 
   // --- CONNECTIVITÉ SUPABASE EN TEMPS RÉEL (DYNAMIC SYNERGIES) ---
   // Priorité aux stats de la map précise ; repli automatique sur le global toutes maps
@@ -408,9 +615,7 @@ function pickAI({ available, lastUserPick, aiPicks = [], userPicks = [], metaPro
     let currentAiPicks = [...aiPicks, candidate];
     let aiScore = evaluateDraft(currentAiPicks, metaProfile, mapKey);
 
-    if (lastUserPick && (COUNTER_BY_USER_PICK[lastUserPick] || []).includes(candidate)) {
-      aiScore += 2.5;
-    }
+    aiScore += getCounterBonus(lastUserPick, candidate, mapKey);
 
     if (currentAiPicks.length < 3) {
       const remaining = available.filter(b => b !== candidate && !aiPicks.includes(b));
@@ -473,7 +678,7 @@ function computeAIBans(metaProfile, bannedByUser, firstPick = 'USER', mapKey = n
     // Collecter tous les counters potentiels des top picks IA
     const counterSet = new Set();
     for (const pick of topAIPicks) {
-      for (const counter of (COUNTER_BY_USER_PICK[pick] || [])) {
+      for (const counter of getLearnedCounters(pick, mapKey)) {
         if (candidates.includes(counter)) counterSet.add(counter);
       }
     }
@@ -612,7 +817,7 @@ function buildVictoryArguments(session) {
 
   for (const lp of loserPicks) {
     for (const wp of winnerPicks) {
-      if ((COUNTER_BY_USER_PICK[lp] || []).includes(wp)) add(1.5, `${wp} neutralise mécaniquement le gameplay de ${lp}.`);
+      if (getLearnedCounters(lp, session.mapKey).includes(wp)) add(1.5, `${wp} neutralise mécaniquement le gameplay de ${lp}.`);
     }
   }
 
@@ -623,5 +828,39 @@ module.exports = {
   ALL, META_DEFAULT, TURN, resolveBrawler, findBrawlerInText, createSession,
   getAIBans, getAvailable, getTurn, isDraftDone, applyUserBan, applyUserPick,
   runAiPicks, summarizeResult, estimateWinChance, buildVictoryArguments, refreshCommunityDraftsCache,
-  buildMapKey
+  refreshRealResultsCache, buildMapKey, getLearnedCounters,
+  // Utilitaire pour l'embed /counters : renvoie les duos (map ou global) impliquant un
+  // brawler donné, en priorisant les vrais résultats de matchs sur les votes communautaires.
+  getPartnerStats(brawler, mapKey = null) {
+    const collect = (bucket, source) => {
+      const out = [];
+      if (!bucket) return out;
+      for (const [key, stat] of bucket.pairs.entries()) {
+        const [a, b] = key.split('_');
+        if (a !== brawler && b !== brawler) continue;
+        const minSamples = source.startsWith('real') ? MIN_SAMPLES_REAL.pairs : MIN_SAMPLES.pairs;
+        if (stat.total < minSamples) continue;
+        out.push({ partner: a === brawler ? b : a, ratio: stat.up / stat.total, samples: stat.total, source });
+      }
+      return out;
+    };
+
+    const realMapBucket = mapKey ? REAL_RESULTS_CACHE.byMap.get(mapKey) : null;
+    const results = [
+      ...collect(realMapBucket, 'real_map'),
+      ...collect(REAL_RESULTS_CACHE.global, 'real_global'),
+      ...collect(mapKey ? COMMUNITY_DRAFTS_CACHE.byMap.get(mapKey) : null, 'community_map'),
+      ...collect(COMMUNITY_DRAFTS_CACHE.global, 'community_global')
+    ];
+
+    // Dédoublonne en gardant la meilleure source par partenaire (real > community).
+    const bestByPartner = new Map();
+    for (const r of results) {
+      const existing = bestByPartner.get(r.partner);
+      if (!existing || r.source.startsWith('real') && !existing.source.startsWith('real')) {
+        bestByPartner.set(r.partner, r);
+      }
+    }
+    return [...bestByPartner.values()].sort((a, b) => b.ratio - a.ratio);
+  }
 };
