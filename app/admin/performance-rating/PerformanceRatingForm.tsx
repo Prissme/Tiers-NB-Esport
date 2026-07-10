@@ -45,6 +45,7 @@ type Breakdown = {
   degats: number | null;
   soin: number | null;
   dmgHealFitBonus: number;
+  victory: boolean | null;
 };
 
 type RatingResult = { note: number; computationId: string | null; breakdown: Breakdown };
@@ -130,10 +131,9 @@ export default function PerformanceRatingForm() {
   const [comp, setComp] = useState<[string, string, string]>(["", "", ""]);
   const [opponentComp, setOpponentComp] = useState<[string, string, string]>(["", "", ""]);
   const [gameMode, setGameMode] = useState("");
-  // Nom précis de la map (ex: "Hard Rock Mine"). gameMode sert déjà de "mode" pour le calcul
-  // par map (buildMapKey(mode, name)) côté API — pas besoin d'un champ dupliqué.
   const [mapName, setMapName] = useState("");
   const [starPlayer, setStarPlayer] = useState(false);
+  const [victory, setVictory] = useState<boolean | null>(null);
   const [degats, setDegats] = useState("");
   const [soin, setSoin] = useState("");
   const [loading, setLoading] = useState(false);
@@ -155,9 +155,6 @@ export default function PerformanceRatingForm() {
     );
   }, [kills, deaths, brawler]);
 
-  // Dégâts et Soin sont liés, mais sans valeur devinée : remplir l'un ne calcule PAS l'autre.
-  // On sait juste que le champ non rempli est inférieur à celui rempli (valeur inconnue),
-  // donc on l'indique en placeholder ("< X") sans jamais y mettre de faux chiffre.
   function handleDegatsChange(raw: string) {
     setDegats(raw);
   }
@@ -187,6 +184,7 @@ export default function PerformanceRatingForm() {
           mapMode: gameMode || null,
           mapName: mapName.trim() || null,
           starPlayer,
+          victory,
           degats: degats.trim() === "" ? null : Number(degats),
           soin: soin.trim() === "" ? null : Number(soin),
         }),
@@ -267,7 +265,7 @@ export default function PerformanceRatingForm() {
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <label className="text-sm text-neutral-400">
-            Dégâts <span className="text-neutral-600">— inconnu si vide, mais inférieur au Soin rempli</span>
+            Dégâts <span className="text-neutral-600">— inconnu si vide</span>
           </label>
           <input
             type="number"
@@ -328,7 +326,10 @@ export default function PerformanceRatingForm() {
 
       <div className="space-y-2">
         <label className="text-sm text-neutral-400">
-          Nom de la map <span className="text-neutral-600">— optionnel, affine les synergies avec les données de cette map précise</span>
+          Nom de la map{" "}
+          <span className="text-neutral-600">
+            — optionnel, affine les synergies avec les données de cette map précise
+          </span>
         </label>
         <input
           type="text"
@@ -358,14 +359,19 @@ export default function PerformanceRatingForm() {
 
       <div className="space-y-2">
         <label className="text-sm text-neutral-400">
-          Joueur Star ? <span className="text-neutral-600">(impact décisif sur l'objectif malgré un K/D faible — ex: hard focus coffre en Braquage)</span>
+          Joueur Star ?{" "}
+          <span className="text-neutral-600">
+            (impact décisif sur l'objectif malgré un K/D faible — ex: hard focus coffre en Braquage)
+          </span>
         </label>
         <div className="flex gap-2">
           <button
             type="button"
             onClick={() => setStarPlayer(true)}
             className={`rounded-md px-4 py-2 text-sm font-medium border ${
-              starPlayer ? "bg-yellow-500 text-black border-yellow-500" : "border-neutral-700 text-neutral-300"
+              starPlayer
+                ? "bg-yellow-500 text-black border-yellow-500"
+                : "border-neutral-700 text-neutral-300"
             }`}
           >
             Oui
@@ -374,11 +380,56 @@ export default function PerformanceRatingForm() {
             type="button"
             onClick={() => setStarPlayer(false)}
             className={`rounded-md px-4 py-2 text-sm font-medium border ${
-              !starPlayer ? "bg-neutral-700 text-white border-neutral-700" : "border-neutral-700 text-neutral-300"
+              !starPlayer
+                ? "bg-neutral-700 text-white border-neutral-700"
+                : "border-neutral-700 text-neutral-300"
             }`}
           >
             Non
           </button>
+        </div>
+      </div>
+
+      {/* Résultat du match — signal primaire pour le learning sur les synergies/counter */}
+      <div className="space-y-2">
+        <label className="text-sm text-neutral-400">
+          Résultat du match{" "}
+          <span className="text-neutral-600">
+            — signal principal pour affiner les synergies et counters
+          </span>
+        </label>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => setVictory(true)}
+            className={`rounded-md px-4 py-2 text-sm font-medium border transition-colors ${
+              victory === true
+                ? "bg-green-500 text-black border-green-500"
+                : "border-neutral-700 text-neutral-300 hover:border-green-700"
+            }`}
+          >
+            🏆 Victoire
+          </button>
+          <button
+            type="button"
+            onClick={() => setVictory(false)}
+            className={`rounded-md px-4 py-2 text-sm font-medium border transition-colors ${
+              victory === false
+                ? "bg-red-500 text-white border-red-500"
+                : "border-neutral-700 text-neutral-300 hover:border-red-700"
+            }`}
+          >
+            💀 Défaite
+          </button>
+          {victory !== null && (
+            <button
+              type="button"
+              onClick={() => setVictory(null)}
+              className="rounded-md px-3 py-2 text-sm font-medium border border-neutral-700 text-neutral-500 hover:text-neutral-300"
+            >
+              ✕
+            </button>
+          )}
         </div>
       </div>
 
@@ -395,7 +446,21 @@ export default function PerformanceRatingForm() {
 
       {result && (
         <div className="rounded-lg border border-neutral-700 bg-neutral-900 p-4 space-y-3">
-          <p className="text-3xl font-semibold">{result.note.toFixed(1)}/10</p>
+          {/* Note + résultat du match */}
+          <div className="flex items-center gap-3">
+            <p className="text-3xl font-semibold">{result.note.toFixed(1)}/10</p>
+            {result.breakdown.victory === true && (
+              <span className="rounded-md bg-green-500/20 text-green-400 border border-green-500/30 px-2 py-0.5 text-sm font-medium">
+                🏆 Victoire
+              </span>
+            )}
+            {result.breakdown.victory === false && (
+              <span className="rounded-md bg-red-500/20 text-red-400 border border-red-500/30 px-2 py-0.5 text-sm font-medium">
+                💀 Défaite
+              </span>
+            )}
+          </div>
+
           <ul className="text-sm text-neutral-400 space-y-1">
             <li>
               {result.breakdown.brawler} — priorité draft {result.breakdown.brawlerPriority} → multiplicateur{" "}
@@ -423,7 +488,9 @@ export default function PerformanceRatingForm() {
                 {result.breakdown.trioDetail.effect >= 0 ? "+" : ""}
                 {result.breakdown.trioDetail.effect}) —{" "}
                 <span className="text-neutral-500">
-                  {result.breakdown.trioDetail.source === "map" ? "données de cette map" : "repli global toutes maps"}
+                  {result.breakdown.trioDetail.source === "map"
+                    ? "données de cette map"
+                    : "repli global toutes maps"}
                 </span>
               </li>
             )}
