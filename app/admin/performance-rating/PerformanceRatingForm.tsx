@@ -31,12 +31,14 @@ type Breakdown = {
   compPriorityBonus: number;
   pairSynergy: number;
   trioSynergy: number;
-  pairDetails: { pair: string; ratio: number; effect: number }[];
-  trioDetail: { trio: string; ratio: number; effect: number } | null;
+  pairDetails: { pair: string; ratio: number; effect: number; source: "map" | "global" }[];
+  trioDetail: { trio: string; ratio: number; effect: number; source: "map" | "global" } | null;
   opponentComp: string[];
   counterEffect: number;
   counterBonus: number;
   gameMode: string | null;
+  mapMode: string | null;
+  mapName: string | null;
   modeFitBonus: number;
   starPlayer: boolean;
   starPlayerBonus: number;
@@ -128,6 +130,9 @@ export default function PerformanceRatingForm() {
   const [comp, setComp] = useState<[string, string, string]>(["", "", ""]);
   const [opponentComp, setOpponentComp] = useState<[string, string, string]>(["", "", ""]);
   const [gameMode, setGameMode] = useState("");
+  // Nom précis de la map (ex: "Hard Rock Mine"). gameMode sert déjà de "mode" pour le calcul
+  // par map (buildMapKey(mode, name)) côté API — pas besoin d'un champ dupliqué.
+  const [mapName, setMapName] = useState("");
   const [starPlayer, setStarPlayer] = useState(false);
   const [degats, setDegats] = useState("");
   const [soin, setSoin] = useState("");
@@ -179,6 +184,8 @@ export default function PerformanceRatingForm() {
           comp: comp.filter(Boolean),
           opponentComp: opponentComp.filter(Boolean),
           gameMode: gameMode || null,
+          mapMode: gameMode || null,
+          mapName: mapName.trim() || null,
           starPlayer,
           degats: degats.trim() === "" ? null : Number(degats),
           soin: soin.trim() === "" ? null : Number(soin),
@@ -320,6 +327,19 @@ export default function PerformanceRatingForm() {
       </div>
 
       <div className="space-y-2">
+        <label className="text-sm text-neutral-400">
+          Nom de la map <span className="text-neutral-600">— optionnel, affine les synergies avec les données de cette map précise</span>
+        </label>
+        <input
+          type="text"
+          value={mapName}
+          onChange={(e) => setMapName(e.target.value)}
+          placeholder="Ex: Hard Rock Mine"
+          className="w-full rounded-md border border-neutral-700 bg-neutral-900 px-3 py-2"
+        />
+      </div>
+
+      <div className="space-y-2">
         <label className="text-sm text-neutral-400">Composition adverse (jusqu'à 3 brawlers)</label>
         <div className="grid grid-cols-3 gap-2">
           {[0, 1, 2].map((i) => (
@@ -390,7 +410,10 @@ export default function PerformanceRatingForm() {
               <li key={p.pair}>
                 Synergie duo {p.pair}: {Math.round(p.ratio * 100)}% d'avis positifs (
                 {p.effect >= 0 ? "+" : ""}
-                {p.effect})
+                {p.effect}) —{" "}
+                <span className="text-neutral-500">
+                  {p.source === "map" ? "données de cette map" : "repli global toutes maps"}
+                </span>
               </li>
             ))}
             {result.breakdown.trioDetail && (
@@ -398,7 +421,10 @@ export default function PerformanceRatingForm() {
                 Synergie trio {result.breakdown.trioDetail.trio}:{" "}
                 {Math.round(result.breakdown.trioDetail.ratio * 100)}% d'avis positifs (
                 {result.breakdown.trioDetail.effect >= 0 ? "+" : ""}
-                {result.breakdown.trioDetail.effect})
+                {result.breakdown.trioDetail.effect}) —{" "}
+                <span className="text-neutral-500">
+                  {result.breakdown.trioDetail.source === "map" ? "données de cette map" : "repli global toutes maps"}
+                </span>
               </li>
             )}
             {result.breakdown.pairDetails.length === 0 && !result.breakdown.trioDetail && (
