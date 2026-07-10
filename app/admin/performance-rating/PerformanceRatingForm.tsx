@@ -52,6 +52,9 @@ type RatingResult = { note: number; computationId: string | null; breakdown: Bre
 
 type WeightChange = { key: keyof RatingWeights; before: number; after: number };
 
+// Feedback possible après calcul : up / down / perfect (note correcte)
+type FeedbackKind = "up" | "down" | "perfect";
+
 // --- Sélecteur de brawler avec recherche ---
 function BrawlerSearchSelect({
   value,
@@ -140,8 +143,8 @@ export default function PerformanceRatingForm() {
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<RatingResult | null>(null);
   const [weightChanges, setWeightChanges] = useState<WeightChange[] | null>(null);
-  const [directionStatus, setDirectionStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
-  const [directionSent, setDirectionSent] = useState<"up" | "down" | null>(null);
+  const [feedbackStatus, setFeedbackStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
+  const [feedbackSent, setFeedbackSent] = useState<FeedbackKind | null>(null);
 
   const canSubmit = useMemo(() => {
     const killsNum = Number(kills);
@@ -155,21 +158,13 @@ export default function PerformanceRatingForm() {
     );
   }, [kills, deaths, brawler]);
 
-  function handleDegatsChange(raw: string) {
-    setDegats(raw);
-  }
-
-  function handleSoinChange(raw: string) {
-    setSoin(raw);
-  }
-
   async function handleSubmit() {
     setLoading(true);
     setError(null);
     setResult(null);
     setWeightChanges(null);
-    setDirectionStatus("idle");
-    setDirectionSent(null);
+    setFeedbackStatus("idle");
+    setFeedbackSent(null);
     try {
       const res = await fetch("/api/admin/performance-rating", {
         method: "POST",
@@ -202,36 +197,44 @@ export default function PerformanceRatingForm() {
     }
   }
 
+  // Feedback directionnel simple (trop basse / trop haute)
   async function submitDirection(direction: "up" | "down") {
     if (!result?.computationId) return;
-    setDirectionSent(direction);
-    setDirectionStatus("sending");
+    setFeedbackSent(direction);
+    setFeedbackStatus("sending");
     setWeightChanges(null);
     try {
       const res = await fetch("/api/admin/performance-rating/feedback", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ computationId: result.computationId, direction }),
+        body: JSON.stringify({
+          computationId: result.computationId,
+          direction,
+          strength: "normal",
+        }),
       });
       const json = await res.json();
       if (!res.ok) {
-        setDirectionStatus("error");
+        setFeedbackStatus("error");
         return;
       }
-      setDirectionStatus("sent");
+      setFeedbackStatus("sent");
       setWeightChanges(json.changes ?? []);
     } catch {
-      setDirectionStatus("error");
+      setFeedbackStatus("error");
     }
   }
 
+  // "Note correcte" : envoie up + down en weak simultanément.
+  // Les deux effets s'annulent quasi-parfaitement → seule la régularisation L2
+  // douce s'applique (légère traction vers les valeurs par défaut, sans bruit
+  // directionnel). C'est le signal "ne change rien, tu étais bon".
   async function submitPerfect() {
     if (!result?.computationId) return;
-    setDirectionStatus("sending");
-    setDirectionSent(null);
+    setFeedbackSent("perfect");
+    setFeedbackStatus("sending");
     setWeightChanges(null);
     try {
-      // Envoie up + down en weak simultanément → annulation = légère régularisation vers défauts
       await Promise.all([
         fetch("/api/admin/performance-rating/feedback", {
           method: "POST",
@@ -252,15 +255,16 @@ export default function PerformanceRatingForm() {
           }),
         }),
       ]);
-      setDirectionStatus("sent");
-      setWeightChanges([]); // aucun changement net visible
+      setFeedbackStatus("sent");
+      setWeightChanges([]); // aucun delta net visible — c'est voulu
     } catch {
-      setDirectionStatus("error");
+      setFeedbackStatus("error");
     }
   }
 
   return (
     <div className="space-y-6 max-w-2xl">
+      {/* ── Kills / Morts ── */}
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <label className="text-sm text-neutral-400">Kills</label>
@@ -286,6 +290,7 @@ export default function PerformanceRatingForm() {
         </div>
       </div>
 
+      {/* ── Brawler joué ── */}
       <div className="space-y-2">
         <label className="text-sm text-neutral-400">Brawler joué</label>
         <BrawlerSearchSelect
@@ -296,6 +301,7 @@ export default function PerformanceRatingForm() {
         />
       </div>
 
+      {/* ── Dégâts / Soin ── */}
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <label className="text-sm text-neutral-400">
@@ -306,7 +312,7 @@ export default function PerformanceRatingForm() {
             step="0.1"
             min="0"
             value={degats}
-            onChange={(e) => handleDegatsChange(e.target.value)}
+            onChange={(e) => setDegats(e.target.value)}
             placeholder={soin.trim() !== "" ? `< ${soin}` : "Ex: 12000"}
             className="w-full rounded-md border border-neutral-700 bg-neutral-900 px-3 py-2"
           />
@@ -318,13 +324,14 @@ export default function PerformanceRatingForm() {
             step="0.1"
             min="0"
             value={soin}
-            onChange={(e) => handleSoinChange(e.target.value)}
+            onChange={(e) => setSoin(e.target.value)}
             placeholder={degats.trim() !== "" ? `< ${degats}` : "Ex: 3000"}
             className="w-full rounded-md border border-neutral-700 bg-neutral-900 px-3 py-2"
           />
         </div>
       </div>
 
+      {/* ── Composition jouée ── */}
       <div className="space-y-2">
         <label className="text-sm text-neutral-400">Composition jouée (jusqu'à 3 brawlers)</label>
         <div className="grid grid-cols-3 gap-2">
@@ -342,6 +349,7 @@ export default function PerformanceRatingForm() {
         </div>
       </div>
 
+      {/* ── Mode de jeu ── */}
       <div className="space-y-2">
         <label className="text-sm text-neutral-400">Mode de jeu</label>
         <select
@@ -358,6 +366,7 @@ export default function PerformanceRatingForm() {
         </select>
       </div>
 
+      {/* ── Nom de la map ── */}
       <div className="space-y-2">
         <label className="text-sm text-neutral-400">
           Nom de la map{" "}
@@ -374,6 +383,7 @@ export default function PerformanceRatingForm() {
         />
       </div>
 
+      {/* ── Composition adverse ── */}
       <div className="space-y-2">
         <label className="text-sm text-neutral-400">Composition adverse (jusqu'à 3 brawlers)</label>
         <div className="grid grid-cols-3 gap-2">
@@ -391,6 +401,7 @@ export default function PerformanceRatingForm() {
         </div>
       </div>
 
+      {/* ── Joueur Star ── */}
       <div className="space-y-2">
         <label className="text-sm text-neutral-400">
           Joueur Star ?{" "}
@@ -424,7 +435,7 @@ export default function PerformanceRatingForm() {
         </div>
       </div>
 
-      {/* Résultat du match — signal primaire pour le learning sur les synergies/counter */}
+      {/* ── Résultat du match ── signal primaire pour le learning synergies/counter */}
       <div className="space-y-2">
         <label className="text-sm text-neutral-400">
           Résultat du match{" "}
@@ -467,6 +478,7 @@ export default function PerformanceRatingForm() {
         </div>
       </div>
 
+      {/* ── Bouton calcul ── */}
       <button
         type="button"
         disabled={!canSubmit || loading}
@@ -478,9 +490,11 @@ export default function PerformanceRatingForm() {
 
       {error && <p className="text-sm text-red-400">{error}</p>}
 
+      {/* ── Résultat ── */}
       {result && (
         <div className="rounded-lg border border-neutral-700 bg-neutral-900 p-4 space-y-3">
-          {/* Note + résultat du match */}
+
+          {/* Note + badge victoire/défaite */}
           <div className="flex items-center gap-3">
             <p className="text-3xl font-semibold">{result.note.toFixed(1)}/10</p>
             {result.breakdown.victory === true && (
@@ -495,6 +509,7 @@ export default function PerformanceRatingForm() {
             )}
           </div>
 
+          {/* Détail du breakdown */}
           <ul className="text-sm text-neutral-400 space-y-1">
             <li>
               {result.breakdown.brawler} — priorité draft {result.breakdown.brawlerPriority} → multiplicateur{" "}
@@ -564,71 +579,92 @@ export default function PerformanceRatingForm() {
             )}
           </ul>
 
+          {/* ── Feedback humain ── */}
           <div className="pt-2 border-t border-neutral-800">
-            <p className="text-sm text-neutral-400 mb-2">Cette note était trop basse ou trop haute ?</p>
+            <p className="text-sm text-neutral-400 mb-2">Cette note te semble juste ?</p>
+
+            {/* Trois boutons : ↑ Trop basse — ✅ Note correcte — ↓ Trop haute */}
             <div className="flex items-center gap-2 flex-wrap">
               <button
                 type="button"
-                disabled={!result.computationId || directionStatus === "sending"}
+                disabled={!result.computationId || feedbackStatus === "sending"}
                 onClick={() => submitDirection("up")}
-                title="Le score était trop bas"
-                className="flex items-center gap-1 rounded-md border border-neutral-700 px-3 py-2 text-sm disabled:opacity-40"
-                style={directionSent === "up" ? { borderColor: "#4ade80", color: "#4ade80" } : undefined}
+                title="La note était trop basse"
+                className="flex items-center gap-1 rounded-md border px-3 py-2 text-sm disabled:opacity-40 transition-colors"
+                style={
+                  feedbackSent === "up" && feedbackStatus === "sent"
+                    ? { borderColor: "#4ade80", color: "#4ade80" }
+                    : { borderColor: "#404040", color: "#a3a3a3" }
+                }
               >
                 ↑ Trop basse
               </button>
+
               <button
                 type="button"
-                disabled={!result.computationId || directionStatus === "sending"}
+                disabled={!result.computationId || feedbackStatus === "sending"}
                 onClick={submitPerfect}
-                title="La note est correcte"
-                className="flex items-center gap-1 rounded-md border border-neutral-700 px-3 py-2 text-sm disabled:opacity-40"
+                title="La note est correcte — stabilise les poids"
+                className="flex items-center gap-1 rounded-md border px-3 py-2 text-sm disabled:opacity-40 transition-colors"
                 style={
-                  directionStatus === "sent" && directionSent === null
-                    ? { borderColor: "#86efac", color: "#86efac" }
-                    : undefined
+                  feedbackSent === "perfect" && feedbackStatus === "sent"
+                    ? { borderColor: "#86efac", color: "#86efac", background: "rgba(134,239,172,0.08)" }
+                    : { borderColor: "#404040", color: "#a3a3a3" }
                 }
               >
                 ✅ Note correcte
               </button>
+
               <button
                 type="button"
-                disabled={!result.computationId || directionStatus === "sending"}
+                disabled={!result.computationId || feedbackStatus === "sending"}
                 onClick={() => submitDirection("down")}
-                title="Le score était trop haut"
-                className="flex items-center gap-1 rounded-md border border-neutral-700 px-3 py-2 text-sm disabled:opacity-40"
-                style={directionSent === "down" ? { borderColor: "#f87171", color: "#f87171" } : undefined}
+                title="La note était trop haute"
+                className="flex items-center gap-1 rounded-md border px-3 py-2 text-sm disabled:opacity-40 transition-colors"
+                style={
+                  feedbackSent === "down" && feedbackStatus === "sent"
+                    ? { borderColor: "#f87171", color: "#f87171" }
+                    : { borderColor: "#404040", color: "#a3a3a3" }
+                }
               >
                 ↓ Trop haute
               </button>
             </div>
-            {directionStatus === "sent" && directionSent === null && (
-              <p className="text-xs text-green-400 mt-2">Note validée — poids stabilisés.</p>
+
+            {/* Retour visuel selon le feedback envoyé */}
+            {feedbackStatus === "sent" && feedbackSent === "perfect" && (
+              <p className="text-xs text-green-400 mt-2">
+                Note validée — poids stabilisés, aucun ajustement directionnel.
+              </p>
             )}
-            {directionStatus === "sent" && weightChanges && weightChanges.length > 0 && directionSent !== null && (
+
+            {feedbackStatus === "sent" && feedbackSent !== "perfect" && weightChanges && (
               <div className="mt-2 rounded-md border border-neutral-800 bg-black/30 p-3">
                 <p className="text-xs text-green-400 mb-2">
-                  Poids ajustés vers {directionSent === "up" ? "le haut" : "le bas"} :
+                  Poids ajustés vers {feedbackSent === "up" ? "le haut" : "le bas"} :
                 </p>
-                <ul className="text-xs text-neutral-400 space-y-1 font-mono">
-                  {weightChanges.map((c) => (
-                    <li key={c.key}>
-                      {WEIGHT_LABELS[c.key]}: {c.before} → {c.after}{" "}
-                      <span className={c.after > c.before ? "text-green-400" : "text-red-400"}>
-                        ({c.after > c.before ? "+" : ""}
-                        {Math.round((c.after - c.before) * 1000) / 1000})
-                      </span>
-                    </li>
-                  ))}
-                </ul>
+                {weightChanges.length > 0 ? (
+                  <ul className="text-xs text-neutral-400 space-y-1 font-mono">
+                    {weightChanges.map((c) => (
+                      <li key={c.key}>
+                        {WEIGHT_LABELS[c.key]}: {c.before} → {c.after}{" "}
+                        <span className={c.after > c.before ? "text-green-400" : "text-red-400"}>
+                          ({c.after > c.before ? "+" : ""}
+                          {Math.round((c.after - c.before) * 1000) / 1000})
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-xs text-neutral-500">Aucun facteur concerné dans ce calcul.</p>
+                )}
               </div>
             )}
-            {directionStatus === "sent" && weightChanges?.length === 0 && directionSent !== null && (
-              <p className="text-xs text-neutral-500 mt-1">Aucun facteur concerné dans ce calcul.</p>
+
+            {feedbackStatus === "error" && (
+              <p className="text-xs text-red-400 mt-1">Échec de l'enregistrement du feedback.</p>
             )}
-            {directionStatus === "error" && (
-              <p className="text-xs text-red-400 mt-1">Échec de l'enregistrement.</p>
-            )}
+
             {!result.computationId && (
               <p className="text-xs text-neutral-500 mt-1">
                 Ce calcul n'a pas pu être enregistré (table performance_rating_computations
