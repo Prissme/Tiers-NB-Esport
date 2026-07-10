@@ -1559,22 +1559,13 @@ async function handleAdminSlashCommand(interaction) {
       return true;
     }
 
-    const directCounters = draft.COUNTER_BY_USER_PICK[brawler] || [];
-    const pairs = draft.COMMUNITY_DRAFTS_CACHE?.pairs;
-    const communityDuos = [];
-    if (pairs) {
-      for (const [key, data] of pairs.entries()) {
-        if (data.total < 2) continue;
-        const ratio = data.up / data.total;
-        if (ratio < 0.65) continue;
-        const [a, b] = key.split('_');
-        if (a === brawler || b === brawler) {
-          const partner = a === brawler ? b : a;
-          communityDuos.push({ partner, ratio: Math.round(ratio * 100) });
-        }
-      }
-      communityDuos.sort((a, b) => b.ratio - a.ratio);
-    }
+    const directCounters = draft.getLearnedCounters(brawler, null);
+    const communityDuos = draft.getPartnerStats(brawler, null).map((d) => ({
+      partner: d.partner,
+      ratio: Math.round(d.ratio * 100),
+      samples: d.samples,
+      source: d.source
+    }));
 
     const embed = new EmbedBuilder()
       .setTitle(`🎯 Counters & Synergies — ${brawler}`)
@@ -1582,15 +1573,25 @@ async function handleAdminSlashCommand(interaction) {
       .setTimestamp(new Date());
 
     embed.addFields({
-      name: '🛡️ Counters directs',
+      name: '🛡️ Counters (appris en priorité sur les vrais résultats, sinon table de secours)',
       value: directCounters.length ? directCounters.join(', ') : '—'
     });
 
     if (communityDuos.length) {
-      embed.addFields({
-        name: '🤝 Duos communautaires (win rate ≥65%)',
-        value: communityDuos.slice(0, 10).map(d => `${d.partner} (${d.ratio}%)`).join(', ')
-      });
+      const realDuos = communityDuos.filter((d) => d.source.startsWith('real'));
+      const otherDuos = communityDuos.filter((d) => !d.source.startsWith('real'));
+      if (realDuos.length) {
+        embed.addFields({
+          name: '🏆 Duos confirmés par de vrais matchs (win rate)',
+          value: realDuos.slice(0, 10).map((d) => `${d.partner} (${d.ratio}%, ${d.samples} matchs)`).join(', ')
+        });
+      }
+      if (otherDuos.length) {
+        embed.addFields({
+          name: '🤝 Duos communautaires (votes, win rate ≥65%)',
+          value: otherDuos.slice(0, 10).map((d) => `${d.partner} (${d.ratio}%)`).join(', ')
+        });
+      }
     }
 
     await interaction.reply({ embeds: [embed] });
@@ -5995,14 +5996,13 @@ async function persistDraftResult(session, message) {
     return;
   }
 
-  if (session.isAIDraft) {
-    session.resultSaved = true;
-    return;
-  }
-
   const aiBans = draft.getAIBans(session);
   const victoryArgs = draft.buildVictoryArguments(session);
-  const payload = {
+  const { mapKey, mapName, modeKey } = getDraftMapInfo(session);
+
+  // Backup local (best-effort, ne bloque jamais la suite) — conserve l'historique complet
+  // au cas où l'insertion Supabase échouerait.
+  const localPayload = {
     created_at: new Date().toISOString(),
     guild_id: message.guild?.id || null,
     channel_id: message.channel?.id || null,
@@ -6018,13 +6018,64 @@ async function persistDraftResult(session, message) {
     winner: summary.winner,
     arguments: victoryArgs || []
   };
-
   try {
-    await appendDraftResult(payload);
-    session.resultSaved = true;
+    await appendDraftResult(localPayload);
   } catch (error) {
-    errorLog('Failed to store draft result:', error);
+    errorLog('Failed to store local draft result backup:', error);
   }
+
+  // Insertion Supabase : c'est CETTE table (draft_matches) qui alimente désormais
+  // l'apprentissage continu des trios/counters, une fois le vrai résultat du match
+  // reporté par le joueur (colonne real_winner, remplie plus tard via les boutons
+  // "Vrai résultat" ou !draft resultat). On enregistre donc TOUTES les drafts, y
+  // compris celles vs IA, contrairement à avant où seules les drafts non-IA étaient
+  // sauvegardées (et jamais dans Supabase).
+  try {
+    const { data, error } = await supabase
+      .from('draft_matches')
+      .insert({
+        guild_id: message.guild?.id || 'unknown',
+        channel_id: message.channel?.id || 'unknown',
+        user_id: session.ownerId,
+        meta_profile: session.metaProfile,
+        map_mode: modeKey || null,
+        map_name: mapName || null,
+        user_bans: session.userBans,
+        ai_bans: aiBans,
+        user_picks: session.userPicks,
+        ai_picks: session.aiPicks,
+        user_score: summary.userScore,
+        ai_score: summary.aiScore,
+        winner: summary.winner
+      })
+      .select('id')
+      .single();
+    if (error) throw error;
+    session.draftMatchId = data?.id || null;
+  } catch (error) {
+    errorLog('Failed to store draft result in Supabase:', error);
+  }
+
+  session.resultSaved = true;
+}
+
+// Rangée de boutons permettant au joueur de reporter le VRAI résultat de la partie
+// jouée en jeu (pas le score simulé de la draft). C'est cette donnée qui alimente
+// REAL_RESULTS_CACHE côté draft.js et remplace progressivement les trios/counters
+// codés en dur par de l'apprentissage continu.
+function buildRealResultRow(draftMatchId) {
+  return new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`draft_real_result:${draftMatchId}:win`)
+      .setLabel('Vrai résultat : Victoire')
+      .setEmoji('🏆')
+      .setStyle(ButtonStyle.Success),
+    new ButtonBuilder()
+      .setCustomId(`draft_real_result:${draftMatchId}:lose`)
+      .setLabel('Vrai résultat : Défaite')
+      .setEmoji('💀')
+      .setStyle(ButtonStyle.Danger)
+  );
 }
 
 async function handleDraftCommand(message, args) {
@@ -6164,9 +6215,14 @@ async function handleDraftCommand(message, args) {
             .setStyle(ButtonStyle.Secondary)
         );
 
+        const components = [evalRow];
+        if (session.draftMatchId) {
+          components.push(buildRealResultRow(session.draftMatchId));
+        }
+
         await message.channel.send({
-          content: `📊 Comment évalues-tu la draft de l'IA sur **${mapName}** ?`,
-          components: [evalRow]
+          content: `📊 Comment évalues-tu la draft de l'IA sur **${mapName}** ?\n🎮 Une fois la partie jouée en jeu, reporte le vrai résultat ci-dessous : c'est ce qui entraîne réellement l'IA (bien plus fiable que les votes ci-dessus).`,
+          components
         });
         return;
       }
@@ -6263,9 +6319,14 @@ async function handleDraftFreeInput(message) {
           .setStyle(ButtonStyle.Secondary)
       );
 
+      const components = [evalRow];
+      if (session.draftMatchId) {
+        components.push(buildRealResultRow(session.draftMatchId));
+      }
+
       await message.channel.send({
-        content: `📊 Comment évalues-tu la draft de l'IA sur **${mapName}** ?`,
-        components: [evalRow]
+        content: `📊 Comment évalues-tu la draft de l'IA sur **${mapName}** ?\n🎮 Une fois la partie jouée en jeu, reporte le vrai résultat ci-dessous : c'est ce qui entraîne réellement l'IA (bien plus fiable que les votes ci-dessus).`,
+        components
       });
     }
 
@@ -7073,6 +7134,52 @@ async function handleInteraction(interaction) {
     });
 
     await sendOrUpdateDraftMessage(session, interaction.channel);
+    return;
+  }
+
+  if (interaction.isButton() && interaction.customId.startsWith('draft_real_result:')) {
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+
+    try {
+      const parts = interaction.customId.split(':');
+      const draftMatchId = parts[1];
+      const outcome = parts[2]; // 'win' ou 'lose'
+
+      if (!draftMatchId || !['win', 'lose'].includes(outcome)) {
+        await interaction.editReply({ content: '❌ Report invalide.' });
+        return;
+      }
+
+      const realWinner = outcome === 'win' ? 'user' : 'ai';
+
+      const { error: updateError } = await supabase
+        .from('draft_matches')
+        .update({
+          real_winner: realWinner,
+          real_winner_reported_by: interaction.user.id,
+          real_winner_reported_at: new Date().toISOString()
+        })
+        .eq('id', draftMatchId)
+        .is('real_winner', null); // un seul report par match, pas d'écrasement
+
+      if (updateError) throw new Error(updateError.message);
+
+      await interaction.editReply({
+        content: outcome === 'win'
+          ? '🏆 Merci ! Ta victoire réelle a été enregistrée et va nourrir l\'apprentissage de l\'IA.'
+          : '💀 Merci ! Ta défaite réelle a été enregistrée et va nourrir l\'apprentissage de l\'IA.'
+      });
+
+      // Rafraîchit immédiatement le cache d'apprentissage réel pour que les prochaines
+      // drafts bénéficient tout de suite de ce nouveau résultat.
+      draft.refreshRealResultsCache(supabase).catch((err) =>
+        warn('Real results cache refresh failed after report:', err?.message || err)
+      );
+    } catch (err) {
+      errorLog('Failed to record real draft result:', err);
+      await interaction.editReply({ content: '❌ Impossible d\'enregistrer ce résultat pour le moment. Réessaie plus tard.' });
+    }
+
     return;
   }
 
@@ -8295,6 +8402,20 @@ async function onReady(readyClient) {
       warn('Community drafts cache refresh failed:', err?.message || err)
     );
   }, 60 * 60 * 1000);
+
+  // Cache d'apprentissage basé sur les VRAIS résultats de matchs (draft_matches.real_winner).
+  // C'est cette source qui remplace progressivement les trios/counters codés en dur.
+  try {
+    await draft.refreshRealResultsCache(supabase);
+    log('Real results learning cache initialized.');
+  } catch (err) {
+    warn('Failed to initialize real results learning cache:', err?.message || err);
+  }
+  setInterval(() => {
+    draft.refreshRealResultsCache(supabase).catch((err) =>
+      warn('Real results cache refresh failed:', err?.message || err)
+    );
+  }, 30 * 60 * 1000);
 
   // Démarrage de la file PL
   await processPLQueue();
