@@ -27,6 +27,8 @@ type EvalRow = {
   upvotes: number | null;
   downvotes: number | null;
   mid_votes: number | null;
+  map_mode: string | null;
+  map_name: string | null;
 };
 
 function pairKey(a: string, b: string) {
@@ -36,6 +38,19 @@ function pairKey(a: string, b: string) {
 function trioKey(a: string, b: string, c: string) {
   return [a, b, c].sort().join("_");
 }
+
+// Miroir de buildMapKey dans discord-bot/draft.js : les deux runtimes (bot Discord et API
+// Next.js) n'importent pas le même module, donc on garde la même logique des deux côtés
+// plutôt que de dupliquer un état incohérent.
+function buildMapKey(mode: string | null, name: string | null): string {
+  const m = (mode || "unknown").trim().toLowerCase();
+  const n = (name || "unknown").trim().toLowerCase();
+  return `${m}|${n}`;
+}
+
+// Mêmes seuils que côté bot : en dessous, on considère qu'il n'y a pas assez de recul sur
+// cette map précise et on retombe sur l'agrégat global toutes maps confondues.
+const MIN_SAMPLES = { pair: 2, trio: 3 } as const;
 
 // Un brawler "dégâts" (mêlée / poke-sniper / dive) est valorisé s'il fait plus de dégâts
 // que de soin ; un brawler support est valorisé s'il fait l'inverse. Si les deux champs
@@ -67,6 +82,8 @@ export async function POST(request: Request) {
       comp?: string[];
       opponentComp?: string[];
       gameMode?: string;
+      mapMode?: string;
+      mapName?: string;
       starPlayer?: boolean;
       degats?: number | string | null;
       soin?: number | string | null;
@@ -84,6 +101,11 @@ export async function POST(request: Request) {
     const gameMode = GAME_MODES.includes(body.gameMode as (typeof GAME_MODES)[number])
       ? (body.gameMode as string)
       : null;
+    // Map précise (optionnelle) : si absente, tout retombe sur l'agrégat global toutes maps
+    // confondues (comportement identique à l'ancien système, donc rétro-compatible).
+    const mapMode = body.mapMode ? String(body.mapMode).trim() : null;
+    const mapName = body.mapName ? String(body.mapName).trim() : null;
+    const mapKey = mapMode || mapName ? buildMapKey(mapMode, mapName) : null;
     const starPlayer = body.starPlayer === true;
     const degats =
       body.degats === undefined || body.degats === null || body.degats === ""
@@ -148,15 +170,26 @@ export async function POST(request: Request) {
     // --- Synergies communautaires réelles depuis Supabase (draft_community_evals) ---
     const { data, error } = await supabase
       .from("draft_community_evals")
-      .select("brawler_1, brawler_2, brawler_3, upvotes, downvotes, mid_votes");
+      .select("brawler_1, brawler_2, brawler_3, upvotes, downvotes, mid_votes, map_mode, map_name");
 
     if (error && error.code !== "42P01") {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
     const rows = (data ?? []) as EvalRow[];
-    const pairAgg = new Map<string, { up: number; total: number }>();
-    const trioAgg = new Map<string, { up: number; total: number }>();
+
+    type Agg = { up: number; total: number };
+    const globalPairAgg = new Map<string, Agg>();
+    const globalTrioAgg = new Map<string, Agg>();
+    const pairAggByMap = new Map<string, Map<string, Agg>>();
+    const trioAggByMap = new Map<string, Map<string, Agg>>();
+
+    const bump = (map: Map<string, Agg>, key: string, up: number, total: number) => {
+      const current = map.get(key) ?? { up: 0, total: 0 };
+      current.up += up;
+      current.total += total;
+      map.set(key, current);
+    };
 
     for (const row of rows) {
       const up = row.upvotes ?? 0;
@@ -165,57 +198,79 @@ export async function POST(request: Request) {
       const total = up + down + mid;
       if (total === 0) continue;
 
+      const rowMapKey = buildMapKey(row.map_mode, row.map_name);
+      if (!pairAggByMap.has(rowMapKey)) pairAggByMap.set(rowMapKey, new Map());
+      if (!trioAggByMap.has(rowMapKey)) trioAggByMap.set(rowMapKey, new Map());
+      const mapPairAgg = pairAggByMap.get(rowMapKey)!;
+      const mapTrioAgg = trioAggByMap.get(rowMapKey)!;
+
       const brawlers = [row.brawler_1, row.brawler_2, row.brawler_3].filter(Boolean) as string[];
       if (brawlers.length === 3) {
         const key = trioKey(brawlers[0], brawlers[1], brawlers[2]);
-        const current = trioAgg.get(key) ?? { up: 0, total: 0 };
-        current.up += up;
-        current.total += total;
-        trioAgg.set(key, current);
+        bump(globalTrioAgg, key, up, total);
+        bump(mapTrioAgg, key, up, total);
       }
       for (let i = 0; i < brawlers.length; i += 1) {
         for (let j = i + 1; j < brawlers.length; j += 1) {
           const key = pairKey(brawlers[i], brawlers[j]);
-          const current = pairAgg.get(key) ?? { up: 0, total: 0 };
-          current.up += up;
-          current.total += total;
-          pairAgg.set(key, current);
+          bump(globalPairAgg, key, up, total);
+          bump(mapPairAgg, key, up, total);
         }
       }
     }
 
+    // Cherche d'abord sur la map précise (si assez d'échantillons), sinon retombe sur
+    // l'agrégat global toutes maps confondues. Sans mapKey (payload sans map), va direct
+    // au global — comportement identique à l'ancien système.
+    function lookupSynergy(
+      kind: "pair" | "trio",
+      key: string
+    ): { agg: Agg; source: "map" | "global" } | null {
+      const byMap = kind === "pair" ? pairAggByMap : trioAggByMap;
+      const globalAgg = kind === "pair" ? globalPairAgg : globalTrioAgg;
+      const minSamples = MIN_SAMPLES[kind];
+
+      if (mapKey) {
+        const mapAgg = byMap.get(mapKey)?.get(key);
+        if (mapAgg && mapAgg.total >= minSamples) return { agg: mapAgg, source: "map" };
+      }
+      const agg = globalAgg.get(key);
+      if (agg && agg.total >= minSamples) return { agg, source: "global" };
+      return null;
+    }
+
     let pairSynergy = 0;
-    const pairDetails: { pair: string; ratio: number; effect: number }[] = [];
+    const pairDetails: { pair: string; ratio: number; effect: number; source: "map" | "global" }[] = [];
     for (let i = 0; i < comp.length; i += 1) {
       for (let j = i + 1; j < comp.length; j += 1) {
         const key = pairKey(comp[i], comp[j]);
-        const agg = pairAgg.get(key);
-        if (agg && agg.total >= 2) {
-          const ratio = agg.up / agg.total;
+        const found = lookupSynergy("pair", key);
+        if (found) {
+          const ratio = found.agg.up / found.agg.total;
           let effect = 0;
           if (ratio >= 0.65) effect = 1.5;
           else if (ratio <= 0.35) effect = -1.5;
           if (effect !== 0) {
             pairSynergy += effect;
-            pairDetails.push({ pair: `${comp[i]} + ${comp[j]}`, ratio, effect });
+            pairDetails.push({ pair: `${comp[i]} + ${comp[j]}`, ratio, effect, source: found.source });
           }
         }
       }
     }
 
     let trioSynergy = 0;
-    let trioDetail: { trio: string; ratio: number; effect: number } | null = null;
+    let trioDetail: { trio: string; ratio: number; effect: number; source: "map" | "global" } | null = null;
     if (comp.length === 3) {
       const key = trioKey(comp[0], comp[1], comp[2]);
-      const agg = trioAgg.get(key);
-      if (agg && agg.total >= 3) {
-        const ratio = agg.up / agg.total;
+      const found = lookupSynergy("trio", key);
+      if (found) {
+        const ratio = found.agg.up / found.agg.total;
         let effect = 0;
         if (ratio >= 0.7) effect = 2.0;
         else if (ratio <= 0.35) effect = -2.5;
         if (effect !== 0) {
           trioSynergy = effect;
-          trioDetail = { trio: comp.join(" + "), ratio, effect };
+          trioDetail = { trio: comp.join(" + "), ratio, effect, source: found.source };
         }
       }
     }
@@ -276,6 +331,8 @@ export async function POST(request: Request) {
       counterEffect,
       counterBonus: Math.round(counterBonus * 100) / 100,
       gameMode,
+      mapMode,
+      mapName,
       modeFitBonus: Math.round(modeFitBonus * 100) / 100,
       starPlayer,
       starPlayerBonus: Math.round(starPlayerBonus * 100) / 100,
@@ -294,6 +351,8 @@ export async function POST(request: Request) {
         comp,
         opponent_comp: opponentComp,
         game_mode: gameMode,
+        map_mode: mapMode,
+        map_name: mapName,
         star_player: starPlayer,
         note,
         breakdown,
