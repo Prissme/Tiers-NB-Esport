@@ -26,24 +26,15 @@ export async function POST(request: Request) {
 
     const computationId = String(body.computationId ?? "").trim();
     const direction =
-      body.direction === "up" || body.direction === "down"
-        ? body.direction
-        : null;
+      body.direction === "up" || body.direction === "down" ? body.direction : null;
     const strength: Strength =
-      body.strength === "weak" || body.strength === "strong"
-        ? body.strength
-        : "normal";
+      body.strength === "weak" || body.strength === "strong" ? body.strength : "normal";
 
     if (!computationId || direction === null) {
       return NextResponse.json({ error: "Invalid payload." }, { status: 400 });
     }
 
-    // Toute la logique est dans rating-reinforcement.ts.
-    const result = await applyReinforcementLearning(
-      computationId,
-      direction,
-      strength
-    );
+    const result = await applyReinforcementLearning(computationId, direction, strength);
 
     return NextResponse.json(result);
   } catch (error) {
