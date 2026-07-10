@@ -225,6 +225,40 @@ export default function PerformanceRatingForm() {
     }
   }
 
+  async function submitPerfect() {
+    if (!result?.computationId) return;
+    setDirectionStatus("sending");
+    setDirectionSent(null);
+    setWeightChanges(null);
+    try {
+      // Envoie up + down en weak simultanément → annulation = légère régularisation vers défauts
+      await Promise.all([
+        fetch("/api/admin/performance-rating/feedback", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            computationId: result.computationId,
+            direction: "up",
+            strength: "weak",
+          }),
+        }),
+        fetch("/api/admin/performance-rating/feedback", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            computationId: result.computationId,
+            direction: "down",
+            strength: "weak",
+          }),
+        }),
+      ]);
+      setDirectionStatus("sent");
+      setWeightChanges([]); // aucun changement net visible
+    } catch {
+      setDirectionStatus("error");
+    }
+  }
+
   return (
     <div className="space-y-6 max-w-2xl">
       <div className="grid grid-cols-2 gap-4">
@@ -532,7 +566,7 @@ export default function PerformanceRatingForm() {
 
           <div className="pt-2 border-t border-neutral-800">
             <p className="text-sm text-neutral-400 mb-2">Cette note était trop basse ou trop haute ?</p>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <button
                 type="button"
                 disabled={!result.computationId || directionStatus === "sending"}
@@ -546,6 +580,20 @@ export default function PerformanceRatingForm() {
               <button
                 type="button"
                 disabled={!result.computationId || directionStatus === "sending"}
+                onClick={submitPerfect}
+                title="La note est correcte"
+                className="flex items-center gap-1 rounded-md border border-neutral-700 px-3 py-2 text-sm disabled:opacity-40"
+                style={
+                  directionStatus === "sent" && directionSent === null
+                    ? { borderColor: "#86efac", color: "#86efac" }
+                    : undefined
+                }
+              >
+                ✅ Note correcte
+              </button>
+              <button
+                type="button"
+                disabled={!result.computationId || directionStatus === "sending"}
                 onClick={() => submitDirection("down")}
                 title="Le score était trop haut"
                 className="flex items-center gap-1 rounded-md border border-neutral-700 px-3 py-2 text-sm disabled:opacity-40"
@@ -554,27 +602,29 @@ export default function PerformanceRatingForm() {
                 ↓ Trop haute
               </button>
             </div>
-            {directionStatus === "sent" && weightChanges && (
+            {directionStatus === "sent" && directionSent === null && (
+              <p className="text-xs text-green-400 mt-2">Note validée — poids stabilisés.</p>
+            )}
+            {directionStatus === "sent" && weightChanges && weightChanges.length > 0 && directionSent !== null && (
               <div className="mt-2 rounded-md border border-neutral-800 bg-black/30 p-3">
                 <p className="text-xs text-green-400 mb-2">
                   Poids ajustés vers {directionSent === "up" ? "le haut" : "le bas"} :
                 </p>
-                {weightChanges.length > 0 ? (
-                  <ul className="text-xs text-neutral-400 space-y-1 font-mono">
-                    {weightChanges.map((c) => (
-                      <li key={c.key}>
-                        {WEIGHT_LABELS[c.key]}: {c.before} → {c.after}{" "}
-                        <span className={c.after > c.before ? "text-green-400" : "text-red-400"}>
-                          ({c.after > c.before ? "+" : ""}
-                          {Math.round((c.after - c.before) * 1000) / 1000})
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="text-xs text-neutral-500">Aucun facteur concerné dans ce calcul.</p>
-                )}
+                <ul className="text-xs text-neutral-400 space-y-1 font-mono">
+                  {weightChanges.map((c) => (
+                    <li key={c.key}>
+                      {WEIGHT_LABELS[c.key]}: {c.before} → {c.after}{" "}
+                      <span className={c.after > c.before ? "text-green-400" : "text-red-400"}>
+                        ({c.after > c.before ? "+" : ""}
+                        {Math.round((c.after - c.before) * 1000) / 1000})
+                      </span>
+                    </li>
+                  ))}
+                </ul>
               </div>
+            )}
+            {directionStatus === "sent" && weightChanges?.length === 0 && directionSent !== null && (
+              <p className="text-xs text-neutral-500 mt-1">Aucun facteur concerné dans ce calcul.</p>
             )}
             {directionStatus === "error" && (
               <p className="text-xs text-red-400 mt-1">Échec de l'enregistrement.</p>
