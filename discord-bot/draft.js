@@ -18,6 +18,28 @@ const ALL = [
   'Barley', 'Doug', 'Sprout', 'Nani', 'Tick', 'Grom', 'Willow'
 ];
 
+// BASE_PRIORITY = priorité par défaut, valable pour toute map sans données spécifiques.
+// MAP_PRIORITY_OVERRIDES permet de surcharger ces valeurs pour une map donnée dès qu'on a
+// assez de recul (retours communautaires, résultats de matchs) sans devoir tout redéfinir.
+// Clé = buildMapKey(mode, mapName), ex: "gemgrab|hard rock mine".
+const MAP_PRIORITY_OVERRIDES = {
+  // "gemgrab|hard rock mine": { Tara: 2, Frank: 1 },
+};
+
+function buildMapKey(mode, name) {
+  const m = String(mode || 'unknown').trim().toLowerCase();
+  const n = String(name || 'unknown').trim().toLowerCase();
+  return `${m}|${n}`;
+}
+
+function getMapPriority(brawler, mapKey) {
+  const overrides = mapKey ? MAP_PRIORITY_OVERRIDES[mapKey] : null;
+  if (overrides && Object.prototype.hasOwnProperty.call(overrides, brawler)) {
+    return overrides[brawler];
+  }
+  return MAP_PRIORITY[brawler] || 0;
+}
+
 const MAP_PRIORITY = {
   // Priorité 2 — top picks
   Piper: 2, Belle: 2, Tara: 2, Juju: 2, Mina: 2, Cordelius: 2, Moe: 2, Finx: 2, Lumi: 2,
@@ -131,7 +153,27 @@ const SNIPERS_POKE = new Set(['Piper', 'Belle', 'Brock', 'Colt', 'Rico', 'Maisie
 const DIVE_UNITS = new Set(['Mortis', 'Alli', 'Crow', 'Lily', 'Kenji', 'Melodie', 'Glowy', 'Sirius', 'Ziggy', 'Stu', 'Bolt', 'Edgar', 'Leon', 'Fang', 'Shade']);
 const DISABLES = new Set(['Spike', 'Otis', 'Rico', 'Cordelius', 'Bo', 'Gene', 'Chester', 'Mina', 'Charlie', 'Lou', 'Emz', 'Gale', 'Sprout', 'Willow']);
 
-let COMMUNITY_DRAFTS_CACHE = new Map();
+// Structure : { byMap: Map<mapKey, {pairs, trios}>, global: {pairs, trios} }
+// "global" agrège TOUTES les maps confondues et sert de repli quand une paire/trio n'a pas
+// encore assez d'échantillons sur la map précise (cold start par map).
+let COMMUNITY_DRAFTS_CACHE = { byMap: new Map(), global: { trios: new Map(), pairs: new Map() } };
+
+const MIN_SAMPLES = { pairs: 2, trios: 3 };
+
+// Cherche d'abord la stat sur la map précise (si assez d'échantillons), sinon retombe sur
+// l'agrégat global toutes maps confondues. Retourne aussi la "source" pour debug/monitoring.
+function getSynergyStat(kind, key, mapKey) {
+  const mapBucket = mapKey ? COMMUNITY_DRAFTS_CACHE.byMap.get(mapKey) : null;
+  const mapStat = mapBucket ? mapBucket[kind].get(key) : null;
+  if (mapStat && mapStat.total >= MIN_SAMPLES[kind]) {
+    return { stat: mapStat, source: 'map' };
+  }
+  const globalStat = COMMUNITY_DRAFTS_CACHE.global[kind].get(key);
+  if (globalStat && globalStat.total >= MIN_SAMPLES[kind]) {
+    return { stat: globalStat, source: 'global' };
+  }
+  return null;
+}
 
 const NAME_LOOKUP = ALL.reduce((acc, name) => { acc.set(normalizeName(name), name); return acc; }, new Map());
 const NORMALIZED_BRAWLERS = ALL.map((name) => ({ name, normalized: normalizeName(name) })).sort((a, b) => b.normalized.length - a.normalized.length);
@@ -160,12 +202,22 @@ async function refreshCommunityDraftsCache(supabaseClient) {
   try {
     const { data, error } = await supabaseClient
       .from('draft_community_evals')
-      .select('brawler_1, brawler_2, brawler_3, upvotes, downvotes, mid_votes');
+      .select('brawler_1, brawler_2, brawler_3, upvotes, downvotes, mid_votes, map_mode, map_name');
     if (error) throw error;
 
-    const newCache = {
-      trios: new Map(),
-      pairs: new Map()
+    const byMap = new Map();
+    const global = { trios: new Map(), pairs: new Map() };
+
+    const ensureMapBucket = (mapKey) => {
+      if (!byMap.has(mapKey)) byMap.set(mapKey, { trios: new Map(), pairs: new Map() });
+      return byMap.get(mapKey);
+    };
+    const accumulate = (bucket, kind, key, up, down, total) => {
+      const current = bucket[kind].get(key) || { up: 0, down: 0, total: 0 };
+      current.up += up;
+      current.down += down;
+      current.total += total;
+      bucket[kind].set(key, current);
     };
 
     for (const row of data) {
@@ -177,33 +229,33 @@ async function refreshCommunityDraftsCache(supabaseClient) {
       if (total === 0) continue;
 
       const brawlers = [row.brawler_1, row.brawler_2, row.brawler_3].filter(Boolean);
+      // Toutes les lignes ont une map (map_mode/map_name par défaut 'unknown' côté insertion),
+      // donc "unknown|unknown" existe aussi comme une map à part entière dans byMap — ce n'est
+      // pas grave, elle est simplement peu utile et se fera dépasser par le fallback global.
+      const mapKey = buildMapKey(row.map_mode, row.map_name);
+      const mapBucket = ensureMapBucket(mapKey);
 
-      // 1. Enregistrement du Trio strict
+      // 1. Enregistrement du Trio strict (par map + global)
       if (brawlers.length === 3) {
         const sortedTrio = [...brawlers].sort();
         const trioKey = `${sortedTrio[0]}_${sortedTrio[1]}_${sortedTrio[2]}`;
-        newCache.trios.set(trioKey, { up, down, total });
+        accumulate(mapBucket, 'trios', trioKey, up, down, total);
+        accumulate(global, 'trios', trioKey, up, down, total);
       }
 
-      // 2. Décomposition en Duos (Paires) pour l'apprentissage en temps réel
+      // 2. Décomposition en Duos (Paires) pour l'apprentissage en temps réel (par map + global)
       for (let i = 0; i < brawlers.length; i++) {
         for (let j = i + 1; j < brawlers.length; j++) {
           const sortedPair = [brawlers[i], brawlers[j]].sort();
           const pairKey = `${sortedPair[0]}_${sortedPair[1]}`;
-
-          if (!newCache.pairs.has(pairKey)) {
-            newCache.pairs.set(pairKey, { up: 0, down: 0, total: 0 });
-          }
-          const current = newCache.pairs.get(pairKey);
-          current.up += up;
-          current.down += down;
-          current.total += total;
+          accumulate(mapBucket, 'pairs', pairKey, up, down, total);
+          accumulate(global, 'pairs', pairKey, up, down, total);
         }
       }
     }
 
-    COMMUNITY_DRAFTS_CACHE = newCache;
-    console.log(`[Draft AI] Cerveau temps réel synchronisé : ${newCache.trios.size} trios et ${newCache.pairs.size} synergies de duos.`);
+    COMMUNITY_DRAFTS_CACHE = { byMap, global };
+    console.log(`[Draft AI] Cerveau temps réel synchronisé : ${byMap.size} maps, ${global.trios.size} trios et ${global.pairs.size} synergies de duos (global toutes maps).`);
   } catch (err) {
     console.error("[Draft AI] Erreur de synchronisation du cache:", err);
   }
@@ -229,12 +281,12 @@ function metaHpBonusOf(brawler) {
 // =========================================================================
 // ÉVALUATION DE LA STRATÉGIE
 // =========================================================================
-function evaluateDraft(picks, metaProfile = META_DEFAULT) {
+function evaluateDraft(picks, metaProfile = META_DEFAULT, mapKey = null) {
   const cfg = getMetaConfig(metaProfile);
   let score = 0;
 
   for (const b of picks) {
-    score += (MAP_PRIORITY[b] || 0) + metaPowerOf(b, metaProfile) + metaHpBonusOf(b);
+    score += getMapPriority(b, mapKey) + metaPowerOf(b, metaProfile) + metaHpBonusOf(b);
   }
 
   const has = (x) => picks.includes(x);
@@ -290,34 +342,29 @@ function evaluateDraft(picks, metaProfile = META_DEFAULT) {
   if (has('Edgar') && has('Berry') && has('Charlie')) score -= cfg.defeatCompositionPenalty;
 
   // --- CONNECTIVITÉ SUPABASE EN TEMPS RÉEL (DYNAMIC SYNERGIES) ---
-  if (COMMUNITY_DRAFTS_CACHE && COMMUNITY_DRAFTS_CACHE.pairs) {
-    for (let i = 0; i < picks.length; i++) {
-      for (let j = i + 1; j < picks.length; j++) {
-        const sortedPair = [picks[i], picks[j]].sort();
-        const pairKey = `${sortedPair[0]}_${sortedPair[1]}`;
-
-        if (COMMUNITY_DRAFTS_CACHE.pairs.has(pairKey)) {
-          const data = COMMUNITY_DRAFTS_CACHE.pairs.get(pairKey);
-          if (data && data.total >= 2) {
-            const ratio = data.up / data.total;
-            if (ratio >= 0.65) score += 1.5;
-            if (ratio <= 0.35) score -= 1.5;
-          }
-        }
+  // Priorité aux stats de la map précise ; repli automatique sur le global toutes maps
+  // confondues si la map n'a pas encore assez d'échantillons (cf. getSynergyStat).
+  for (let i = 0; i < picks.length; i++) {
+    for (let j = i + 1; j < picks.length; j++) {
+      const sortedPair = [picks[i], picks[j]].sort();
+      const pairKey = `${sortedPair[0]}_${sortedPair[1]}`;
+      const found = getSynergyStat('pairs', pairKey, mapKey);
+      if (found) {
+        const ratio = found.stat.up / found.stat.total;
+        if (ratio >= 0.65) score += 1.5;
+        if (ratio <= 0.35) score -= 1.5;
       }
     }
+  }
 
-    if (picks.length === 3) {
-      const sortedTrio = [...picks].sort();
-      const trioKey = `${sortedTrio[0]}_${sortedTrio[1]}_${sortedTrio[2]}`;
-      if (COMMUNITY_DRAFTS_CACHE.trios && COMMUNITY_DRAFTS_CACHE.trios.has(trioKey)) {
-        const data = COMMUNITY_DRAFTS_CACHE.trios.get(trioKey);
-        if (data && data.total >= 3) {
-          const ratio = data.up / data.total;
-          if (ratio >= 0.70) score += 2.0;
-          if (ratio <= 0.35) score -= 2.5;
-        }
-      }
+  if (picks.length === 3) {
+    const sortedTrio = [...picks].sort();
+    const trioKey = `${sortedTrio[0]}_${sortedTrio[1]}_${sortedTrio[2]}`;
+    const found = getSynergyStat('trios', trioKey, mapKey);
+    if (found) {
+      const ratio = found.stat.up / found.stat.total;
+      if (ratio >= 0.70) score += 2.0;
+      if (ratio <= 0.35) score -= 2.5;
     }
   }
 
@@ -351,7 +398,7 @@ function evaluateDraft(picks, metaProfile = META_DEFAULT) {
   return score;
 }
 
-function pickAI({ available, lastUserPick, aiPicks = [], userPicks = [], metaProfile = META_DEFAULT }) {
+function pickAI({ available, lastUserPick, aiPicks = [], userPicks = [], metaProfile = META_DEFAULT, mapKey = null }) {
   if (!available.length) return '';
 
   let bestPick = available[0];
@@ -359,7 +406,7 @@ function pickAI({ available, lastUserPick, aiPicks = [], userPicks = [], metaPro
 
   for (const candidate of available) {
     let currentAiPicks = [...aiPicks, candidate];
-    let aiScore = evaluateDraft(currentAiPicks, metaProfile);
+    let aiScore = evaluateDraft(currentAiPicks, metaProfile, mapKey);
 
     if (lastUserPick && (COUNTER_BY_USER_PICK[lastUserPick] || []).includes(candidate)) {
       aiScore += 2.5;
@@ -373,21 +420,18 @@ function pickAI({ available, lastUserPick, aiPicks = [], userPicks = [], metaPro
         if (simulatedTrio.length === 3) {
           const sorted = [...simulatedTrio].sort();
           const cacheKey = `${sorted[0]}_${sorted[1]}_${sorted[2]}`;
-          
-          if (COMMUNITY_DRAFTS_CACHE && COMMUNITY_DRAFTS_CACHE.trios && COMMUNITY_DRAFTS_CACHE.trios.has(cacheKey)) {
-            const v = COMMUNITY_DRAFTS_CACHE.trios.get(cacheKey);
-            if (v && v.total >= 3) {
-              const ratio = v.up / v.total;
-              if (ratio >= 0.70) bestTrioBonus = Math.max(bestTrioBonus, 2.0);
-              if (ratio <= 0.35) bestTrioBonus = Math.min(bestTrioBonus, -2.5);
-            }
+          const found = getSynergyStat('trios', cacheKey, mapKey);
+          if (found) {
+            const ratio = found.stat.up / found.stat.total;
+            if (ratio >= 0.70) bestTrioBonus = Math.max(bestTrioBonus, 2.0);
+            if (ratio <= 0.35) bestTrioBonus = Math.min(bestTrioBonus, -2.5);
           }
         }
       }
       aiScore += bestTrioBonus;
     }
 
-    let userScore = evaluateDraft(userPicks, metaProfile);
+    let userScore = evaluateDraft(userPicks, metaProfile, mapKey);
     let delta = aiScore - userScore;
 
     if (delta > bestDelta) {
@@ -399,8 +443,8 @@ function pickAI({ available, lastUserPick, aiPicks = [], userPicks = [], metaPro
   return bestPick;
 }
 
-function firstPickScore(brawler, metaProfile = META_DEFAULT) {
-  return (MAP_PRIORITY[brawler] || 0) + metaPowerOf(brawler, metaProfile) + metaHpBonusOf(brawler) + evaluateDraft([brawler], metaProfile);
+function firstPickScore(brawler, metaProfile = META_DEFAULT, mapKey = null) {
+  return getMapPriority(brawler, mapKey) + metaPowerOf(brawler, metaProfile) + metaHpBonusOf(brawler) + evaluateDraft([brawler], metaProfile, mapKey);
 }
 
 /**
@@ -414,14 +458,14 @@ function firstPickScore(brawler, metaProfile = META_DEFAULT) {
  *   Elle banne les meilleurs picks du pool (pour forcer l'utilisateur à se rabattre sur du sous-optimal).
  *   Stratégie défensive : bannir les meilleures options du pool global.
  */
-function computeAIBans(metaProfile, bannedByUser, firstPick = 'USER') {
+function computeAIBans(metaProfile, bannedByUser, firstPick = 'USER', mapKey = null) {
   const candidates = ALL.filter((b) => !bannedByUser.has(b));
 
   if (firstPick === 'AI') {
     // L'IA pick en premier : elle identifie ses 3 meilleurs picks potentiels,
     // puis banne les counters de ces picks parmi les brawlers disponibles.
     const topAIPicks = [...candidates]
-      .map((b) => ({ b, s: firstPickScore(b, metaProfile) }))
+      .map((b) => ({ b, s: firstPickScore(b, metaProfile, mapKey) }))
       .sort((x, y) => y.s - x.s)
       .slice(0, 5)
       .map((x) => x.b);
@@ -436,7 +480,7 @@ function computeAIBans(metaProfile, bannedByUser, firstPick = 'USER') {
 
     // Parmi ces counters, bannir les 3 les mieux scorés
     const counterBans = [...counterSet]
-      .map((b) => ({ b, s: firstPickScore(b, metaProfile) }))
+      .map((b) => ({ b, s: firstPickScore(b, metaProfile, mapKey) }))
       .sort((x, y) => y.s - x.s)
       .slice(0, 3)
       .map((x) => x.b);
@@ -446,7 +490,7 @@ function computeAIBans(metaProfile, bannedByUser, firstPick = 'USER') {
       const alreadyBanned = new Set(counterBans);
       const fillers = [...candidates]
         .filter((b) => !alreadyBanned.has(b))
-        .map((b) => ({ b, s: firstPickScore(b, metaProfile) }))
+        .map((b) => ({ b, s: firstPickScore(b, metaProfile, mapKey) }))
         .sort((x, y) => y.s - x.s)
         .slice(0, 3 - counterBans.length)
         .map((x) => x.b);
@@ -459,7 +503,7 @@ function computeAIBans(metaProfile, bannedByUser, firstPick = 'USER') {
   // firstPick === 'USER' : l'IA pick en second, stratégie défensive
   // Bannir les 3 meilleurs picks du pool pour affaiblir le choix adverse
   return [...candidates]
-    .map((b) => ({ b, s: firstPickScore(b, metaProfile) }))
+    .map((b) => ({ b, s: firstPickScore(b, metaProfile, mapKey) }))
     .sort((x, y) => y.s - x.s)
     .slice(0, 3)
     .map((x) => x.b);
@@ -467,15 +511,20 @@ function computeAIBans(metaProfile, bannedByUser, firstPick = 'USER') {
 
 function createSession(ownerId, metaProfile = META_DEFAULT, options = {}) {
   const firstPick = options.firstPick || (Math.random() < 0.5 ? 'USER' : 'AI');
+  // La map (mode + nom) doit être connue AVANT le calcul des bans IA pour que ceux-ci
+  // reflètent déjà le meta de cette map précise (fallback global si pas assez de données).
+  const map = options.map || null;
+  const mapKey = map ? buildMapKey(map.mode, map.name) : null;
   // Les bans IA sont calculés une seule fois, dès la création de la session,
   // AVANT que l'utilisateur ait banni quoi que ce soit. Ils ne dépendent donc
   // jamais des bans de l'utilisateur et ne doivent pas être affichés tant que
   // celui-ci n'a pas terminé ses 3 bans (voir unified-bot.js).
-  const aiBans = computeAIBans(metaProfile, new Set(), firstPick);
+  const aiBans = computeAIBans(metaProfile, new Set(), firstPick, mapKey);
   return {
     id: `${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
     ownerId, metaProfile, firstPick, turnOrder: firstPick === 'AI' ? AI_FIRST_TURN : USER_FIRST_TURN,
     isAIDraft: options.isAIDraft ?? true,
+    map, mapKey,
     phase: 'BAN', userBans: [], aiBans, userPicks: [], aiPicks: [], step: 0,
     resultSaved: false, resultAnnounced: false
   };
@@ -511,7 +560,7 @@ function runAiPicks(session) {
   while (session.phase === 'DRAFT' && !isDraftDone(session) && getTurn(session) === 'AI') {
     const available = getAvailable(session);
     if (!available.length) break;
-    const pick = pickAI({ available, lastUserPick: session.userPicks[session.userPicks.length - 1], aiPicks: session.aiPicks, userPicks: session.userPicks, metaProfile: session.metaProfile });
+    const pick = pickAI({ available, lastUserPick: session.userPicks[session.userPicks.length - 1], aiPicks: session.aiPicks, userPicks: session.userPicks, metaProfile: session.metaProfile, mapKey: session.mapKey });
     if (!pick) break;
     session.aiPicks.push(pick);
     session.step += 1;
@@ -520,16 +569,16 @@ function runAiPicks(session) {
 
 function summarizeResult(session) {
   if (session.phase !== 'DRAFT' || !isDraftDone(session)) return null;
-  const userScore = evaluateDraft(session.userPicks, session.metaProfile);
-  const aiScore = evaluateDraft(session.aiPicks, session.metaProfile);
+  const userScore = evaluateDraft(session.userPicks, session.metaProfile, session.mapKey);
+  const aiScore = evaluateDraft(session.aiPicks, session.metaProfile, session.mapKey);
   return { userScore, aiScore, winner: userScore > aiScore ? 'user' : (aiScore > userScore ? 'ai' : 'draw') };
 }
 
 function estimateWinChance(userScore, aiScore) { return Math.round((1 / (1 + Math.exp(-(userScore - aiScore)))) * 100); }
 
-function analyzePicks(picks, metaProfile) {
+function analyzePicks(picks, metaProfile, mapKey = null) {
   return {
-    mapPriority: picks.reduce((sum, b) => sum + (MAP_PRIORITY[b] || 0), 0),
+    mapPriority: picks.reduce((sum, b) => sum + getMapPriority(b, mapKey), 0),
     metaPower: picks.reduce((sum, b) => sum + metaPowerOf(b, metaProfile), 0),
     hpBonus: picks.reduce((sum, b) => sum + metaHpBonusOf(b), 0),
     supports: picks.filter((b) => SUPPORTS.has(b)).length,
@@ -547,8 +596,8 @@ function buildVictoryArguments(session) {
   const isUser = summary.winner === 'user';
   const winnerPicks = isUser ? session.userPicks : session.aiPicks;
   const loserPicks = isUser ? session.aiPicks : session.userPicks;
-  const wM = analyzePicks(winnerPicks, session.metaProfile);
-  const lM = analyzePicks(loserPicks, session.metaProfile);
+  const wM = analyzePicks(winnerPicks, session.metaProfile, session.mapKey);
+  const lM = analyzePicks(loserPicks, session.metaProfile, session.mapKey);
 
   const reasons = [];
   const add = (score, text) => { if (score > 0) reasons.push({ score, text }); };
@@ -573,5 +622,6 @@ function buildVictoryArguments(session) {
 module.exports = {
   ALL, META_DEFAULT, TURN, resolveBrawler, findBrawlerInText, createSession,
   getAIBans, getAvailable, getTurn, isDraftDone, applyUserBan, applyUserPick,
-  runAiPicks, summarizeResult, estimateWinChance, buildVictoryArguments, refreshCommunityDraftsCache
+  runAiPicks, summarizeResult, estimateWinChance, buildVictoryArguments, refreshCommunityDraftsCache,
+  buildMapKey
 };

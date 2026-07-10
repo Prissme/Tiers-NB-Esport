@@ -7061,8 +7061,10 @@ async function handleInteraction(interaction) {
 
     draftMapPending.delete(channelId);
 
-    const session = draft.createSession(pending.ownerId, draft.META_DEFAULT, { isAIDraft: true });
-    session.map = { mode: modeKey, name: mapName };
+    const session = draft.createSession(pending.ownerId, draft.META_DEFAULT, {
+      isAIDraft: true,
+      map: { mode: modeKey, name: mapName }
+    });
     draftSessions.set(channelId, session);
 
     await interaction.update({
