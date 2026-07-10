@@ -39,22 +39,15 @@ function trioKey(a: string, b: string, c: string) {
   return [a, b, c].sort().join("_");
 }
 
-// Miroir de buildMapKey dans discord-bot/draft.js : les deux runtimes (bot Discord et API
-// Next.js) n'importent pas le même module, donc on garde la même logique des deux côtés
-// plutôt que de dupliquer un état incohérent.
+// Miroir de buildMapKey dans discord-bot/draft.js
 function buildMapKey(mode: string | null, name: string | null): string {
   const m = (mode || "unknown").trim().toLowerCase();
   const n = (name || "unknown").trim().toLowerCase();
   return `${m}|${n}`;
 }
 
-// Mêmes seuils que côté bot : en dessous, on considère qu'il n'y a pas assez de recul sur
-// cette map précise et on retombe sur l'agrégat global toutes maps confondues.
 const MIN_SAMPLES = { pair: 2, trio: 3 } as const;
 
-// Un brawler "dégâts" (mêlée / poke-sniper / dive) est valorisé s'il fait plus de dégâts
-// que de soin ; un brawler support est valorisé s'il fait l'inverse. Si les deux champs
-// sont vides, le bonus est neutre (0).
 function getDmgHealFitBonus(brawler: string, degats: number | null, soin: number | null): number {
   if (degats === null && soin === null) return 0;
   const d = degats ?? 0;
@@ -85,6 +78,7 @@ export async function POST(request: Request) {
       mapMode?: string;
       mapName?: string;
       starPlayer?: boolean;
+      victory?: boolean | null;
       degats?: number | string | null;
       soin?: number | string | null;
     };
@@ -101,12 +95,15 @@ export async function POST(request: Request) {
     const gameMode = GAME_MODES.includes(body.gameMode as (typeof GAME_MODES)[number])
       ? (body.gameMode as string)
       : null;
-    // Map précise (optionnelle) : si absente, tout retombe sur l'agrégat global toutes maps
-    // confondues (comportement identique à l'ancien système, donc rétro-compatible).
     const mapMode = body.mapMode ? String(body.mapMode).trim() : null;
     const mapName = body.mapName ? String(body.mapName).trim() : null;
     const mapKey = mapMode || mapName ? buildMapKey(mapMode, mapName) : null;
     const starPlayer = body.starPlayer === true;
+
+    // Résultat du match : null si non renseigné
+    const victory =
+      body.victory === true ? true : body.victory === false ? false : null;
+
     const degats =
       body.degats === undefined || body.degats === null || body.degats === ""
         ? null
@@ -124,7 +121,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Soin invalide." }, { status: 400 });
     }
 
-    // KD dérivé de Kills/Morts : convention 0 mort => KD = Kills (on évite la division par 0).
     const kd = deaths > 0 ? kills / deaths : kills;
 
     const priority = getBrawlerPriority(brawler);
@@ -132,7 +128,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: `Brawler inconnu du bot de draft: ${brawler}` }, { status: 400 });
     }
 
-    // --- Poids actuels (ajustés en temps réel par le feedback directionnel) ---
+    // --- Poids actuels ---
     const supabase = withSchema(createServerClient());
     const { data: weightsRow, error: weightsError } = await supabase
       .from("performance_rating_weights")
@@ -167,7 +163,7 @@ export async function POST(request: Request) {
     } as const;
     const diffMultiplier = diffMultiplierByTier[priority];
 
-    // --- Synergies communautaires réelles depuis Supabase (draft_community_evals) ---
+    // --- Synergies communautaires ---
     const { data, error } = await supabase
       .from("draft_community_evals")
       .select("brawler_1, brawler_2, brawler_3, upvotes, downvotes, mid_votes, map_mode, map_name");
@@ -219,9 +215,6 @@ export async function POST(request: Request) {
       }
     }
 
-    // Cherche d'abord sur la map précise (si assez d'échantillons), sinon retombe sur
-    // l'agrégat global toutes maps confondues. Sans mapKey (payload sans map), va direct
-    // au global — comportement identique à l'ancien système.
     function lookupSynergy(
       kind: "pair" | "trio",
       key: string
@@ -283,22 +276,17 @@ export async function POST(request: Request) {
       : 1;
     const compPriorityBonus = (compAvgPriority - 1) * weights.comp_bonus_coef;
 
-    const synergyBonus = pairSynergy * weights.pair_synergy_coef + trioSynergy * weights.trio_synergy_coef;
+    const synergyBonus =
+      pairSynergy * weights.pair_synergy_coef + trioSynergy * weights.trio_synergy_coef;
 
-    // Contre mécaniquement la comp adverse (ou en est victime), d'après COUNTER_BY_USER_PICK.
-    const counterEffect = getCounterEffect(brawler, opponentComp); // -1, 0, ou 1
+    const counterEffect = getCounterEffect(brawler, opponentComp);
     const counterBonus = counterEffect * weights.counter_coef;
 
-    // Bonus léger si le rôle du brawler colle au mode de jeu choisi.
-    const modeFitRaw = getModeFitBonus(brawler, gameMode); // 0 ou 0.3 (référence de forme, pas de valeur)
+    const modeFitRaw = getModeFitBonus(brawler, gameMode);
     const modeFitBonus = modeFitRaw > 0 ? weights.mode_fit_bonus : 0;
 
-    // "Joueur Star" : impact décisif sur l'objectif (ex: hard focus coffre en Braquage)
-    // qui n'est pas capturé par le K/D brut. Bonus fixe indépendant du reste.
     const starPlayerBonus = starPlayer ? weights.star_player_bonus : 0;
 
-    // Dégâts / Soin (valeurs libres, champs liés côté formulaire) : bonus si le profil colle
-    // au rôle du brawler (dégâts pour un profil dégâts, soin pour un support), léger malus sinon.
     const dmgHealFitRaw = getDmgHealFitBonus(brawler, degats, soin);
     const dmgHealFitBonus = dmgHealFitRaw * weights.dmg_heal_fit_coef;
 
@@ -339,9 +327,9 @@ export async function POST(request: Request) {
       degats,
       soin,
       dmgHealFitBonus: Math.round(dmgHealFitBonus * 100) / 100,
+      victory, // résultat du match — signal primaire pour le learning synergies/counter
     };
 
-    // Enregistre ce calcul (entrées + sortie + poids utilisés) pour pouvoir le noter ensuite.
     const { data: inserted, error: insertError } = await supabase
       .from("performance_rating_computations")
       .insert({
@@ -354,6 +342,7 @@ export async function POST(request: Request) {
         map_mode: mapMode,
         map_name: mapName,
         star_player: starPlayer,
+        victory, // ← nouveau
         note,
         breakdown,
         weights_snapshot: weights,
