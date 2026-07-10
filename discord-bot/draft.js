@@ -194,7 +194,7 @@ async function refreshRealResultsCache(supabaseClient) {
   try {
     const { data, error } = await supabaseClient
       .from('draft_matches')
-      .select('user_picks, ai_picks, map_mode, map_name, real_winner')
+      .select('user_picks, ai_picks, map_mode, map_name, real_winner, user_victoire')
       .not('real_winner', 'is', null)
       .neq('real_winner', 'draw');
     if (error) throw error;
@@ -214,8 +214,12 @@ async function refreshRealResultsCache(supabaseClient) {
     };
 
     for (const row of (data || [])) {
-      const winnerPicks = row.real_winner === 'user' ? (row.user_picks || []) : (row.ai_picks || []);
-      const loserPicks = row.real_winner === 'user' ? (row.ai_picks || []) : (row.user_picks || []);
+      // user_victoire est un champ explicite et sans ambiguïté (booléen, généré côté
+      // Supabase) : true = la draft de l'utilisateur a gagné, false = celle de l'IA a
+      // gagné. On ne se base plus sur une réinterprétation du texte real_winner ici.
+      if (row.user_victoire === null || row.user_victoire === undefined) continue;
+      const winnerPicks = row.user_victoire ? (row.user_picks || []) : (row.ai_picks || []);
+      const loserPicks = row.user_victoire ? (row.ai_picks || []) : (row.user_picks || []);
       if (winnerPicks.length < 2) continue;
 
       const mapKey = buildMapKey(row.map_mode, row.map_name);
