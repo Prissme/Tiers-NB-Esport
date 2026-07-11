@@ -4,6 +4,7 @@
 // tier-leaderboard.js
 // Module autonome — classement Tier dans un channel dédié
 // Fetch direct Supabase (pas de HTTP vers le site externe)
+// Stratégie : édition des messages existants (pas delete/resend)
 // ============================================================
 
 const { EmbedBuilder } = require('discord.js');
@@ -32,33 +33,40 @@ const TIER_COLOR_MAP = {
   'Tier E': 0x2ecc71,
 };
 
-// État interne
+// ── État interne ────────────────────────────────────────────
 let _client = null;
 let _guild = null;
 let _supabase = null;
 let _leaderboardChannel = null;
 let _intervalRef = null;
 
-// ── Helpers ────────────────────────────────────────────────
+// IDs des messages actuellement postés dans le channel (persistés en mémoire)
+// Permet d'éditer plutôt que delete+resend, et d'éviter les messages > 14 jours
+let _postedMessageIds = [];
+let _isUpdating = false; // verrou pour éviter les runs simultanés
+
+// ── Helpers ─────────────────────────────────────────────────
 
 function toCountryFlag(countryCode) {
   const normalized = String(countryCode || '').trim().toUpperCase();
   if (!/^[A-Z]{2}$/.test(normalized)) return '🏳️';
   try {
     return String.fromCodePoint(
-      ...Array.from(normalized).map((c) => 0x1F1E6 - 65 + c.charCodeAt(0))
+      ...Array.from(normalized).map((c) => 0x1f1e6 - 65 + c.charCodeAt(0))
     );
   } catch {
     return '🏳️';
   }
 }
 
-// ── Fetch direct Supabase ──────────────────────────────────
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+// ── Fetch Supabase ───────────────────────────────────────────
 
 async function fetchTierPlayers() {
-  if (!_supabase) {
-    throw new Error('[TierLeaderboard] Supabase client non initialisé.');
-  }
+  if (!_supabase) throw new Error('[TierLeaderboard] Supabase client non initialisé.');
 
   // 1. Saison active
   const { data: seasonData, error: seasonError } = await _supabase
@@ -69,14 +77,12 @@ async function fetchTierPlayers() {
     .limit(1)
     .maybeSingle();
 
-  if (seasonError) {
-    console.warn('[TierLeaderboard] Erreur saison:', seasonError.message);
-  }
+  if (seasonError) console.warn('[TierLeaderboard] Erreur saison:', seasonError.message);
 
   const activeSeasonId = seasonData?.id || null;
   console.log('[TierLeaderboard] Saison active:', activeSeasonId || 'aucune');
 
-  // 2. Points + player + profile en UNE SEULE requête avec join embed Supabase
+  // 2. Points + player + profile via join embed
   const PAGE_SIZE = 1000;
   let allRows = [];
   let from = 0;
@@ -95,9 +101,7 @@ async function fetchTierPlayers() {
       .order('points', { ascending: false })
       .range(from, from + PAGE_SIZE - 1);
 
-    if (activeSeasonId) {
-      query = query.eq('season_id', activeSeasonId);
-    }
+    if (activeSeasonId) query = query.eq('season_id', activeSeasonId);
 
     const { data, error } = await query;
 
@@ -108,12 +112,8 @@ async function fetchTierPlayers() {
 
     const rows = data || [];
     allRows = allRows.concat(rows);
-
-    if (rows.length < PAGE_SIZE) {
-      keepFetching = false;
-    } else {
-      from += PAGE_SIZE;
-    }
+    keepFetching = rows.length === PAGE_SIZE;
+    from += PAGE_SIZE;
   }
 
   console.log(`[TierLeaderboard] ${allRows.length} lignes récupérées via join embed.`);
@@ -123,15 +123,12 @@ async function fetchTierPlayers() {
 
   if (!filtered.length) return [];
 
-  // Teams séparément (peu de données, pas besoin de pagination)
   const { data: teams, error: teamsError } = await _supabase
     .from('lfn_teams')
     .select('id, name, tag')
     .eq('is_active', true);
 
-  if (teamsError) {
-    console.warn('[TierLeaderboard] Erreur teams:', teamsError.message);
-  }
+  if (teamsError) console.warn('[TierLeaderboard] Erreur teams:', teamsError.message);
 
   const teamMap = new Map((teams || []).map((t) => [String(t.id), t]));
 
@@ -141,15 +138,11 @@ async function fetchTierPlayers() {
       if (!player || player.active === false) return null;
 
       const profileRaw = row.lfn_player_profiles;
-      const profile = Array.isArray(profileRaw)
-        ? profileRaw[0] || null
-        : profileRaw || null;
+      const profile = Array.isArray(profileRaw) ? profileRaw[0] || null : profileRaw || null;
 
       const rawCountry = String(profile?.country_code || '').trim().toUpperCase();
       const countryCode = /^[A-Z]{2}$/.test(rawCountry) ? rawCountry : null;
-
       const team = profile?.team_id ? teamMap.get(String(profile.team_id)) : null;
-
       const points = Number(row.points || 0);
 
       if (points <= 0) return null;
@@ -166,10 +159,7 @@ async function fetchTierPlayers() {
     })
     .filter(Boolean);
 
-  const tierRank = {
-    'Tier S': 6, 'Tier A': 5, 'Tier B': 4,
-    'Tier C': 3, 'Tier D': 2, 'Tier E': 1,
-  };
+  const tierRank = { 'Tier S': 6, 'Tier A': 5, 'Tier B': 4, 'Tier C': 3, 'Tier D': 2, 'Tier E': 1 };
 
   result.sort(
     (a, b) =>
@@ -179,18 +169,16 @@ async function fetchTierPlayers() {
   );
 
   const top = result.slice(0, TIER_LEADERBOARD_MAX_PLAYERS);
-
-  console.log(`[TierLeaderboard] ${result.length} joueurs éligibles, ${top.length} affichés (top ${TIER_LEADERBOARD_MAX_PLAYERS}).`);
+  console.log(`[TierLeaderboard] ${result.length} joueurs éligibles, ${top.length} affichés.`);
   return top;
 }
 
-// ── Fallback : requêtes séparées avec pagination ───────────
+// ── Fallback requêtes séparées ───────────────────────────────
 
 async function fetchTierPlayersFallback(activeSeasonId) {
   console.log('[TierLeaderboard] Utilisation du fallback requêtes séparées...');
 
   const PAGE_SIZE = 1000;
-
   let allPointsRows = [];
   let from = 0;
   let keepFetching = true;
@@ -202,9 +190,7 @@ async function fetchTierPlayersFallback(activeSeasonId) {
       .order('points', { ascending: false })
       .range(from, from + PAGE_SIZE - 1);
 
-    if (activeSeasonId) {
-      query = query.eq('season_id', activeSeasonId);
-    }
+    if (activeSeasonId) query = query.eq('season_id', activeSeasonId);
 
     const { data, error } = await query;
     if (error) throw new Error(`Erreur points fallback: ${error.message}`);
@@ -225,10 +211,7 @@ async function fetchTierPlayersFallback(activeSeasonId) {
     let results = [];
     for (let i = 0; i < filterVals.length; i += BATCH) {
       const batch = filterVals.slice(i, i + BATCH);
-      const { data, error } = await _supabase
-        .from(table)
-        .select(selectCols)
-        .in(filterCol, batch);
+      const { data, error } = await _supabase.from(table).select(selectCols).in(filterCol, batch);
       if (error) console.warn(`[TierLeaderboard] Erreur ${table}:`, error.message);
       results = results.concat(data || []);
     }
@@ -238,10 +221,8 @@ async function fetchTierPlayersFallback(activeSeasonId) {
   const [players, profiles, teams] = await Promise.all([
     fetchAllPages('players', 'id, name, discord_id, active', 'id', playerIds),
     fetchAllPages('lfn_player_profiles', 'player_id, country_code', 'player_id', playerIds),
-    _supabase.from('lfn_teams').select('id, name, tag').eq('is_active', true).then(r => r.data || []),
+    _supabase.from('lfn_teams').select('id, name, tag').eq('is_active', true).then((r) => r.data || []),
   ]);
-
-  console.log(`[TierLeaderboard] Fallback: ${players.length} players, ${profiles.length} profiles`);
 
   const playerMap = new Map(players.map((p) => [String(p.id), p]));
   const profileMap = new Map(profiles.map((p) => [String(p.player_id), p]));
@@ -256,7 +237,6 @@ async function fetchTierPlayersFallback(activeSeasonId) {
       const profile = profileMap.get(pid);
       const rawCountry = String(profile?.country_code || '').trim().toUpperCase();
       const countryCode = /^[A-Z]{2}$/.test(rawCountry) ? rawCountry : null;
-
       const points = Number(row.points || 0);
 
       if (points <= 0) return null;
@@ -273,10 +253,7 @@ async function fetchTierPlayersFallback(activeSeasonId) {
     })
     .filter(Boolean);
 
-  const tierRank = {
-    'Tier S': 6, 'Tier A': 5, 'Tier B': 4,
-    'Tier C': 3, 'Tier D': 2, 'Tier E': 1,
-  };
+  const tierRank = { 'Tier S': 6, 'Tier A': 5, 'Tier B': 4, 'Tier C': 3, 'Tier D': 2, 'Tier E': 1 };
 
   result.sort(
     (a, b) =>
@@ -286,36 +263,24 @@ async function fetchTierPlayersFallback(activeSeasonId) {
   );
 
   const top = result.slice(0, TIER_LEADERBOARD_MAX_PLAYERS);
-
-  console.log(`[TierLeaderboard] Fallback: ${result.length} joueurs éligibles, ${top.length} affichés (top ${TIER_LEADERBOARD_MAX_PLAYERS}).`);
+  console.log(`[TierLeaderboard] Fallback: ${result.length} éligibles, ${top.length} affichés.`);
   return top;
 }
 
-// ── Construction de l'embed ────────────────────────────────
+// ── Construction des embeds ──────────────────────────────────
 
-/**
- * Construit un embed pour un tier spécifique
- */
 function buildTierEmbed(tier, players, startRank, totalPlayers, isFirstTier = false) {
   const tierEmoji = TIER_EMOJIS[tier] || '🏷️';
   const embedColor = TIER_COLOR_MAP[tier] || 0xf1c40f;
-  
-  let embedTitle;
-  if (isFirstTier) {
-    embedTitle = "🏆 TOP 100 BEST NULL'S BRAWL PLAYERS 🏆";
-  } else {
-    embedTitle = `${tierEmoji} ${tier}`;
-  }
 
-  const embed = new EmbedBuilder()
-    .setTitle(embedTitle)
-    .setColor(embedColor);
+  const embedTitle = isFirstTier
+    ? "🏆 TOP 100 BEST NULL'S BRAWL PLAYERS 🏆"
+    : `${tierEmoji} ${tier}`;
 
-  // Description uniquement sur le premier embed
+  const embed = new EmbedBuilder().setTitle(embedTitle).setColor(embedColor);
+
   if (isFirstTier) {
-    embed.setDescription(
-      `**${totalPlayers} joueurs classés** — mis à jour toutes les 5 minutes`
-    );
+    embed.setDescription(`**${totalPlayers} joueurs classés** — mis à jour toutes les 5 minutes`);
   }
 
   const lines = [];
@@ -326,15 +291,12 @@ function buildTierEmbed(tier, players, startRank, totalPlayers, isFirstTier = fa
     const pts = Math.round(player.points);
     const teamTag = player.teamTag ? ` \`[${player.teamTag}]\`` : '';
     const medal =
-      currentRank === 1 ? ' 🏆' :
-      currentRank === 2 ? ' 🥈' :
-      currentRank === 3 ? ' 🥉' : '';
+      currentRank === 1 ? ' 🏆' : currentRank === 2 ? ' 🥈' : currentRank === 3 ? ' 🥉' : '';
 
     lines.push(`**#${currentRank}**${medal} ${flag} **${player.name}**${teamTag} • **${pts} pts**`);
     currentRank++;
   }
 
-  // Regrouper les lignes dans des fields de max 1000 caractères
   const maxFieldLength = 1000;
   let currentFieldValue = '';
   let fieldIndex = 0;
@@ -342,7 +304,10 @@ function buildTierEmbed(tier, players, startRank, totalPlayers, isFirstTier = fa
   for (const line of lines) {
     const nextValue = currentFieldValue ? `${currentFieldValue}\n${line}` : line;
     if (nextValue.length > maxFieldLength && currentFieldValue) {
-      const fieldName = fieldIndex === 0 ? `${tierEmoji} ${tier} — ${players.length} joueur${players.length > 1 ? 's' : ''}` : '\u200b';
+      const fieldName =
+        fieldIndex === 0
+          ? `${tierEmoji} ${tier} — ${players.length} joueur${players.length > 1 ? 's' : ''}`
+          : '\u200b';
       embed.addFields({ name: fieldName, value: currentFieldValue, inline: false });
       currentFieldValue = line;
       fieldIndex++;
@@ -352,108 +317,247 @@ function buildTierEmbed(tier, players, startRank, totalPlayers, isFirstTier = fa
   }
 
   if (currentFieldValue) {
-    const fieldName = fieldIndex === 0 ? `${tierEmoji} ${tier} — ${players.length} joueur${players.length > 1 ? 's' : ''}` : '\u200b';
+    const fieldName =
+      fieldIndex === 0
+        ? `${tierEmoji} ${tier} — ${players.length} joueur${players.length > 1 ? 's' : ''}`
+        : '\u200b';
     embed.addFields({ name: fieldName, value: currentFieldValue, inline: false });
   }
 
   return embed;
 }
 
-// ── Envoi / mise à jour du message ─────────────────────────
+// ── Nettoyage complet du channel ─────────────────────────────
+// Supprime TOUS les messages du bot dans le channel, par batch de 100,
+// en ignorant les erreurs sur les messages > 14 jours (non supprimables).
+
+async function purgeChannelMessages() {
+  if (!_leaderboardChannel) return;
+
+  let deleted = 0;
+  let hasMore = true;
+
+  while (hasMore) {
+    let messages;
+    try {
+      messages = await _leaderboardChannel.messages.fetch({ limit: 100 });
+    } catch (err) {
+      console.warn('[TierLeaderboard] Erreur fetch messages pour purge:', err.message);
+      break;
+    }
+
+    const botMessages = messages.filter((m) => m.author.id === _client.user?.id);
+
+    if (botMessages.size === 0) {
+      hasMore = false;
+      break;
+    }
+
+    for (const m of botMessages.values()) {
+      const ageMs = Date.now() - m.createdTimestamp;
+      const tooOld = ageMs > 13 * 24 * 60 * 60 * 1000; // > 13 jours
+
+      if (tooOld) {
+        // Impossible à supprimer via l'API Discord (limite 14 jours)
+        // On écrase le contenu à la place
+        await m.edit({ content: '\u200b', embeds: [] }).catch(() => null);
+      } else {
+        await m.delete().catch(() => null);
+        await sleep(300); // évite le rate limit sur les suppressions
+      }
+      deleted++;
+    }
+
+    // Si tous les messages fetchés étaient du bot, il peut en rester
+    hasMore = botMessages.size === messages.size && messages.size === 100;
+  }
+
+  console.log(`[TierLeaderboard] Purge terminée : ${deleted} message(s) traités.`);
+  _postedMessageIds = [];
+}
+
+// ── Envoi initial (post fresh) ───────────────────────────────
+
+async function postFreshEmbeds(embeds) {
+  _postedMessageIds = [];
+
+  for (const embed of embeds) {
+    try {
+      const sent = await _leaderboardChannel.send({ embeds: [embed] });
+      _postedMessageIds.push(sent.id);
+      await sleep(500); // petit délai entre les envois
+    } catch (err) {
+      console.error('[TierLeaderboard] Échec envoi embed:', err.message);
+      // On continue quand même pour les autres tiers
+    }
+  }
+
+  console.log(`[TierLeaderboard] ${_postedMessageIds.length}/${embeds.length} embed(s) postés.`);
+}
+
+// ── Mise à jour par édition ──────────────────────────────────
+
+async function editExistingEmbeds(embeds) {
+  // Si le nombre de tiers a changé, on repart de zéro
+  if (_postedMessageIds.length !== embeds.length) {
+    console.log(
+      `[TierLeaderboard] Nombre d'embeds changé (${_postedMessageIds.length} → ${embeds.length}), purge et repost.`
+    );
+    await purgeChannelMessages();
+    await postFreshEmbeds(embeds);
+    return;
+  }
+
+  let allEdited = true;
+
+  for (let i = 0; i < embeds.length; i++) {
+    const msgId = _postedMessageIds[i];
+
+    try {
+      const msg = await _leaderboardChannel.messages.fetch(msgId);
+      await msg.edit({ embeds: [embeds[i]] });
+      await sleep(300);
+    } catch (err) {
+      console.warn(`[TierLeaderboard] Impossible d'éditer le message ${msgId}:`, err.message);
+      allEdited = false;
+      break;
+    }
+  }
+
+  if (!allEdited) {
+    // Un message a disparu (supprimé manuellement, etc.) → repost complet
+    console.log('[TierLeaderboard] Édition échouée sur au moins un message, purge et repost.');
+    await purgeChannelMessages();
+    await postFreshEmbeds(embeds);
+  } else {
+    console.log(`[TierLeaderboard] ${embeds.length} embed(s) mis à jour par édition.`);
+  }
+}
+
+// ── Point d'entrée principal ─────────────────────────────────
 
 async function sendOrUpdateTierLeaderboardEmbed() {
   if (!_client || !_guild) return;
 
-  if (!_leaderboardChannel) {
-    _leaderboardChannel = await _guild.channels.fetch(TIER_LEADERBOARD_CHANNEL_ID).catch(() => null);
-  }
-
-  if (!_leaderboardChannel?.isTextBased()) {
-    console.warn('[TierLeaderboard] Channel introuvable ou non textuel');
+  // Verrou : évite les exécutions simultanées (ex: init + premier interval)
+  if (_isUpdating) {
+    console.log('[TierLeaderboard] Mise à jour déjà en cours, skip.');
     return;
   }
+  _isUpdating = true;
 
-  let players = [];
   try {
-    players = await fetchTierPlayers();
+    if (!_leaderboardChannel) {
+      _leaderboardChannel = await _guild.channels.fetch(TIER_LEADERBOARD_CHANNEL_ID).catch(() => null);
+    }
+
+    if (!_leaderboardChannel?.isTextBased()) {
+      console.warn('[TierLeaderboard] Channel introuvable ou non textuel.');
+      return;
+    }
+
+    // Récupération des joueurs
+    let players = [];
+    try {
+      players = await fetchTierPlayers();
+    } catch (err) {
+      console.warn('[TierLeaderboard] Impossible de charger les joueurs:', err.message);
+      return;
+    }
+
+    if (!players.length) {
+      console.warn('[TierLeaderboard] Aucun joueur avec des points.');
+      return;
+    }
+
+    // Construction des embeds par tier
+    const playersByTier = new Map(TIER_ORDER.map((t) => [t, []]));
+
+    for (const player of players) {
+      const tier = player.tier || 'Tier E';
+      if (!playersByTier.has(tier)) playersByTier.set(tier, []);
+      playersByTier.get(tier).push(player);
+    }
+
+    const totalPlayers = players.length;
+    const embeds = [];
+    let currentRank = 1;
+    let isFirstTier = true;
+
+    for (const tier of TIER_ORDER) {
+      const tierPlayers = playersByTier.get(tier) || [];
+      if (tierPlayers.length === 0) continue;
+
+      embeds.push(buildTierEmbed(tier, tierPlayers, currentRank, totalPlayers, isFirstTier));
+      currentRank += tierPlayers.length;
+      isFirstTier = false;
+    }
+
+    // Édition si on a déjà des messages, sinon post initial
+    if (_postedMessageIds.length > 0) {
+      await editExistingEmbeds(embeds);
+    } else {
+      // Première fois ou après un redémarrage : cherche les messages existants du bot
+      await recoverExistingMessages(embeds);
+    }
+  } finally {
+    _isUpdating = false;
+  }
+}
+
+// ── Récupération des messages existants après redémarrage ────
+// Tente de retrouver les messages déjà postés pour les éditer
+// plutôt que de repartir d'un post + suppression systématique.
+
+async function recoverExistingMessages(embeds) {
+  let fetchedMessages;
+  try {
+    fetchedMessages = await _leaderboardChannel.messages.fetch({ limit: 50 });
   } catch (err) {
-    console.warn('[TierLeaderboard] Impossible de charger les joueurs:', err.message);
+    console.warn('[TierLeaderboard] Impossible de fetch les messages existants:', err.message);
+    await postFreshEmbeds(embeds);
     return;
   }
 
-  if (!players.length) {
-    console.warn('[TierLeaderboard] Aucun joueur avec des points.');
-    return;
-  }
-
-  // Regrouper les joueurs par tier
-  const playersByTier = new Map();
-  for (const tier of TIER_ORDER) {
-    playersByTier.set(tier, []);
-  }
-
-  for (const player of players) {
-    const tier = player.tier || 'Tier E';
-    if (!playersByTier.has(tier)) playersByTier.set(tier, []);
-    playersByTier.get(tier).push(player);
-  }
-
-  const totalPlayers = players.length;
-  const embeds = [];
-  let currentRank = 1;
-  let isFirstTier = true;
-
-  for (const tier of TIER_ORDER) {
-    const tierPlayers = playersByTier.get(tier) || [];
-    if (tierPlayers.length === 0) continue;
-
-    const embed = buildTierEmbed(tier, tierPlayers, currentRank, totalPlayers, isFirstTier);
-    embeds.push(embed);
-    currentRank += tierPlayers.length;
-    isFirstTier = false;
-  }
-
-  // Nettoyage anciens messages du bot
-  try {
-    const recent = await _leaderboardChannel.messages.fetch({ limit: 50 });
-    const old = recent.filter(
+  const botMessages = fetchedMessages
+    .filter(
       (m) =>
         m.author.id === _client.user?.id &&
         m.embeds?.length > 0 &&
-        (
-          m.embeds[0]?.title?.includes("BEST NULL'S BRAWL PLAYERS") ||
-          m.embeds[0]?.title?.includes('Tier')
-        )
+        (m.embeds[0]?.title?.includes("BEST NULL'S BRAWL PLAYERS") ||
+          m.embeds[0]?.title?.includes('Tier'))
+    )
+    .sort((a, b) => a.createdTimestamp - b.createdTimestamp); // du plus ancien au plus récent
+
+  if (botMessages.size === embeds.length) {
+    // On a exactement le bon nombre de messages → on récupère leurs IDs
+    _postedMessageIds = botMessages.map((m) => m.id);
+    console.log(`[TierLeaderboard] ${_postedMessageIds.length} message(s) récupérés, édition directe.`);
+    await editExistingEmbeds(embeds);
+  } else {
+    // Nombre différent (tiers ajoutés/supprimés, redémarrage après bug, etc.)
+    console.log(
+      `[TierLeaderboard] Mauvais nombre de messages existants (${botMessages.size} vs ${embeds.length} attendus), purge et repost.`
     );
-    await Promise.all(old.map((m) => m.delete().catch(() => null)));
-  } catch (_) {}
-
-  // Envoyer un embed par tier
-  for (const embed of embeds) {
-    await _leaderboardChannel.send({ embeds: [embed] }).catch((err) => {
-      console.error('[TierLeaderboard] Échec envoi:', err.message);
-    });
+    await purgeChannelMessages();
+    await postFreshEmbeds(embeds);
   }
-
-  console.log(`[TierLeaderboard] ${embeds.length} embed(s) postés pour ${totalPlayers} joueurs (1 embed par tier).`);
 }
 
-// ── Refresh des pseudos Discord ────────────────────────────
+// ── Refresh des pseudos Discord ──────────────────────────────
 
-/**
- * Resynchronise le nom des joueurs du classement (top TIER_LEADERBOARD_MAX_PLAYERS)
- * avec leur pseudo Discord actuel (surnom serveur ou nom d'utilisateur global),
- * puis republie l'embed avec les noms à jour.
- * Retourne un résumé { total, updated, unchanged, notFound, noDiscordId, errors }.
- */
 async function refreshDiscordNames() {
-  if (!_guild || !_supabase) {
-    throw new Error('[TierLeaderboard] Module non initialisé.');
-  }
+  if (!_guild || !_supabase) throw new Error('[TierLeaderboard] Module non initialisé.');
 
   const players = await fetchTierPlayers();
-
-  const summary = { total: players.length, updated: 0, unchanged: 0, notFound: 0, noDiscordId: 0, errors: 0 };
+  const summary = {
+    total: players.length,
+    updated: 0,
+    unchanged: 0,
+    notFound: 0,
+    noDiscordId: 0,
+    errors: 0,
+  };
 
   for (const player of players) {
     if (!player.discordId) {
@@ -485,7 +589,7 @@ async function refreshDiscordNames() {
       .eq('id', player.id);
 
     if (error) {
-      console.warn(`[TierLeaderboard] Échec mise à jour pseudo pour ${player.id}:`, error.message);
+      console.warn(`[TierLeaderboard] Échec pseudo ${player.id}:`, error.message);
       summary.errors++;
       continue;
     }
@@ -495,23 +599,26 @@ async function refreshDiscordNames() {
 
   if (summary.updated > 0) {
     await sendOrUpdateTierLeaderboardEmbed().catch((err) =>
-      console.error('[TierLeaderboard] Erreur en republiant après refresh des pseudos:', err)
+      console.error('[TierLeaderboard] Erreur repost après refresh pseudos:', err)
     );
   }
 
   console.log(
-    `[TierLeaderboard] Refresh pseudos: ${summary.updated} mis à jour, ${summary.unchanged} inchangés, ${summary.notFound} introuvables, ${summary.noDiscordId} sans discordId, ${summary.errors} erreurs (sur ${summary.total}).`
+    `[TierLeaderboard] Refresh pseudos: ${summary.updated} mis à jour, ${summary.unchanged} inchangés, ` +
+      `${summary.notFound} introuvables, ${summary.noDiscordId} sans discordId, ${summary.errors} erreurs.`
   );
 
   return summary;
 }
 
-// ── Initialisation ──────────────────────────────────────────
+// ── Initialisation ───────────────────────────────────────────
 
-function initTierLeaderboard(client, guild, supabase, siteBaseUrl = null) {
+function initTierLeaderboard(client, guild, supabase) {
   _client = client;
   _guild = guild;
   _supabase = supabase;
+  _postedMessageIds = [];
+  _isUpdating = false;
 
   console.log('[TierLeaderboard] Initialisation (mode Supabase direct)...');
 
