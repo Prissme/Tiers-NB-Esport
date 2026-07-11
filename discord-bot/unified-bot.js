@@ -8357,10 +8357,14 @@ async function onReady(readyClient) {
     ...(Array.isArray(bracketPredictions.slashCommands) ? bracketPredictions.slashCommands : []),
   ];
   log('[onReady] allCommands construit (' + allCommands.length + ' commandes). Envoi Discord...');
-  await predictions.registerCommands(allCommands).catch((err) =>
-    errorLog('[onReady] registerCommands(allCommands) failed:', err?.message || err)
-  );
-  log('[onReady] registerCommands terminé, démarrage des syncs...');
+  log('[onReady] client.application:', readyClient.application ? 'OK' : 'NULL');
+  try {
+    await predictions.registerCommands(allCommands);
+    log('[onReady] registerCommands terminé, démarrage des syncs...');
+  } catch (err) {
+    errorLog('[onReady] registerCommands(allCommands) THREW:', err?.message || err, err?.stack || '');
+    log('[onReady] poursuite malgré erreur registerCommands...');
+  }
 
   // Sync tiers périodique
   if (tierSyncInterval) {
