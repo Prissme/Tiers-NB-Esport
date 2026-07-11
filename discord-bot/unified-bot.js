@@ -8334,7 +8334,10 @@ async function onReady(readyClient) {
     logChannel = null;
   }
 
-  await predictions.registerCommands(buildAdminSlashCommands({ localizeText, optionType: ApplicationCommandOptionType }));
+  await predictions.registerCommands(buildAdminSlashCommands({ localizeText, optionType: ApplicationCommandOptionType })).catch((err) =>
+    errorLog('[onReady] registerCommands(adminCommands) failed:', err?.message || err)
+  );
+  log('[onReady] premier registerCommands terminé.');
 
   // On fusionne les commandes admin existantes avec les nouvelles commandes de tournoi
   // ==========================================
@@ -8613,7 +8616,11 @@ async function startUnifiedBot() {
     error: errorLog
   });
 
-  client.once(Events.ClientReady, onReady);
+  client.once(Events.ClientReady, (readyClient) => {
+    onReady(readyClient).catch((err) => {
+      errorLog('[onReady] CRASH NON GÉRÉ:', err?.message || err, err?.stack || '');
+    });
+  });
   client.on(Events.MessageCreate, handleMessage);
   client.on(Events.InteractionCreate, handleInteraction);
   client.on(Events.Error, (err) => errorLog('Discord client error:', err));
