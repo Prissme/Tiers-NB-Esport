@@ -8346,12 +8346,17 @@ async function onReady(readyClient) {
   // ==========================================
   // ENREGISTREMENT UNIQUE DES COMMANDES SLASH
   // ==========================================
+  log('[onReady] Construction allCommands...');
+  log('[onReady] slashCommandsData:', Array.isArray(slashCommandsData) ? slashCommandsData.length : typeof slashCommandsData);
+  log('[onReady] tournamentPredictions.slashCommands:', Array.isArray(tournamentPredictions.slashCommands) ? tournamentPredictions.slashCommands.length : typeof tournamentPredictions.slashCommands);
+  log('[onReady] bracketPredictions.slashCommands:', Array.isArray(bracketPredictions.slashCommands) ? bracketPredictions.slashCommands.length : typeof bracketPredictions.slashCommands);
   const allCommands = [
     ...buildAdminSlashCommands({ localizeText, optionType: ApplicationCommandOptionType }),
-    ...slashCommandsData,
-    ...tournamentPredictions.slashCommands,
-    ...bracketPredictions.slashCommands
+    ...(Array.isArray(slashCommandsData) ? slashCommandsData : []),
+    ...(Array.isArray(tournamentPredictions.slashCommands) ? tournamentPredictions.slashCommands : []),
+    ...(Array.isArray(bracketPredictions.slashCommands) ? bracketPredictions.slashCommands : []),
   ];
+  log('[onReady] allCommands construit (' + allCommands.length + ' commandes). Envoi Discord...');
   await predictions.registerCommands(allCommands).catch((err) =>
     errorLog('[onReady] registerCommands(allCommands) failed:', err?.message || err)
   );
