@@ -8359,10 +8359,19 @@ async function onReady(readyClient) {
     syncTiersWithRoles().catch((err) => errorLog('Tier sync failed:', err));
   }, TIER_SYNC_INTERVAL_MS);
 
-  // Sync worst player role
-  await syncWorstPlayerRole(guild).catch((err) =>
-    warn('Initial worst player role sync failed:', err?.message || err)
-  );
+  // Sync worst player role — timeout 15s pour ne jamais bloquer le démarrage
+  log('[onReady] Démarrage syncWorstPlayerRole...');
+  await Promise.race([
+    syncWorstPlayerRole(guild).catch((err) =>
+      warn('Initial worst player role sync failed:', err?.message || err)
+    ),
+    new Promise((resolve) => setTimeout(() => {
+      warn('[onReady] syncWorstPlayerRole timeout (15s) — poursuite du démarrage.');
+      resolve();
+    }, 15_000))
+  ]);
+  log('[onReady] syncWorstPlayerRole terminé.');
+
   if (worstPlayerRoleInterval) {
     clearInterval(worstPlayerRoleInterval);
   }
@@ -8372,11 +8381,23 @@ async function onReady(readyClient) {
     );
   }, WORST_PLAYER_ROLE_SYNC_INTERVAL_MS);
 
-  // Restauration de l'état PL
-  await restorePLState();
+  // Restauration de l'état PL — timeout 20s pour ne jamais bloquer
+  log('[onReady] Démarrage restorePLState...');
+  await Promise.race([
+    restorePLState().catch((err) =>
+      warn('[onReady] restorePLState failed:', err?.message || err)
+    ),
+    new Promise((resolve) => setTimeout(() => {
+      warn('[onReady] restorePLState timeout (20s) — poursuite du démarrage.');
+      resolve();
+    }, 20_000))
+  ]);
+  log('[onReady] restorePLState terminé.');
 
   // Tier leaderboard
+  log('[onReady] Appel initTierLeaderboard...');
   initTierLeaderboard(readyClient, guild, supabase, SITE_BASE_URL);
+  log('[onReady] initTierLeaderboard appelé.');
   
   tournamentPredictions.init({
     supabase,
