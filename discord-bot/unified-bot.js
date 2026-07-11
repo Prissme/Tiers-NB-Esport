@@ -8349,8 +8349,11 @@ async function onReady(readyClient) {
     ...tournamentPredictions.slashCommands,
     ...bracketPredictions.slashCommands
   ];
-  await predictions.registerCommands(allCommands); 
-  
+  await predictions.registerCommands(allCommands).catch((err) =>
+    errorLog('[onReady] registerCommands(allCommands) failed:', err?.message || err)
+  );
+  log('[onReady] registerCommands terminé, démarrage des syncs...');
+
   // Sync tiers périodique
   if (tierSyncInterval) {
     clearInterval(tierSyncInterval);
