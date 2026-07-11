@@ -8334,37 +8334,26 @@ async function onReady(readyClient) {
     logChannel = null;
   }
 
-  await predictions.registerCommands(buildAdminSlashCommands({ localizeText, optionType: ApplicationCommandOptionType })).catch((err) =>
-    errorLog('[onReady] registerCommands(adminCommands) failed:', err?.message || err)
-  );
-  log('[onReady] premier registerCommands terminé.');
-
-  // On fusionne les commandes admin existantes avec les nouvelles commandes de tournoi
-  // ==========================================
   // ENREGISTREMENT UNIQUE DES COMMANDES SLASH
-  // ==========================================
-  // ==========================================
-  // ENREGISTREMENT UNIQUE DES COMMANDES SLASH
-  // ==========================================
-  log('[onReady] Construction allCommands...');
-  log('[onReady] slashCommandsData:', Array.isArray(slashCommandsData) ? slashCommandsData.length : typeof slashCommandsData);
-  log('[onReady] tournamentPredictions.slashCommands:', Array.isArray(tournamentPredictions.slashCommands) ? tournamentPredictions.slashCommands.length : typeof tournamentPredictions.slashCommands);
-  log('[onReady] bracketPredictions.slashCommands:', Array.isArray(bracketPredictions.slashCommands) ? bracketPredictions.slashCommands.length : typeof bracketPredictions.slashCommands);
+  // Le premier appel redondant a été supprimé — on envoie tout en une seule fois
+  // avec un timeout de 30s pour éviter le hang infini sur commands.set()
   const allCommands = [
     ...buildAdminSlashCommands({ localizeText, optionType: ApplicationCommandOptionType }),
     ...(Array.isArray(slashCommandsData) ? slashCommandsData : []),
     ...(Array.isArray(tournamentPredictions.slashCommands) ? tournamentPredictions.slashCommands : []),
     ...(Array.isArray(bracketPredictions.slashCommands) ? bracketPredictions.slashCommands : []),
   ];
-  log('[onReady] allCommands construit (' + allCommands.length + ' commandes). Envoi Discord...');
-  log('[onReady] client.application:', readyClient.application ? 'OK' : 'NULL');
-  try {
-    await predictions.registerCommands(allCommands);
-    log('[onReady] registerCommands terminé, démarrage des syncs...');
-  } catch (err) {
-    errorLog('[onReady] registerCommands(allCommands) THREW:', err?.message || err, err?.stack || '');
-    log('[onReady] poursuite malgré erreur registerCommands...');
-  }
+  log('[onReady] Enregistrement de ' + allCommands.length + ' slash commands...');
+  await Promise.race([
+    predictions.registerCommands(allCommands).catch((err) =>
+      errorLog('[onReady] registerCommands failed:', err?.message || err)
+    ),
+    new Promise((resolve) => setTimeout(() => {
+      warn('[onReady] registerCommands timeout (30s) — poursuite du démarrage.');
+      resolve();
+    }, 30_000))
+  ]);
+  log('[onReady] Enregistrement slash commands terminé, démarrage des syncs...');
 
   // Sync tiers périodique
   if (tierSyncInterval) {
