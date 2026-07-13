@@ -8344,14 +8344,38 @@ async function onReady(readyClient) {
     ...(Array.isArray(bracketPredictions.slashCommands) ? bracketPredictions.slashCommands : []),
   ];
   log('[onReady] Enregistrement de ' + allCommands.length + ' slash commands...');
+  const REGISTER_COMMANDS_TIMEOUT_MS = 60_000;
+  const registerCommandsStartedAt = Date.now();
+  let registerCommandsSettled = false;
+
+  const registerCommandsPromise = predictions
+    .registerCommands(allCommands)
+    .then(() => {
+      registerCommandsSettled = true;
+      const elapsed = Date.now() - registerCommandsStartedAt;
+      // Si ce log apparaît APRÈS le message "timeout" ci-dessous, ça confirme
+      // que l'appel finit bien par réussir en arrière-plan, mais trop tard —
+      // c'est un problème de lenteur (Supabase et/ou Discord API), pas un vrai hang infini.
+      log(`[onReady] registerCommands a fini par réussir après ${elapsed}ms.`);
+    })
+    .catch((err) => {
+      registerCommandsSettled = true;
+      const elapsed = Date.now() - registerCommandsStartedAt;
+      errorLog(`[onReady] registerCommands a échoué après ${elapsed}ms:`, err?.message || err);
+    });
+
   await Promise.race([
-    predictions.registerCommands(allCommands).catch((err) =>
-      errorLog('[onReady] registerCommands failed:', err?.message || err)
-    ),
+    registerCommandsPromise,
     new Promise((resolve) => setTimeout(() => {
-      warn('[onReady] registerCommands timeout (30s) — poursuite du démarrage.');
+      if (!registerCommandsSettled) {
+        warn(
+          `[onReady] registerCommands timeout (${REGISTER_COMMANDS_TIMEOUT_MS / 1000}s) — ` +
+            'poursuite du démarrage. L\'appel continue en arrière-plan ; ' +
+            'voir le prochain log [onReady] registerCommands pour savoir s\'il finit par aboutir.'
+        );
+      }
       resolve();
-    }, 30_000))
+    }, REGISTER_COMMANDS_TIMEOUT_MS))
   ]);
   log('[onReady] Enregistrement slash commands terminé, démarrage des syncs...');
 
