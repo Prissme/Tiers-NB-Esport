@@ -209,14 +209,34 @@ async function registerCommands(additionalCommands = []) {
     return;
   }
 
+  const t0 = Date.now();
   try {
+    context.log('[registerCommands] Début verifyPredictionTables()...');
     await verifyPredictionTables();
+    context.log(`[registerCommands] verifyPredictionTables() terminé en ${Date.now() - t0}ms.`);
+
     const commands = buildCommands(context.localizeText);
     const mergedCommands = [...commands, ...(additionalCommands || [])];
+
+    const t1 = Date.now();
+    context.log(
+      `[registerCommands] Appel commands.set() avec ${mergedCommands.length} commandes ` +
+        `(guildId=${context.guildId || 'GLOBAL'})...`
+    );
     await context.client.application.commands.set(mergedCommands, context.guildId);
+    context.log(
+      `[registerCommands] commands.set() terminé en ${Date.now() - t1}ms ` +
+        `(total registerCommands: ${Date.now() - t0}ms).`
+    );
     context.log('Slash commands registered.');
   } catch (err) {
-    context.error('Unable to register slash commands:', err);
+    context.error(
+      `[registerCommands] Échec après ${Date.now() - t0}ms:`,
+      err?.message || err
+    );
+    // On relance l'erreur pour que l'appelant (unified-bot.js) sache que ça a échoué
+    // plutôt que de croire silencieusement que tout s'est bien passé.
+    throw err;
   }
 }
 
