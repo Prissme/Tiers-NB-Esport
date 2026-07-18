@@ -95,8 +95,10 @@ async function fetchTierPlayers() {
         player_id,
         points,
         tier,
-        players!inner(id, name, discord_id, active),
-        lfn_player_profiles(player_id, country_code, team_id)
+        players!inner(
+          id, name, discord_id, active,
+          lfn_player_profiles(player_id, country_code, team_id)
+        )
       `)
       .order('points', { ascending: false })
       .range(from, from + PAGE_SIZE - 1);
@@ -137,7 +139,7 @@ async function fetchTierPlayers() {
       const player = row.players;
       if (!player || player.active === false) return null;
 
-      const profileRaw = row.lfn_player_profiles;
+      const profileRaw = player.lfn_player_profiles;
       const profile = Array.isArray(profileRaw) ? profileRaw[0] || null : profileRaw || null;
 
       const rawCountry = String(profile?.country_code || '').trim().toUpperCase();
@@ -220,7 +222,7 @@ async function fetchTierPlayersFallback(activeSeasonId) {
 
   const [players, profiles, teams] = await Promise.all([
     fetchAllPages('players', 'id, name, discord_id, active', 'id', playerIds),
-    fetchAllPages('lfn_player_profiles', 'player_id, country_code', 'player_id', playerIds),
+    fetchAllPages('lfn_player_profiles', 'player_id, country_code, team_id', 'player_id', playerIds),
     _supabase.from('lfn_teams').select('id, name, tag').eq('is_active', true).then((r) => r.data || []),
   ]);
 
@@ -237,6 +239,7 @@ async function fetchTierPlayersFallback(activeSeasonId) {
       const profile = profileMap.get(pid);
       const rawCountry = String(profile?.country_code || '').trim().toUpperCase();
       const countryCode = /^[A-Z]{2}$/.test(rawCountry) ? rawCountry : null;
+      const team = profile?.team_id ? teamMap.get(String(profile.team_id)) : null;
       const points = Number(row.points || 0);
 
       if (points <= 0) return null;
@@ -248,7 +251,7 @@ async function fetchTierPlayersFallback(activeSeasonId) {
         tier: row.tier || 'Tier E',
         points,
         countryCode,
-        teamTag: null,
+        teamTag: team?.tag || null,
       };
     })
     .filter(Boolean);
