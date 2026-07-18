@@ -21,6 +21,7 @@ type PlayerStanding = {
   teamId?: string | null;
   teamName?: string | null;
   teamTag?: string | null;
+  earnings?: number;
 };
 
 const tierImageByName: Record<string, string> = {
@@ -129,6 +130,7 @@ const copy = {
     allCountries: "Tous les pays",
     allTiers: "Tous les tiers",
     playerDescriptionFallback: "Aucune description pour ce joueur.",
+    earningsLabel: "Gains",
     close: "Fermer",
     searchPlayerPlaceholder: "Rechercher un joueur…",
     previousPage: "Précédent",
@@ -168,6 +170,7 @@ const copy = {
     allCountries: "All countries",
     allTiers: "All tiers",
     playerDescriptionFallback: "No description available for this player.",
+    earningsLabel: "Earnings",
     close: "Close",
     searchPlayerPlaceholder: "Search player…",
     previousPage: "Previous",
@@ -830,6 +833,11 @@ export default function StandingsClient({ locale }: { locale: Locale }) {
             <p className="mb-2 text-sm text-white/70">
               {getDisplayedTier(selectedPlayer)} • {selectedPlayer.points} {content.pointsShort}
             </p>
+            {Number(selectedPlayer.earnings || 0) > 0 ? (
+              <p className="mb-2 text-sm font-semibold text-emerald-400">
+                💰 {content.earningsLabel}: {Number(selectedPlayer.earnings).toLocaleString(locale === "fr" ? "fr-FR" : "en-US", { style: "currency", currency: "USD", maximumFractionDigits: 2 })}
+              </p>
+            ) : null}
             <p className="whitespace-pre-wrap text-sm text-white/90">
               {selectedPlayer.description?.trim() || content.playerDescriptionFallback}
             </p>
