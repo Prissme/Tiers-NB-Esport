@@ -5526,7 +5526,7 @@ function computeTiersForSeason(pointsRows) {
 
   if (tierACandidates.length > 0) {
     tierACandidates.sort((a, b) => b.points - a.points);
-    const promoteCount = Math.max(1, Math.ceil(tierACandidates.length * 0.2));
+    const promoteCount = Math.max(1, Math.ceil(tierACandidates.length * 0.1));
     for (let i = 0; i < promoteCount; i++) {
       tierMap.set(tierACandidates[i].player_id, 'Tier S');
     }
