@@ -142,8 +142,8 @@ async function fetchTierPlayers() {
       const profileRaw = player.lfn_player_profiles;
       const profile = Array.isArray(profileRaw) ? profileRaw[0] || null : profileRaw || null;
 
-      const rawCountry = String(profile?.country_code || '').trim().toUpperCase();
-      const countryCode = /^[A-Z]{2}$/.test(rawCountry) ? rawCountry : null;
+      const rawCountry = String(profile?.country_code || 'FR').trim().toUpperCase();
+      const countryCode = /^[A-Z]{2}$/.test(rawCountry) ? rawCountry : 'FR';
       const team = profile?.team_id ? teamMap.get(String(profile.team_id)) : null;
       const points = Number(row.points || 0);
 
@@ -237,8 +237,8 @@ async function fetchTierPlayersFallback(activeSeasonId) {
       if (!player || player.active === false) return null;
 
       const profile = profileMap.get(pid);
-      const rawCountry = String(profile?.country_code || '').trim().toUpperCase();
-      const countryCode = /^[A-Z]{2}$/.test(rawCountry) ? rawCountry : null;
+      const rawCountry = String(profile?.country_code || 'FR').trim().toUpperCase();
+      const countryCode = /^[A-Z]{2}$/.test(rawCountry) ? rawCountry : 'FR';
       const team = profile?.team_id ? teamMap.get(String(profile.team_id)) : null;
       const points = Number(row.points || 0);
 
