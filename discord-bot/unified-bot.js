@@ -2107,7 +2107,7 @@ async function fetchSiteTierLeaderboard() {
 
   let query = supabase
     .from('lfn_player_tier_points')
-    .select('player_id, points, tier, players!inner(id, name, discord_id, active), lfn_player_profiles(player_id, country_code, ballon_dor, team_id)')
+    .select('player_id, points, tier, players!inner(id, name, discord_id, active), lfn_player_profiles(player_id, country_code, ballon_dor, earnings, team_id)')
     .order('points', { ascending: false });
 
   if (activeSeasonId) {
@@ -2129,7 +2129,7 @@ async function fetchSiteTierLeaderboard() {
     if (!playerIds.length) return [];
 
     const { data: players } = await supabase.from('players').select('id, name, discord_id, active').in('id', playerIds);
-    const { data: profiles } = await supabase.from('lfn_player_profiles').select('player_id, country_code, ballon_dor').in('player_id', playerIds);
+    const { data: profiles } = await supabase.from('lfn_player_profiles').select('player_id, country_code, ballon_dor, earnings').in('player_id', playerIds);
 
     const playerMap = new Map((players || []).map(p => [p.id, p]));
     const profileMap = new Map((profiles || []).map(p => [p.player_id, p]));
@@ -2167,6 +2167,7 @@ async function fetchSiteTierLeaderboard() {
       points: Number(row.points || 0),
       countryCode,
       ballonDor: Number(profile?.ballon_dor || 0),
+      earnings: Number(profile?.earnings || 0),
     };
   }).filter(Boolean)
     .sort((a, b) => b.points - a.points);
@@ -5454,6 +5455,22 @@ async function handleTierCommand(message) {
   const tierLabel = String(siteTierPlayer.tier || 'No Tier');
   const tierEmoji = formatTierEmoji(tierLabel);
   const ballonDor = Number(siteTierPlayer.ballonDor || 0);
+  const earnings = Number(siteTierPlayer.earnings || 0);
+
+  const embedFields = [
+    { name: 'Classement global', value: `**${rankLabel}**`, inline: true },
+    { name: 'Points', value: `**${Math.round(Number(siteTierPlayer.points || 0))}**`, inline: true },
+    { name: "Ballon D'Or", value: `**🏆 ${ballonDor}**`, inline: true },
+    { name: 'Pays', value: `**${countryFlag} ${countryCode}**`, inline: true }
+  ];
+
+  if (earnings > 0) {
+    embedFields.push({
+      name: 'Earnings',
+      value: `**💰 ${earnings.toLocaleString('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: 2 })} $**`,
+      inline: true
+    });
+  }
 
   await message.reply({
     embeds: [
@@ -5461,12 +5478,7 @@ async function handleTierCommand(message) {
         .setColor(PUBLIC_TIER_COLORS[siteTierPlayer.tier] || 0x00b894)
         .setTitle(`${TROPHY_EMOJI} ${tierEmoji ? `${tierEmoji} ` : ''}${tierLabel.toUpperCase()}`)
         .setDescription(description ? `📝 ${description}` : '‎')
-        .addFields(
-          { name: 'Classement global', value: `**${rankLabel}**`, inline: true },
-          { name: 'Points', value: `**${Math.round(Number(siteTierPlayer.points || 0))}**`, inline: true },
-          { name: "Ballon D'Or", value: `**🏆 ${ballonDor}**`, inline: true },
-          { name: 'Pays', value: `**${countryFlag} ${countryCode}**`, inline: true }
-        )
+        .addFields(...embedFields)
         .setThumbnail(targetUser.displayAvatarURL({ extension: 'png', size: 256 }))
     ]
   });
@@ -8570,7 +8582,7 @@ async function handleMessage(message) {
   const command = commandName.toLowerCase();
 
   // === COMMANDES TEMPORAIREMENT DÉSACTIVÉES POUR SIMPLIFICATION ===
-  const disabledCommands = new Set(['teams']);
+  const disabledCommands = new Set(['teams', 'lb', 'leaderboard', 'queue', 'file', 'elo']);
 
   if (disabledCommands.has(command)) {
     await message.reply({
