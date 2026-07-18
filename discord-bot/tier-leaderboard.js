@@ -97,7 +97,7 @@ async function fetchTierPlayers() {
         tier,
         players!inner(
           id, name, discord_id, active,
-          lfn_player_profiles(player_id, country_code, team_id)
+          lfn_player_profiles(player_id, country_code)
         )
       `)
       .order('points', { ascending: false })
@@ -230,7 +230,7 @@ async function fetchTierPlayersFallback(activeSeasonId) {
 
   const [players, profiles, teams] = await Promise.all([
     fetchAllPages('players', 'id, name, discord_id, active', 'id', playerIds),
-    fetchAllPages('lfn_player_profiles', 'player_id, country_code, team_id', 'player_id', playerIds),
+    fetchAllPages('lfn_player_profiles', 'player_id, country_code', 'player_id', playerIds),
     _supabase.from('lfn_teams').select('id, name, tag').eq('is_active', true).then((r) => r.data || []),
   ]);
 
