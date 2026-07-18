@@ -134,6 +134,9 @@ async function fetchTierPlayers() {
 
   const teamMap = new Map((teams || []).map((t) => [String(t.id), t]));
 
+  let debugProfilesFound = 0;
+  let debugProfilesMissing = 0;
+
   const result = filtered
     .map((row) => {
       const player = row.players;
@@ -142,8 +145,11 @@ async function fetchTierPlayers() {
       const profileRaw = player.lfn_player_profiles;
       const profile = Array.isArray(profileRaw) ? profileRaw[0] || null : profileRaw || null;
 
-      const rawCountry = String(profile?.country_code || 'FR').trim().toUpperCase();
-      const countryCode = /^[A-Z]{2}$/.test(rawCountry) ? rawCountry : 'FR';
+      if (profile && profile.country_code) debugProfilesFound++;
+      else debugProfilesMissing++;
+
+      const rawCountry = String(profile?.country_code || '').trim().toUpperCase();
+      const countryCode = /^[A-Z]{2}$/.test(rawCountry) ? rawCountry : null;
       const team = profile?.team_id ? teamMap.get(String(profile.team_id)) : null;
       const points = Number(row.points || 0);
 
@@ -160,6 +166,8 @@ async function fetchTierPlayers() {
       };
     })
     .filter(Boolean);
+
+  console.log(`[TierLeaderboard] Profils pays: ${debugProfilesFound} trouvés, ${debugProfilesMissing} manquants (join embed).`);
 
   const tierRank = { 'Tier S': 6, 'Tier A': 5, 'Tier B': 4, 'Tier C': 3, 'Tier D': 2, 'Tier E': 1 };
 
@@ -230,6 +238,16 @@ async function fetchTierPlayersFallback(activeSeasonId) {
   const profileMap = new Map(profiles.map((p) => [String(p.player_id), p]));
   const teamMap = new Map(teams.map((t) => [String(t.id), t]));
 
+  console.log(
+    `[TierLeaderboard] Fallback: ${playerIds.length} playerIds, ${profiles.length} lignes profils récupérées, ${profileMap.size} dans la map.`
+  );
+  if (profiles.length > 0) {
+    console.log('[TierLeaderboard] Exemple profil brut:', JSON.stringify(profiles[0]));
+  }
+
+  let debugProfilesFound = 0;
+  let debugProfilesMissing = 0;
+
   const result = filtered
     .map((row) => {
       const pid = String(row.player_id);
@@ -237,8 +255,11 @@ async function fetchTierPlayersFallback(activeSeasonId) {
       if (!player || player.active === false) return null;
 
       const profile = profileMap.get(pid);
-      const rawCountry = String(profile?.country_code || 'FR').trim().toUpperCase();
-      const countryCode = /^[A-Z]{2}$/.test(rawCountry) ? rawCountry : 'FR';
+      if (profile && profile.country_code) debugProfilesFound++;
+      else debugProfilesMissing++;
+
+      const rawCountry = String(profile?.country_code || '').trim().toUpperCase();
+      const countryCode = /^[A-Z]{2}$/.test(rawCountry) ? rawCountry : null;
       const team = profile?.team_id ? teamMap.get(String(profile.team_id)) : null;
       const points = Number(row.points || 0);
 
@@ -255,6 +276,8 @@ async function fetchTierPlayersFallback(activeSeasonId) {
       };
     })
     .filter(Boolean);
+
+  console.log(`[TierLeaderboard] Profils pays: ${debugProfilesFound} trouvés, ${debugProfilesMissing} manquants (fallback).`);
 
   const tierRank = { 'Tier S': 6, 'Tier A': 5, 'Tier B': 4, 'Tier C': 3, 'Tier D': 2, 'Tier E': 1 };
 
@@ -290,7 +313,7 @@ function buildTierEmbed(tier, players, startRank, totalPlayers, isFirstTier = fa
   let currentRank = startRank;
 
   for (const player of players) {
-    const flag = player.countryCode ? toCountryFlag(player.countryCode) : '';
+    const flag = toCountryFlag(player.countryCode);
     const pts = Math.round(player.points);
     const teamTag = player.teamTag ? ` \`[${player.teamTag}]\`` : '';
     const medal =
