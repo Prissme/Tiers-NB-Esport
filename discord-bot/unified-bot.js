@@ -1786,7 +1786,31 @@ async function handleAdminSlashCommand(interaction) {
     const currentPoints = Number(existingTierEntry?.points || 0);
     const nextPoints = currentPoints + amount;
     const currentTier = existingTierEntry?.tier || 'Tier E';
-    const recalculatedTier = resolveTierByPoints(nextPoints);
+
+    // Il faut connaître les points de TOUS les joueurs de la saison pour
+    // appliquer correctement la règle Tier S = top 20% des Tier A.
+    const { data: seasonPointsRows, error: seasonPointsError } = await supabase
+      .from('lfn_player_tier_points')
+      .select('player_id, points')
+      .eq('season_id', activeSeasonId);
+
+    if (seasonPointsError) {
+      errorLog('Failed to fetch season points for tier recompute:', seasonPointsError);
+      await interaction.reply({
+        content: localizeText({
+          fr: 'Erreur lors du calcul du tier.',
+          en: 'Error while computing tier.'
+        }),
+        flags: MessageFlags.Ephemeral
+      });
+      return true;
+    }
+
+    const seasonPoints = (seasonPointsRows || []).filter((row) => row.player_id !== player.id);
+    seasonPoints.push({ player_id: player.id, points: nextPoints });
+
+    const tierMap = computeTiersForSeason(seasonPoints);
+    const recalculatedTier = tierMap.get(player.id) ?? null;
     const persistedTier = recalculatedTier || 'Tier E';
 
     const { error: updateTierError } = await supabase.from('lfn_player_tier_points').upsert(
@@ -1821,6 +1845,11 @@ async function handleAdminSlashCommand(interaction) {
       solo_elo: Number(player.solo_elo || DEFAULT_ELO)
     });
     await syncSingleMemberTierRole(interaction.guild, targetUser.id, recalculatedTier);
+
+    // La frontière Tier S (top 20% des Tier A) a pu bouger pour d'autres
+    // joueurs suite à ce changement de points : on relance une synchro
+    // complète en arrière-plan pour les corriger, sans bloquer la réponse.
+    syncTiersWithRoles().catch((err) => errorLog('Background tier sync after addpoints failed:', err));
 
     performanceStores.playerStore.invalidateRankingSnapshot();
     await interaction.reply({
@@ -5476,6 +5505,36 @@ function resolveTierByPoints(points) {
   return 'Tier E';
 }
 
+// Calcule le tier de chaque joueur pour une saison entière, en appliquant
+// la règle Tier S = top 20% des joueurs classés Tier A (par points).
+// pointsRows: [{ player_id, points }, ...]
+// Retourne une Map(player_id -> tier | null)
+function computeTiersForSeason(pointsRows) {
+  const tierMap = new Map();
+  const tierACandidates = [];
+
+  for (const row of pointsRows || []) {
+    const playerId = row.player_id;
+    const points = Number(row.points || 0);
+    const baseTier = resolveTierByPoints(points);
+    tierMap.set(playerId, baseTier);
+
+    if (baseTier === 'Tier A') {
+      tierACandidates.push({ player_id: playerId, points });
+    }
+  }
+
+  if (tierACandidates.length > 0) {
+    tierACandidates.sort((a, b) => b.points - a.points);
+    const promoteCount = Math.max(1, Math.ceil(tierACandidates.length * 0.2));
+    for (let i = 0; i < promoteCount; i++) {
+      tierMap.set(tierACandidates[i].player_id, 'Tier S');
+    }
+  }
+
+  return tierMap;
+}
+
 function tierLabelToLetter(tierLabel) {
   const normalized = String(tierLabel || '')
     .replace(/^tier\s*/i, '')
@@ -8264,11 +8323,12 @@ async function syncTiersWithRoles() {
 
   const pointsByPlayerId = new Map(pointsRows.map((row) => [row.player_id, row]));
   const playersToSync = players.filter((player) => player.active !== false);
+  const tierMap = computeTiersForSeason(pointsRows);
 
   for (const player of playersToSync) {
     const tierRow = pointsByPlayerId.get(player.id);
     const points = Number(tierRow?.points || 0);
-    const recalculatedTier = resolveTierByPoints(points);
+    const recalculatedTier = tierMap.get(player.id) ?? null;
     const persistedTier = recalculatedTier || 'Tier E';
 
     if (tierRow && tierRow.tier !== persistedTier) {
