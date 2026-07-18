@@ -35,6 +35,7 @@ type TierPlayer = {
   countryCode?: string;
   description?: string;
   ballonDor?: number;
+  earnings?: number;
 };
 
 const toFlag = (countryCode?: string) => {
@@ -60,6 +61,7 @@ type NewPlayerForm = {
   countryCode: string;
   description: string;
   ballonDor: number;
+  earnings: number;
 };
 
 const defaultNewPlayer: NewPlayerForm = {
@@ -69,6 +71,7 @@ const defaultNewPlayer: NewPlayerForm = {
   countryCode: "FR",
   description: "",
   ballonDor: 0,
+  earnings: 0,
 };
 
 export default function AdminPage() {
@@ -158,6 +161,7 @@ export default function AdminPage() {
     countryCode: string;
     description: string;
     ballonDor: number;
+    earnings: number;
   }) => {
     const { playerId } = payload;
     setUpdatingPlayerId(playerId);
@@ -182,7 +186,7 @@ export default function AdminPage() {
   };
 
   const createTierPlayer = async () => {
-    const { name, tier, points, countryCode, description, ballonDor } = newPlayer;
+    const { name, tier, points, countryCode, description, ballonDor, earnings } = newPlayer;
     if (!name.trim()) {
       setErrorMessage("Le pseudo est obligatoire.");
       return;
@@ -196,7 +200,7 @@ export default function AdminPage() {
       const response = await fetch("/api/admin/player-standings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: name.trim(), tier, points, countryCode, description, ballonDor, seasonId }),
+        body: JSON.stringify({ name: name.trim(), tier, points, countryCode, description, ballonDor, earnings, seasonId }),
       });
       if (!response.ok) {
         const body = (await response.json()) as { error?: string };
@@ -542,6 +546,22 @@ export default function AdminPage() {
             </div>
 
             <div>
+              <label className="block text-xs uppercase tracking-[0.25em] text-white/50 mb-1">
+                Earnings (€)
+              </label>
+              <input
+                type="number"
+                min={0}
+                step="0.01"
+                value={newPlayer.earnings}
+                onChange={(e) =>
+                  setNewPlayer((prev) => ({ ...prev, earnings: Number(e.target.value) }))
+                }
+                className="surface-input"
+              />
+            </div>
+
+            <div>
               <button
                 type="button"
                 onClick={createTierPlayer}
@@ -645,6 +665,7 @@ type PlayerEditRowProps = {
     countryCode: string;
     description: string;
     ballonDor: number;
+    earnings: number;
   }) => void;
   onError: (msg: string) => void;
 };
@@ -657,6 +678,7 @@ function PlayerEditRow({ player, updating, onSave, onError }: PlayerEditRowProps
   const [countryCode, setCountryCode] = useState(player.countryCode ?? "FR");
   const [description, setDescription] = useState(player.description ?? "");
   const [ballonDor, setBallonDor] = useState(player.ballonDor ?? 0);
+  const [earnings, setEarnings] = useState(player.earnings ?? 0);
 
   const handleSave = () => {
     if (!Number.isInteger(points)) {
@@ -671,7 +693,11 @@ function PlayerEditRow({ player, updating, onSave, onError }: PlayerEditRowProps
       onError("Le Ballon d'Or doit être un nombre entier positif.");
       return;
     }
-    onSave({ points, tier, countryCode: countryCode.toUpperCase(), description, ballonDor });
+    if (!Number.isFinite(earnings) || earnings < 0) {
+      onError("Les earnings doivent être un nombre positif.");
+      return;
+    }
+    onSave({ points, tier, countryCode: countryCode.toUpperCase(), description, ballonDor, earnings });
   };
 
   return (
@@ -744,6 +770,20 @@ function PlayerEditRow({ player, updating, onSave, onError }: PlayerEditRowProps
           value={ballonDor}
           onChange={(e) => setBallonDor(Number(e.target.value))}
           placeholder="Nombre de Ballon(s) d'Or"
+          className="surface-input"
+        />
+      </div>
+      <div>
+        <label className="block text-xs uppercase tracking-[0.25em] text-white/50 mb-1">
+          Earnings ($)
+        </label>
+        <input
+          type="number"
+          min={0}
+          step="0.01"
+          value={earnings}
+          onChange={(e) => setEarnings(Number(e.target.value))}
+          placeholder="Gains en argent ($)"
           className="surface-input"
         />
       </div>
