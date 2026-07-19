@@ -2148,6 +2148,7 @@ async function fetchSiteTierLeaderboard() {
         points: Number(row.points || 0),
         countryCode,
         ballonDor: Number(profile?.ballon_dor || 0),
+        earnings: Number(profile?.earnings || 0),
       };
     }).filter(Boolean);
   }
@@ -5468,7 +5469,7 @@ async function handleTierCommand(message) {
   if (earnings > 0) {
     embedFields.push({
       name: 'Earnings',
-      value: `**💰 ${earnings.toLocaleString('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: 2 })} $**`,
+      value: `**💰 ${earnings.toLocaleString('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: 2 })} €**`,
       inline: true
     });
   }
