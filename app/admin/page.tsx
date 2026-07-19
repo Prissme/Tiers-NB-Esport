@@ -552,7 +552,7 @@ export default function AdminPage() {
               <input
                 type="number"
                 min={0}
-                step="0.01"
+                step="1"
                 value={newPlayer.earnings}
                 onChange={(e) =>
                   setNewPlayer((prev) => ({ ...prev, earnings: Number(e.target.value) }))
@@ -775,15 +775,15 @@ function PlayerEditRow({ player, updating, onSave, onError }: PlayerEditRowProps
       </div>
       <div>
         <label className="block text-xs uppercase tracking-[0.25em] text-white/50 mb-1">
-          Earnings ($)
+          Earnings (€)
         </label>
         <input
           type="number"
           min={0}
-          step="0.01"
+          step="1"
           value={earnings}
           onChange={(e) => setEarnings(Number(e.target.value))}
-          placeholder="Gains en argent ($)"
+          placeholder="Gains en argent (€)"
           className="surface-input"
         />
       </div>
