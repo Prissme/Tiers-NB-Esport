@@ -835,7 +835,7 @@ export default function StandingsClient({ locale }: { locale: Locale }) {
             </p>
             {Number(selectedPlayer.earnings || 0) > 0 ? (
               <p className="mb-2 text-sm font-semibold text-emerald-400">
-                💰 {content.earningsLabel}: {Number(selectedPlayer.earnings).toLocaleString(locale === "fr" ? "fr-FR" : "en-US", { style: "currency", currency: "USD", maximumFractionDigits: 2 })}
+                💰 {content.earningsLabel}: {Number(selectedPlayer.earnings).toLocaleString(locale === "fr" ? "fr-FR" : "en-US", { style: "currency", currency: "EUR", maximumFractionDigits: 0 })}
               </p>
             ) : null}
             <p className="whitespace-pre-wrap text-sm text-white/90">
