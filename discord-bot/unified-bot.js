@@ -31,6 +31,7 @@ const bracketPredictions = require('./bracket-predictions');
 const { slashCommandsData, handleTournamentInteractions } = require('./tournamentSystem');
 const tournamentPredictions = require('./tournament-predictions');
 const { initTierLeaderboard, refreshDiscordNames } = require('./tier-leaderboard');
+const { initWorldCountryLeaderboard } = require('./world-country-leaderboard');
 const { buildAdminSlashCommands } = require('./commands/admin-slash-commands');
 const {
   buildSeasonStartEmbed,
@@ -8498,6 +8499,11 @@ async function onReady(readyClient) {
   log('[onReady] Appel initTierLeaderboard...');
   initTierLeaderboard(readyClient, guild, supabase, SITE_BASE_URL);
   log('[onReady] initTierLeaderboard appelé.');
+
+  // World country leaderboard
+  log('[onReady] Appel initWorldCountryLeaderboard...');
+  initWorldCountryLeaderboard(readyClient, guild);
+  log('[onReady] initWorldCountryLeaderboard appelé.');
   
   tournamentPredictions.init({
     supabase,
