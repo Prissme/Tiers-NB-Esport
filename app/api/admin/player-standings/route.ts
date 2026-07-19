@@ -23,6 +23,7 @@ export async function PATCH(request: Request) {
       countryCode?: string;
       description?: string;
       ballonDor?: number;
+      earnings?: number;
       seasonId?: string;
     };
     const playerId = String(body.playerId ?? "").trim();
@@ -31,6 +32,7 @@ export async function PATCH(request: Request) {
     const countryCode = String(body.countryCode ?? "FR").trim().toUpperCase();
     const description = String(body.description ?? "").trim();
     const ballonDor = Number.isFinite(Number(body.ballonDor)) ? Math.max(0, Math.trunc(Number(body.ballonDor))) : 0;
+    const earnings = Number.isFinite(Number(body.earnings)) ? Math.max(0, Number(body.earnings)) : 0;
     const requestedSeasonId = String(body.seasonId ?? "").trim();
 
     if (
@@ -92,6 +94,7 @@ export async function PATCH(request: Request) {
           country_code: countryCode,
           description,
           ballon_dor: ballonDor,
+          earnings,
           updated_at: new Date().toISOString(),
         },
         { onConflict: "player_id" }
@@ -134,6 +137,7 @@ export async function POST(request: Request) {
       countryCode?: string;
       description?: string;
       ballonDor?: number;
+      earnings?: number;
       seasonId?: string;
     };
 
@@ -143,6 +147,7 @@ export async function POST(request: Request) {
     const countryCode = String(body.countryCode ?? "FR").trim().toUpperCase();
     const description = String(body.description ?? "").trim();
     const ballonDor = Number.isFinite(Number(body.ballonDor)) ? Math.max(0, Math.trunc(Number(body.ballonDor))) : 0;
+    const earnings = Number.isFinite(Number(body.earnings)) ? Math.max(0, Number(body.earnings)) : 0;
     const requestedSeasonId = String(body.seasonId ?? "").trim();
 
     if (
@@ -216,6 +221,7 @@ export async function POST(request: Request) {
           country_code: countryCode,
           description,
           ballon_dor: ballonDor,
+          earnings,
           updated_at: new Date().toISOString(),
         },
         { onConflict: "player_id" }
