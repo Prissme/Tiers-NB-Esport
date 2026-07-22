@@ -37,7 +37,8 @@ const {
 } = require('./tier-leaderboard');
 const {
   initWorldCountryLeaderboard,
-  sendOrUpdateWorldLeaderboardEmbed
+  sendOrUpdateWorldLeaderboardEmbed,
+  setFetchSiteTierLeaderboard
 } = require('./world-country-leaderboard');
 const { buildAdminSlashCommands } = require('./commands/admin-slash-commands');
 const {
@@ -8597,6 +8598,7 @@ async function onReady(readyClient) {
 
   // World country leaderboard
   log('[onReady] Appel initWorldCountryLeaderboard...');
+  setFetchSiteTierLeaderboard(fetchSiteTierLeaderboard); // même source de data que !worldlb
   initWorldCountryLeaderboard(readyClient, guild);
   log('[onReady] initWorldCountryLeaderboard appelé.');
   
