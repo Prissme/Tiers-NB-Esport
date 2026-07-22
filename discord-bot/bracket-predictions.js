@@ -1019,153 +1019,17 @@ async function handleInfo(interaction, table, idField, idValue, teamField = null
 // SLASH COMMANDS
 // ========================
 
-const slashCommands = [
-  {
-    name: 'bp_import',
-    description: 'Importer un bracket depuis BracketHQ (coller les matchs manuellement)',
-    default_member_permissions: PermissionsBitField.Flags.ManageGuild.toString(),
-    dm_permission: false
-  },
-  {
-    name: 'bp_open',
-    description: 'Ouvrir les mises pour un match du bracket',
-    default_member_permissions: PermissionsBitField.Flags.ManageGuild.toString(),
-    dm_permission: false,
-    options: [
-      { name: 'match_id', description: 'ID du match', type: ApplicationCommandOptionType.String, required: true },
-      { name: 'channel', description: 'Salon (optionnel)', type: ApplicationCommandOptionType.Channel, required: false }
-    ]
-  },
-  {
-    name: 'bp_close',
-    description: 'Fermer les mises pour un match',
-    default_member_permissions: PermissionsBitField.Flags.ManageGuild.toString(),
-    dm_permission: false,
-    options: [
-      { name: 'match_id', description: 'ID du match', type: ApplicationCommandOptionType.String, required: true }
-    ]
-  },
-  {
-    name: 'bp_resolve',
-    description: 'Déclarer le vainqueur d\'un match et distribuer les gains',
-    default_member_permissions: PermissionsBitField.Flags.ManageGuild.toString(),
-    dm_permission: false,
-    options: [
-      { name: 'match_id', description: 'ID du match', type: ApplicationCommandOptionType.String, required: true },
-      { name: 'winner', description: 'Vainqueur', type: ApplicationCommandOptionType.String, required: true,
-        choices: [{ name: 'Équipe A', value: 'a' }, { name: 'Équipe B', value: 'b' }] }
-    ]
-  },
-  {
-    name: 'fp_create',
-    description: 'Créer une prédiction libre (oui/non, choix multiples...)',
-    default_member_permissions: PermissionsBitField.Flags.ManageGuild.toString(),
-    dm_permission: false
-  },
-  {
-    name: 'fp_close',
-    description: 'Fermer les mises d\'une prédiction libre',
-    default_member_permissions: PermissionsBitField.Flags.ManageGuild.toString(),
-    dm_permission: false,
-    options: [
-      { name: 'pred_id', description: 'ID de la prédiction', type: ApplicationCommandOptionType.String, required: true }
-    ]
-  },
-  {
-    name: 'fp_resolve',
-    description: 'Déclarer la bonne réponse d\'une prédiction libre',
-    default_member_permissions: PermissionsBitField.Flags.ManageGuild.toString(),
-    dm_permission: false,
-    options: [
-      { name: 'pred_id', description: 'ID de la prédiction', type: ApplicationCommandOptionType.String, required: true },
-      { name: 'winner', description: 'Index de la bonne réponse (0 = 1ère option, 1 = 2ème...)', type: ApplicationCommandOptionType.Integer, required: true, min_value: 0, max_value: 4 }
-    ]
-  },
-  {
-    name: 'pred_wallet',
-    description: 'Voir ton solde de points de prédiction',
-    dm_permission: false
-  },
-  {
-    name: 'pred_leaderboard',
-    description: 'Classement des meilleurs parieurs',
-    dm_permission: false
-  }
-];
+// Prédictions désactivées à la demande de l'utilisateur : plus aucune commande
+// bp_import / bp_open / bp_close / bp_resolve / fp_create / fp_close / fp_resolve /
+// pred_wallet / pred_leaderboard n'est enregistrée.
+const slashCommands = [];
 
 // ========================
 // HANDLER PRINCIPAL
 // ========================
 
-async function handleInteraction(interaction) {
-  if (!ctx) return false;
-
-  // Slash commands
-  if (interaction.isChatInputCommand()) {
-    switch (interaction.commandName) {
-      case 'bp_import': await handleBracketImport(interaction); return true;
-      case 'bp_open': await handleBracketOpen(interaction); return true;
-      case 'bp_close': await handleBracketClose(interaction); return true;
-      case 'bp_resolve': await handleBracketResolve(interaction); return true;
-      case 'fp_create': await handleFreePredCreate(interaction); return true;
-      case 'fp_close': await handleFreePredClose(interaction); return true;
-      case 'fp_resolve': await handleFreePredResolve(interaction); return true;
-      case 'pred_wallet': {
-        const w = await getOrCreateWallet(interaction.guild.id, interaction.user.id);
-        await interaction.reply({
-          embeds: [new EmbedBuilder().setColor(0x2ecc71).setTitle('💰 Ton portefeuille')
-            .addFields(
-              { name: 'Solde', value: `**${w.balance} pts**`, inline: true },
-              { name: 'Total gagné', value: `${w.total_won} pts`, inline: true },
-              { name: 'Total perdu', value: `${w.total_lost} pts`, inline: true }
-            )],
-          flags: MessageFlags.Ephemeral
-        });
-        return true;
-      }
-      case 'pred_leaderboard': {
-        const { data } = await ctx.supabase
-          .from('prediction_wallets')
-          .select('user_id, balance, total_won')
-          .eq('guild_id', interaction.guild.id)
-          .order('balance', { ascending: false })
-          .limit(10);
-        const lines = (data || []).map((r, i) =>
-          `**#${i + 1}** <@${r.user_id}> — **${r.balance} pts** (gagné : ${r.total_won} pts)`
-        );
-        await interaction.reply({
-          embeds: [new EmbedBuilder().setColor(0xf1c40f).setTitle('🏅 Classement parieurs')
-            .setDescription(lines.join('\n') || 'Aucun parieur.')],
-        });
-        return true;
-      }
-    }
-  }
-
-  // Modals
-  if (interaction.isModalSubmit()) {
-    if (interaction.customId === 'bp:import_modal') { await handleBracketImportModal(interaction); return true; }
-    if (interaction.customId === 'fp:create_modal') { await handleFreePredCreateModal(interaction); return true; }
-    if (interaction.customId.startsWith('bp:betmodal:')) { await handleBracketBetModal(interaction); return true; }
-    if (interaction.customId.startsWith('fp:betmodal:')) { await handleFreePredBetModal(interaction); return true; }
-  }
-
-  // Boutons
-  if (interaction.isButton()) {
-    if (interaction.customId.startsWith('bp:bet:')) { await handleBracketBetButton(interaction); return true; }
-    if (interaction.customId.startsWith('bp:info:')) {
-      const matchId = interaction.customId.split(':')[2];
-      await handleInfo(interaction, 'bracket_bets', 'match_id', matchId);
-      return true;
-    }
-    if (interaction.customId.startsWith('fp:bet:')) { await handleFreePredBetButton(interaction); return true; }
-    if (interaction.customId.startsWith('fp:info:')) {
-      const predId = interaction.customId.split(':')[2];
-      await handleInfo(interaction, 'free_prediction_bets', 'prediction_id', predId);
-      return true;
-    }
-  }
-
+async function handleInteraction(_interaction) {
+  // Prédictions désactivées à la demande de l'utilisateur.
   return false;
 }
 
