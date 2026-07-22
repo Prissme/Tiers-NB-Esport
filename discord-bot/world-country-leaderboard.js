@@ -10,7 +10,15 @@
 // ============================================================
 
 const { EmbedBuilder } = require('discord.js');
-const { fetchTierPlayers } = require('./tier-leaderboard');
+// IMPORTANT : on utilise fetchSiteTierLeaderboard (unified-bot.js) et non fetchTierPlayers
+// (tier-leaderboard.js), car fetchTierPlayers est plafonné à TIER_LEADERBOARD_MAX_PLAYERS (100)
+// et exclut les pays inconnus au lieu de fallback sur 'FR'. Ça causait un écart de data
+// entre l'embed auto-refresh et la commande !worldlb, qui utilise fetchSiteTierLeaderboard.
+let _fetchSiteTierLeaderboard = null;
+
+function setFetchSiteTierLeaderboard(fn) {
+  _fetchSiteTierLeaderboard = fn;
+}
 
 const WORLD_LEADERBOARD_CHANNEL_ID = '1528195571096096844';
 const WORLD_LEADERBOARD_UPDATE_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
@@ -62,8 +70,10 @@ function computeCountryRanking(players) {
   const countries = new Map();
 
   for (const player of players) {
-    const countryCode = String(player?.countryCode || '').trim().toUpperCase();
-    if (!/^[A-Z]{2}$/.test(countryCode)) continue;
+    const rawCountryCode = String(player?.countryCode || '').trim().toUpperCase();
+    // Même fallback que fetchSiteTierLeaderboard (unified-bot.js) : 'FR' si code invalide/absent,
+    // pour rester cohérent avec !worldlb.
+    const countryCode = /^[A-Z]{2}$/.test(rawCountryCode) ? rawCountryCode : 'FR';
 
     const points = Number(player?.points || 0);
     const entry = countries.get(countryCode) || {
@@ -306,9 +316,14 @@ async function sendOrUpdateWorldLeaderboardEmbed() {
       return { updated: false, reason: 'channel_not_found' };
     }
 
+    if (!_fetchSiteTierLeaderboard) {
+      console.warn('[WorldLeaderboard] fetchSiteTierLeaderboard non injecté (setFetchSiteTierLeaderboard jamais appelé).');
+      return { updated: false, reason: 'fetch_fn_not_set' };
+    }
+
     let players = [];
     try {
-      players = await fetchTierPlayers();
+      players = await _fetchSiteTierLeaderboard();
     } catch (err) {
       console.warn('[WorldLeaderboard] Impossible de charger les joueurs:', err.message);
       return { updated: false, reason: `fetch_players_failed: ${err.message}` };
@@ -369,5 +384,6 @@ function initWorldCountryLeaderboard(client, guild) {
 
 module.exports = {
   initWorldCountryLeaderboard,
-  sendOrUpdateWorldLeaderboardEmbed // Export pour permettre un refresh manuel (ex: !refreshworldlb)
+  sendOrUpdateWorldLeaderboardEmbed, // Export pour permettre un refresh manuel (ex: !refreshworldlb)
+  setFetchSiteTierLeaderboard // À appeler une fois au démarrage depuis unified-bot.js
 };
