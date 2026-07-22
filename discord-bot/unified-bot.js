@@ -30,8 +30,15 @@ const seasonSystem = require('./season-system');
 const bracketPredictions = require('./bracket-predictions');
 const { slashCommandsData, handleTournamentInteractions } = require('./tournamentSystem');
 const tournamentPredictions = require('./tournament-predictions');
-const { initTierLeaderboard, refreshDiscordNames } = require('./tier-leaderboard');
-const { initWorldCountryLeaderboard } = require('./world-country-leaderboard');
+const {
+  initTierLeaderboard,
+  refreshDiscordNames,
+  sendOrUpdateTierLeaderboardEmbed
+} = require('./tier-leaderboard');
+const {
+  initWorldCountryLeaderboard,
+  sendOrUpdateWorldLeaderboardEmbed
+} = require('./world-country-leaderboard');
 const { buildAdminSlashCommands } = require('./commands/admin-slash-commands');
 const {
   buildSeasonStartEmbed,
@@ -5410,6 +5417,84 @@ async function handleRefreshTierNamesCommand(message) {
   }
 }
 
+async function handleRefreshTop100Command(message) {
+  const hasPermission = message.member?.permissions?.has(PermissionsBitField.Flags.ManageGuild);
+
+  if (!hasPermission) {
+    await message.reply({
+      content: localizeText({
+        fr: "❌ Vous n'avez pas la permission d'exécuter cette commande.",
+        en: "❌ You don't have permission to run this command."
+      })
+    });
+    return;
+  }
+
+  const response = await message.reply({
+    content: localizeText({
+      fr: '🔄 Rafraîchissement du classement Top 100 en cours…',
+      en: '🔄 Refreshing the Top 100 leaderboard…'
+    })
+  });
+
+  try {
+    await sendOrUpdateTierLeaderboardEmbed();
+    await response.edit(
+      localizeText({
+        fr: '✅ Classement Top 100 rafraîchi avec succès.',
+        en: '✅ Top 100 leaderboard refreshed successfully.'
+      })
+    );
+  } catch (err) {
+    errorLog('Failed to refresh top100 leaderboard:', err);
+    await response.edit(
+      localizeText({
+        fr: "❌ Impossible de rafraîchir le classement Top 100. Consultez les logs pour plus d'informations.",
+        en: '❌ Unable to refresh the Top 100 leaderboard. Check the logs for details.'
+      })
+    );
+  }
+}
+
+async function handleRefreshWorldLbCommand(message) {
+  const hasPermission = message.member?.permissions?.has(PermissionsBitField.Flags.ManageGuild);
+
+  if (!hasPermission) {
+    await message.reply({
+      content: localizeText({
+        fr: "❌ Vous n'avez pas la permission d'exécuter cette commande.",
+        en: "❌ You don't have permission to run this command."
+      })
+    });
+    return;
+  }
+
+  const response = await message.reply({
+    content: localizeText({
+      fr: '🔄 Rafraîchissement du classement mondial (pays) en cours…',
+      en: '🔄 Refreshing the world (country) leaderboard…'
+    })
+  });
+
+  try {
+    await sendOrUpdateWorldLeaderboardEmbed();
+    await response.edit(
+      localizeText({
+        fr: '✅ Classement mondial rafraîchi avec succès.',
+        en: '✅ World leaderboard refreshed successfully.'
+      })
+    );
+  } catch (err) {
+    errorLog('Failed to refresh world leaderboard:', err);
+    await response.edit(
+      localizeText({
+        fr: "❌ Impossible de rafraîchir le classement mondial. Consultez les logs pour plus d'informations.",
+        en: '❌ Unable to refresh the world leaderboard. Check the logs for details.'
+      })
+    );
+  }
+}
+
 async function fetchPlayerTierDescription(playerId) {
   if (!playerId) {
     return '';
@@ -8656,6 +8741,12 @@ async function handleMessage(message) {
       case 'refreshpseudos':
       case 'syncnames':
         await handleRefreshTierNamesCommand(message, args);
+        break;
+      case 'refreshtop100':
+        await handleRefreshTop100Command(message, args);
+        break;
+      case 'refreshworldlb':
+        await handleRefreshWorldLbCommand(message, args);
         break;
       case 'lfn':
         await handleLfnCommand(message, args);
