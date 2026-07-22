@@ -665,4 +665,9 @@ function initTierLeaderboard(client, guild, supabase) {
   );
 }
 
-module.exports = { initTierLeaderboard, refreshDiscordNames, fetchTierPlayers };
+module.exports = {
+  initTierLeaderboard,
+  refreshDiscordNames,
+  fetchTierPlayers,
+  sendOrUpdateTierLeaderboardEmbed // Export pour permettre un refresh manuel (ex: !refreshtop100)
+};
