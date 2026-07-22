@@ -139,7 +139,7 @@ function buildWorldEmbeds(countryRanking) {
   const rest = countryRanking.slice(WORLDS_QUALIFIED_COUNT);
 
   const qualifiedEmbed = buildCountryEmbed(
-    'WORLD COUNTRY RANKING — WORLDS QUALIFIED (TOP 16) 🏆🌍',
+    '🌍🏆 WORLD COUNTRY RANKING — WORLDS QUALIFIED (TOP 16) 🏆🌍',
     qualified,
     1,
     0xf1c40f,
@@ -286,11 +286,13 @@ async function recoverExistingMessages(embeds) {
 // ── Point d'entrée principal ─────────────────────────────────
 
 async function sendOrUpdateWorldLeaderboardEmbed() {
-  if (!_client || !_guild) return;
+  if (!_client || !_guild) {
+    return { updated: false, reason: 'not_initialized' };
+  }
 
   if (_isUpdating) {
     console.log('[WorldLeaderboard] Mise à jour déjà en cours, skip.');
-    return;
+    return { updated: false, reason: 'already_updating' };
   }
   _isUpdating = true;
 
@@ -301,7 +303,7 @@ async function sendOrUpdateWorldLeaderboardEmbed() {
 
     if (!_leaderboardChannel?.isTextBased()) {
       console.warn('[WorldLeaderboard] Channel introuvable ou non textuel.');
-      return;
+      return { updated: false, reason: 'channel_not_found' };
     }
 
     let players = [];
@@ -309,19 +311,19 @@ async function sendOrUpdateWorldLeaderboardEmbed() {
       players = await fetchTierPlayers();
     } catch (err) {
       console.warn('[WorldLeaderboard] Impossible de charger les joueurs:', err.message);
-      return;
+      return { updated: false, reason: `fetch_players_failed: ${err.message}` };
     }
 
     if (!players.length) {
       console.warn('[WorldLeaderboard] Aucun joueur avec des points.');
-      return;
+      return { updated: false, reason: 'no_players' };
     }
 
     const countryRanking = computeCountryRanking(players);
 
     if (!countryRanking.length) {
       console.warn('[WorldLeaderboard] Aucun pays classé.');
-      return;
+      return { updated: false, reason: 'no_countries' };
     }
 
     const embeds = buildWorldEmbeds(countryRanking);
@@ -331,6 +333,8 @@ async function sendOrUpdateWorldLeaderboardEmbed() {
     } else {
       await recoverExistingMessages(embeds);
     }
+
+    return { updated: true, reason: 'ok' };
   } finally {
     _isUpdating = false;
   }
