@@ -5477,13 +5477,22 @@ async function handleRefreshWorldLbCommand(message) {
   });
 
   try {
-    await sendOrUpdateWorldLeaderboardEmbed();
-    await response.edit(
-      localizeText({
-        fr: '✅ Classement mondial rafraîchi avec succès.',
-        en: '✅ World leaderboard refreshed successfully.'
-      })
-    );
+    const result = await sendOrUpdateWorldLeaderboardEmbed();
+    if (result?.updated) {
+      await response.edit(
+        localizeText({
+          fr: '✅ Classement mondial rafraîchi avec succès.',
+          en: '✅ World leaderboard refreshed successfully.'
+        })
+      );
+    } else {
+      await response.edit(
+        localizeText({
+          fr: `⚠️ Aucune mise à jour effectuée (raison : ${result?.reason || 'inconnue'}).`,
+          en: `⚠️ No update performed (reason: ${result?.reason || 'unknown'}).`
+        })
+      );
+    }
   } catch (err) {
     errorLog('Failed to refresh world leaderboard:', err);
     await response.edit(
