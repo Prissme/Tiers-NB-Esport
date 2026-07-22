@@ -68,17 +68,10 @@ function parseDiscordTimestamp(dateStr, format = 'F') {
  * Génère l'embed du menu principal
  */
 async function buildMainMenu() {
-    const descriptionText =
-        "Clique sur une cup pour voir les détails, les conditions d'inscription et le cashprize.";
-
     const embed = new EmbedBuilder()
-        .setTitle("VOICI LES TOURNOIS QUI ARRIVENT SUR PTV")
-        .setDescription(descriptionText)
         .setColor(EMBED_COLOR_MAIN)
-        .setTimestamp()
         .setThumbnail('attachment://PTV.webp') // Image PTV.webp dans le coin droit
-        .setImage('attachment://Tournois.webp')  // Grosse image centrale Tournois.webp
-        .setFooter({ text: FOOTER_TEXT });
+        .setImage('attachment://Tournois.webp');  // Grosse image centrale Tournois.webp
 
     const { data: tournaments, error } = await global.supabase
         .from('lfn_tournaments')
@@ -86,27 +79,18 @@ async function buildMainMenu() {
         .order('created_at', { ascending: true });
 
     if (error || !tournaments || tournaments.length === 0) {
-        embed.addFields({
-            name: "Aucun tournoi actif",
-            value: "Reviens bientôt ou contacte un admin pour créer une cup.",
-            inline: false
-        });
+        embed.setDescription(
+            "# INCOMING EVENTS IN PTV\nClick on a cup to see its details, entry conditions and cashprize.\n\n" +
+            "*No active tournaments right now. Check back soon or contact an admin to create one.*"
+        );
         return { embed, buttons: [] };
     }
 
-    tournaments.forEach(t => {
-        const currentRegistered = t.registered_teams || 0; 
-        const remaining = t.max_teams - currentRegistered;
-        const statusIcon = remaining > 0 ? "✅" : "🔴";
-        const statusText = remaining > 0 ? "🟢 Ouvert" : "🔴 Complet";
-        const discordTime = parseDiscordTimestamp(t.date_string, 'f');
+    const namesList = tournaments.map(t => `🏆 **${t.name}**`).join('\n');
 
-        embed.addFields({
-            name: `**${t.name}**`,
-            value: `📅 ${discordTime}  |  💰 ${t.cashprize}  |  👥 \`${currentRegistered}/${t.max_teams} ${statusIcon}\`  |  ${statusText}`,
-            inline: false
-        });
-    });
+    embed.setDescription(
+        `# INCOMING EVENTS IN PTV\nClick on a cup to see its details, entry conditions and cashprize.\n\n${namesList}`
+    );
 
     const buttons = tournaments.map(t => {
         const label = t.name.length > 80 ? t.name.substring(0, 77) + "…" : t.name;
@@ -195,26 +179,24 @@ async function handleTournamentInteractions(interaction) {
         const organizerMention = `<@${t.organizer_id}>`;
         const channelMention = `<#${t.signup_channel_id}>`;
         const currentRegistered = t.registered_teams || 0;
-        const statusText = currentRegistered < t.max_teams ? "🟢 **Ouvert**" : "🔴 **Complet**";
-        
+        const statusText = currentRegistered < t.max_teams ? "🟢 **Open**" : "🔴 **Full**";
+
         const fullTime = parseDiscordTimestamp(t.date_string, 'F');
         const relativeTime = parseDiscordTimestamp(t.date_string, 'R');
 
         const detailEmbed = new EmbedBuilder()
             .setTitle(`🏆  ${t.name}`)
-            .setDescription(`La Cup organisée par ${organizerMention}\n📅 Début : ${fullTime} (${relativeTime})\n\u200b`)
+            .setDescription(`Cup organized by ${organizerMention}\n📅 Starts: ${fullTime} (${relativeTime})\n\u200b`)
             .setColor(EMBED_COLOR_DETAIL)
             .addFields(
-                { name: "💰  Cashprize / Récompense", value: t.cashprize, inline: true },
-                { name: "👥  Équipes Max", value: `**${t.max_teams}**`, inline: true },
-                { name: "📋  Inscrits", value: `**${currentRegistered}/${t.max_teams}**`, inline: true },
-                { name: "🔗  Inscriptions", value: channelMention, inline: true },
-                { name: "📊  Statut", value: statusText, inline: true }
+                { name: "💰  Cashprize / Reward", value: t.cashprize, inline: true },
+                { name: "👥  Max Teams", value: `**${t.max_teams}**`, inline: true },
+                { name: "📋  Registered", value: `**${currentRegistered}/${t.max_teams}**`, inline: true },
+                { name: "🔗  Sign-ups", value: channelMention, inline: true },
+                { name: "📊  Status", value: statusText, inline: true }
             )
             .setThumbnail('attachment://PTV.webp')
-            .setImage('attachment://Tournois.webp')
-            .setFooter({ text: FOOTER_TEXT })
-            .setTimestamp(new Date(t.created_at));
+            .setImage('attachment://Tournois.webp');
 
         if (t.banner_url) {
             detailEmbed.setImage(t.banner_url);
