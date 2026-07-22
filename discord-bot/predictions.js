@@ -12,7 +12,8 @@ const {
   ButtonStyle,
   EmbedBuilder,
   MessageFlags,
-  PermissionsBitField
+  PermissionsBitField,
+  Routes
 } = require('discord.js');
 
 const LOG_PREFIX = '[LFN Predictions]';
@@ -50,158 +51,14 @@ function initPredictionContext(options) {
 }
 
 async function verifyPredictionTables() {
-  if (!context?.supabase) {
-    return;
-  }
-
-  for (const table of REQUIRED_PREDICTION_TABLES) {
-    try {
-      const { error } = await context.supabase.from(table).select('id', { head: true, count: 'exact' }).limit(1);
-      if (error) {
-        throw error;
-      }
-    } catch (err) {
-      const errorCode = err?.code || err?.error_code;
-      if (errorCode === 'PGRST205') {
-        context.warn(
-          `Table Supabase manquante: ${table}. Appliquez la migration ${PREDICTION_MIGRATION_PATH} pour corriger.`
-        );
-      } else {
-        context.warn(`Impossible de vérifier la table ${table}:`, err?.message || err);
-      }
-    }
-  }
+  // Prédictions désactivées à la demande de l'utilisateur : plus besoin de vérifier ces tables.
+  return;
 }
 
-function buildCommands(localizeText) {
-  return [
-    {
-      name: 'predictions',
-      description: localizeText({
-        fr: "Créer des prédictions LFN pour jusqu'à quatre matchs",
-        en: 'Create LFN predictions for up to four matches'
-      }),
-      default_member_permissions: PermissionsBitField.Flags.ManageGuild.toString(),
-      dm_permission: false,
-      options: [
-        {
-          name: 'match1_team1',
-          description: localizeText({ fr: "Équipe 1 du match 1", en: 'Match 1 team 1' }),
-          type: ApplicationCommandOptionType.String,
-          autocomplete: true,
-          required: true
-        },
-        {
-          name: 'match1_team2',
-          description: localizeText({ fr: "Équipe 2 du match 1", en: 'Match 1 team 2' }),
-          type: ApplicationCommandOptionType.String,
-          autocomplete: true,
-          required: true
-        },
-        {
-          name: 'match2_team1',
-          description: localizeText({ fr: "Équipe 1 du match 2", en: 'Match 2 team 1' }),
-          type: ApplicationCommandOptionType.String,
-          autocomplete: true,
-          required: false
-        },
-        {
-          name: 'match2_team2',
-          description: localizeText({ fr: "Équipe 2 du match 2", en: 'Match 2 team 2' }),
-          type: ApplicationCommandOptionType.String,
-          autocomplete: true,
-          required: false
-        },
-        {
-          name: 'match3_team1',
-          description: localizeText({ fr: "Équipe 1 du match 3", en: 'Match 3 team 1' }),
-          type: ApplicationCommandOptionType.String,
-          autocomplete: true,
-          required: false
-        },
-        {
-          name: 'match3_team2',
-          description: localizeText({ fr: "Équipe 2 du match 3", en: 'Match 3 team 2' }),
-          type: ApplicationCommandOptionType.String,
-          autocomplete: true,
-          required: false
-        },
-        {
-          name: 'match4_team1',
-          description: localizeText({ fr: "Équipe 1 du match 4", en: 'Match 4 team 1' }),
-          type: ApplicationCommandOptionType.String,
-          autocomplete: true,
-          required: false
-        },
-        {
-          name: 'match4_team2',
-          description: localizeText({ fr: "Équipe 2 du match 4", en: 'Match 4 team 2' }),
-          type: ApplicationCommandOptionType.String,
-          autocomplete: true,
-          required: false
-        },
-        {
-          name: 'date',
-          description: localizeText({ fr: 'Date des matchs (JJ/MM/AAAA)', en: 'Match date (DD/MM/YYYY)' }),
-          type: ApplicationCommandOptionType.String,
-          required: false
-        },
-        {
-          name: 'channel',
-          description: localizeText({ fr: 'Salon où poster', en: 'Target channel' }),
-          type: ApplicationCommandOptionType.Channel,
-          required: false
-        }
-      ]
-    },
-    {
-      name: 'close_predictions',
-      description: localizeText({
-        fr: 'Fermer les votes pour un match',
-        en: 'Close votes for a match'
-      }),
-      default_member_permissions: PermissionsBitField.Flags.ManageGuild.toString(),
-      dm_permission: false,
-      options: [
-        {
-          name: 'match_number',
-          description: localizeText({ fr: 'Match à fermer (1-4)', en: 'Match to close (1-4)' }),
-          type: ApplicationCommandOptionType.Integer,
-          required: false,
-          choices: [
-            { name: '1', value: 1 },
-            { name: '2', value: 2 },
-            { name: '3', value: 3 },
-            { name: '4', value: 4 }
-          ]
-        }
-      ]
-    },
-    {
-      name: 'announce_predictions',
-      description: localizeText({
-        fr: 'Annoncer les gagnants des matchs disponibles',
-        en: 'Announce winners for the available matches'
-      }),
-      default_member_permissions: PermissionsBitField.Flags.ManageGuild.toString(),
-      dm_permission: false,
-      options: [1, 2, 3, 4].flatMap((match) => [
-        {
-          name: `match${match}_winner`,
-          description: localizeText({
-            fr: `Gagnant du match ${match} (équipe 1 ou 2)`,
-            en: `Match ${match} winner (team 1 or 2)`
-          }),
-          type: ApplicationCommandOptionType.Integer,
-          required: match === 1,
-          choices: [
-            { name: localizeText({ fr: 'Équipe 1', en: 'Team 1' }), value: 1 },
-            { name: localizeText({ fr: 'Équipe 2', en: 'Team 2' }), value: 2 }
-          ]
-        }
-      ])
-    }
-  ];
+function buildCommands(_localizeText) {
+  // Prédictions désactivées à la demande de l'utilisateur : plus aucune commande slash
+  // /predictions, /close_predictions, /announce_predictions n'est enregistrée.
+  return [];
 }
 
 async function registerCommands(additionalCommands = []) {
@@ -218,17 +75,66 @@ async function registerCommands(additionalCommands = []) {
     const commands = buildCommands(context.localizeText);
     const mergedCommands = [...commands, ...(additionalCommands || [])];
 
-    const t1 = Date.now();
+    // Sérialisation en JSON brut : nécessaire pour l'appel REST direct ci-dessous
+    // (contrairement à commands.set(), rest.put() n'accepte pas les builders directement).
+    const body = mergedCommands.map((cmd) => (typeof cmd?.toJSON === 'function' ? cmd.toJSON() : cmd));
+
+    // Détecte les doublons de noms : cause fréquente de rejet par l'API Discord,
+    // utile à savoir avant même d'envoyer la requête.
+    const seenNames = new Set();
+    const duplicateNames = [];
+    for (const cmd of body) {
+      if (seenNames.has(cmd.name)) duplicateNames.push(cmd.name);
+      seenNames.add(cmd.name);
+    }
+    if (duplicateNames.length) {
+      context.warn(
+        `[registerCommands] ⚠️ Noms de commandes en double détectés (l'API Discord peut rejeter tout le lot) : ${duplicateNames.join(', ')}`
+      );
+    }
+
+    const applicationId = context.client.application.id;
+    const route = context.guildId
+      ? Routes.applicationGuildCommands(applicationId, context.guildId)
+      : Routes.applicationCommands(applicationId);
+
     context.log(
-      `[registerCommands] Appel commands.set() avec ${mergedCommands.length} commandes ` +
-        `(guildId=${context.guildId || 'GLOBAL'})...`
+      `[registerCommands] PUT ${route} avec ${body.length} commandes (guildId=${context.guildId || 'GLOBAL'})...`
     );
-    await context.client.application.commands.set(mergedCommands, context.guildId);
-    context.log(
-      `[registerCommands] commands.set() terminé en ${Date.now() - t1}ms ` +
-        `(total registerCommands: ${Date.now() - t0}ms).`
-    );
-    context.log('Slash commands registered.');
+
+    // NOTE HISTORIQUE : client.application.commands.set() pouvait rester bloqué
+    // indéfiniment sans jamais résoudre ni rejeter (observé en prod), ce qui rendait
+    // le timeout de sécurité dans onReady() inutile (la requête continuait en fond,
+    // mais sans jamais aboutir ni logger d'erreur). On utilise ici l'appel REST brut
+    // avec un AbortSignal.timeout() réel par tentative, et des retries.
+    const MAX_ATTEMPTS = 3;
+    const ATTEMPT_TIMEOUT_MS = 20_000;
+    let lastError = null;
+
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+      const t1 = Date.now();
+      try {
+        await context.client.rest.put(route, {
+          body,
+          signal: AbortSignal.timeout(ATTEMPT_TIMEOUT_MS)
+        });
+        context.log(
+          `[registerCommands] commands.set() terminé en ${Date.now() - t1}ms ` +
+            `(total registerCommands: ${Date.now() - t0}ms, tentative ${attempt}/${MAX_ATTEMPTS}).`
+        );
+        context.log('Slash commands registered.');
+        return;
+      } catch (err) {
+        lastError = err;
+        context.warn(
+          `[registerCommands] Tentative ${attempt}/${MAX_ATTEMPTS} échouée après ${Date.now() - t1}ms : ${
+            err?.message || err
+          }`
+        );
+      }
+    }
+
+    throw lastError;
   } catch (err) {
     context.error(
       `[registerCommands] Échec après ${Date.now() - t0}ms:`,
@@ -1270,32 +1176,10 @@ async function interactionGuildOrFetch() {
   return context.client.guilds.fetch(context.guildId);
 }
 
-async function handleInteraction(interaction) {
-  if (!context) {
-    return false;
-  }
-
-  if (interaction.isAutocomplete()) {
-    return handleAutocomplete(interaction);
-  }
-
-  if (interaction.isChatInputCommand() && interaction.commandName === 'predictions') {
-    return handlePredictionsCommand(interaction);
-  }
-
-  if (await handleValidationInteraction(interaction)) {
-    return true;
-  }
-
-  if (await handleVoteInteraction(interaction)) {
-    return true;
-  }
-
-  if (await handleCloseCommand(interaction)) {
-    return true;
-  }
-
-  return handleAnnounceCommand(interaction);
+async function handleInteraction(_interaction) {
+  // Prédictions désactivées à la demande de l'utilisateur : on ne traite plus
+  // aucune interaction (votes, validation, clôture, annonce, autocomplete).
+  return false;
 }
 
 async function handleAutocomplete(interaction) {
