@@ -192,52 +192,9 @@ async function refreshMatchMessage(match) {
 // SLASH COMMANDS
 // ========================
 
-const slashCommands = [
-  {
-    name: 'tpred_create',
-    description: 'Créer un match de prédiction pour un tournoi',
-    default_member_permissions: PermissionsBitField.Flags.ManageGuild.toString(),
-    dm_permission: false,
-    options: [
-      { name: 'tournament', description: 'Nom du tournoi', type: ApplicationCommandOptionType.String, required: true },
-      { name: 'team_a', description: 'Équipe A', type: ApplicationCommandOptionType.String, required: true },
-      { name: 'team_b', description: 'Équipe B', type: ApplicationCommandOptionType.String, required: true },
-      { name: 'score_a', description: 'Note de force équipe A (1-100)', type: ApplicationCommandOptionType.Integer, required: true, min_value: 1, max_value: 100 },
-      { name: 'score_b', description: 'Note de force équipe B (1-100)', type: ApplicationCommandOptionType.Integer, required: true, min_value: 1, max_value: 100 },
-      { name: 'channel', description: 'Salon cible (optionnel)', type: ApplicationCommandOptionType.Channel, required: false }
-    ]
-  },
-  {
-    name: 'tpred_close',
-    description: 'Fermer les mises pour un match',
-    default_member_permissions: PermissionsBitField.Flags.ManageGuild.toString(),
-    dm_permission: false,
-    options: [
-      { name: 'match_id', description: 'ID du match', type: ApplicationCommandOptionType.String, required: true }
-    ]
-  },
-  {
-    name: 'tpred_resolve',
-    description: 'Déclarer le vainqueur et distribuer les gains',
-    default_member_permissions: PermissionsBitField.Flags.ManageGuild.toString(),
-    dm_permission: false,
-    options: [
-      { name: 'match_id', description: 'ID du match', type: ApplicationCommandOptionType.String, required: true },
-      { name: 'winner', description: 'Vainqueur', type: ApplicationCommandOptionType.String, required: true,
-        choices: [{ name: 'Équipe A', value: 'a' }, { name: 'Équipe B', value: 'b' }] }
-    ]
-  },
-  {
-    name: 'tpred_wallet',
-    description: 'Voir ton solde de points de prédiction',
-    dm_permission: false
-  },
-  {
-    name: 'tpred_leaderboard',
-    description: 'Classement des meilleurs parieurs',
-    dm_permission: false
-  }
-];
+// Prédictions désactivées à la demande de l'utilisateur : plus aucune commande
+// tpred_create / tpred_close / tpred_resolve / tpred_wallet / tpred_leaderboard n'est enregistrée.
+const slashCommands = [];
 
 // ========================
 // HANDLERS SLASH
@@ -636,31 +593,8 @@ async function handleMyBet(interaction) {
 // HANDLER PRINCIPAL
 // ========================
 
-async function handleInteraction(interaction) {
-  if (!ctx) return false;
-
-  // Slash commands
-  if (interaction.isChatInputCommand()) {
-    if (interaction.commandName === 'tpred_create') { await handleCreate(interaction); return true; }
-    if (interaction.commandName === 'tpred_close') { await handleClose(interaction); return true; }
-    if (interaction.commandName === 'tpred_resolve') { await handleResolve(interaction); return true; }
-    if (interaction.commandName === 'tpred_wallet') { await handleWallet(interaction); return true; }
-    if (interaction.commandName === 'tpred_leaderboard') { await handleLeaderboard(interaction); return true; }
-  }
-
-  // Boutons
-  if (interaction.isButton() && interaction.customId.startsWith('tpred:')) {
-    const action = interaction.customId.split(':')[1];
-    if (action === 'bet') { await handleBetButton(interaction); return true; }
-    if (action === 'mybet') { await handleMyBet(interaction); return true; }
-  }
-
-  // Modal
-  if (interaction.isModalSubmit() && interaction.customId.startsWith('tpred:betmodal:')) {
-    await handleBetModal(interaction);
-    return true;
-  }
-
+async function handleInteraction(_interaction) {
+  // Prédictions désactivées à la demande de l'utilisateur.
   return false;
 }
 
