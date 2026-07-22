@@ -93,7 +93,7 @@ function computeCountryRanking(players) {
 // ── Construction des embeds ──────────────────────────────────
 
 function buildCountryEmbed(title, countries, startRank, color, footerText) {
-  const embed = new EmbedBuilder().setTitle(title).setColor(color);
+  const embed = new EmbedBuilder().setTitle(title).setColor(color).setTimestamp(new Date());
   if (footerText) embed.setFooter({ text: footerText });
 
   const lines = countries.map((entry, idx) => {
