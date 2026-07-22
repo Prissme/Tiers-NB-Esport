@@ -303,7 +303,7 @@ function buildTierEmbed(tier, players, startRank, totalPlayers, isFirstTier = fa
     ? "🏆 TOP 100 BEST NULL'S BRAWL PLAYERS 🏆"
     : `${tierEmoji} ${tier}`;
 
-  const embed = new EmbedBuilder().setTitle(embedTitle).setColor(embedColor);
+  const embed = new EmbedBuilder().setTitle(embedTitle).setColor(embedColor).setTimestamp(new Date());
 
   if (isFirstTier) {
     embed.setDescription(`**${totalPlayers} joueurs classés** — mis à jour toutes les 5 minutes`);
