@@ -139,7 +139,7 @@ function buildWorldEmbeds(countryRanking) {
   const rest = countryRanking.slice(WORLDS_QUALIFIED_COUNT);
 
   const qualifiedEmbed = buildCountryEmbed(
-    '🌍🏆 WORLD COUNTRY RANKING — WORLDS QUALIFIED (TOP 16) 🏆🌍',
+    'WORLD COUNTRY RANKING — WORLDS QUALIFIED (TOP 16) 🏆🌍',
     qualified,
     1,
     0xf1c40f,
@@ -363,4 +363,7 @@ function initWorldCountryLeaderboard(client, guild) {
   );
 }
 
-module.exports = { initWorldCountryLeaderboard };
+module.exports = {
+  initWorldCountryLeaderboard,
+  sendOrUpdateWorldLeaderboardEmbed // Export pour permettre un refresh manuel (ex: !refreshworldlb)
+};
