@@ -86,7 +86,7 @@ async function buildMainMenu() {
         return { embed, buttons: [] };
     }
 
-    const namesList = tournaments.map(t => `🏆 **${t.name}**`).join('\n');
+    const namesList = tournaments.map(t => `## <:WinnerPin:1510208177541611540> ${t.name}`).join('\n');
 
     embed.setDescription(
         `# INCOMING EVENTS IN PTV\nClick on a cup to see its details, entry conditions and cashprize.\n\n${namesList}`
@@ -98,7 +98,7 @@ async function buildMainMenu() {
             .setCustomId(`cup_btn:${t.slug}`)
             .setLabel(label)
             .setStyle(ButtonStyle.Secondary)
-            .setEmoji("🏆");
+            .setEmoji({ id: '1510208177541611540', name: 'WinnerPin' });
     });
 
     return { embed, buttons };
@@ -178,34 +178,25 @@ async function handleTournamentInteractions(interaction) {
 
         const organizerMention = `<@${t.organizer_id}>`;
         const channelMention = `<#${t.signup_channel_id}>`;
-        const currentRegistered = t.registered_teams || 0;
-        const statusText = currentRegistered < t.max_teams ? "🟢 **Open**" : "🔴 **Full**";
 
         const fullTime = parseDiscordTimestamp(t.date_string, 'F');
         const relativeTime = parseDiscordTimestamp(t.date_string, 'R');
 
         const detailEmbed = new EmbedBuilder()
-            .setTitle(`🏆  ${t.name}`)
-            .setDescription(`Cup organized by ${organizerMention}\n📅 Starts: ${fullTime} (${relativeTime})\n\u200b`)
+            .setDescription(`# <:WinnerPin:1510208177541611540>  ${t.name}\nCup organized by ${organizerMention}\n📅 Starts: ${fullTime} (${relativeTime})\n\u200b`)
             .setColor(EMBED_COLOR_DETAIL)
             .addFields(
                 { name: "💰  Cashprize / Reward", value: t.cashprize, inline: true },
-                { name: "👥  Max Teams", value: `**${t.max_teams}**`, inline: true },
-                { name: "📋  Registered", value: `**${currentRegistered}/${t.max_teams}**`, inline: true },
-                { name: "🔗  Sign-ups", value: channelMention, inline: true },
-                { name: "📊  Status", value: statusText, inline: true }
+                { name: "🔗  Sign-ups", value: channelMention, inline: true }
             )
-            .setThumbnail('attachment://PTV.webp')
-            .setImage('attachment://Tournois.webp');
+            .setThumbnail('attachment://PTV.webp');
 
         if (t.banner_url) {
             detailEmbed.setImage(t.banner_url);
         }
 
         const files = [];
-        const fileTournois = getPublicAttachment('Tournois.webp');
         const filePTV = getPublicAttachment('PTV.webp');
-        if (fileTournois) files.push(fileTournois);
         if (filePTV) files.push(filePTV);
 
         await interaction.followUp({ embeds: [detailEmbed], files: files, flags: [MessageFlags.Ephemeral] }).catch(() => null);
