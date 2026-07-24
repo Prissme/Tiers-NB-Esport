@@ -148,6 +148,63 @@ function buildAdminSlashCommands({ localizeText, optionType, adminPermission }) 
       ]
     },
     {
+      name: 'simulatematch',
+      description: localizeText({
+        fr: 'Simuler un match réel (6 joueurs) et appliquer le résultat',
+        en: 'Simulate a real match (6 players) and apply the outcome'
+      }),
+      dm_permission: false,
+      default_member_permissions: adminPermission,
+      options: [
+        {
+          name: 'blue1',
+          description: localizeText({ fr: 'Équipe bleue - joueur 1', en: 'Blue team - player 1' }),
+          type: optionType.User,
+          required: true
+        },
+        {
+          name: 'blue2',
+          description: localizeText({ fr: 'Équipe bleue - joueur 2', en: 'Blue team - player 2' }),
+          type: optionType.User,
+          required: true
+        },
+        {
+          name: 'blue3',
+          description: localizeText({ fr: 'Équipe bleue - joueur 3', en: 'Blue team - player 3' }),
+          type: optionType.User,
+          required: true
+        },
+        {
+          name: 'red1',
+          description: localizeText({ fr: 'Équipe rouge - joueur 1', en: 'Red team - player 1' }),
+          type: optionType.User,
+          required: true
+        },
+        {
+          name: 'red2',
+          description: localizeText({ fr: 'Équipe rouge - joueur 2', en: 'Red team - player 2' }),
+          type: optionType.User,
+          required: true
+        },
+        {
+          name: 'red3',
+          description: localizeText({ fr: 'Équipe rouge - joueur 3', en: 'Red team - player 3' }),
+          type: optionType.User,
+          required: true
+        },
+        {
+          name: 'winner',
+          description: localizeText({ fr: 'Équipe gagnante', en: 'Winning team' }),
+          type: optionType.String,
+          required: true,
+          choices: [
+            { name: localizeText({ fr: 'Bleue', en: 'Blue' }), value: 'blue' },
+            { name: localizeText({ fr: 'Rouge', en: 'Red' }), value: 'red' }
+          ]
+        }
+      ]
+    },
+    {
       name: 'cancelmatch',
       description: localizeText({ fr: 'Annuler un match PL en cours', en: 'Cancel a running PL match' }),
       dm_permission: false,
