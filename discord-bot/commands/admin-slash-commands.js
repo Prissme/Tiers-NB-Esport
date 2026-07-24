@@ -134,6 +134,20 @@ function buildAdminSlashCommands({ localizeText, optionType, adminPermission }) 
       ]
     },
     {
+      name: 'unbanpl',
+      description: localizeText({ fr: 'Lever le ban !join d’un joueur', en: 'Lift a player’s !join ban' }),
+      dm_permission: false,
+      default_member_permissions: adminPermission,
+      options: [
+        {
+          name: 'player',
+          description: localizeText({ fr: 'Joueur ciblé', en: 'Target player' }),
+          type: optionType.User,
+          required: true
+        }
+      ]
+    },
+    {
       name: 'cancelmatch',
       description: localizeText({ fr: 'Annuler un match PL en cours', en: 'Cancel a running PL match' }),
       dm_permission: false,
