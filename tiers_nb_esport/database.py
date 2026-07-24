@@ -6,7 +6,8 @@ from typing import Dict, Iterable, List, Optional, Tuple
 from contextlib import contextmanager
 
 import psycopg2
-from psycopg2.extras import RealDictCursor
+import psycopg2.pool
+from psycopg2.extras import RealDictCursor, execute_values
 
 from . import config
 
@@ -32,11 +33,29 @@ class Player:
         )
 
 
+# ── PERF #1 : Pool de connexions ThreadedConnectionPool ──────────────────────
+# Remplace les open/close répétés par un pool de 2–10 connexions réutilisées.
+_pool: Optional[psycopg2.pool.ThreadedConnectionPool] = None
+
+
+def _get_pool() -> psycopg2.pool.ThreadedConnectionPool:
+    global _pool
+    if _pool is None:
+        if not config.DATABASE_URL:
+            raise RuntimeError("DATABASE_URL environment variable is not set")
+        _pool = psycopg2.pool.ThreadedConnectionPool(
+            minconn=2,
+            maxconn=10,
+            dsn=config.DATABASE_URL,
+            cursor_factory=RealDictCursor,
+        )
+    return _pool
+
+
 @contextmanager
 def get_connection():
-    if not config.DATABASE_URL:
-        raise RuntimeError("DATABASE_URL environment variable is not set")
-    conn = psycopg2.connect(config.DATABASE_URL, cursor_factory=RealDictCursor)
+    pool = _get_pool()
+    conn = pool.getconn()
     try:
         yield conn
         conn.commit()
@@ -44,7 +63,7 @@ def get_connection():
         conn.rollback()
         raise
     finally:
-        conn.close()
+        pool.putconn(conn)
 
 
 def init_db() -> None:
@@ -93,6 +112,27 @@ def init_db() -> None:
                 """
                 ALTER TABLE matches
                 ADD COLUMN IF NOT EXISTS team2_score INTEGER NOT NULL DEFAULT 0
+                """
+            )
+            # ── PERF #3 : Index GIN pour player_has_pending_match ─────────────
+            # Évite le full scan sur matches à chaque !join.
+            cur.execute(
+                """
+                CREATE INDEX IF NOT EXISTS idx_matches_team1_ids
+                ON matches USING GIN (team1_ids)
+                """
+            )
+            cur.execute(
+                """
+                CREATE INDEX IF NOT EXISTS idx_matches_team2_ids
+                ON matches USING GIN (team2_ids)
+                """
+            )
+            cur.execute(
+                """
+                CREATE INDEX IF NOT EXISTS idx_matches_status
+                ON matches (status)
+                WHERE status = 'pending'
                 """
             )
 
@@ -170,9 +210,12 @@ def fetch_leaderboard(limit: int = 10) -> Tuple[List[Player], int]:
     return players, total_players
 
 
-
-
 def fetch_leaderboard_page(limit: int = 10, offset: int = 0) -> Tuple[List[Player], int]:
+    """
+    PERF #4 : Une seule connexion même si la page est vide.
+    On récupère le COUNT total dans la même transaction via une subquery,
+    ce qui évite la deuxième ouverture de connexion de l'ancienne version.
+    """
     limit = max(1, int(limit))
     offset = max(0, int(offset))
     with get_connection() as conn:
@@ -187,15 +230,18 @@ def fetch_leaderboard_page(limit: int = 10, offset: int = 0) -> Tuple[List[Playe
                 (limit, offset),
             )
             rows = cur.fetchall()
-    if not rows:
-        with get_connection() as conn:
-            with conn.cursor() as cur:
+
+            if not rows:
+                # Page vide : on compte dans la même connexion, même transaction
                 cur.execute("SELECT COUNT(*) AS count FROM players")
                 total_players = int(cur.fetchone()["count"])
-        return [], total_players
+                return [], total_players
+
     total_players = int(rows[0].get("total_players", 0))
     players = [Player.from_row(row) for row in rows]
     return players, total_players
+
+
 def record_match(team1_ids: List[int], team2_ids: List[int], map_info: Dict[str, str]) -> Dict:
     with get_connection() as conn:
         with conn.cursor() as cur:
@@ -314,25 +360,37 @@ def player_has_pending_match(discord_id: int) -> bool:
 
 
 def apply_player_updates(updates: Iterable[Dict[str, int]]) -> None:
+    """
+    PERF #2 : Batch UPDATE avec execute_values au lieu de N requêtes en boucle.
+    Un seul roundtrip DB quelle que soit la taille de l'équipe.
+    """
     updates = list(updates)
     if not updates:
         return
+
+    rows = [
+        (
+            int(u["solo_elo"]),
+            int(u["solo_wins"]),
+            int(u["solo_losses"]),
+            int(u["discord_id"]),
+        )
+        for u in updates
+    ]
+
     with get_connection() as conn:
         with conn.cursor() as cur:
-            for update in updates:
-                cur.execute(
-                    """
-                    UPDATE players
-                    SET solo_elo = %s,
-                        solo_wins = %s,
-                        solo_losses = %s,
-                        updated_at = NOW()
-                    WHERE discord_id = %s
-                    """,
-                    (
-                        int(update["solo_elo"]),
-                        int(update["solo_wins"]),
-                        int(update["solo_losses"]),
-                        int(update["discord_id"]),
-                    ),
-                )
+            execute_values(
+                cur,
+                """
+                UPDATE players AS p
+                SET solo_elo    = v.solo_elo,
+                    solo_wins   = v.solo_wins,
+                    solo_losses = v.solo_losses,
+                    updated_at  = NOW()
+                FROM (VALUES %s) AS v(solo_elo, solo_wins, solo_losses, discord_id)
+                WHERE p.discord_id = v.discord_id
+                """,
+                rows,
+                template="(%s, %s, %s, %s)",
+            )
