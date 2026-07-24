@@ -544,18 +544,34 @@ async function removePlayersFromRuntimePlQueue(guildId, userIds = []) {
   const queue = getPLQueue(guildId);
   const remaining = queue.filter((id) => !userIds.includes(id));
 
-  const { error } = await supabase
-    .from('runtime_pl_queue')
-    .delete()
-    .eq('guild_id', guildId)
-    .in('user_id', userIds);
+  // Le cache mémoire est déjà considéré comme "vrai" par l'appelant (queue.splice
+  // a lieu avant cet appel dans processSinglePLQueue) : ces joueurs sont déjà
+  // engagés dans un match. On DOIT donc réussir à les retirer de la table
+  // runtime_pl_queue, sinon ils réapparaîtront comme "en file" au prochain
+  // redémarrage alors qu'ils jouent déjà. On retry une fois avant d'abandonner.
+  const attemptDelete = () =>
+    supabase.from('runtime_pl_queue').delete().eq('guild_id', guildId).in('user_id', userIds);
+
+  let { error } = await attemptDelete();
 
   if (error) {
-    errorLog('Unable to bulk remove players from runtime PL queue:', error.message);
+    warn('Échec suppression PL queue (tentative 1), retry:', error.message);
+    ({ error } = await attemptDelete());
+  }
+
+  if (error) {
+    // Échec persistant : on log en critique avec tout le contexte nécessaire
+    // pour un nettoyage manuel de la table runtime_pl_queue, plutôt que de
+    // masquer le problème en mettant simplement à jour le cache.
+    errorLog(
+      `[PL QUEUE DESYNC] Impossible de retirer ${userIds.join(', ')} (guild ${guildId}) de runtime_pl_queue après 2 tentatives. ` +
+        `Ces joueurs sont déjà en match mais restent en base — nettoyage manuel requis. Erreur:`,
+      error.message
+    );
   }
 
   plQueueCache.set(guildId, remaining);
-  return remaining;
+  return { remaining, dbSynced: !error };
 }
 
 async function clearRuntimePlQueue(guildId) {
