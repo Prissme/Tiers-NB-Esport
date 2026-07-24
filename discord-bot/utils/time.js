@@ -1,5 +1,7 @@
 'use strict';
 
+const MAX_DURATION_MS = 30 * 24 * 60 * 60 * 1000; // 30 jours max (S5)
+
 function parseDurationToMs(value) {
   if (typeof value !== 'string') {
     return null;
@@ -17,14 +19,16 @@ function parseDurationToMs(value) {
   }
 
   const unit = (match[2] || 'm').toLowerCase();
+  let ms;
   if (unit === 'h') {
-    return amount * 60 * 60 * 1000;
-  }
-  if (unit === 'd' || unit === 'j') {
-    return amount * 24 * 60 * 60 * 1000;
+    ms = amount * 60 * 60 * 1000;
+  } else if (unit === 'd' || unit === 'j') {
+    ms = amount * 24 * 60 * 60 * 1000;
+  } else {
+    ms = amount * 60 * 1000;
   }
 
-  return amount * 60 * 1000;
+  return Math.min(ms, MAX_DURATION_MS);
 }
 
 
