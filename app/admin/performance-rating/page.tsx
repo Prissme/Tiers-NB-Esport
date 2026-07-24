@@ -1,11 +1,9 @@
-import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import PerformanceRatingForm from "./PerformanceRatingForm";
+import { isAdminAuthenticated } from "../../../src/lib/admin/auth";
 
-const ADMIN_COOKIE = "admin_session";
-
-export default function PerformanceRatingPage() {
-  const isAdmin = cookies().get(ADMIN_COOKIE)?.value === "1";
+export default async function PerformanceRatingPage() {
+  const isAdmin = await isAdminAuthenticated();
   if (!isAdmin) {
     redirect("/admin/login");
   }
