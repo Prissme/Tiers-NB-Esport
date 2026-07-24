@@ -1,19 +1,13 @@
-import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import {
   applyReinforcementLearning,
   type Strength,
 } from "../../../../../src/lib/rating-reinforcement";
 import type { Direction } from "../../../../lib/rating-weights";
-
-const ADMIN_COOKIE = "admin_session";
-
-function isAdmin() {
-  return cookies().get(ADMIN_COOKIE)?.value === "1";
-}
+import { isAdminAuthenticated } from "../../../../../src/lib/admin/auth";
 
 export async function POST(request: Request) {
-  if (!isAdmin()) {
+  if (!(await isAdminAuthenticated())) {
     return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
   }
 
