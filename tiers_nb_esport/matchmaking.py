@@ -85,6 +85,15 @@ class MatchVoteView(discord.ui.View):
         self.disable_all_items()
         if self.message:
             await self.message.edit(view=self)
+            # UX #3 : notifier explicitement l'expiration dans le canal
+            # plutôt que de désactiver les boutons silencieusement.
+            try:
+                await self.message.channel.send(
+                    f"⏱️ Le match **#{self.match_id}** a expiré sans résultat validé "
+                    f"(aucune majorité atteinte en 1h). Le match est annulé."
+                )
+            except Exception:
+                pass
         self.stop()
 
     async def _register_vote(self, interaction: discord.Interaction, label: str) -> None:
@@ -174,7 +183,27 @@ class MatchVoteView(discord.ui.View):
                     )
                     await self._refresh_message(self.match_record)
 
-        await interaction.response.send_message(f"Vote enregistré pour {label}.", ephemeral=True)
+        # UX #2 : afficher le décompte de votes en temps réel dans l'embed du match.
+        # On relit les votes actuels (hors lock, lecture seule) pour construire le résumé.
+        current_votes = match_votes.get(self.match_id, {})
+        current_counts = Counter(current_votes.values())
+        vote_lines: List[str] = []
+        label_map = {"bleue": "🔵 Bleue", "rouge": "🔴 Rouge", "annulee": "⚪ Annulé"}
+        for vote_key, vote_label in label_map.items():
+            n = current_counts.get(vote_key, 0)
+            if n:
+                vote_lines.append(f"{vote_label} : {n} vote{'s' if n > 1 else ''}")
+        votes_cast = len(current_votes)
+        total_voters = len(set(self.team1_ids + self.team2_ids))
+        vote_summary = (
+            f"Votes ({votes_cast}/{total_voters}) : " + " — ".join(vote_lines)
+            if vote_lines
+            else f"En attente des votes (0/{total_voters})"
+        )
+        await interaction.response.send_message(
+            f"✅ Vote enregistré pour **{label_map.get(label, label)}**.\n{vote_summary}",
+            ephemeral=True,
+        )
 
         if series_summary and interaction.channel:
             await interaction.channel.send(series_summary)
@@ -251,8 +280,10 @@ class LeaderboardPaginationView(discord.ui.View):
             tier = get_tier_by_rank(index, boundaries) or "Sans tier"
             wr = format_player_winrate(player)
             rank_emoji = elo_system.get_rank_emoji(player.solo_elo)
+            # UX #4 : ELO exact affiché pour que le joueur sache l'écart avec le rang suivant
             lines.append(
-                f"**{index}.** {rank_emoji} {name} — {player.solo_wins}V/{player.solo_losses}D — WR {wr} — Tier {tier}"
+                f"**{index}.** {rank_emoji} {name} — **{player.solo_elo} ELO** — "
+                f"{player.solo_wins}V/{player.solo_losses}D — WR {wr} — Tier {tier}"
             )
 
         embed.description = "\n".join(lines)
@@ -455,6 +486,13 @@ async def join_queue(ctx: commands.Context):
     player = database.ensure_player(user_id, ctx.author.display_name)
     target_queue = get_queue_for_elo(player.solo_elo)
     queue_number = get_queue_number_for_elo(player.solo_elo)
+    # UX #1 : label lisible du seuil de la file assignée
+    queue_threshold_label = (
+        f"≥ {config.QUEUE_OR_1_MIN_ELO} ELO (Or 1+)"
+        if queue_number == 2
+        else f"< {config.QUEUE_OR_1_MIN_ELO} ELO (Bronze → Or)"
+    )
+    rank_emoji = elo_system.get_rank_emoji(player.solo_elo)
 
     async with queue_lock:
         if user_id in solo_queue_1 or user_id in solo_queue_2:
@@ -467,10 +505,13 @@ async def join_queue(ctx: commands.Context):
             min_elo = min(queue_elos)
             max_elo = max(queue_elos)
             max_diff = config.QUEUE_MAX_ELO_DIFF
+            # UX #1 : préciser l'ELO du joueur + l'écart exact pour éviter la frustration
+            gap = max(abs(player.solo_elo - min_elo), abs(player.solo_elo - max_elo))
             await ctx.reply(
-                "⚠️ Écart ELO trop élevé pour cette file. "
-                f"Différence max autorisée: {max_diff}. "
-                f"ELO actuel de la file: {min_elo} à {max_elo}."
+                f"⚠️ Écart ELO trop élevé pour rejoindre la file #{queue_number}.\n"
+                f"Ton ELO : **{player.solo_elo}** {rank_emoji} — "
+                f"File actuelle : **{min_elo}–{max_elo}** — "
+                f"Écart : **{gap}** (max autorisé : {max_diff})."
             )
             return
 
@@ -478,8 +519,9 @@ async def join_queue(ctx: commands.Context):
         queue_size = len(target_queue)
 
     await ctx.reply(
-        f"✅ {ctx.author.display_name} a rejoint la file #{queue_number} "
-        f"({queue_size}/{config.QUEUE_TARGET_SIZE})."
+        f"✅ {ctx.author.display_name} a rejoint la **file #{queue_number}** "
+        f"({queue_threshold_label}) — {rank_emoji} **{player.solo_elo} ELO** — "
+        f"{queue_size}/{config.QUEUE_TARGET_SIZE} joueurs."
     )
     await create_match_if_possible(ctx.guild)
 
@@ -516,11 +558,18 @@ async def show_queue(ctx: commands.Context):
     def format_queue_line(queue_copy: List[int]) -> str:
         if not queue_copy:
             return "Aucun joueur"
+        # UX #5 : récupérer les ELO en une seule requête pour toute la file
+        players_map = database.fetch_players(queue_copy)
         lines: List[str] = []
         for index, user_id in enumerate(queue_copy, start=1):
             member = ctx.guild.get_member(user_id)
             name = member.display_name if member else f"Joueur {user_id}"
-            lines.append(f"{index}. {name}")
+            player = players_map.get(user_id)
+            if player:
+                rank_emoji = elo_system.get_rank_emoji(player.solo_elo)
+                lines.append(f"{index}. {rank_emoji} {name} — **{player.solo_elo} ELO**")
+            else:
+                lines.append(f"{index}. {name}")
         return "\n".join(lines)
 
     embed.add_field(
