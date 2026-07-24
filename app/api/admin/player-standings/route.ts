@@ -1,17 +1,12 @@
-import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { createServerClient } from "../../../../src/lib/supabase/server";
 import { withSchema } from "../../../../src/lib/supabase/schema";
+import { isAdminAuthenticated } from "../../../../src/lib/admin/auth";
 
-const ADMIN_COOKIE = "admin_session";
 const tierOptions = ["Tier S", "Tier A", "Tier B", "Tier C", "Tier D", "Tier E"] as const;
 
-function isAdmin() {
-  return cookies().get(ADMIN_COOKIE)?.value === "1";
-}
-
 export async function PATCH(request: Request) {
-  if (!isAdmin()) {
+  if (!(await isAdminAuthenticated())) {
     return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
   }
 
@@ -125,7 +120,7 @@ export async function PATCH(request: Request) {
 }
 
 export async function POST(request: Request) {
-  if (!isAdmin()) {
+  if (!(await isAdminAuthenticated())) {
     return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
   }
 
