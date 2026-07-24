@@ -914,12 +914,25 @@ function buildPLJoinReplyContent(joinResult) {
 
 async function addPlayerToPLQueue(userId, guildContext, options = {}) {
   const queueIndex = options.queueIndex === 2 ? 2 : 1;
-  const lockKey = `${guildContext.id}:${userId}:q${queueIndex}`;
-  if (plQueueJoinLocks.has(lockKey)) {
-    return { added: false, reason: 'pending', queueIndex };
-  }
+  // Verrou par JOUEUR (pas par file) : un joueur ne peut avoir qu'une seule
+  // tentative de join en cours, quelle que soit la file visée. Avant, le lock
+  // incluait "q1"/"q2" dans sa clé, donc un `!join` et un `!join 2` presque
+  // simultanés obtenaient chacun leur propre clé et passaient tous les deux,
+  // avec le risque de finir dans les deux files en même temps (plusieurs
+  // await — fetch du membre, calcul des rangs — séparent le check
+  // isInPLQueue de l'écriture réelle).
+  const lockKey = `${guildContext.id}:${userId}`;
+  // Le fallback rang (ligne "fallbackResult" plus bas) rappelle cette même
+  // fonction pour CE MEME joueur pendant que le verrou est déjà tenu : on le
+  // marque comme appel interne pour ne pas se bloquer lui-même.
+  const isInternalFallback = options._internalFallback === true;
 
-  plQueueJoinLocks.add(lockKey);
+  if (!isInternalFallback) {
+    if (plQueueJoinLocks.has(lockKey)) {
+      return { added: false, reason: 'pending', queueIndex };
+    }
+    plQueueJoinLocks.add(lockKey);
+  }
 
   try {
     await ensureRuntimePlQueueLoaded(guildContext.id);
@@ -958,7 +971,10 @@ async function addPlayerToPLQueue(userId, guildContext, options = {}) {
         const maxLevel = Math.max(...levels);
 
         if (maxLevel - minLevel > MAX_MATCHMAKING_MAJOR_RANK_GAP) {
-          const fallbackResult = await addPlayerToPLQueue(userId, guildContext, { queueIndex: 2 });
+          const fallbackResult = await addPlayerToPLQueue(userId, guildContext, {
+            queueIndex: 2,
+            _internalFallback: true
+          });
           return {
             ...fallbackResult,
             fallbackToQueue2: Boolean(fallbackResult.added),
@@ -976,7 +992,9 @@ async function addPlayerToPLQueue(userId, guildContext, options = {}) {
     await sendOrUpdateQueueMessage(guildContext, plQueueChannel);
     return { ...result, queueIndex: 2 };
   } finally {
-    plQueueJoinLocks.delete(lockKey);
+    if (!isInternalFallback) {
+      plQueueJoinLocks.delete(lockKey);
+    }
   }
 }
 
