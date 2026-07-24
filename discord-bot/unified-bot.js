@@ -8522,7 +8522,11 @@ async function onReady(readyClient) {
   // Le premier appel redondant a été supprimé — on envoie tout en une seule fois
   // avec un timeout de 30s pour éviter le hang infini sur commands.set()
   const allCommands = [
-    ...buildAdminSlashCommands({ localizeText, optionType: ApplicationCommandOptionType }),
+    ...buildAdminSlashCommands({
+      localizeText,
+      optionType: ApplicationCommandOptionType,
+      adminPermission: String(PermissionsBitField.Flags.ManageGuild)
+    }),
     ...(Array.isArray(slashCommandsData) ? slashCommandsData : []),
     ...(Array.isArray(tournamentPredictions.slashCommands) ? tournamentPredictions.slashCommands : []),
     ...(Array.isArray(bracketPredictions.slashCommands) ? bracketPredictions.slashCommands : []),
