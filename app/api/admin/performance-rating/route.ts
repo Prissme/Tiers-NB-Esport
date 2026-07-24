@@ -1,4 +1,3 @@
-import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { createServerClient } from "../../../../src/lib/supabase/server";
 import { withSchema } from "../../../../src/lib/supabase/schema";
@@ -13,11 +12,10 @@ import {
   DIVE_UNITS,
 } from "../../../lib/brawler-priority";
 import { DEFAULT_WEIGHTS, type RatingWeights } from "../../../lib/rating-weights";
+import { isAdminAuthenticated } from "../../../../src/lib/admin/auth";
 
-const ADMIN_COOKIE = "admin_session";
-
-function isAdmin() {
-  return cookies().get(ADMIN_COOKIE)?.value === "1";
+async function isAdmin() {
+  return isAdminAuthenticated();
 }
 
 type EvalRow = {
@@ -63,7 +61,7 @@ function getDmgHealFitBonus(brawler: string, degats: number | null, soin: number
 }
 
 export async function POST(request: Request) {
-  if (!isAdmin()) {
+  if (!(await isAdmin())) {
     return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
   }
 
