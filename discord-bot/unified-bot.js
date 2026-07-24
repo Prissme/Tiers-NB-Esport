@@ -7736,13 +7736,14 @@ async function handleInteraction(interaction) {
             .setColor(0x2563eb)
             .setDescription(
               [
-                '`!join`',
-                '`!leave`',
-                '`!queue`',
-                '`!lb`',
-                '`!elo`',
-                '`!ranks`',
-                '`!maps`'
+                '`!join` — Rejoindre la file PL',
+                '`!join 2` — Rejoindre la file 2 (fallback)',
+                '`!leave` — Quitter la file PL',
+                '`!queue` / `!file` — Voir l\'état de la file',
+                '`!lb` / `!leaderboard` — Classement PL',
+                '`!elo` — Voir ton ELO',
+                '`!ranks` — Voir les rangs',
+                '`!maps` — Voir les maps'
               ].join('\n')
             )
         ]
@@ -7758,7 +7759,20 @@ async function handleInteraction(interaction) {
             .setTitle('Rubrique E-Sports')
             .setColor(0x0ea5e9)
             .setDescription(
-              ['`!tier`', '`!lfn`', '`!tierlb`', '`!worldlb`', '`!countrylb`', '`!tiercriteria`', '`!synctiers`', '`!refreshnames`'].join('\n')
+              [
+                '`!tier <pseudo>` — Voir le tier d\'un joueur',
+                '`!tiercriteria` — Critères des tiers',
+                '`!synctiers` — Synchroniser les tiers',
+                '`!refreshnames` — Rafraîchir les pseudos',
+                '`!refreshtop100` — Rafraîchir le top 100',
+                '`!refreshworldlb` — Rafraîchir le classement mondial',
+                '`!tierlb` — Classement par tier',
+                '`!worldlb` — Classement mondial',
+                '`!countrylb` — Classement par pays',
+                '`!teams` — Voir les teams PRISS Cup',
+                '`!draft` — Lancer le système de draft',
+                '`!lfn` — Infos LFN'
+              ].join('\n')
             )
         ]
       });
@@ -8938,18 +8952,6 @@ async function handleMessage(message) {
   const [commandName, ...args] = content.slice(1).split(/\s+/);
   const command = commandName.toLowerCase();
 
-  // === COMMANDES TEMPORAIREMENT DÉSACTIVÉES POUR SIMPLIFICATION ===
-  const disabledCommands = new Set(['teams', 'lb', 'leaderboard', 'queue', 'file', 'elo']);
-
-  if (disabledCommands.has(command)) {
-    await message.reply({
-      content:
-        'Ces commandes sont temporairement désactivées pour simplifier le système compétitif. / These commands are temporarily disabled to simplify the competitive flow.',
-      allowedMentions: { repliedUser: false }
-    });
-    return;
-  }
-
   try {
     switch (command) {
       case 'join':
@@ -8961,6 +8963,9 @@ async function handleMessage(message) {
       case 'queue':
       case 'file':
         await handleQueueCommand(message, args);
+        break;
+      case 'teams':
+        await handleTeamsCommand(message, args);
         break;
       case 'elo':
         await handleEloCommand(message, args);
