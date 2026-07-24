@@ -1426,6 +1426,7 @@ async function handleAdminSlashCommand(interaction) {
       'banpl',
       'unbanpl',
       'simulatematch',
+      'clearqueue',
       'cancelmatch',
       'sync',
       'addplayer',
@@ -1738,6 +1739,21 @@ async function handleAdminSlashCommand(interaction) {
         )
       });
     }
+
+    return true;
+  }
+
+  if (command === 'clearqueue') {
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+
+    const cleared = await clearRuntimePlQueue(interaction.guild.id);
+    await sendOrUpdateQueueMessage(interaction.guild, plQueueChannel);
+
+    await interaction.editReply({
+      content: cleared
+        ? localizeText({ fr: '✅ File vidée (primaire + secondaire).', en: '✅ Queue cleared (primary + secondary).' })
+        : localizeText({ fr: '❌ Impossible de vider la file pour le moment.', en: '❌ Unable to clear the queue.' })
+    });
 
     return true;
   }
@@ -4091,45 +4107,6 @@ async function handleQueueCommand(message) {
     .setTimestamp(new Date());
 
   await message.reply({ embeds: [embed], allowedMentions: { repliedUser: false } });
-}
-
-async function handleCleanQueueCommand(message) {
-  if (!message.guild || message.guild.id !== DISCORD_GUILD_ID) {
-    return;
-  }
-
-  const hasPermission = message.member?.permissions?.has(PermissionsBitField.Flags.ManageGuild);
-  if (!hasPermission) {
-    await message.reply({
-      content: localizeText({
-        fr: '❌ Vous devez avoir la permission Gérer le serveur pour vider la file.',
-        en: '❌ You need the Manage Server permission to clear the queue.'
-      }),
-      allowedMentions: { repliedUser: false }
-    });
-    return;
-  }
-
-  if (!message.guild) {
-    await message.reply({
-      content: localizeText({
-        fr: 'Impossible de récupérer les informations du serveur.',
-        en: 'Unable to retrieve server information.'
-      }),
-      allowedMentions: { repliedUser: false }
-    });
-    return;
-  }
-
-  const cleared = await clearRuntimePlQueue(message.guild.id);
-  await sendOrUpdateQueueMessage(message.guild, plQueueChannel);
-
-  await message.reply({
-    content: cleared
-      ? localizeText({ fr: '✅ File vidée.', en: '✅ Queue cleared.' })
-      : localizeText({ fr: '❌ Impossible de vider la file pour le moment.', en: '❌ Unable to clear the queue.' }),
-    allowedMentions: { repliedUser: false }
-  });
 }
 
 async function handleEloCommand(message) {
