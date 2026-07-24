@@ -1694,7 +1694,6 @@ async function handleAdminSlashCommand(interaction) {
       interaction.options.getUser('red2', true),
       interaction.options.getUser('red3', true)
     ];
-    const winner = interaction.options.getString('winner', true);
 
     const allUsers = [...blueUsers, ...redUsers];
     const uniqueIds = new Set(allUsers.map((user) => user.id));
@@ -1709,57 +1708,27 @@ async function handleAdminSlashCommand(interaction) {
     }
 
     try {
-      const buildTeam = async (users) => {
-        const players = [];
-        for (const user of users) {
-          const member = await interaction.guild.members.fetch(user.id).catch(() => null);
-          const displayName = member?.displayName || user.username;
-          const profile = await getOrCreatePlayer(user.id, displayName);
-          players.push(buildQueueEntry({ id: user.id, displayName, user }, profile));
-        }
-        return players;
-      };
+      const participants = [];
+      for (const user of allUsers) {
+        const member = await interaction.guild.members.fetch(user.id).catch(() => null);
+        const displayName = member?.displayName || user.username;
+        const profile = await getOrCreatePlayer(user.id, displayName);
+        participants.push(buildQueueEntry({ id: user.id, displayName, user }, profile));
+      }
 
-      const teams = {
-        blue: await buildTeam(blueUsers),
-        red: await buildTeam(redUsers)
-      };
+      // Lance le flow complet : teams tirées au sort, map, salon/fil, rôle de lobby
+      // et boutons de vote — identique à un vrai match, rien n'est appliqué en avance.
+      const state = await startMatch(participants, interaction.channel, false);
 
-      const bestOf = DEFAULT_MATCH_BEST_OF;
-      const kFactor = getKFactorForBestOf(bestOf);
-
-      const insertedMatch = await insertMinimalMatchRecord({
-        team1Ids: teams.blue.map((p) => p.discordId),
-        team2Ids: teams.red.map((p) => p.discordId),
-        bestOf,
-        kFactor
-      });
-
-      const state = {
-        matchId: insertedMatch.id,
-        teams,
-        bestOf,
-        kFactor,
-        resolved: false
-      };
-
-      const summary = await applyMatchOutcome(state, winner, interaction.user.id);
-
-      const embed = new EmbedBuilder()
-        .setTitle(
-          localizeText({ fr: '🧪 Match simulé — résultat appliqué', en: '🧪 Simulated match — outcome applied' })
+      await interaction.editReply({
+        content: localizeText(
+          {
+            fr: '✅ Match simulé #{matchId} lancé — teams, map, fil et votes sont en place.',
+            en: '✅ Simulated match #{matchId} launched — teams, map, thread and votes are ready.'
+          },
+          { matchId: state.matchId }
         )
-        .setDescription(summary?.text || '')
-        .setColor(summary?.color ?? 0x95a5a6)
-        .setFooter({
-          text: localizeText(
-            { fr: 'Match #{matchId} (simulé)', en: 'Match #{matchId} (simulated)' },
-            { matchId: insertedMatch.id }
-          )
-        })
-        .setTimestamp(new Date());
-
-      await interaction.editReply({ embeds: [embed] });
+      });
     } catch (err) {
       errorLog('Failed to simulate match:', err);
       await interaction.editReply({
@@ -7187,60 +7156,6 @@ async function startMatch(participants, fallbackChannel, isPl = false) {
   );
 
   return state;
-}
-
-// Insertion minimale d'un match (utilisée par /simulatematch, sans message Discord
-// ni thread — applyMatchOutcome n'a besoin que d'un id de match existant pour son UPDATE final).
-async function insertMinimalMatchRecord({ team1Ids, team2Ids, bestOf, kFactor }) {
-  let payloadToInsert = {
-    team1_ids: team1Ids,
-    team2_ids: team2Ids,
-    status: 'pending',
-    winner: null,
-    best_of: bestOf,
-    k_factor: kFactor,
-    is_simulated: true
-  };
-
-  const droppableColumns = ['is_simulated', 'k_factor', 'best_of'];
-  const hasMissingColumnError = (error, column) => {
-    const message = (error?.message || '').toLowerCase();
-    const details = (error?.details || '').toLowerCase();
-    return message.includes(column) || details.includes(column);
-  };
-
-  let insertedMatch = null;
-  let matchError = null;
-
-  for (let attempt = 0; attempt <= droppableColumns.length; attempt += 1) {
-    ({ data: insertedMatch, error: matchError } = await supabase
-      .from('matches')
-      .insert(payloadToInsert)
-      .select()
-      .single());
-
-    if (!matchError) {
-      break;
-    }
-
-    const columnToDrop = droppableColumns.find(
-      (column) => column in payloadToInsert && hasMissingColumnError(matchError, column)
-    );
-
-    if (!columnToDrop) {
-      break;
-    }
-
-    const nextPayload = { ...payloadToInsert };
-    delete nextPayload[columnToDrop];
-    payloadToInsert = nextPayload;
-  }
-
-  if (matchError) {
-    throw new Error(`Unable to create simulated match record: ${matchError.message}`);
-  }
-
-  return insertedMatch;
 }
 
 async function updateMatchRecord(matchId, payload) {
