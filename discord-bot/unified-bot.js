@@ -666,14 +666,29 @@ async function saveRuntimeActiveMatch(record) {
 }
 
 async function updateRuntimeActiveMatchStatus(messageId, status, extras = {}) {
-  const { error } = await supabase
-    .from('runtime_active_matches')
-    .update({ status, ...extras })
-    .eq('message_id', messageId);
+  const attemptUpdate = () =>
+    supabase.from('runtime_active_matches').update({ status, ...extras }).eq('message_id', messageId);
+
+  let { error } = await attemptUpdate();
 
   if (error) {
-    warn('Unable to update runtime active match status:', error.message);
-    return null;
+    warn(`Échec update statut match ${messageId} -> ${status} (tentative 1), retry:`, error.message);
+    ({ error } = await attemptUpdate());
+  }
+
+  if (error) {
+    // Échec persistant : la ligne reste "pending" en base alors que le match
+    // est déjà terminé côté Discord (thread/rôle nettoyés, message envoyé).
+    // Au redémarrage, loadPendingRuntimeMatches rechargerait ce match comme
+    // actif et retenterait un traitement sur des ressources déjà supprimées.
+    // On log en critique pour correction manuelle de la table
+    // runtime_active_matches, et on met quand même à jour le cache local
+    // pour que LE PROCESS EN COURS ne retraite pas ce match deux fois.
+    errorLog(
+      `[MATCH STATUS DESYNC] Impossible de passer le match ${messageId} à "${status}" en base après 2 tentatives. ` +
+        `La ligne runtime_active_matches reste "pending" — correction manuelle requise. Erreur:`,
+      error.message
+    );
   }
 
   if (status === 'resolved' || status === 'timeout') {
