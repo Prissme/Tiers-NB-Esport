@@ -97,6 +97,14 @@ class MatchVoteView(discord.ui.View):
 
         async with vote_lock:
             votes = match_votes.setdefault(self.match_id, {})
+            # SEC #2 : un vote soumis est définitif — on interdit le changement.
+            # Sans ce guard, un joueur pourrait flipper son vote au dernier moment
+            # pour manipuler le résultat juste avant la majorité.
+            if voter_id in votes:
+                await interaction.response.send_message(
+                    "Tu as déjà voté pour ce match. Le vote est définitif.", ephemeral=True
+                )
+                return
             votes[voter_id] = label
             counts = Counter(votes.values())
 
@@ -435,6 +443,7 @@ async def ping_command(ctx: commands.Context):
 
 
 @bot.command(name="join")
+@commands.cooldown(rate=3, per=10, type=commands.BucketType.user)  # SEC #5 : max 3 !join / 10s par user
 async def join_queue(ctx: commands.Context):
     user_id = ctx.author.id
     if database.player_has_pending_match(user_id):
@@ -476,6 +485,7 @@ async def join_queue(ctx: commands.Context):
 
 
 @bot.command(name="leave")
+@commands.cooldown(rate=3, per=10, type=commands.BucketType.user)
 async def leave_queue(ctx: commands.Context):
     user_id = ctx.author.id
     async with queue_lock:
@@ -536,6 +546,7 @@ async def show_maps(ctx: commands.Context):
 
 
 @bot.command(name="elo")
+@commands.cooldown(rate=5, per=10, type=commands.BucketType.user)
 async def show_elo(ctx: commands.Context, member: Optional[discord.Member] = None):
     target = member or ctx.author
     player = database.fetch_player(target.id)
@@ -570,6 +581,7 @@ async def profile_rank(ctx: commands.Context, member: Optional[discord.Member] =
 
 
 @bot.command(name="lb")
+@commands.cooldown(rate=2, per=15, type=commands.BucketType.user)
 async def leaderboard(ctx: commands.Context):
     view = LeaderboardPaginationView(ctx)
     embed = await view._render()
@@ -580,6 +592,12 @@ async def leaderboard(ctx: commands.Context):
 @bot.command(name="resetstats")
 @commands.has_permissions(manage_guild=True)
 async def reset_stats(ctx: commands.Context, member: discord.Member):
+    # SEC #3 : la commande n'a de sens que dans un serveur.
+    # Sans ce guard, `ctx.guild` serait None en DM et le décorateur
+    # has_permissions() ne peut pas vérifier les permissions correctement.
+    if ctx.guild is None:
+        await ctx.reply("Cette commande ne peut être utilisée que dans un serveur.")
+        return
     player = database.ensure_player(member.id, member.display_name)
     database.apply_player_updates(
         [
@@ -599,6 +617,18 @@ async def reset_stats_error(ctx: commands.Context, error: commands.CommandError)
     if isinstance(error, commands.MissingPermissions):
         await ctx.reply("Tu n'as pas la permission d'utiliser cette commande.")
     else:
+        raise error
+
+
+@bot.event
+async def on_command_error(ctx: commands.Context, error: commands.CommandError):
+    # SEC #5 : réponse claire quand le rate limit est déclenché.
+    if isinstance(error, commands.CommandOnCooldown):
+        await ctx.reply(
+            f"⏳ Commande en cooldown. Réessaie dans {error.retry_after:.1f}s.",
+            ephemeral=True,
+        )
+    elif not isinstance(error, commands.CommandNotFound):
         raise error
 
 
