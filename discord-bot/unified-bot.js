@@ -1288,6 +1288,8 @@ async function processPLQueue() {
 }
 
 async function restorePLState() {
+  await loadRuntimePlBans();
+
   if (guild?.id) {
     await loadRuntimePlQueue(guild.id);
   }
@@ -1415,7 +1417,7 @@ async function handleAdminSlashCommand(interaction) {
 
   const command = interaction.commandName;
   if (
-    !['addelo', 'removeelo', 'addpoints', 'setws', 'setls', 'banpl', 'cancelmatch', 'sync', 'addplayer', 'removeplayer', 'resetelo', 'counters'].includes(command)
+    !['addelo', 'removeelo', 'addpoints', 'setws', 'setls', 'banpl', 'unbanpl', 'cancelmatch', 'sync', 'addplayer', 'removeplayer', 'resetelo', 'counters'].includes(command)
   ) {
     return false;
   }
@@ -1626,7 +1628,7 @@ async function handleAdminSlashCommand(interaction) {
     }
 
     const until = Date.now() + durationMs;
-    plJoinBanLocks.set(targetUser.id, until);
+    await setRuntimePlBan(targetUser.id, until);
 
     await interaction.reply({
       content: localizeText(
@@ -1636,6 +1638,28 @@ async function handleAdminSlashCommand(interaction) {
         },
         { userId: targetUser.id, duration: formatDurationMinutes(durationMs) }
       ),
+      flags: MessageFlags.Ephemeral
+    });
+
+    return true;
+  }
+
+  if (command === 'unbanpl') {
+    const targetUser = interaction.options.getUser('player', true);
+    const wasBanned = getPLBanRemainingMs(targetUser.id) > 0;
+
+    await removeRuntimePlBan(targetUser.id);
+
+    await interaction.reply({
+      content: wasBanned
+        ? localizeText(
+            { fr: '✅ <@{userId}> peut de nouveau utiliser `!join`.', en: '✅ <@{userId}> can use `!join` again.' },
+            { userId: targetUser.id }
+          )
+        : localizeText(
+            { fr: 'ℹ️ <@{userId}> n’était pas banni.', en: 'ℹ️ <@{userId}> was not banned.' },
+            { userId: targetUser.id }
+          ),
       flags: MessageFlags.Ephemeral
     });
 
@@ -2049,10 +2073,70 @@ function getPLBanRemainingMs(userId) {
   const remaining = until - Date.now();
   if (remaining <= 0) {
     plJoinBanLocks.delete(userId);
+    removeRuntimePlBan(userId).catch((err) =>
+      warn('Unable to clean up expired PL ban:', err?.message || err)
+    );
     return 0;
   }
 
   return remaining;
+}
+
+// === RUNTIME PL BANS (Supabase) ===
+// Table runtime_pl_bans expected columns:
+// user_id (text, PK), expires_at (timestamptz)
+
+async function loadRuntimePlBans() {
+  const { data, error } = await supabase.from('runtime_pl_bans').select('user_id, expires_at');
+
+  if (error) {
+    warn('Unable to load runtime PL bans:', error.message);
+    return;
+  }
+
+  const now = Date.now();
+  const expiredIds = [];
+
+  for (const row of data || []) {
+    const until = new Date(row.expires_at).getTime();
+    if (!Number.isFinite(until) || until <= now) {
+      expiredIds.push(row.user_id);
+      continue;
+    }
+    plJoinBanLocks.set(row.user_id, until);
+  }
+
+  if (expiredIds.length) {
+    await supabase.from('runtime_pl_bans').delete().in('user_id', expiredIds);
+  }
+}
+
+async function setRuntimePlBan(userId, until) {
+  plJoinBanLocks.set(userId, until);
+
+  const { error } = await supabase
+    .from('runtime_pl_bans')
+    .upsert({ user_id: userId, expires_at: new Date(until).toISOString() }, { onConflict: 'user_id' });
+
+  if (error) {
+    errorLog('Unable to persist PL ban:', error.message);
+    return { persisted: false };
+  }
+
+  return { persisted: true };
+}
+
+async function removeRuntimePlBan(userId) {
+  plJoinBanLocks.delete(userId);
+
+  const { error } = await supabase.from('runtime_pl_bans').delete().eq('user_id', userId);
+
+  if (error) {
+    errorLog('Unable to remove PL ban:', error.message);
+    return { removed: false };
+  }
+
+  return { removed: true };
 }
 
 /**
@@ -2277,8 +2361,8 @@ async function fetchSiteTierLeaderboard() {
       ballonDor: Number(profile?.ballon_dor || 0),
       earnings: Number(profile?.earnings || 0),
     };
-  }).filter(Boolean)
-    .sort((a, b) => b.points - a.points);
+  }).filter(Boolean);
+  // Pas de .sort() ici : la requête Supabase ordonne déjà par points (P2).
 }
 
 async function fetchSiteTierPlayerByDiscordId(discordId) {
@@ -7181,63 +7265,54 @@ async function applyMatchOutcome(state, outcome, userId) {
     player.loseStreak = loseStreak;
   }
 
-  for (const update of updates) {
-    try {
-      const payload = {
-        solo_elo: update.solo_elo,
-        wins: update.wins,
-        losses: update.losses,
-        games_played: update.games_played,
-        win_streak: update.win_streak,
-        lose_streak: update.lose_streak
-      };
+  // P3 : un seul upsert groupé au lieu d'une boucle de N updates séquentiels.
+  const buildPayload = (update, includeShield) => {
+    const payload = {
+      id: update.id,
+      solo_elo: update.solo_elo,
+      wins: update.wins,
+      losses: update.losses,
+      games_played: update.games_played,
+      win_streak: update.win_streak,
+      lose_streak: update.lose_streak
+    };
 
-      if (supportsShieldColumns) {
-        payload.shield_active = update.shield_active;
-        payload.shield_threshold = update.shield_threshold;
-      }
-
-      const { error: playerError } = await supabase
-        .from('players')
-        .update(payload)
-        .eq('id', update.id);
-
-      if (playerError) {
-        if (supportsShieldColumns && isMissingShieldColumnError(playerError.message)) {
-          supportsShieldColumns = false;
-          warn('Shield columns are missing in `players`; continuing without shield persistence.');
-
-          const { error: fallbackError } = await supabase
-            .from('players')
-            .update({
-              solo_elo: update.solo_elo,
-              wins: update.wins,
-              losses: update.losses,
-              games_played: update.games_played,
-              win_streak: update.win_streak,
-              lose_streak: update.lose_streak
-            })
-            .eq('id', update.id);
-
-          if (!fallbackError) {
-            continue;
-          }
-
-          throw new Error(fallbackError.message);
-        }
-
-        throw new Error(playerError.message);
-      }
-
-      await upsertSeasonStatsForPlayer(update.id, {
-        wins: update.wins,
-        losses: update.losses,
-        games_played: update.games_played,
-        solo_elo: update.solo_elo
-      });
-    } catch (error) {
-      throw new Error(`Unable to update player ${update.id}: ${error.message}`);
+    if (includeShield) {
+      payload.shield_active = update.shield_active;
+      payload.shield_threshold = update.shield_threshold;
     }
+
+    return payload;
+  };
+
+  if (updates.length) {
+    let { error: batchError } = await supabase
+      .from('players')
+      .upsert(updates.map((u) => buildPayload(u, supportsShieldColumns)), { onConflict: 'id' });
+
+    if (batchError && supportsShieldColumns && isMissingShieldColumnError(batchError.message)) {
+      supportsShieldColumns = false;
+      warn('Shield columns are missing in `players`; continuing without shield persistence.');
+
+      ({ error: batchError } = await supabase
+        .from('players')
+        .upsert(updates.map((u) => buildPayload(u, false)), { onConflict: 'id' }));
+    }
+
+    if (batchError) {
+      throw new Error(`Unable to batch-update players: ${batchError.message}`);
+    }
+
+    await Promise.all(
+      updates.map((update) =>
+        upsertSeasonStatsForPlayer(update.id, {
+          wins: update.wins,
+          losses: update.losses,
+          games_played: update.games_played,
+          solo_elo: update.solo_elo
+        })
+      )
+    );
   }
 
   performanceStores.playerStore.invalidatePlayers(changes.map((entry) => entry?.player?.discordId).filter(Boolean));
