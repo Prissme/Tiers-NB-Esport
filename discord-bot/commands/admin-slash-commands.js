@@ -195,6 +195,15 @@ function buildAdminSlashCommands({ localizeText, optionType, adminPermission }) 
       ]
     },
     {
+      name: 'clearqueue',
+      description: localizeText({
+        fr: 'Vider entièrement la file d’attente !join (primaire + secondaire)',
+        en: 'Completely clear the !join queue (primary + secondary)'
+      }),
+      dm_permission: false,
+      default_member_permissions: adminPermission
+    },
+    {
       name: 'cancelmatch',
       description: localizeText({ fr: 'Annuler un match PL en cours', en: 'Cancel a running PL match' }),
       dm_permission: false,
