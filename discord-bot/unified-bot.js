@@ -1972,12 +1972,27 @@ function getPLBanRemainingMs(userId) {
   return remaining;
 }
 
-function hasPLAdminAccess(interaction) {
-  if (interaction.memberPermissions?.has(PermissionsBitField.Flags.ManageGuild)) {
+/**
+ * Determines whether a Discord member has PL admin access.
+ * Accepts either an interaction/message object (with .member / .memberPermissions)
+ * or a raw GuildMember, so the same check works for slash commands, message
+ * commands and select menu interactions.
+ *
+ * @param {import('discord.js').Interaction|import('discord.js').Message|import('discord.js').GuildMember} source
+ * @returns {boolean}
+ */
+function hasPLAdminAccess(source) {
+  const member = source?.member ?? source;
+  const permissions = source?.memberPermissions ?? member?.permissions;
+
+  if (
+    permissions?.has(PermissionsBitField.Flags.ManageGuild) ||
+    permissions?.has(PermissionsBitField.Flags.Administrator)
+  ) {
     return true;
   }
 
-  const roleCache = interaction.member?.roles?.cache;
+  const roleCache = member?.roles?.cache;
   if (!roleCache) {
     return false;
   }
@@ -5145,7 +5160,7 @@ async function sendPrisscupEmbed(guildContext) {
 }
 
   async function handlePrissCup3v3Command(message) {
-    const isAdmin = message.member?.permissions?.has(PermissionsBitField.Flags.Administrator);
+    const isAdmin = hasPLAdminAccess(message);
     if (!isAdmin) {
       await message.reply({
         content: 'Only administrators can post the PrissCup announcement.',
@@ -5162,7 +5177,7 @@ async function sendPrisscupEmbed(guildContext) {
 }
 
 async function handlePrisscupDeleteTeamCommand(message, args) {
-  const isAdmin = message.member?.permissions?.has(PermissionsBitField.Flags.Administrator);
+  const isAdmin = hasPLAdminAccess(message);
   if (!isAdmin) {
     await message.reply({
       content: "Seuls les administrateurs peuvent supprimer une équipe PrissCup. / Only administrators can delete a PrissCup team.",
@@ -6279,7 +6294,7 @@ async function handleDraftCommand(message, args) {
   // Pas de session en cours : on démarre (ou on relance) le sélecteur de map
   // avant de créer la vraie session de draft.
   if (!session) {
-    const isAdminNoSession = message.member?.permissions?.has(PermissionsBitField.Flags.Administrator);
+    const isAdminNoSession = hasPLAdminAccess(message);
     const pending = draftMapPending.get(channelId);
 
     if (pending && pending.ownerId !== message.author.id && !isAdminNoSession) {
@@ -6309,7 +6324,7 @@ async function handleDraftCommand(message, args) {
     return;
   }
 
-  const isAdmin = message.member?.permissions?.has(PermissionsBitField.Flags.Administrator);
+  const isAdmin = hasPLAdminAccess(message);
   if (session.ownerId !== message.author.id && !isAdmin) {
     await message.reply({
       content: 'Une draft est déjà en cours dans ce salon. Seul son créateur (ou un admin) peut la piloter.',
@@ -6409,7 +6424,7 @@ async function handleDraftFreeInput(message) {
     return false;
   }
 
-  const isAdmin = message.member?.permissions?.has(PermissionsBitField.Flags.Administrator);
+  const isAdmin = hasPLAdminAccess(message);
   if (session.ownerId !== message.author.id && !isAdmin) {
     return false;
   }
@@ -7240,7 +7255,7 @@ async function handleInteraction(interaction) {
   if (interaction.isStringSelectMenu() && interaction.customId.startsWith('draft_mode_select:')) {
     const channelId = interaction.customId.split(':')[1];
     const pending = draftMapPending.get(channelId);
-    const isAdminSelect = interaction.member?.permissions?.has(PermissionsBitField.Flags.Administrator);
+    const isAdminSelect = hasPLAdminAccess(interaction);
 
     if (!pending) {
       await interaction.reply({ content: '❌ Cette sélection de map a expiré. Relance `!draft`.', flags: MessageFlags.Ephemeral });
@@ -7270,7 +7285,7 @@ async function handleInteraction(interaction) {
   if (interaction.isStringSelectMenu() && interaction.customId.startsWith('draft_map_select:')) {
     const [, channelId, modeKey] = interaction.customId.split(':');
     const pending = draftMapPending.get(channelId);
-    const isAdminSelect = interaction.member?.permissions?.has(PermissionsBitField.Flags.Administrator);
+    const isAdminSelect = hasPLAdminAccess(interaction);
 
     if (!pending) {
       await interaction.reply({ content: '❌ Cette sélection de map a expiré. Relance `!draft`.', flags: MessageFlags.Ephemeral });
