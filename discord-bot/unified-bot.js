@@ -1017,71 +1017,85 @@ function schedulePLTimeout(messageId, remainingMs) {
 }
 
 async function handlePLMatchTimeout(messageId) {
-  const matchInfo = await getRuntimeMatchRecord(messageId);
-  if (!matchInfo || matchInfo.status !== 'pending' || !matchInfo.is_pl) {
+  // Check-puis-add DOIT rester synchrone (pas d'await entre les deux) pour être
+  // atomique face à la résolution manuelle, qui pose le même verrou avant de
+  // finaliser un résultat. Sans ça, le timeout peut annuler un match qui vient
+  // d'être validé manuellement (ou l'inverse).
+  if (matchResolutionLocks.has(messageId)) {
     return;
   }
+  matchResolutionLocks.add(messageId);
 
-  if (plMatchTimers.has(messageId)) {
-    clearTimeout(plMatchTimers.get(messageId));
-    plMatchTimers.delete(messageId);
-  }
-
-  const guildContext = guild && guild.id === matchInfo.guild_id ? guild : null;
-  let channel = matchChannel?.isTextBased()
-    ? matchChannel
-    : plQueueChannel?.guild?.id === matchInfo.guild_id
-      ? plQueueChannel
-      : null;
-  if (!channel && guildContext) {
-    channel = await ensurePLQueueChannel(guildContext);
-  }
-
-  const matchState = [...activeMatches.values()].find((state) => state.messageId === messageId);
-  const runtimeState =
-    !matchState && matchInfo?.players
-      ? {
-          threadId: matchInfo.players.threadId || null,
-          lobbyRoleId: matchInfo.players.lobbyRoleId || null
-        }
-      : null;
-
-  if (channel?.isTextBased()) {
-    await channel.send({
-      embeds: [
-        new EmbedBuilder()
-          .setColor(0xf59e0b)
-          .setTitle('⏰ Match PL annulé')
-          .setDescription(
-            '1 heure écoulée sans résultat : les joueurs ont été retirés du match.\n\n1 hour passed without a result: players were removed from the match.'
-          )
-      ]
-    });
-  }
-
-  if (matchState?.matchId) {
-    await updateMatchRecord(matchState.matchId, {
-      status: 'cancelled',
-      winner: null,
-      completed_at: new Date().toISOString()
-    }).catch((err) => warn('Unable to cancel timed out match record:', err?.message || err));
-  }
-
-  if (matchState) {
-    await cleanupMatchResources(matchState);
-  } else if (runtimeState?.threadId || runtimeState?.lobbyRoleId) {
-    await cleanupMatchResources(runtimeState);
-  }
-
-  await updateRuntimeActiveMatchStatus(messageId, 'timeout');
-  for (const [id, state] of activeMatches.entries()) {
-    if (state.messageId === messageId) {
-      activeMatches.delete(id);
+  try {
+    const matchInfo = await getRuntimeMatchRecord(messageId);
+    if (!matchInfo || matchInfo.status !== 'pending' || !matchInfo.is_pl) {
+      return;
     }
+
+    if (plMatchTimers.has(messageId)) {
+      clearTimeout(plMatchTimers.get(messageId));
+      plMatchTimers.delete(messageId);
+    }
+
+    const guildContext = guild && guild.id === matchInfo.guild_id ? guild : null;
+    let channel = matchChannel?.isTextBased()
+      ? matchChannel
+      : plQueueChannel?.guild?.id === matchInfo.guild_id
+        ? plQueueChannel
+        : null;
+    if (!channel && guildContext) {
+      channel = await ensurePLQueueChannel(guildContext);
+    }
+
+    const matchState = [...activeMatches.values()].find((state) => state.messageId === messageId);
+    const runtimeState =
+      !matchState && matchInfo?.players
+        ? {
+            threadId: matchInfo.players.threadId || null,
+            lobbyRoleId: matchInfo.players.lobbyRoleId || null
+          }
+        : null;
+
+    if (channel?.isTextBased()) {
+      await channel.send({
+        embeds: [
+          new EmbedBuilder()
+            .setColor(0xf59e0b)
+            .setTitle('⏰ Match PL annulé')
+            .setDescription(
+              '1 heure écoulée sans résultat : les joueurs ont été retirés du match.\n\n1 hour passed without a result: players were removed from the match.'
+            )
+        ]
+      });
+    }
+
+    if (matchState?.matchId) {
+      await updateMatchRecord(matchState.matchId, {
+        status: 'cancelled',
+        winner: null,
+        completed_at: new Date().toISOString()
+      }).catch((err) => warn('Unable to cancel timed out match record:', err?.message || err));
+    }
+
+    if (matchState) {
+      await cleanupMatchResources(matchState);
+    } else if (runtimeState?.threadId || runtimeState?.lobbyRoleId) {
+      await cleanupMatchResources(runtimeState);
+    }
+
+    await updateRuntimeActiveMatchStatus(messageId, 'timeout');
+    for (const [id, state] of activeMatches.entries()) {
+      if (state.messageId === messageId) {
+        activeMatches.delete(id);
+      }
+    }
+    await sendOrUpdateQueueMessage(guildContext || guild, plQueueChannel);
+    await processPLQueue();
+  } finally {
+    matchResolutionLocks.delete(messageId);
   }
-  await sendOrUpdateQueueMessage(guildContext || guild, plQueueChannel);
-  await processPLQueue();
 }
+
 
 async function handlePLMatchResolved(messageId) {
   if (plMatchTimers.has(messageId)) {
@@ -7869,6 +7883,20 @@ async function handleInteraction(interaction) {
 
       await interaction.deferUpdate();
 
+      // Re-vérification atomique (check+add synchrones, sans await entre les
+      // deux) : le timeout automatique a pu poser ce verrou pendant les
+      // await ci-dessus (reply, deferUpdate). S'il l'a fait, ce match vient
+      // d'être annulé pour timeout — on ne doit pas le résoudre en plus.
+      if (matchResolutionLocks.has(matchState.messageId)) {
+        await interaction.followUp({
+          content: localizeText({
+            fr: 'Ce match vient d\'être annulé pour timeout, impossible de valider le résultat.',
+            en: 'This match was just cancelled for timeout, the result cannot be validated.'
+          }),
+          flags: MessageFlags.Ephemeral
+        });
+        return;
+      }
       matchResolutionLocks.add(matchState.messageId);
 
       const summary = await applyMatchOutcome(matchState, outcome, interaction.user.id);
