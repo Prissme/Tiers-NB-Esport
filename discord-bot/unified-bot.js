@@ -729,20 +729,27 @@ async function formatPLQueueDetails(queue) {
   let totalPlayers = null;
   let playersByDiscordId = new Map();
 
-  try {
-    const rankingInfo = await getSiteRankingMap();
-    rankingByDiscordId = rankingInfo.rankingByDiscordId;
-    totalPlayers = rankingInfo.totalPlayers;
-  } catch (err) {
-    warn('Unable to load PL rankings:', err?.message || err);
+  // Les deux lookups sont indépendants (l'un ne dépend pas du résultat de
+  // l'autre) : on les lance en parallèle plutôt qu'en séquence pour ne pas
+  // payer deux allers-retours l'un après l'autre en cas de cache froid.
+  const [rankingResult, playersResult] = await Promise.allSettled([
+    getSiteRankingMap(),
+    queue.length
+      ? performanceStores.playerStore.getPlayersByDiscordIds(queue.map((id) => id.toString()))
+      : Promise.resolve(new Map())
+  ]);
+
+  if (rankingResult.status === 'fulfilled') {
+    rankingByDiscordId = rankingResult.value.rankingByDiscordId;
+    totalPlayers = rankingResult.value.totalPlayers;
+  } else {
+    warn('Unable to load PL rankings:', rankingResult.reason?.message || rankingResult.reason);
   }
 
-  if (queue.length) {
-    try {
-      playersByDiscordId = await performanceStores.playerStore.getPlayersByDiscordIds(queue.map((id) => id.toString()));
-    } catch (err) {
-      warn('Unable to load player profiles for PL queue:', err?.message || err);
-    }
+  if (playersResult.status === 'fulfilled') {
+    playersByDiscordId = playersResult.value;
+  } else {
+    warn('Unable to load player profiles for PL queue:', playersResult.reason?.message || playersResult.reason);
   }
 
   const formatLine = (id, index, language) => {
