@@ -202,6 +202,10 @@ class LeaderboardPaginationView(discord.ui.View):
         self.ctx = ctx
         self.page = 1
         self.message: Optional[discord.Message] = None
+        # PERF #5 : Cache des tier boundaries — calculé une fois, réutilisé à chaque page.
+        # total_players ne change pas entre deux clics de pagination dans la même session.
+        self._cached_total: Optional[int] = None
+        self._cached_boundaries: Optional[List[Dict]] = None
 
     async def on_timeout(self) -> None:
         self.disable_all_items()
@@ -225,7 +229,12 @@ class LeaderboardPaginationView(discord.ui.View):
             embed.set_footer(text="Page 1/1")
             return embed
 
-        boundaries = compute_tier_boundaries(total_players)
+        # PERF #5 : on ne recalcule les boundaries que si le total a changé
+        if self._cached_total != total_players or self._cached_boundaries is None:
+            self._cached_total = total_players
+            self._cached_boundaries = compute_tier_boundaries(total_players)
+
+        boundaries = self._cached_boundaries
         lines: List[str] = []
         start_rank = (self.page - 1) * LEADERBOARD_PAGE_SIZE + 1
         for index, player in enumerate(players, start=start_rank):
