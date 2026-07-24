@@ -2,8 +2,7 @@
 
 import { cookies, headers } from "next/headers";
 import { checkRateLimit, resetRateLimit } from "../../lib/rateLimit";
-
-const ADMIN_COOKIE = "admin_session";
+import { ADMIN_COOKIE, ADMIN_SESSION_TTL_MS, createAdminSessionToken } from "../../src/lib/admin/auth";
 
 export type LoginState = {
   error?: string;
@@ -51,12 +50,19 @@ export const login = async (
   // Succès — on réinitialise le compteur
   resetRateLimit(`login:${ip}`);
 
-  cookies().set(ADMIN_COOKIE, "1", {
+  let token: string;
+  try {
+    token = await createAdminSessionToken();
+  } catch {
+    return { error: "ADMIN_SESSION_SECRET n'est pas configuré." };
+  }
+
+  cookies().set(ADMIN_COOKIE, token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "strict", // plus strict que "lax"
     path: "/",
-    maxAge: 60 * 60 * 8, // session de 8h max
+    maxAge: ADMIN_SESSION_TTL_MS / 1000, // session de 8h max, alignée sur l'expiry du token
   });
 
   return { success: true };
