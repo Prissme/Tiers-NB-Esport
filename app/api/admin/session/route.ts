@@ -1,10 +1,8 @@
-import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
+import { isAdminAuthenticated } from "../../../../src/lib/admin/auth";
 
-const ADMIN_COOKIE = "admin_session";
-
-export function GET() {
-  const hasAdminCookie = cookies().get(ADMIN_COOKIE)?.value === "1";
+export async function GET() {
+  const hasAdminCookie = await isAdminAuthenticated();
 
   if (!hasAdminCookie) {
     return NextResponse.json({ authenticated: false }, { status: 401 });
