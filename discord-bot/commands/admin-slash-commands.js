@@ -150,8 +150,8 @@ function buildAdminSlashCommands({ localizeText, optionType, adminPermission }) 
     {
       name: 'simulatematch',
       description: localizeText({
-        fr: 'Simuler un match réel (6 joueurs) et appliquer le résultat',
-        en: 'Simulate a real match (6 players) and apply the outcome'
+        fr: 'Lancer un match complet (6 joueurs) : teams, map, fil, rôle et votes',
+        en: 'Launch a full match (6 players): teams, map, thread, role and votes'
       }),
       dm_permission: false,
       default_member_permissions: adminPermission,
@@ -191,16 +191,6 @@ function buildAdminSlashCommands({ localizeText, optionType, adminPermission }) 
           description: localizeText({ fr: 'Équipe rouge - joueur 3', en: 'Red team - player 3' }),
           type: optionType.User,
           required: true
-        },
-        {
-          name: 'winner',
-          description: localizeText({ fr: 'Équipe gagnante', en: 'Winning team' }),
-          type: optionType.String,
-          required: true,
-          choices: [
-            { name: localizeText({ fr: 'Bleue', en: 'Blue' }), value: 'blue' },
-            { name: localizeText({ fr: 'Rouge', en: 'Red' }), value: 'red' }
-          ]
         }
       ]
     },
