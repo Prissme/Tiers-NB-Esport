@@ -733,10 +733,12 @@ async function formatPLQueueDetails(queue) {
   // l'autre) : on les lance en parallèle plutôt qu'en séquence pour ne pas
   // payer deux allers-retours l'un après l'autre en cas de cache froid.
   const [rankingResult, playersResult] = await Promise.allSettled([
-    getSiteRankingMap(),
-    queue.length
-      ? performanceStores.playerStore.getPlayersByDiscordIds(queue.map((id) => id.toString()))
-      : Promise.resolve(new Map())
+    Promise.resolve().then(() => getSiteRankingMap()),
+    Promise.resolve().then(() =>
+      queue.length
+        ? performanceStores.playerStore.getPlayersByDiscordIds(queue.map((id) => id.toString()))
+        : new Map()
+    )
   ]);
 
   if (rankingResult.status === 'fulfilled') {
@@ -1019,12 +1021,20 @@ async function addPlayerToPLQueue(userId, guildContext, options = {}) {
       }
 
       const result = await addToRuntimePlQueue(guildContext.id, userId);
-      await sendOrUpdateQueueMessage(guildContext, plQueueChannel);
+      try {
+        await sendOrUpdateQueueMessage(guildContext, plQueueChannel);
+      } catch (err) {
+        errorLog('Unable to refresh PL queue embed after join (queue 1):', err?.message || err);
+      }
       return { ...result, queueIndex: 1 };
     }
 
     const result = addToSecondaryPlQueue(guildContext.id, userId);
-    await sendOrUpdateQueueMessage(guildContext, plQueueChannel);
+    try {
+      await sendOrUpdateQueueMessage(guildContext, plQueueChannel);
+    } catch (err) {
+      errorLog('Unable to refresh PL queue embed after join (queue 2):', err?.message || err);
+    }
     return { ...result, queueIndex: 2 };
   } finally {
     if (!isInternalFallback) {
