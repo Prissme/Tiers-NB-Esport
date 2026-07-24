@@ -139,6 +139,10 @@ def init_db() -> None:
 
 def ensure_player(discord_id: int, name: Optional[str], division: Optional[str] = None) -> Player:
     division = division or config.DEFAULT_DIVISION
+    # SEC #4 : le display_name Discord est contrôlé par l'utilisateur.
+    # On le tronque à 100 caractères et on retire les caractères nuls.
+    if name:
+        name = name.replace("\x00", "").strip()[:100] or None
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
@@ -277,7 +281,14 @@ def load_match(match_id: int) -> Optional[Dict]:
 
 
 def record_game_result(match_id: int, winner_label: str) -> Optional[Dict]:
-    column = "team1_score" if winner_label == "bleue" else "team2_score"
+    # SEC #1 : whitelist stricte — `winner_label` ne doit JAMAIS être interpolé
+    # directement dans une f-string SQL sans validation explicite.
+    # On mappe vers un nom de colonne fixe plutôt que d'utiliser la valeur brute.
+    _SCORE_COLUMN_MAP = {"bleue": "team1_score", "rouge": "team2_score"}
+    column = _SCORE_COLUMN_MAP.get(winner_label)
+    if column is None:
+        raise ValueError(f"winner_label invalide : {winner_label!r}")
+
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
