@@ -775,6 +775,9 @@ async function formatPLQueueDetails(queue) {
   };
 }
 
+const PL_QUEUE_MSG_CLEANUP_COOLDOWN_MS = 2 * 60 * 1000; // 2 minutes
+const lastQueueMsgCleanupAtByGuild = new Map();
+
 async function sendOrUpdateQueueMessage(guildContext, channel) {
   if (!guildContext) {
     return null;
@@ -834,8 +837,17 @@ async function sendOrUpdateQueueMessage(guildContext, channel) {
 
     if (!queueMessage) {
       const botId = client?.user?.id;
+      // Le scan des 50 derniers messages + suppression est coûteux en appels
+      // Discord. Si l'edit échoue en boucle (message stocké introuvable de
+      // façon persistante), on ne le refait pas à CHAQUE appel — sinon un
+      // salon actif (beaucoup de join/leave) peut spammer cette opération.
+      // On le limite à une fois par fenêtre de cooldown ; les messages
+      // périmés seront nettoyés au prochain cycle si ce n'est pas déjà fait.
+      const lastCleanupAt = lastQueueMsgCleanupAtByGuild.get(guildContext.id) || 0;
+      const cleanupDue = Date.now() - lastCleanupAt > PL_QUEUE_MSG_CLEANUP_COOLDOWN_MS;
 
-    if (botId) {
+    if (botId && cleanupDue) {
+      lastQueueMsgCleanupAtByGuild.set(guildContext.id, Date.now());
       try {
         const recentMessages = await targetChannel.messages.fetch({ limit: 50 });
         const staleMessages = recentMessages.filter(
@@ -857,6 +869,7 @@ async function sendOrUpdateQueueMessage(guildContext, channel) {
 
   return queueMessage;
 }
+
 
 async function getMajorRankLevelForUserInGuild(guildContext, userId) {
   let profile = await fetchPlayerByDiscordId(userId).catch(() => null);
