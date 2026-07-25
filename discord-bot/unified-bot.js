@@ -7762,16 +7762,10 @@ async function handleInteraction(interaction) {
               [
                 '`!tier <pseudo>` — Voir le tier d\'un joueur',
                 '`!tiercriteria` — Critères des tiers',
-                '`!synctiers` — Synchroniser les tiers',
-                '`!refreshnames` — Rafraîchir les pseudos',
-                '`!refreshtop100` — Rafraîchir le top 100',
-                '`!refreshworldlb` — Rafraîchir le classement mondial',
                 '`!tierlb` — Classement par tier',
                 '`!worldlb` — Classement mondial',
                 '`!countrylb` — Classement par pays',
-                '`!teams` — Voir les teams PRISS Cup',
-                '`!draft` — Lancer le système de draft',
-                '`!lfn` — Infos LFN'
+                '`!draft` — Lancer le système de draft'
               ].join('\n')
             )
         ]
@@ -8928,7 +8922,19 @@ async function handleMessage(message) {
   if (message.channel.id !== ALLOWED_DRAFT_CHANNEL) {
     // Si l'utilisateur tente d'écrire un brawler ou d'utiliser la commande !draft hors du salon autorisé, on bloque.
     const brawlerFound = draft.findBrawlerInText ? draft.findBrawlerInText(content) : false;
-    if (brawlerFound || content.toLowerCase().startsWith('!draft')) {
+    if (content.toLowerCase().startsWith('!draft')) {
+      await message.reply({
+        embeds: [
+          new EmbedBuilder()
+            .setTitle('❌ Mauvais salon')
+            .setDescription(`La draft ne peut être utilisée que dans <#${ALLOWED_DRAFT_CHANNEL}>.`)
+            .setColor(0xed4245)
+        ],
+        allowedMentions: { repliedUser: false }
+      });
+      return;
+    }
+    if (brawlerFound) {
       return; // Le bot ignore silencieusement pour ne pas spammer
     }
   }
@@ -8951,6 +8957,15 @@ async function handleMessage(message) {
 
   const [commandName, ...args] = content.slice(1).split(/\s+/);
   const command = commandName.toLowerCase();
+
+  const disabledCommands = new Set(['teams', 'lfn']);
+  if (disabledCommands.has(command)) {
+    await message.reply({
+      content: 'Cette commande est désactivée.',
+      allowedMentions: { repliedUser: false }
+    });
+    return;
+  }
 
   try {
     switch (command) {
