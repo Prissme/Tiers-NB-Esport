@@ -75,8 +75,11 @@ export async function middleware(request: NextRequest) {
 
   // ── 2. Bloquer tout accès direct à /admin ────────────────────────────
   // Quelqu'un qui tape /admin ou /admin/login voit un 404 propre.
+  // NB : NextResponse.notFound() n'existe pas (ce n'était pas une vraie
+  // méthode de l'API) — ça faisait planter le middleware en boucle sur
+  // TOUTE requête vers /admin/*, d'où le 500 en prod.
   if (pathname.startsWith("/admin")) {
-    return NextResponse.notFound();
+    return new NextResponse("Not Found", { status: 404 });
   }
 
   // ── 2bis. Protéger /api/admin/* au niveau middleware ──────────────────
