@@ -1326,11 +1326,11 @@ async function restorePLState() {
 
 const LANGUAGE_FR = 'fr';
 const LANGUAGE_EN = 'en';
-const DEFAULT_LANGUAGE = LANGUAGE_FR;
+const DEFAULT_LANGUAGE = LANGUAGE_EN;
 
 let currentLanguage =
-  process.env.DEFAULT_BOT_LANGUAGE && process.env.DEFAULT_BOT_LANGUAGE.toLowerCase() === LANGUAGE_EN
-    ? LANGUAGE_EN
+  process.env.DEFAULT_BOT_LANGUAGE && process.env.DEFAULT_BOT_LANGUAGE.toLowerCase() === LANGUAGE_FR
+    ? LANGUAGE_FR
     : DEFAULT_LANGUAGE;
 
 function formatTemplate(template, variables = {}) {
@@ -6754,13 +6754,13 @@ async function handleHelpCommand(message) {
     embeds: [
       new EmbedBuilder()
         .setTitle('!help')
-        .setDescription('Choisis une rubrique avec les boutons ci-dessous.')
+        .setDescription('Choose a topic using the buttons below.')
         .setColor(0x00b894)
     ],
     components: [
       new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId('help_pl').setLabel('Rubrique PL').setStyle(ButtonStyle.Primary),
-        new ButtonBuilder().setCustomId('help_esports').setLabel('Rubrique E-Sports').setStyle(ButtonStyle.Secondary)
+        new ButtonBuilder().setCustomId('help_pl').setLabel('PL Topics').setStyle(ButtonStyle.Primary),
+        new ButtonBuilder().setCustomId('help_esports').setLabel('E-Sports Topics').setStyle(ButtonStyle.Secondary)
       )
     ]
   });
@@ -7732,18 +7732,18 @@ async function handleInteraction(interaction) {
         flags: MessageFlags.Ephemeral,
         embeds: [
           new EmbedBuilder()
-            .setTitle('Rubrique PL')
+            .setTitle('PL Topics')
             .setColor(0x2563eb)
             .setDescription(
               [
-                '`!join` — Rejoindre la file PL',
-                '`!join 2` — Rejoindre la file 2 (fallback)',
-                '`!leave` — Quitter la file PL',
-                '`!queue` / `!file` — Voir l\'état de la file',
-                '`!lb` / `!leaderboard` — Classement PL',
-                '`!elo` — Voir ton ELO',
-                '`!ranks` — Voir les rangs',
-                '`!maps` — Voir les maps'
+                '`!join` — Join the PL queue',
+                '`!join 2` — Join queue 2 (fallback)',
+                '`!leave` — Leave the PL queue',
+                '`!queue` / `!file` — View queue status',
+                '`!lb` / `!leaderboard` — PL leaderboard',
+                '`!elo` — View your Elo',
+                '`!ranks` — View ranks',
+                '`!maps` — View maps'
               ].join('\n')
             )
         ]
@@ -7756,16 +7756,16 @@ async function handleInteraction(interaction) {
         flags: MessageFlags.Ephemeral,
         embeds: [
           new EmbedBuilder()
-            .setTitle('Rubrique E-Sports')
+            .setTitle('E-Sports Topics')
             .setColor(0x0ea5e9)
             .setDescription(
               [
-                '`!tier <pseudo>` — Voir le tier d\'un joueur',
-                '`!tiercriteria` — Critères des tiers',
-                '`!tierlb` — Classement par tier',
-                '`!worldlb` — Classement mondial',
-                '`!countrylb` — Classement par pays',
-                '`!draft` — Lancer le système de draft'
+                '`!tier <name>` — View a player\'s tier',
+                '`!tiercriteria` — Tier criteria',
+                '`!tierlb` — Tier leaderboard',
+                '`!worldlb` — World leaderboard',
+                '`!countrylb` — Country leaderboard',
+                '`!draft` — Launch the draft system'
               ].join('\n')
             )
         ]
@@ -7948,6 +7948,93 @@ async function handleInteraction(interaction) {
       return;
     }
 
+    if (prefix === 'matchcancel') {
+      await interaction.update({
+        content: localizeText({ fr: 'Validation annulée. Ton vote normal reste enregistré.', en: 'Validation cancelled. Your normal vote is still recorded.' }),
+        components: []
+      });
+      return;
+    }
+
+    if (prefix === 'matchconfirm') {
+      const outcome = action;
+      const matchId = requestId;
+      const matchState = activeMatches.get(Number(matchId)) || activeMatches.get(matchId);
+
+      if (!matchState || matchState.resolved) {
+        await interaction.update({
+          content: localizeText({ fr: 'Ce match a déjà été terminé ou est introuvable.', en: 'This match was already completed or cannot be found.' }),
+          components: []
+        });
+        return;
+      }
+
+      if (!hasPLAdminAccess(interaction)) {
+        await interaction.update({
+          content: localizeText({ fr: 'Seuls les admins PL peuvent confirmer.', en: 'Only PL admins can confirm.' }),
+          components: []
+        });
+        return;
+      }
+
+      if (matchResolutionLocks.has(matchState.messageId)) {
+        await interaction.update({
+          content: localizeText({ fr: 'Le résultat est déjà en cours de validation.', en: 'The result is already being validated.' }),
+          components: []
+        });
+        return;
+      }
+      matchResolutionLocks.add(matchState.messageId);
+
+      try {
+        const summary = await applyMatchOutcome(matchState, outcome, interaction.user.id);
+        if (!summary) {
+          matchResolutionLocks.delete(matchState.messageId);
+          await interaction.update({
+            content: localizeText({ fr: 'Le résultat a déjà été enregistré.', en: 'The result has already been recorded.' }),
+            components: []
+          });
+          return;
+        }
+
+        matchState.resolved = true;
+        activeMatches.delete(matchState.matchId);
+        await handlePLMatchResolved(matchState.messageId);
+
+        const matchChannel = client.channels.cache.get(matchState.channelId) || (await client.channels.fetch(matchState.channelId).catch(() => null));
+        const matchMessage = matchChannel ? await matchChannel.messages.fetch(matchState.messageId).catch(() => null) : null;
+        if (matchMessage) {
+          await matchMessage.edit({
+            embeds: [buildMatchEmbed(matchState, summary)],
+            components: [buildResultButtons(true)]
+          });
+        }
+
+        await interaction.update({
+          content: localizeText({ fr: '✅ Match validé.', en: '✅ Match validated.' }),
+          components: []
+        });
+
+        runInBackground('Match resource cleanup', () => cleanupMatchResources(matchState));
+
+        const mapLabel = matchState.primaryMap
+          ? `${matchState.primaryMap.emoji} ${matchState.primaryMap.mode}`
+          : localizeText({ fr: 'Map inconnue', en: 'Unknown map' });
+        await sendLogMessage(
+          [`✅ Match #${matchState.matchId} terminé (${mapLabel})`, summary.text].join('\n')
+        );
+      } catch (err) {
+        errorLog('Failed to confirm match result:', err);
+        await interaction.followUp({
+          content: localizeText({ fr: "Erreur lors de l'enregistrement du résultat.", en: 'Error while saving the result.' }),
+          flags: MessageFlags.Ephemeral
+        }).catch(() => null);
+      } finally {
+        matchResolutionLocks.delete(matchState.messageId);
+      }
+      return;
+    }
+
     if (prefix !== 'match') {
       return;
     }
@@ -8034,13 +8121,62 @@ async function handleInteraction(interaction) {
       }
 
       const votes = matchState.votes;
+
+      // Un admin qui clique une 1ère fois vote normalement (comme un joueur).
+      // S'il clique une 2e fois sur le même résultat, on lui demande de
+      // confirmer avant de valider le match instantanément.
+      if (hasPLAdminRole && votes[outcome].has(interaction.user.id)) {
+        await interaction.reply({
+          content: localizeText({
+            fr: '⚠️ Confirmer la validation immédiate de ce match ?',
+            en: '⚠️ Confirm instant validation of this match?'
+          }),
+          components: [
+            new ActionRowBuilder().addComponents(
+              new ButtonBuilder()
+                .setCustomId(`matchconfirm:${outcome}:${matchState.matchId}`)
+                .setLabel(localizeText({ fr: 'Confirmer', en: 'Confirm' }))
+                .setStyle(ButtonStyle.Danger),
+              new ButtonBuilder()
+                .setCustomId(`matchcancel:${outcome}:${matchState.matchId}`)
+                .setLabel(localizeText({ fr: 'Annuler', en: 'Cancel' }))
+                .setStyle(ButtonStyle.Secondary)
+            )
+          ],
+          flags: MessageFlags.Ephemeral
+        });
+        return;
+      }
+
       const allVoteSets = [votes.blue, votes.red, votes.cancel];
+      const outcomeLabel = (o) =>
+        o === 'blue'
+          ? localizeText({ fr: 'Victoire Bleue', en: 'Blue victory' })
+          : o === 'red'
+            ? localizeText({ fr: 'Victoire Rouge', en: 'Red victory' })
+            : localizeText({ fr: 'Match annulé', en: 'Match cancelled' });
+
+      let previousOutcome = null;
+      for (const [key, set] of Object.entries(votes)) {
+        if (set.has(interaction.user.id)) {
+          previousOutcome = key;
+          break;
+        }
+      }
 
       for (const voteSet of allVoteSets) {
         voteSet.delete(interaction.user.id);
       }
 
       votes[outcome].add(interaction.user.id);
+
+      const voteChangeNote =
+        previousOutcome && previousOutcome !== outcome
+          ? localizeText(
+              { fr: '(Vote changé de {from} à {to}.)', en: '(Vote changed from {from} to {to}.)' },
+              { from: outcomeLabel(previousOutcome), to: outcomeLabel(outcome) }
+            )
+          : null;
 
       const voteCounts = {
         blue: votes.blue.size,
@@ -8050,7 +8186,7 @@ async function handleInteraction(interaction) {
 
       const votesRequired = getVotesRequired(matchState);
       const hasReachedThreshold = voteCounts[outcome] >= votesRequired;
-      const shouldResolve = hasPLAdminRole || hasReachedThreshold;
+      const shouldResolve = hasReachedThreshold;
 
       if (!shouldResolve) {
         await interaction.update({
@@ -8059,22 +8195,27 @@ async function handleInteraction(interaction) {
         });
 
         await interaction.followUp({
-          content: localizeText(
-            {
-              fr: 'Votre vote pour {choice} a été pris en compte. ({count}/{needed})',
-              en: 'Your vote for {choice} has been recorded. ({count}/{needed})'
-            },
-            {
-              choice:
-                outcome === 'blue'
-                  ? localizeText({ fr: 'la victoire bleue', en: 'a blue win' })
-                  : outcome === 'red'
-                    ? localizeText({ fr: 'la victoire rouge', en: 'a red win' })
-                    : localizeText({ fr: "l'annulation", en: 'cancelling the match' }),
-              count: voteCounts[outcome],
-              needed: votesRequired
-            }
-          ),
+          content: [
+            localizeText(
+              {
+                fr: 'Votre vote pour {choice} a été pris en compte. ({count}/{needed})',
+                en: 'Your vote for {choice} has been recorded. ({count}/{needed})'
+              },
+              {
+                choice:
+                  outcome === 'blue'
+                    ? localizeText({ fr: 'la victoire bleue', en: 'a blue win' })
+                    : outcome === 'red'
+                      ? localizeText({ fr: 'la victoire rouge', en: 'a red win' })
+                      : localizeText({ fr: "l'annulation", en: 'cancelling the match' }),
+                count: voteCounts[outcome],
+                needed: votesRequired
+              }
+            ),
+            voteChangeNote
+          ]
+            .filter(Boolean)
+            .join('\n'),
           flags: MessageFlags.Ephemeral
         });
         return;
@@ -8241,6 +8382,22 @@ async function handleInteraction(interaction) {
     const remaining = Math.max(0, DODGE_VOTES_REQUIRED - voteCount);
     let penaltyMessage = '';
     const reachedThreshold = voteCount >= DODGE_VOTES_REQUIRED;
+
+    // Warn the targeted player before the penalty actually hits, so they
+    // aren't blindsided by a sudden -30 Elo + 1h lock.
+    if (!reachedThreshold && remaining === 1) {
+      try {
+        const targetUser = await interaction.client.users.fetch(targetId);
+        await targetUser.send({
+          content: localizeText({
+            fr: `⚠️ Attention : tu as ${voteCount}/${DODGE_VOTES_REQUIRED} votes dodge contre toi sur le match #${matchState.matchId}. Un vote de plus entraînera -${DODGE_ELO_PENALTY} Elo et un verrouillage d'1h.`,
+            en: `⚠️ Warning: you have ${voteCount}/${DODGE_VOTES_REQUIRED} dodge votes against you on match #${matchState.matchId}. One more vote will trigger -${DODGE_ELO_PENALTY} Elo and a 1h lock.`
+          })
+        });
+      } catch (err) {
+        // DMs closed or user unreachable — not critical, skip silently.
+      }
+    }
 
     if (reachedThreshold && !matchState.penalizedDodges.has(targetId)) {
       try {
@@ -8926,8 +9083,8 @@ async function handleMessage(message) {
       await message.reply({
         embeds: [
           new EmbedBuilder()
-            .setTitle('❌ Mauvais salon')
-            .setDescription(`La draft ne peut être utilisée que dans <#${ALLOWED_DRAFT_CHANNEL}>.`)
+            .setTitle('❌ Wrong channel')
+            .setDescription(`Draft can only be used in <#${ALLOWED_DRAFT_CHANNEL}>.`)
             .setColor(0xed4245)
         ],
         allowedMentions: { repliedUser: false }
@@ -8961,7 +9118,7 @@ async function handleMessage(message) {
   const disabledCommands = new Set(['teams', 'lfn']);
   if (disabledCommands.has(command)) {
     await message.reply({
-      content: 'Cette commande est désactivée.',
+      content: 'This command is disabled.',
       allowedMentions: { repliedUser: false }
     });
     return;
