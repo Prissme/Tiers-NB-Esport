@@ -25,6 +25,7 @@ const {
 const { createClient } = require('@supabase/supabase-js');
 const predictions = require('./predictions');
 const draft = require('./draft');
+const { analyzeEndScreen } = require('./gemini-endscreen');
 const { createPerformanceStores } = require('./performance-store');
 const seasonSystem = require('./season-system');
 const bracketPredictions = require('./bracket-predictions');
@@ -7948,6 +7949,65 @@ async function handleInteraction(interaction) {
       return;
     }
 
+    if (prefix === 'endscreen') {
+      const subaction = action; // 'confirm' | 'reject'
+      const matchId = requestId;
+      const matchState = activeMatches.get(Number(matchId)) || activeMatches.get(matchId);
+      const pendingResult = pendingEndscreenResults.get(Number(matchId)) || pendingEndscreenResults.get(matchId);
+
+      if (!hasPLAdminAccess(interaction)) {
+        await interaction.reply({ content: 'Only PL admins can confirm this.', flags: MessageFlags.Ephemeral });
+        return;
+      }
+
+      if (!matchState || !pendingResult) {
+        await interaction.update({ content: 'This analysis has expired or the match is gone.', embeds: [], components: [] });
+        return;
+      }
+
+      if (subaction === 'reject') {
+        pendingEndscreenResults.delete(matchState.matchId);
+        await interaction.update({ content: '❌ Discarded. Vote or enter the result manually.', embeds: [], components: [] });
+        return;
+      }
+
+      if (subaction === 'confirm') {
+        await interaction.deferUpdate();
+        pendingEndscreenResults.delete(matchState.matchId);
+
+        try {
+          // 1) Elo bonus/malus via le pipeline existant (même logique que le vote).
+          const outcome = pendingResult.winningTeam === 'blue' ? 'blue' : pendingResult.winningTeam === 'red' ? 'red' : 'cancel';
+          const summary = await applyMatchOutcome(matchState, outcome, interaction.user.id);
+
+          if (summary) {
+            matchState.resolved = true;
+            activeMatches.delete(matchState.matchId);
+            await handlePLMatchResolved(matchState.messageId);
+          }
+
+          // 2) TODO: pousser chaque joueur dans performance_rating_computations
+          // (même payload que /api/admin/performance-rating : kills, deaths,
+          // brawler, comp, victory, degats, soin, starPlayer) pour calculer
+          // sa note. Ça nécessite de mapper pendingResult.players à tes
+          // discordId (via playerStore) et d'appeler ta logique de rating
+          // (soit en dupliquant le calcul côté bot, soit en exposant un
+          // endpoint interne que le bot peut appeler avec une clé de service).
+
+          await interaction.editReply({
+            content: `✅ Result applied${summary ? ` — ${summary.text}` : ''}.\n⚠️ Per-player ratings not yet wired up (see TODO in code).`,
+            embeds: [],
+            components: []
+          });
+        } catch (err) {
+          errorLog('Failed to apply endscreen result:', err);
+          await interaction.editReply({ content: `❌ Error while applying the result: ${err.message}`, embeds: [], components: [] });
+        }
+        return;
+      }
+    }
+
+
     if (prefix === 'matchcancel') {
       await interaction.update({
         content: localizeText({ fr: 'Validation annulée. Ton vote normal reste enregistré.', en: 'Validation cancelled. Your normal vote is still recorded.' }),
@@ -9196,6 +9256,9 @@ async function handleMessage(message) {
       case 'draft':
         await handleDraftCommand(message, args);
         break;
+      case 'endscreen':
+        await handleEndscreenCommand(message);
+        break;
       case 'aide':
       case 'help':
         await handleHelpCommand(message, args);
@@ -9213,6 +9276,89 @@ async function handleMessage(message) {
     });
   }
 }
+
+async function handleEndscreenCommand(message) {
+  const matchState = [...activeMatches.values()].find(
+    (state) => state.channelId === message.channel.id || state.threadId === message.channel.id
+  );
+
+  if (!matchState) {
+    await message.reply({
+      content: 'No active match found in this channel/thread.',
+      allowedMentions: { repliedUser: false }
+    });
+    return;
+  }
+
+  const attachment = message.attachments.first();
+  if (!attachment || !attachment.contentType?.startsWith('image/')) {
+    await message.reply({
+      content: 'Attach the end-of-game screenshot with this command.',
+      allowedMentions: { repliedUser: false }
+    });
+    return;
+  }
+
+  const thinking = await message.reply({ content: '🔎 Analyzing screenshot...' });
+
+  try {
+    const res = await fetch(attachment.url);
+    const imageBuffer = Buffer.from(await res.arrayBuffer());
+    const result = await analyzeEndScreen(imageBuffer, attachment.contentType);
+
+    if (!result.isEndScreen || result.confidence === 'low') {
+      await thinking.edit({
+        content: '❌ Could not read this screenshot reliably. Please enter the result manually or send a clearer screenshot.'
+      });
+      return;
+    }
+
+    const lines = result.players.map(
+      (p) =>
+        `${p.team === 'blue' ? '🔵' : '🔴'} **${p.playerName}** (${p.brawler}) — ${p.kills}/${p.deaths} K/D` +
+        `${p.damage != null ? `, ${p.damage} dmg` : ''}${p.healing ? `, ${p.healing} heal` : ''}${p.starPlayer ? ' ⭐' : ''}`
+    );
+
+    const reviewEmbed = new EmbedBuilder()
+      .setTitle('📸 Screenshot analysis — please confirm')
+      .setDescription(
+        [
+          `**Winner:** ${result.winningTeam === 'blue' ? '🔵 Blue' : result.winningTeam === 'red' ? '🔴 Red' : 'Unknown'}`,
+          `**Confidence:** ${result.confidence}`,
+          '',
+          ...lines
+        ].join('\n')
+      )
+      .setColor(0xf1c40f)
+      .setFooter({ text: 'This has NOT been applied yet. Confirm to apply Elo + ratings.' });
+
+    await thinking.edit({
+      content: null,
+      embeds: [reviewEmbed],
+      components: [
+        new ActionRowBuilder().addComponents(
+          new ButtonBuilder()
+            .setCustomId(`endscreen:confirm:${matchState.matchId}`)
+            .setLabel('✅ Confirm & apply')
+            .setStyle(ButtonStyle.Success),
+          new ButtonBuilder()
+            .setCustomId(`endscreen:reject:${matchState.matchId}`)
+            .setLabel('❌ Discard')
+            .setStyle(ButtonStyle.Secondary)
+        )
+      ]
+    });
+
+    // On garde le résultat brut en mémoire, associé au matchId, le temps
+    // que le staff confirme via le bouton (pas de write DB avant confirmation).
+    pendingEndscreenResults.set(matchState.matchId, result);
+  } catch (err) {
+    errorLog('Failed to analyze end screen:', err);
+    await thinking.edit({ content: `❌ Error while analyzing the screenshot: ${err.message}` });
+  }
+}
+
+const pendingEndscreenResults = new Map();
 
 async function startUnifiedBot() {
   if (botStarted) {
