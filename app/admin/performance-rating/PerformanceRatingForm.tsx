@@ -8,6 +8,7 @@ const BRAWLER_NAMES = Object.keys(MAP_PRIORITY).sort();
 
 const WEIGHT_LABELS: Record<keyof RatingWeights, string> = {
   kd_coef: "Poids du K/D",
+  diff_mult_tier3: "Multiplicateur difficulté (tier 3 - meta top)",
   diff_mult_tier2: "Multiplicateur difficulté (tier 2 - top pick)",
   diff_mult_tier1: "Multiplicateur difficulté (tier 1 - solide)",
   diff_mult_tier0: "Multiplicateur difficulté (tier 0 - sous-optimal)",
@@ -18,6 +19,7 @@ const WEIGHT_LABELS: Record<keyof RatingWeights, string> = {
   mode_fit_bonus: "Bonus fit de mode",
   star_player_bonus: "Bonus Joueur Star",
   dmg_heal_fit_coef: "Poids fit dégâts/soin",
+  victory_bonus_coef: "Bonus/malus victoire ou défaite",
 };
 
 type Breakdown = {
