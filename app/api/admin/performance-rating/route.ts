@@ -141,6 +141,7 @@ export async function POST(request: Request) {
     const weights: RatingWeights = weightsRow
       ? {
           kd_coef: weightsRow.kd_coef,
+          diff_mult_tier3: weightsRow.diff_mult_tier3 ?? DEFAULT_WEIGHTS.diff_mult_tier3,
           diff_mult_tier2: weightsRow.diff_mult_tier2,
           diff_mult_tier1: weightsRow.diff_mult_tier1,
           diff_mult_tier0: weightsRow.diff_mult_tier0,
@@ -151,10 +152,12 @@ export async function POST(request: Request) {
           mode_fit_bonus: weightsRow.mode_fit_bonus,
           star_player_bonus: weightsRow.star_player_bonus,
           dmg_heal_fit_coef: weightsRow.dmg_heal_fit_coef ?? DEFAULT_WEIGHTS.dmg_heal_fit_coef,
+          victory_bonus_coef: weightsRow.victory_bonus_coef ?? DEFAULT_WEIGHTS.victory_bonus_coef,
         }
       : DEFAULT_WEIGHTS;
 
     const diffMultiplierByTier = {
+      3: weights.diff_mult_tier3,
       2: weights.diff_mult_tier2,
       1: weights.diff_mult_tier1,
       0: weights.diff_mult_tier0,
@@ -288,6 +291,9 @@ export async function POST(request: Request) {
     const dmgHealFitRaw = getDmgHealFitBonus(brawler, degats, soin);
     const dmgHealFitBonus = dmgHealFitRaw * weights.dmg_heal_fit_coef;
 
+    const victoryBonus =
+      victory === true ? weights.victory_bonus_coef : victory === false ? -weights.victory_bonus_coef : 0;
+
     let note =
       5 +
       (kd - 1) * weights.kd_coef * diffMultiplier +
@@ -296,7 +302,8 @@ export async function POST(request: Request) {
       counterBonus +
       modeFitBonus +
       starPlayerBonus +
-      dmgHealFitBonus;
+      dmgHealFitBonus +
+      victoryBonus;
     note = Math.max(0, Math.min(10, note));
     note = Math.round(note * 10) / 10;
 
@@ -325,6 +332,7 @@ export async function POST(request: Request) {
       degats,
       soin,
       dmgHealFitBonus: Math.round(dmgHealFitBonus * 100) / 100,
+      victoryBonus: Math.round(victoryBonus * 100) / 100,
       victory, // résultat du match — signal primaire pour le learning synergies/counter
     };
 
