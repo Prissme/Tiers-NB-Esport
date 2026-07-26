@@ -208,7 +208,7 @@ export async function applyReinforcementLearning(
   // 4. Signaux bruts depuis le breakdown sauvegardé
   const bd = computation.breakdown as {
     kd: number;
-    brawlerPriority: 0 | 1 | 2;
+    brawlerPriority: 0 | 1 | 2 | 3;
     compAvgPriority: number;
     pairSynergy: number;
     trioSynergy: number;
