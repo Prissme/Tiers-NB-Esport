@@ -29,7 +29,9 @@
 
 import {
   DEFAULT_WEIGHTS,
+  FEEDBACK_REASON_WEIGHTS,
   type Direction,
+  type FeedbackReason,
   type RatingWeights,
   type RawSignals,
 } from "../../app/lib/rating-weights";
@@ -160,8 +162,17 @@ function adjustOne(
 export async function applyReinforcementLearning(
   computationId: string,
   direction: Direction,
-  strength: Strength = "normal"
+  strength: Strength = "normal",
+  reasons: FeedbackReason[] = []
 ): Promise<ReinforcementResult> {
+  // Si l'admin a précisé une/des raisons, on ne touche qu'aux poids concernés
+  // par ces raisons. Sans raison précisée → comportement legacy (tout est ajusté).
+  const allowedKeys: Set<keyof RatingWeights> | null =
+    reasons.length > 0
+      ? new Set(reasons.flatMap((r) => FEEDBACK_REASON_WEIGHTS[r]))
+      : null;
+
+  const allowed = (key: keyof RatingWeights) => allowedKeys === null || allowedKeys.has(key);
   const supabase = withSchema(createServerClient());
 
   // 1. Charger la computation (breakdown + résultat du match)
@@ -260,46 +271,51 @@ export async function applyReinforcementLearning(
 
   // ── K/D + tier : performance individuelle, victory ne dit rien là-dessus.
   //    Un joueur peut perdre avec un excellent K/D. → direction admin seule.
-  if (raw.kdDelta !== 0) {
+  if (raw.kdDelta !== 0 && allowed("kd_coef")) {
     const s = sign(raw.kdDelta);
     next.kd_coef = adjustOne(
       currentWeights.kd_coef, DEFAULT_WEIGHTS.kd_coef,
       BOUNDS.kd_coef, s, direction, lr
     );
+  }
+  if (raw.kdDelta !== 0) {
+    const s = sign(raw.kdDelta);
     const tierKey = (["diff_mult_tier0", "diff_mult_tier1", "diff_mult_tier2", "diff_mult_tier3"] as const)[raw.brawlerPriority];
-    next[tierKey] = adjustOne(
-      currentWeights[tierKey], DEFAULT_WEIGHTS[tierKey],
-      BOUNDS[tierKey], s, direction, lr
-    );
+    if (allowed(tierKey)) {
+      next[tierKey] = adjustOne(
+        currentWeights[tierKey], DEFAULT_WEIGHTS[tierKey],
+        BOUNDS[tierKey], s, direction, lr
+      );
+    }
   }
 
   // ── Synergies, counter, mode fit : résultat du match est le signal principal.
   //    C'est ici que l'IA apprend que compo A bat compo B sur telle map.
-  if (raw.compRaw !== 0) {
+  if (raw.compRaw !== 0 && allowed("comp_bonus_coef")) {
     next.comp_bonus_coef = adjustOne(
       currentWeights.comp_bonus_coef, DEFAULT_WEIGHTS.comp_bonus_coef,
       BOUNDS.comp_bonus_coef, sign(raw.compRaw), effectiveDirection, effectiveLR
     );
   }
-  if (raw.pairSynergyRaw !== 0) {
+  if (raw.pairSynergyRaw !== 0 && allowed("pair_synergy_coef")) {
     next.pair_synergy_coef = adjustOne(
       currentWeights.pair_synergy_coef, DEFAULT_WEIGHTS.pair_synergy_coef,
       BOUNDS.pair_synergy_coef, sign(raw.pairSynergyRaw), effectiveDirection, effectiveLR
     );
   }
-  if (raw.trioSynergyRaw !== 0) {
+  if (raw.trioSynergyRaw !== 0 && allowed("trio_synergy_coef")) {
     next.trio_synergy_coef = adjustOne(
       currentWeights.trio_synergy_coef, DEFAULT_WEIGHTS.trio_synergy_coef,
       BOUNDS.trio_synergy_coef, sign(raw.trioSynergyRaw), effectiveDirection, effectiveLR
     );
   }
-  if (raw.counterEffect !== 0) {
+  if (raw.counterEffect !== 0 && allowed("counter_coef")) {
     next.counter_coef = adjustOne(
       currentWeights.counter_coef, DEFAULT_WEIGHTS.counter_coef,
       BOUNDS.counter_coef, sign(raw.counterEffect), effectiveDirection, effectiveLR
     );
   }
-  if (raw.modeFitRaw > 0) {
+  if (raw.modeFitRaw > 0 && allowed("mode_fit_bonus")) {
     next.mode_fit_bonus = adjustOne(
       currentWeights.mode_fit_bonus, DEFAULT_WEIGHTS.mode_fit_bonus,
       BOUNDS.mode_fit_bonus, 1, effectiveDirection, effectiveLR
@@ -307,7 +323,7 @@ export async function applyReinforcementLearning(
   }
 
   // ── Star player : signal individuel comme K/D → direction admin seule.
-  if (raw.starPlayer) {
+  if (raw.starPlayer && allowed("star_player_bonus")) {
     next.star_player_bonus = adjustOne(
       currentWeights.star_player_bonus, DEFAULT_WEIGHTS.star_player_bonus,
       BOUNDS.star_player_bonus, 1, direction, lr
@@ -317,6 +333,7 @@ export async function applyReinforcementLearning(
   // ── Victoire/défaite : le bonus fait déjà partie de la note (pas juste du feedback),
   //    donc on le calibre avec la direction admin seule, pas avec victory lui-même
   //    (sinon on ajusterait le poids en se basant sur le signal qu'il vient d'utiliser).
+  //    Poids objectif, non rattaché à une "raison" : toujours ajusté si victory connu.
   if (raw.victoryRaw !== 0) {
     next.victory_bonus_coef = adjustOne(
       currentWeights.victory_bonus_coef, DEFAULT_WEIGHTS.victory_bonus_coef,
@@ -347,6 +364,7 @@ export async function applyReinforcementLearning(
       computation_id:         computationId,
       direction,
       strength,
+      reasons,
       weights_before:         currentWeights,
       weights_after:          next,
       changes,
