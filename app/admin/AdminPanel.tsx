@@ -98,6 +98,7 @@ const COUNTRIES = [
   { code: "UZ", name: "Ouzbékistan" },
   { code: "PK", name: "Pakistan" },
   { code: "PW", name: "Palaos" },
+  { code: "PS", name: "Palestine" },
   { code: "PA", name: "Panama" },
   { code: "PG", name: "Papouasie-Nouvelle-Guinée" },
   { code: "PY", name: "Paraguay" },
