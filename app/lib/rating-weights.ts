@@ -53,7 +53,7 @@ export type Direction = "up" | "down";
 
 export type RawSignals = {
   kdDelta: number; // kd - 1 (signe de la contribution K/D)
-  brawlerPriority: 0 | 1 | 2;
+  brawlerPriority: 0 | 1 | 2 | 3;
   compRaw: number; // compAvgPriority - 1
   pairSynergyRaw: number;
   trioSynergyRaw: number;
