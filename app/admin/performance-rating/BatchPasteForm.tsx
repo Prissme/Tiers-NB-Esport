@@ -32,6 +32,8 @@ type PlayerRow = ParsedPlayer & {
   note: number | null;
   computationId: string | null;
   error: string | null;
+  feedbackStatus: "idle" | "sending" | "sent" | "error";
+  feedbackSent: "up" | "down" | "perfect" | null;
 };
 
 const EXAMPLE_PROMPT = `Analyse ce screenshot de fin de partie Brawl Stars et renvoie UNIQUEMENT un JSON
@@ -76,6 +78,8 @@ function buildRows(data: any, winningTeam: string | null, gameMode: string, mapN
       note: null,
       computationId: null,
       error: null,
+      feedbackStatus: "idle",
+      feedbackSent: null,
     };
   });
 }
@@ -163,6 +167,60 @@ export default function BatchPasteForm() {
       );
     } finally {
       setComputing(false);
+    }
+  }
+
+  // Feedback directionnel pour une ligne précise (trop basse / trop haute)
+  async function submitRowDirection(index: number, direction: "up" | "down") {
+    const row = rows?.[index];
+    if (!row?.computationId) return;
+    updateRow(index, { feedbackStatus: "sending", feedbackSent: direction });
+    try {
+      const res = await fetch("/api/admin/performance-rating/feedback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          computationId: row.computationId,
+          direction,
+          strength: "normal",
+        }),
+      });
+      if (!res.ok) {
+        updateRow(index, { feedbackStatus: "error" });
+        return;
+      }
+      updateRow(index, { feedbackStatus: "sent" });
+    } catch {
+      updateRow(index, { feedbackStatus: "error" });
+    }
+  }
+
+  // "Note correcte" pour une ligne précise : up + down en weak simultanément
+  // (les deux s'annulent quasi-parfaitement, seule la régularisation douce agit).
+  async function submitRowPerfect(index: number) {
+    const row = rows?.[index];
+    if (!row?.computationId) return;
+    updateRow(index, { feedbackStatus: "sending", feedbackSent: "perfect" });
+    try {
+      const results = await Promise.all([
+        fetch("/api/admin/performance-rating/feedback", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ computationId: row.computationId, direction: "up", strength: "weak" }),
+        }),
+        fetch("/api/admin/performance-rating/feedback", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ computationId: row.computationId, direction: "down", strength: "weak" }),
+        }),
+      ]);
+      if (results.some((r) => !r.ok)) {
+        updateRow(index, { feedbackStatus: "error" });
+        return;
+      }
+      updateRow(index, { feedbackStatus: "sent" });
+    } catch {
+      updateRow(index, { feedbackStatus: "error" });
     }
   }
 
@@ -271,6 +329,50 @@ export default function BatchPasteForm() {
                   )}
                   {row.error && <span className="ml-auto text-xs text-red-400">{row.error}</span>}
                 </div>
+
+                {row.computationId && (
+                  <div className="flex items-center gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => submitRowDirection(i, "up")}
+                      disabled={row.feedbackStatus === "sending"}
+                      className={`rounded border px-2 py-1 text-xs ${
+                        row.feedbackSent === "up" && row.feedbackStatus === "sent"
+                          ? "border-emerald-500 bg-emerald-500/10 text-emerald-400"
+                          : "border-neutral-700 text-neutral-300 hover:border-neutral-500"
+                      }`}
+                    >
+                      ↑ Trop basse
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => submitRowPerfect(i)}
+                      disabled={row.feedbackStatus === "sending"}
+                      className={`rounded border px-2 py-1 text-xs ${
+                        row.feedbackSent === "perfect" && row.feedbackStatus === "sent"
+                          ? "border-emerald-500 bg-emerald-500/10 text-emerald-400"
+                          : "border-neutral-700 text-neutral-300 hover:border-neutral-500"
+                      }`}
+                    >
+                      ✅ Correcte
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => submitRowDirection(i, "down")}
+                      disabled={row.feedbackStatus === "sending"}
+                      className={`rounded border px-2 py-1 text-xs ${
+                        row.feedbackSent === "down" && row.feedbackStatus === "sent"
+                          ? "border-emerald-500 bg-emerald-500/10 text-emerald-400"
+                          : "border-neutral-700 text-neutral-300 hover:border-neutral-500"
+                      }`}
+                    >
+                      ↓ Trop haute
+                    </button>
+                    {row.feedbackStatus === "error" && (
+                      <span className="text-xs text-red-400">Échec de l'enregistrement.</span>
+                    )}
+                  </div>
+                )}
               </div>
             ))}
           </div>
