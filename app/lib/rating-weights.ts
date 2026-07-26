@@ -1,5 +1,6 @@
 export type RatingWeights = {
   kd_coef: number;
+  diff_mult_tier3: number;
   diff_mult_tier2: number;
   diff_mult_tier1: number;
   diff_mult_tier0: number;
@@ -10,10 +11,12 @@ export type RatingWeights = {
   mode_fit_bonus: number;
   star_player_bonus: number;
   dmg_heal_fit_coef: number;
+  victory_bonus_coef: number;
 };
 
 export const DEFAULT_WEIGHTS: RatingWeights = {
   kd_coef: 2.2,
+  diff_mult_tier3: 0.85,
   diff_mult_tier2: 1.0,
   diff_mult_tier1: 1.2,
   diff_mult_tier0: 1.45,
@@ -24,11 +27,13 @@ export const DEFAULT_WEIGHTS: RatingWeights = {
   mode_fit_bonus: 0.3,
   star_player_bonus: 2.0,
   dmg_heal_fit_coef: 0.4,
+  victory_bonus_coef: 0.8,
 };
 
 // Bornes pour ne jamais laisser un poids partir en vrille avec des retours répétés.
 const BOUNDS: Record<keyof RatingWeights, [number, number]> = {
   kd_coef: [1.0, 4.0],
+  diff_mult_tier3: [0.7, 1.4],
   diff_mult_tier2: [0.8, 1.6],
   diff_mult_tier1: [0.8, 2.0],
   diff_mult_tier0: [0.8, 2.4],
@@ -39,6 +44,7 @@ const BOUNDS: Record<keyof RatingWeights, [number, number]> = {
   mode_fit_bonus: [0, 0.8],
   star_player_bonus: [0.5, 4.0],
   dmg_heal_fit_coef: [0, 0.8],
+  victory_bonus_coef: [0.3, 2.0],
 };
 
 function clamp(value: number, [min, max]: [number, number]) {
@@ -60,6 +66,7 @@ export type RawSignals = {
   counterEffect: number; // -1, 0, 1
   modeFitRaw: number; // 0 ou >0
   starPlayer: boolean;
+  victoryRaw: number; // 1 victoire, -1 défaite, 0 inconnu
 };
 
 const DIRECTIONAL_RATE = 0.08;
@@ -84,7 +91,7 @@ export function adjustWeightsDirectional(current: RatingWeights, direction: Dire
   if (raw.kdDelta !== 0) {
     const s = sign(raw.kdDelta);
     next.kd_coef = directionalAdjust(current.kd_coef, BOUNDS.kd_coef, s, direction);
-    const tierKey = (["diff_mult_tier0", "diff_mult_tier1", "diff_mult_tier2"] as const)[raw.brawlerPriority];
+    const tierKey = (["diff_mult_tier0", "diff_mult_tier1", "diff_mult_tier2", "diff_mult_tier3"] as const)[raw.brawlerPriority];
     next[tierKey] = directionalAdjust(current[tierKey], BOUNDS[tierKey], s, direction);
   }
   if (raw.compRaw !== 0) {
@@ -114,6 +121,14 @@ export function adjustWeightsDirectional(current: RatingWeights, direction: Dire
   }
   if (raw.starPlayer) {
     next.star_player_bonus = directionalAdjust(current.star_player_bonus, BOUNDS.star_player_bonus, 1, direction);
+  }
+  if (raw.victoryRaw !== 0) {
+    next.victory_bonus_coef = directionalAdjust(
+      current.victory_bonus_coef,
+      BOUNDS.victory_bonus_coef,
+      sign(raw.victoryRaw),
+      direction
+    );
   }
 
   return next;
