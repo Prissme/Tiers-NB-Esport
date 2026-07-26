@@ -57,6 +57,26 @@ function clamp(value: number, [min, max]: [number, number]) {
 // l'ancien système d'étoiles 0-5, supprimé).
 export type Direction = "up" | "down";
 
+// --- Raisons de feedback : permettent de cibler quels poids sont concernés ---
+// par un feedback ↑/↓ plutôt que d'ajuster tout le calcul en bloc.
+// Si aucune raison n'est cochée par l'admin, comportement legacy : tout est ajusté.
+export type FeedbackReason = "matchup" | "role" | "kd" | "comp";
+
+export const FEEDBACK_REASON_LABELS: Record<FeedbackReason, string> = {
+  matchup: "Matchups (difficulté du pick / du counter adverse)",
+  role: "Exécution du rôle (mode fit, dégâts/soin, impact star player)",
+  kd: "K/D pas représentatif de la perf",
+  comp: "Niveau / synergie de la comp (pas assez ou trop pris en compte)",
+};
+
+// Groupes de poids concernés par chaque raison.
+export const FEEDBACK_REASON_WEIGHTS: Record<FeedbackReason, (keyof RatingWeights)[]> = {
+  matchup: ["diff_mult_tier0", "diff_mult_tier1", "diff_mult_tier2", "diff_mult_tier3", "counter_coef"],
+  role: ["mode_fit_bonus", "dmg_heal_fit_coef", "star_player_bonus"],
+  kd: ["kd_coef"],
+  comp: ["comp_bonus_coef", "pair_synergy_coef", "trio_synergy_coef"],
+};
+
 export type RawSignals = {
   kdDelta: number; // kd - 1 (signe de la contribution K/D)
   brawlerPriority: 0 | 1 | 2 | 3;
