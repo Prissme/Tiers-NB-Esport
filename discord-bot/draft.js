@@ -15,7 +15,10 @@ const ALL = [
   'Glowy', 'Kit', 'Najia', 'Gray', 'Damian', 'Sirius', 'Colette', 'Ziggy',
   'Berry', 'Dynamike', 'Bo', 'Stu', 'Bolt',
   'Pierce', 'Angelo', 'Bibi', 'Pearl', 'Edgar', 'Lou', 'Fang', 'Nova', 'Meg', 'Clancy',
-  'Barley', 'Doug', 'Sprout', 'Nani', 'Tick', 'Grom', 'Willow'
+  'Barley', 'Doug', 'Sprout', 'Nani', 'Tick', 'Grom', 'Willow', 'Larry & Lawrie',
+  // Ajouts tier list du 26/07
+  'Wendy', '8-Bit', 'Nori', 'Kaze', 'Jae-Yong', 'Gigi', 'RT', 'Lola', 'Ollie',
+  'Bonnie', 'Buzz', 'Eve', 'Mandy', 'Jacky', 'Mr. P', 'Bea', 'Chuck', 'Mico'
 ];
 
 // BASE_PRIORITY = priorité par défaut, valable pour toute map sans données spécifiques.
@@ -41,23 +44,24 @@ function getMapPriority(brawler, mapKey) {
 }
 
 const MAP_PRIORITY = {
-  // Priorité 2 — top picks
-  Piper: 2, Belle: 2, Tara: 2, Juju: 2, Mina: 2, Cordelius: 2, Moe: 2, Finx: 2, Lumi: 2,
-  Kit: 2, Najia: 2, Gray: 2, Damian: 2, Sirius: 2, Colt: 2, Spike: 2, Bull: 2, Emz: 2,
-  Shelly: 2, Dynamike: 2, Chester: 2, Crow: 2, Gene: 2, Bolt: 2, Pierce: 2, Angelo: 2, Charlie: 2, Nani: 2,
+  // Priorité 3 — meta S/SS/SSS (top absolu)
+  Wendy: 3, Damian: 3, Bolt: 3, Nova: 3, Max: 3, Surge: 3, '8-Bit': 3, Griff: 3, Edgar: 3, Lou: 3, Kenji: 3,
 
-  // Priorité 1 — picks solides
-  Bo: 1, Berry: 1, Stu: 1, Brock: 1, Sandy: 1, Rosa: 1, Mortis: 1, Buster: 1, Pam: 1,
-  Gus: 1, Ruffs: 1, Carl: 1, Otis: 1, Alli: 1, Griff: 1, Meeple: 1, Squeak: 1, Surge: 1,
-  Sam: 1, Maisie: 1, Penny: 1, Gale: 1, Janet: 1, Amber: 1, Lily: 1, Rico: 1, Pearl: 1,
-  Edgar: 1, Nita: 1, Leon: 1, Kenji: 1, Melodie: 1, Byron: 1, Poco: 1, Draco: 1, Glowy: 1,
-  Colette: 1, Ziggy: 1, Bibi: 1, Lou: 1, Fang: 1, Ash: 1, Nova: 1, Meg: 1, Shade: 1,
-  Clancy: 1, Max: 1,
-  // Ajouts manquants
-  Jessie: 1, 'El Primo': 1, Darryl: 1, Barley: 1, Doug: 1, Sprout: 1, Tick: 1, Grom: 1, Willow: 1,
+  // Priorité 2 — tier A, top picks
+  Meg: 2, Lumi: 2, Meeple: 2, Brock: 2, Ruffs: 2, Chester: 2, Emz: 2, Kit: 2, Pierce: 2, Angelo: 2,
+  Otis: 2, Crow: 2, Byron: 2, Leon: 2, Shade: 2, Nori: 2, Charlie: 2, Stu: 2, Piper: 2, Pearl: 2,
+  Carl: 2, Finx: 2, Mortis: 2, Colt: 2, Gene: 2, Alli: 2, Kaze: 2, Gale: 2, Glowy: 2,
 
-  // Priorité 0 — sous-optimaux
-  Trunk: 0, Hank: 0, Frank: 0
+  // Priorité 1 — tier B, picks solides
+  Amber: 1, Sirius: 1, Penny: 1, Rico: 1, Moe: 1, Belle: 1, Mina: 1, Nita: 1, Najia: 1, Bo: 1,
+  Lily: 1, Sandy: 1, Colette: 1, 'Jae-Yong': 1, Berry: 1, Ash: 1, Spike: 1, Cordelius: 1, Gray: 1,
+  Trunk: 1, Poco: 1, Gus: 1, Gigi: 1, Willow: 1, Tara: 1, Fang: 1, 'Larry & Lawrie': 1, Hank: 1,
+  Nani: 1, Bibi: 1, RT: 1, Lola: 1, Bull: 1, Ollie: 1, Melodie: 1, Janet: 1, Sprout: 1, Juju: 1,
+
+  // Priorité 0 — tier C/D, sous-optimaux
+  Bonnie: 0, Jessie: 0, Bea: 0, Shelly: 0, Buster: 0, Tick: 0, Clancy: 0, Barley: 0, Frank: 0,
+  Buzz: 0, Ziggy: 0, Squeak: 0, Maisie: 0, Pam: 0, Eve: 0, Mandy: 0, Draco: 0, Darryl: 0, Mico: 0,
+  Doug: 0, Dynamike: 0, Chuck: 0, Rosa: 0, Jacky: 0, Sam: 0, 'Mr. P': 0, 'El Primo': 0, Grom: 0,
 };
 
 // FALLBACK_COUNTERS = table de secours (cold start) utilisée UNIQUEMENT quand on n'a pas
