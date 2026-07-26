@@ -3,7 +3,9 @@ import {
   applyReinforcementLearning,
   type Strength,
 } from "../../../../../src/lib/rating-reinforcement";
-import type { Direction } from "../../../../lib/rating-weights";
+import type { Direction, FeedbackReason } from "../../../../lib/rating-weights";
+
+const VALID_REASONS: FeedbackReason[] = ["matchup", "role", "kd", "comp"];
 import { isAdminAuthenticated } from "../../../../../src/lib/admin/auth";
 
 export async function POST(request: Request) {
@@ -16,6 +18,7 @@ export async function POST(request: Request) {
       computationId?: string;
       direction?: Direction;
       strength?: Strength;
+      reasons?: string[];
     };
 
     const computationId = String(body.computationId ?? "").trim();
@@ -23,12 +26,15 @@ export async function POST(request: Request) {
       body.direction === "up" || body.direction === "down" ? body.direction : null;
     const strength: Strength =
       body.strength === "weak" || body.strength === "strong" ? body.strength : "normal";
+    const reasons: FeedbackReason[] = Array.isArray(body.reasons)
+      ? body.reasons.filter((r): r is FeedbackReason => VALID_REASONS.includes(r as FeedbackReason))
+      : [];
 
     if (!computationId || direction === null) {
       return NextResponse.json({ error: "Invalid payload." }, { status: 400 });
     }
 
-    const result = await applyReinforcementLearning(computationId, direction, strength);
+    const result = await applyReinforcementLearning(computationId, direction, strength, reasons);
 
     return NextResponse.json(result);
   } catch (error) {
