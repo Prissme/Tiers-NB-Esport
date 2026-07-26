@@ -268,7 +268,7 @@ export async function POST(request: Request) {
 
     const compPriorities = comp
       .map((b) => getBrawlerPriority(b))
-      .filter((p): p is 0 | 1 | 2 => p !== null);
+      .filter((p): p is 0 | 1 | 2 | 3 => p !== null);
     const compAvgPriority = compPriorities.length
       ? compPriorities.reduce((a, b) => a + b, 0) / compPriorities.length
       : 1;
