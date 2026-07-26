@@ -2,7 +2,9 @@
 
 import { useMemo, useState } from "react";
 import { MAP_PRIORITY, GAME_MODES } from "../../lib/brawler-priority";
-import type { RatingWeights } from "../../lib/rating-weights";
+import { FEEDBACK_REASON_LABELS, type FeedbackReason, type RatingWeights } from "../../lib/rating-weights";
+
+const REASON_OPTIONS = Object.entries(FEEDBACK_REASON_LABELS) as [FeedbackReason, string][];
 
 const BRAWLER_NAMES = Object.keys(MAP_PRIORITY).sort();
 
@@ -147,6 +149,13 @@ export default function PerformanceRatingForm() {
   const [weightChanges, setWeightChanges] = useState<WeightChange[] | null>(null);
   const [feedbackStatus, setFeedbackStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
   const [feedbackSent, setFeedbackSent] = useState<FeedbackKind | null>(null);
+  // Direction en attente de confirmation : on demande d'abord les raisons avant d'envoyer.
+  const [pendingDirection, setPendingDirection] = useState<"up" | "down" | null>(null);
+  const [selectedReasons, setSelectedReasons] = useState<FeedbackReason[]>([]);
+
+  function toggleReason(r: FeedbackReason) {
+    setSelectedReasons((prev) => (prev.includes(r) ? prev.filter((x) => x !== r) : [...prev, r]));
+  }
 
   const canSubmit = useMemo(() => {
     const killsNum = Number(kills);
@@ -167,6 +176,8 @@ export default function PerformanceRatingForm() {
     setWeightChanges(null);
     setFeedbackStatus("idle");
     setFeedbackSent(null);
+    setPendingDirection(null);
+    setSelectedReasons([]);
     try {
       const res = await fetch("/api/admin/performance-rating", {
         method: "POST",
@@ -199,7 +210,8 @@ export default function PerformanceRatingForm() {
     }
   }
 
-  // Feedback directionnel simple (trop basse / trop haute)
+  // Feedback directionnel simple (trop basse / trop haute), avec raisons optionnelles
+  // ciblant les poids réellement concernés (sinon comportement legacy : tout ajuster).
   async function submitDirection(direction: "up" | "down") {
     if (!result?.computationId) return;
     setFeedbackSent(direction);
@@ -213,6 +225,7 @@ export default function PerformanceRatingForm() {
           computationId: result.computationId,
           direction,
           strength: "normal",
+          reasons: selectedReasons,
         }),
       });
       const json = await res.json();
@@ -222,6 +235,7 @@ export default function PerformanceRatingForm() {
       }
       setFeedbackStatus("sent");
       setWeightChanges(json.changes ?? []);
+      setPendingDirection(null);
     } catch {
       setFeedbackStatus("error");
     }
@@ -590,11 +604,14 @@ export default function PerformanceRatingForm() {
               <button
                 type="button"
                 disabled={!result.computationId || feedbackStatus === "sending"}
-                onClick={() => submitDirection("up")}
+                onClick={() => {
+                  setSelectedReasons([]);
+                  setPendingDirection((d) => (d === "up" ? null : "up"));
+                }}
                 title="La note était trop basse"
                 className="flex items-center gap-1 rounded-md border px-3 py-2 text-sm disabled:opacity-40 transition-colors"
                 style={
-                  feedbackSent === "up" && feedbackStatus === "sent"
+                  (feedbackSent === "up" && feedbackStatus === "sent") || pendingDirection === "up"
                     ? { borderColor: "#4ade80", color: "#4ade80" }
                     : { borderColor: "#404040", color: "#a3a3a3" }
                 }
@@ -605,7 +622,10 @@ export default function PerformanceRatingForm() {
               <button
                 type="button"
                 disabled={!result.computationId || feedbackStatus === "sending"}
-                onClick={submitPerfect}
+                onClick={() => {
+                  setPendingDirection(null);
+                  submitPerfect();
+                }}
                 title="La note est correcte — stabilise les poids"
                 className="flex items-center gap-1 rounded-md border px-3 py-2 text-sm disabled:opacity-40 transition-colors"
                 style={
@@ -620,11 +640,14 @@ export default function PerformanceRatingForm() {
               <button
                 type="button"
                 disabled={!result.computationId || feedbackStatus === "sending"}
-                onClick={() => submitDirection("down")}
+                onClick={() => {
+                  setSelectedReasons([]);
+                  setPendingDirection((d) => (d === "down" ? null : "down"));
+                }}
                 title="La note était trop haute"
                 className="flex items-center gap-1 rounded-md border px-3 py-2 text-sm disabled:opacity-40 transition-colors"
                 style={
-                  feedbackSent === "down" && feedbackStatus === "sent"
+                  (feedbackSent === "down" && feedbackStatus === "sent") || pendingDirection === "down"
                     ? { borderColor: "#f87171", color: "#f87171" }
                     : { borderColor: "#404040", color: "#a3a3a3" }
                 }
@@ -632,6 +655,45 @@ export default function PerformanceRatingForm() {
                 ↓ Trop haute
               </button>
             </div>
+
+            {/* ── Raisons du feedback : ciblent les poids réellement ajustés. ── */}
+            {pendingDirection && (
+              <div className="mt-3 rounded-md border border-neutral-800 bg-black/20 p-3">
+                <p className="text-xs text-neutral-400 mb-2">
+                  Pourquoi ? (optionnel — laisse vide pour ajuster tous les facteurs comme avant)
+                </p>
+                <div className="flex flex-col gap-1.5 mb-3">
+                  {REASON_OPTIONS.map(([key, label]) => (
+                    <label key={key} className="flex items-center gap-2 text-sm text-neutral-300">
+                      <input
+                        type="checkbox"
+                        checked={selectedReasons.includes(key)}
+                        onChange={() => toggleReason(key)}
+                        className="accent-white"
+                      />
+                      {label}
+                    </label>
+                  ))}
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    disabled={feedbackStatus === "sending"}
+                    onClick={() => submitDirection(pendingDirection)}
+                    className="rounded-md bg-white px-3 py-1.5 text-sm font-medium text-black disabled:opacity-50"
+                  >
+                    {feedbackStatus === "sending" ? "Envoi..." : "Envoyer le feedback"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPendingDirection(null)}
+                    className="rounded-md border border-neutral-700 px-3 py-1.5 text-sm text-neutral-400"
+                  >
+                    Annuler
+                  </button>
+                </div>
+              </div>
+            )}
 
             {/* Retour visuel selon le feedback envoyé */}
             {feedbackStatus === "sent" && feedbackSent === "perfect" && (
