@@ -25,7 +25,7 @@ type Breakdown = {
   deaths: number;
   kd: number;
   brawler: string;
-  brawlerPriority: 0 | 1 | 2;
+  brawlerPriority: 0 | 1 | 2 | 3;
   diffMultiplier: number;
   compAvgPriority: number;
   compPriorityBonus: number;
