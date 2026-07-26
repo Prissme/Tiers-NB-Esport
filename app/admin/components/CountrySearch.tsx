@@ -145,6 +145,7 @@ export const COUNTRIES: { code: string; name: string }[] = [
   { code: "PH", name: "Philippines" },
   { code: "PK", name: "Pakistan" },
   { code: "PL", name: "Pologne" },
+  { code: "PS", name: "Palestine" },
   { code: "PT", name: "Portugal" },
   { code: "PW", name: "Palaos" },
   { code: "PY", name: "Paraguay" },
