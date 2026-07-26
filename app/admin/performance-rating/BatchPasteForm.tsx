@@ -2,6 +2,9 @@
 
 import { useState } from "react";
 import { MAP_PRIORITY, GAME_MODES } from "../../lib/brawler-priority";
+import { FEEDBACK_REASON_LABELS, type FeedbackReason } from "../../lib/rating-weights";
+
+const REASON_OPTIONS = Object.entries(FEEDBACK_REASON_LABELS) as [FeedbackReason, string][];
 
 const BRAWLER_NAMES = Object.keys(MAP_PRIORITY);
 
@@ -34,6 +37,8 @@ type PlayerRow = ParsedPlayer & {
   error: string | null;
   feedbackStatus: "idle" | "sending" | "sent" | "error";
   feedbackSent: "up" | "down" | "perfect" | null;
+  pendingDirection: "up" | "down" | null;
+  selectedReasons: FeedbackReason[];
 };
 
 const EXAMPLE_PROMPT = `Analyse ce screenshot de fin de partie Brawl Stars et renvoie UNIQUEMENT un JSON
@@ -80,6 +85,8 @@ function buildRows(data: any, winningTeam: string | null, gameMode: string, mapN
       error: null,
       feedbackStatus: "idle",
       feedbackSent: null,
+      pendingDirection: null,
+      selectedReasons: [],
     };
   });
 }
@@ -170,7 +177,26 @@ export default function BatchPasteForm() {
     }
   }
 
-  // Feedback directionnel pour une ligne précise (trop basse / trop haute)
+  // Ouvre/ferme le panneau de raisons pour une ligne, avant confirmation d'envoi.
+  function togglePendingDirection(index: number, direction: "up" | "down") {
+    const row = rows?.[index];
+    if (!row) return;
+    updateRow(index, {
+      pendingDirection: row.pendingDirection === direction ? null : direction,
+      selectedReasons: [],
+    });
+  }
+
+  function toggleRowReason(index: number, reason: FeedbackReason) {
+    const row = rows?.[index];
+    if (!row) return;
+    const has = row.selectedReasons.includes(reason);
+    updateRow(index, {
+      selectedReasons: has ? row.selectedReasons.filter((r) => r !== reason) : [...row.selectedReasons, reason],
+    });
+  }
+
+  // Feedback directionnel pour une ligne précise (trop basse / trop haute), avec raisons optionnelles
   async function submitRowDirection(index: number, direction: "up" | "down") {
     const row = rows?.[index];
     if (!row?.computationId) return;
@@ -183,13 +209,14 @@ export default function BatchPasteForm() {
           computationId: row.computationId,
           direction,
           strength: "normal",
+          reasons: row.selectedReasons,
         }),
       });
       if (!res.ok) {
         updateRow(index, { feedbackStatus: "error" });
         return;
       }
-      updateRow(index, { feedbackStatus: "sent" });
+      updateRow(index, { feedbackStatus: "sent", pendingDirection: null });
     } catch {
       updateRow(index, { feedbackStatus: "error" });
     }
@@ -200,7 +227,7 @@ export default function BatchPasteForm() {
   async function submitRowPerfect(index: number) {
     const row = rows?.[index];
     if (!row?.computationId) return;
-    updateRow(index, { feedbackStatus: "sending", feedbackSent: "perfect" });
+    updateRow(index, { feedbackStatus: "sending", feedbackSent: "perfect", pendingDirection: null });
     try {
       const results = await Promise.all([
         fetch("/api/admin/performance-rating/feedback", {
@@ -331,45 +358,86 @@ export default function BatchPasteForm() {
                 </div>
 
                 {row.computationId && (
-                  <div className="flex items-center gap-2 pt-1">
-                    <button
-                      type="button"
-                      onClick={() => submitRowDirection(i, "up")}
-                      disabled={row.feedbackStatus === "sending"}
-                      className={`rounded border px-2 py-1 text-xs ${
-                        row.feedbackSent === "up" && row.feedbackStatus === "sent"
-                          ? "border-emerald-500 bg-emerald-500/10 text-emerald-400"
-                          : "border-neutral-700 text-neutral-300 hover:border-neutral-500"
-                      }`}
-                    >
-                      ↑ Trop basse
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => submitRowPerfect(i)}
-                      disabled={row.feedbackStatus === "sending"}
-                      className={`rounded border px-2 py-1 text-xs ${
-                        row.feedbackSent === "perfect" && row.feedbackStatus === "sent"
-                          ? "border-emerald-500 bg-emerald-500/10 text-emerald-400"
-                          : "border-neutral-700 text-neutral-300 hover:border-neutral-500"
-                      }`}
-                    >
-                      ✅ Correcte
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => submitRowDirection(i, "down")}
-                      disabled={row.feedbackStatus === "sending"}
-                      className={`rounded border px-2 py-1 text-xs ${
-                        row.feedbackSent === "down" && row.feedbackStatus === "sent"
-                          ? "border-emerald-500 bg-emerald-500/10 text-emerald-400"
-                          : "border-neutral-700 text-neutral-300 hover:border-neutral-500"
-                      }`}
-                    >
-                      ↓ Trop haute
-                    </button>
-                    {row.feedbackStatus === "error" && (
-                      <span className="text-xs text-red-400">Échec de l'enregistrement.</span>
+                  <div className="pt-1">
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => togglePendingDirection(i, "up")}
+                        disabled={row.feedbackStatus === "sending"}
+                        className={`rounded border px-2 py-1 text-xs ${
+                          (row.feedbackSent === "up" && row.feedbackStatus === "sent") || row.pendingDirection === "up"
+                            ? "border-emerald-500 bg-emerald-500/10 text-emerald-400"
+                            : "border-neutral-700 text-neutral-300 hover:border-neutral-500"
+                        }`}
+                      >
+                        ↑ Trop basse
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => submitRowPerfect(i)}
+                        disabled={row.feedbackStatus === "sending"}
+                        className={`rounded border px-2 py-1 text-xs ${
+                          row.feedbackSent === "perfect" && row.feedbackStatus === "sent"
+                            ? "border-emerald-500 bg-emerald-500/10 text-emerald-400"
+                            : "border-neutral-700 text-neutral-300 hover:border-neutral-500"
+                        }`}
+                      >
+                        ✅ Correcte
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => togglePendingDirection(i, "down")}
+                        disabled={row.feedbackStatus === "sending"}
+                        className={`rounded border px-2 py-1 text-xs ${
+                          (row.feedbackSent === "down" && row.feedbackStatus === "sent") || row.pendingDirection === "down"
+                            ? "border-emerald-500 bg-emerald-500/10 text-emerald-400"
+                            : "border-neutral-700 text-neutral-300 hover:border-neutral-500"
+                        }`}
+                      >
+                        ↓ Trop haute
+                      </button>
+                      {row.feedbackStatus === "error" && (
+                        <span className="text-xs text-red-400">Échec de l'enregistrement.</span>
+                      )}
+                    </div>
+
+                    {/* ── Raisons : ciblent les poids réellement ajustés pour cette ligne. ── */}
+                    {row.pendingDirection && (
+                      <div className="mt-2 rounded-md border border-neutral-800 bg-black/20 p-2">
+                        <p className="text-[11px] text-neutral-500 mb-1.5">
+                          Pourquoi ? (optionnel — vide = ajuste tous les facteurs comme avant)
+                        </p>
+                        <div className="flex flex-col gap-1 mb-2">
+                          {REASON_OPTIONS.map(([key, label]) => (
+                            <label key={key} className="flex items-center gap-1.5 text-xs text-neutral-300">
+                              <input
+                                type="checkbox"
+                                checked={row.selectedReasons.includes(key)}
+                                onChange={() => toggleRowReason(i, key)}
+                                className="accent-white"
+                              />
+                              {label}
+                            </label>
+                          ))}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            disabled={row.feedbackStatus === "sending"}
+                            onClick={() => submitRowDirection(i, row.pendingDirection as "up" | "down")}
+                            className="rounded bg-white px-2 py-1 text-xs font-medium text-black disabled:opacity-50"
+                          >
+                            {row.feedbackStatus === "sending" ? "Envoi..." : "Envoyer"}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => updateRow(i, { pendingDirection: null })}
+                            className="rounded border border-neutral-700 px-2 py-1 text-xs text-neutral-400"
+                          >
+                            Annuler
+                          </button>
+                        </div>
+                      </div>
                     )}
                   </div>
                 )}
