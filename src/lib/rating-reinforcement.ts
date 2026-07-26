@@ -77,6 +77,7 @@ function l2Pull(weight: number, defaultValue: number): number {
 /** Bornes dures min/max par poids. */
 const BOUNDS: Record<keyof RatingWeights, [number, number]> = {
   kd_coef:           [1.0, 4.0],
+  diff_mult_tier3:   [0.7, 1.4],
   diff_mult_tier2:   [0.8, 1.6],
   diff_mult_tier1:   [0.8, 2.0],
   diff_mult_tier0:   [0.8, 2.4],
@@ -87,6 +88,7 @@ const BOUNDS: Record<keyof RatingWeights, [number, number]> = {
   mode_fit_bonus:    [0.0, 0.8],
   star_player_bonus: [0.5, 4.0],
   dmg_heal_fit_coef: [0.0, 0.8],
+  victory_bonus_coef: [0.3, 2.0],
 };
 
 // ─── Types ─────────────────────────────────────────────────────────────────
@@ -184,6 +186,7 @@ export async function applyReinforcementLearning(
   const currentWeights: RatingWeights = weightsRow
     ? {
         kd_coef:           weightsRow.kd_coef,
+        diff_mult_tier3:   weightsRow.diff_mult_tier3 ?? DEFAULT_WEIGHTS.diff_mult_tier3,
         diff_mult_tier2:   weightsRow.diff_mult_tier2,
         diff_mult_tier1:   weightsRow.diff_mult_tier1,
         diff_mult_tier0:   weightsRow.diff_mult_tier0,
@@ -194,6 +197,7 @@ export async function applyReinforcementLearning(
         mode_fit_bonus:    weightsRow.mode_fit_bonus,
         star_player_bonus: weightsRow.star_player_bonus,
         dmg_heal_fit_coef: weightsRow.dmg_heal_fit_coef ?? DEFAULT_WEIGHTS.dmg_heal_fit_coef,
+        victory_bonus_coef: weightsRow.victory_bonus_coef ?? DEFAULT_WEIGHTS.victory_bonus_coef,
       }
     : DEFAULT_WEIGHTS;
 
@@ -217,6 +221,9 @@ export async function applyReinforcementLearning(
     starPlayer: boolean;
   };
 
+  // 5. Résultat du match : signal primaire (objectif, terrain)
+  const victory: boolean | null = (computation as { victory?: boolean | null }).victory ?? null;
+
   const raw: RawSignals = {
     kdDelta:         bd.kd - 1,
     brawlerPriority: bd.brawlerPriority,
@@ -226,10 +233,8 @@ export async function applyReinforcementLearning(
     counterEffect:   bd.counterEffect,
     modeFitRaw:      bd.modeFitBonus,
     starPlayer:      bd.starPlayer,
+    victoryRaw:      victory === null ? 0 : victory ? 1 : -1,
   };
-
-  // 5. Résultat du match : signal primaire (objectif, terrain)
-  const victory: boolean | null = (computation as { victory?: boolean | null }).victory ?? null;
 
   // 6. Combiner les deux signaux en une direction effective.
   //
@@ -261,7 +266,7 @@ export async function applyReinforcementLearning(
       currentWeights.kd_coef, DEFAULT_WEIGHTS.kd_coef,
       BOUNDS.kd_coef, s, direction, lr
     );
-    const tierKey = (["diff_mult_tier0", "diff_mult_tier1", "diff_mult_tier2"] as const)[raw.brawlerPriority];
+    const tierKey = (["diff_mult_tier0", "diff_mult_tier1", "diff_mult_tier2", "diff_mult_tier3"] as const)[raw.brawlerPriority];
     next[tierKey] = adjustOne(
       currentWeights[tierKey], DEFAULT_WEIGHTS[tierKey],
       BOUNDS[tierKey], s, direction, lr
@@ -306,6 +311,16 @@ export async function applyReinforcementLearning(
     next.star_player_bonus = adjustOne(
       currentWeights.star_player_bonus, DEFAULT_WEIGHTS.star_player_bonus,
       BOUNDS.star_player_bonus, 1, direction, lr
+    );
+  }
+
+  // ── Victoire/défaite : le bonus fait déjà partie de la note (pas juste du feedback),
+  //    donc on le calibre avec la direction admin seule, pas avec victory lui-même
+  //    (sinon on ajusterait le poids en se basant sur le signal qu'il vient d'utiliser).
+  if (raw.victoryRaw !== 0) {
+    next.victory_bonus_coef = adjustOne(
+      currentWeights.victory_bonus_coef, DEFAULT_WEIGHTS.victory_bonus_coef,
+      BOUNDS.victory_bonus_coef, sign(raw.victoryRaw), direction, lr
     );
   }
 
