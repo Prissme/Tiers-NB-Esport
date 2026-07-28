@@ -132,10 +132,19 @@ const queueStatusMessages = new Map();
 const prisscupData = {
   messageIdByGuild: {}
 };
+// Clé = userId (et non plus channelId) : chaque joueur a sa propre draft,
+// envoyée en DM, ce qui permet à plusieurs personnes de drafter en simultané
+// sans se marcher dessus.
 const draftSessions = new Map();
 // Sessions de draft en attente de sélection de map (avant la création réelle
-// de la session de draft / phase de bans). Clé = channelId.
+// de la session de draft / phase de bans). Clé = userId.
 const draftMapPending = new Map();
+
+// Récupère (ou crée) le canal DM de l'utilisateur. Tout le flow de draft
+// (sélection de map, bans, picks, résultats) se déroule désormais en privé.
+async function getDraftDMChannel(user) {
+  return user.dmChannel || (await user.createDM());
+}
 
 const GAME_MODES = [
   {
@@ -180,10 +189,10 @@ function getGameMode(modeKey) {
   return GAME_MODES.find((m) => m.key === modeKey) || null;
 }
 
-function buildModeSelectRow(channelId) {
+function buildModeSelectRow(userId) {
   const select = new StringSelectMenuBuilder()
-    .setCustomId(`draft_mode_select:${channelId}`)
-    .setPlaceholder('Choisis un mode de jeu')
+    .setCustomId(`draft_mode_select:${userId}`)
+    .setPlaceholder('Pick a game mode')
     .addOptions(
       GAME_MODES.map((mode) => ({
         label: mode.label,
@@ -193,12 +202,12 @@ function buildModeSelectRow(channelId) {
   return new ActionRowBuilder().addComponents(select);
 }
 
-function buildMapSelectRow(channelId, modeKey) {
+function buildMapSelectRow(userId, modeKey) {
   const mode = getGameMode(modeKey);
   if (!mode) return null;
   const select = new StringSelectMenuBuilder()
-    .setCustomId(`draft_map_select:${channelId}:${modeKey}`)
-    .setPlaceholder(`Choisis une map (${mode.label})`)
+    .setCustomId(`draft_map_select:${userId}:${modeKey}`)
+    .setPlaceholder(`Pick a map (${mode.label})`)
     .addOptions(
       mode.maps.map((mapName) => ({
         label: mapName,
@@ -6223,7 +6232,7 @@ function buildDraftEmbed(session) {
   // ses 3 bans : un brawler peut être banni des deux côtés, la surprise doit
   // être préservée jusqu'à la fin de la phase de bans.
   const aiBansVisible = session.phase !== 'BAN';
-  const aiBansDisplay = aiBansVisible ? formatDraftList(aiBans) : '❔ Cachés jusqu\u2019à la fin de tes bans';
+  const aiBansDisplay = aiBansVisible ? formatDraftList(aiBans) : '❔ Hidden until your bans are done';
   const available = draft.getAvailable(session);
   const summary = draft.summarizeResult(session);
   const victoryArgs = draft.buildVictoryArguments(session);
@@ -6232,15 +6241,15 @@ function buildDraftEmbed(session) {
   let description = '';
 
   if (session.phase === 'BAN') {
-    description = 'Écris le nom d’un brawler pour le bannir (3 bans).';
+    description = 'Type a brawler name to ban it (3 bans).';
   } else if (!isDone) {
-    description = turn === 'USER' ? 'Écris le nom d’un brawler pour le pick.' : 'Tour de l’IA…';
+    description = turn === 'USER' ? 'Type a brawler name to pick it.' : "AI's turn…";
   } else {
-    description = 'Draft terminée.';
+    description = 'Draft complete.';
   }
 
   const embed = new EmbedBuilder()
-    .setTitle('Draft IA')
+    .setTitle('AI Draft')
     .setDescription(description)
     // On met l'embed en doré quand la draft est finie, sinon en violet
     .setColor(isDone ? 0xf1c40f : 0x9b59b6) 
@@ -6253,29 +6262,29 @@ function buildDraftEmbed(session) {
 
   embed.addFields(
     { name: 'Phase', value: session.phase === 'BAN' ? `Bans (${session.userBans.length}/3)` : 'Draft', inline: true },
-    { name: 'Tour', value: isDone ? 'Terminé' : turn === 'USER' ? 'Toi' : 'IA', inline: true },
-    { name: 'First pick', value: session.firstPick === 'USER' ? 'Toi' : 'IA', inline: true },
-    { name: 'Tes Bans', value: formatDraftList(session.userBans), inline: true },
-    { name: 'IA Bans', value: aiBansDisplay, inline: true },
+    { name: 'Turn', value: isDone ? 'Done' : turn === 'USER' ? 'You' : 'AI', inline: true },
+    { name: 'First pick', value: session.firstPick === 'USER' ? 'You' : 'AI', inline: true },
+    { name: 'Your Bans', value: formatDraftList(session.userBans), inline: true },
+    { name: 'AI Bans', value: aiBansDisplay, inline: true },
     { name: '\u200B', value: '\u200B', inline: true }, // Permet d'aligner la grille proprement
-    { name: 'Tes Picks', value: formatDraftList(session.userPicks), inline: true },
-    { name: 'IA Picks', value: formatDraftList(session.aiPicks), inline: true }
+    { name: 'Your Picks', value: formatDraftList(session.userPicks), inline: true },
+    { name: 'AI Picks', value: formatDraftList(session.aiPicks), inline: true }
   );
 
   // AJOUT DES RÉSULTATS EN GROS
   if (isDone && summary) {
     const chance = draft.estimateWinChance(summary.userScore, summary.aiScore);
-    const verdict = summary.winner === 'user' ? '✅ VICTOIRE' : summary.winner === 'ai' ? '❌ DÉFAITE' : '🤝 ÉGALITÉ';
+    const verdict = summary.winner === 'user' ? '✅ VICTORY' : summary.winner === 'ai' ? '❌ DEFEAT' : '🤝 DRAW';
     
     embed.addFields({ 
-      name: '🏆 RÉSULTAT FINAL', 
-      value: `**${verdict}**\nChance de victoire : **${chance}%**`, 
+      name: '🏆 FINAL RESULT', 
+      value: `**${verdict}**\nWin chance: **${chance}%**`, 
       inline: false 
     });
 
     if (victoryArgs && victoryArgs.length > 0) {
        embed.addFields({ 
-         name: '🧠 Analyse de la Draft', 
+         name: '🧠 Draft Analysis', 
          value: `- ${victoryArgs.join('\n- ')}`, 
          inline: false 
        });
@@ -6305,13 +6314,13 @@ async function sendOrUpdateDraftMessage(session, channel) {
 
   // Lancer l'annonce des résultats si ce n'est pas déjà fait
   if (draft.isDraftDone(session) && !session.resultAnnounced) {
-    await announceDraftResult(session, message);
+    await announceDraftResult(session, channel);
   }
 
   return message;
 }
 
-async function announceDraftResult(session, message) {
+async function announceDraftResult(session, channel) {
   if (session.resultAnnounced) {
     return;
   }
@@ -6321,12 +6330,12 @@ async function announceDraftResult(session, message) {
     return;
   }
   const chance = draft.estimateWinChance(summary.userScore, summary.aiScore);
-  await message.channel.send({ content: `🎯 Chance de victoire estimée pour toi: **${chance}%**` });
+  await channel.send({ content: `🎯 Estimated win chance for you: **${chance}%**` });
   const verdict =
-    summary.winner === 'user' ? '✅ Tu gagnes la draft' : summary.winner === 'ai' ? '❌ IA gagne la draft' : '🤝 Draft équilibrée';
-  await message.channel.send({ content: `🏆 Résultat final: **${verdict}**` });
+    summary.winner === 'user' ? '✅ You win the draft' : summary.winner === 'ai' ? '❌ AI wins the draft' : '🤝 Balanced draft';
+  await channel.send({ content: `🏆 Final result: **${verdict}**` });
   if (victoryArgs?.length) {
-    await message.channel.send({ content: `🧠 Arguments:\n- ${victoryArgs.join('\n- ')}` });
+    await channel.send({ content: `🧠 Reasons:\n- ${victoryArgs.join('\n- ')}` });
   }
   session.resultAnnounced = true;
 }
@@ -6335,38 +6344,38 @@ function formatDraftStatus(session) {
   const aiBans = draft.getAIBans(session);
   // Idem que dans l'embed : les bans IA restent cachés pendant la phase de bans.
   const aiBansVisible = session.phase !== 'BAN';
-  const aiBansDisplay = aiBansVisible ? formatDraftList(aiBans) : '❔ Cachés jusqu\u2019à la fin de tes bans';
+  const aiBansDisplay = aiBansVisible ? formatDraftList(aiBans) : '❔ Hidden until your bans are done';
   const available = draft.getAvailable(session);
   const lines = [];
 
   if (session.phase === 'BAN') {
-    lines.push(`Phase bans (toi ${session.userBans.length}/3)`);
+    lines.push(`Ban phase (you ${session.userBans.length}/3)`);
   } else {
-    lines.push('Phase draft');
+    lines.push('Draft phase');
   }
 
-  lines.push(`IA bans: ${aiBansDisplay}`);
-  lines.push(`Tes bans: ${formatDraftList(session.userBans)}`);
-  lines.push(`Tes picks: ${formatDraftList(session.userPicks)}`);
-  lines.push(`IA picks: ${formatDraftList(session.aiPicks)}`);
+  lines.push(`AI bans: ${aiBansDisplay}`);
+  lines.push(`Your bans: ${formatDraftList(session.userBans)}`);
+  lines.push(`Your picks: ${formatDraftList(session.userPicks)}`);
+  lines.push(`AI picks: ${formatDraftList(session.aiPicks)}`);
 
   if (draft.isDraftDone(session)) {
     const summary = draft.summarizeResult(session);
     if (summary) {
       const verdict =
-        summary.winner === 'user' ? '✅ Tu gagnes la draft' : summary.winner === 'ai' ? '❌ IA gagne la draft' : '🤝 Draft équilibrée';
-      lines.push(`Résultat: Toi ${summary.userScore.toFixed(2)} / IA ${summary.aiScore.toFixed(2)} — ${verdict}`);
+        summary.winner === 'user' ? '✅ You win the draft' : summary.winner === 'ai' ? '❌ AI wins the draft' : '🤝 Balanced draft';
+      lines.push(`Result: You ${summary.userScore.toFixed(2)} / AI ${summary.aiScore.toFixed(2)} — ${verdict}`);
       const victoryArgs = draft.buildVictoryArguments(session);
       if (victoryArgs?.length) {
-        lines.push(`Arguments: ${victoryArgs.join(' | ')}`);
+        lines.push(`Reasons: ${victoryArgs.join(' | ')}`);
       }
     }
   } else {
     const turn = draft.getTurn(session);
-    lines.push(`Tour: ${turn === 'USER' ? 'Toi' : 'IA'}`);
+    lines.push(`Turn: ${turn === 'USER' ? 'You' : 'AI'}`);
   }
 
-  lines.push(`Pool dispo (${available.length}): ${available.join(', ')}`);
+  lines.push(`Available pool (${available.length}): ${available.join(', ')}`);
   return lines.join('\n');
 }
 
@@ -6481,91 +6490,100 @@ function buildRealResultRow(draftMatchId) {
   return new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId(`draft_real_result:${draftMatchId}:win`)
-      .setLabel('Vrai résultat : Victoire')
+      .setLabel('Real result: Win')
       .setEmoji('🏆')
       .setStyle(ButtonStyle.Success),
     new ButtonBuilder()
       .setCustomId(`draft_real_result:${draftMatchId}:lose`)
-      .setLabel('Vrai résultat : Défaite')
+      .setLabel('Real result: Loss')
       .setEmoji('💀')
       .setStyle(ButtonStyle.Danger)
   );
 }
 
 async function handleDraftCommand(message, args) {
-  const channelId = message.channel.id;
+  const userId = message.author.id;
+  const isDM = !message.guild;
   const command = (args[0] || '').toLowerCase();
-  let session = draftSessions.get(channelId);
+  let session = draftSessions.get(userId);
 
   if (session && draft.isDraftDone(session) && (!command || command === 'status')) {
     session = null;
-    draftSessions.delete(channelId);
+    draftSessions.delete(userId);
+  }
+
+  // Tente de récupérer/ouvrir le canal DM du joueur. Si ses DMs sont fermés,
+  // on le prévient dans le salon d'origine plutôt que de planter en silence.
+  let dm;
+  try {
+    dm = await getDraftDMChannel(message.author);
+  } catch (err) {
+    await message.reply({
+      content: "❌ I can't send you a DM. Check that your DMs are open (server privacy settings) then run `!draft` again.",
+      allowedMentions: { repliedUser: false }
+    });
+    return;
   }
 
   if (command === 'reset') {
-    draftSessions.delete(channelId);
-    draftMapPending.delete(channelId);
-    await message.reply({ content: 'Draft réinitialisée. Utilise `!draft` pour recommencer.' });
+    draftSessions.delete(userId);
+    draftMapPending.delete(userId);
+    await dm.send({ content: 'Draft reset. Use `!draft` to start again.' });
+    if (!isDM) {
+      await message.reply({ content: '📬 Draft reset — the rest happens in your DMs.', allowedMentions: { repliedUser: false } });
+    }
     return;
   }
 
   if (command === 'help') {
-    await message.reply({
-      content:
-        'Commandes draft:\n' +
-        '- `!draft` → choisis une map puis démarre la draft (interface)\n' +
-        '- Tape simplement un nom de brawler pour ban/pick\n' +
-        '- `!draft status` → afficher le statut\n' +
-        '- `!draft reset` → reset la draft',
-      allowedMentions: { repliedUser: false }
-    });
+    const helpContent =
+      'Draft commands:\n' +
+      '- `!draft` → pick a map then start the draft (interface, in DM)\n' +
+      '- Just type a brawler name to ban/pick (in DM)\n' +
+      '- `!draft status` → show the current status\n' +
+      '- `!draft reset` → reset the draft';
+    await dm.send({ content: helpContent });
+    if (!isDM) {
+      await message.reply({ content: "📬 I've sent you the help in DM.", allowedMentions: { repliedUser: false } });
+    }
     return;
   }
 
   // Pas de session en cours : on démarre (ou on relance) le sélecteur de map
-  // avant de créer la vraie session de draft.
+  // avant de créer la vraie session de draft. Chaque joueur a sa propre
+  // sélection (clé = userId), donc plusieurs drafts peuvent tourner en
+  // parallèle sans se gêner.
   if (!session) {
-    const isAdminNoSession = hasPLAdminAccess(message);
-    const pending = draftMapPending.get(channelId);
-
-    if (pending && pending.ownerId !== message.author.id && !isAdminNoSession) {
-      await message.reply({
-        content: 'Une sélection de map est déjà en cours dans ce salon. Seul son créateur (ou un admin) peut la piloter.',
-        allowedMentions: { repliedUser: false }
-      });
-      return;
-    }
+    const pending = draftMapPending.get(userId);
 
     if (pending) {
       // Sélection déjà en cours : on renvoie simplement le sélecteur.
-      await message.reply({
-        content: `${message.author}, choisis d'abord un mode de jeu pour la draft 👇`,
-        components: [buildModeSelectRow(channelId)],
-        allowedMentions: { repliedUser: false }
+      await dm.send({
+        content: 'Pick a game mode for the draft first 👇',
+        components: [buildModeSelectRow(userId)]
       });
+      if (!isDM) {
+        await message.reply({ content: '📬 Check your DMs, a map selection is already in progress!', allowedMentions: { repliedUser: false } });
+      }
       return;
     }
 
-    draftMapPending.set(channelId, { ownerId: message.author.id });
-    await message.reply({
-      content: `${message.author}, choisis d'abord un mode de jeu pour la draft 👇`,
-      components: [buildModeSelectRow(channelId)],
-      allowedMentions: { repliedUser: false }
+    draftMapPending.set(userId, { ownerId: userId });
+    await dm.send({
+      content: 'Pick a game mode for the draft first 👇',
+      components: [buildModeSelectRow(userId)]
     });
-    return;
-  }
-
-  const isAdmin = hasPLAdminAccess(message);
-  if (session.ownerId !== message.author.id && !isAdmin) {
-    await message.reply({
-      content: 'Une draft est déjà en cours dans ce salon. Seul son créateur (ou un admin) peut la piloter.',
-      allowedMentions: { repliedUser: false }
-    });
+    if (!isDM) {
+      await message.reply({ content: "📬 I've sent you the draft flow in DM — check your messages!", allowedMentions: { repliedUser: false } });
+    }
     return;
   }
 
   if (command === 'status' || !command) {
-    await sendOrUpdateDraftMessage(session, message.channel);
+    await sendOrUpdateDraftMessage(session, dm);
+    if (!isDM) {
+      await message.reply({ content: '📬 Your draft continues in DM.', allowedMentions: { repliedUser: false } });
+    }
     return;
   }
 
@@ -6573,18 +6591,18 @@ async function handleDraftCommand(message, args) {
     const rawName = args.slice(1).join(' ');
     const brawler = draft.resolveBrawler(rawName);
     if (!brawler) {
-      await message.reply({ content: 'Brawler inconnu. Vérifie le nom exact.', allowedMentions: { repliedUser: false } });
+      await message.reply({ content: 'Unknown brawler. Check the exact spelling.', allowedMentions: { repliedUser: false } });
       return;
     }
     const result = draft.applyUserBan(session, brawler);
     if (!result.ok) {
-      await message.reply({ content: 'Impossible de bannir ce brawler maintenant.', allowedMentions: { repliedUser: false } });
+      await message.reply({ content: "Can't ban this brawler right now.", allowedMentions: { repliedUser: false } });
       return;
     }
     if (session.phase === 'DRAFT') {
       draft.runAiPicks(session);
     }
-    await sendOrUpdateDraftMessage(session, message.channel);
+    await sendOrUpdateDraftMessage(session, dm);
     return;
   }
 
@@ -6592,12 +6610,12 @@ async function handleDraftCommand(message, args) {
       const rawName = args.slice(1).join(' ');
       const brawler = draft.resolveBrawler(rawName);
       if (!brawler) {
-        await message.reply({ content: 'Brawler inconnu. Vérifie le nom exact.', allowedMentions: { repliedUser: false } });
+        await message.reply({ content: 'Unknown brawler. Check the exact spelling.', allowedMentions: { repliedUser: false } });
         return;
       }
       const result = draft.applyUserPick(session, brawler);
       if (!result.ok) {
-        await message.reply({ content: 'Impossible de pick ce brawler maintenant.', allowedMentions: { repliedUser: false } });
+        await message.reply({ content: "Can't pick this brawler right now.", allowedMentions: { repliedUser: false } });
         return;
       }
 
@@ -6605,8 +6623,8 @@ async function handleDraftCommand(message, args) {
 
       if (draft.isDraftDone(session)) {
         await persistDraftResult(session, message);
-        await sendOrUpdateDraftMessage(session, message.channel);
-        await announceDraftResult(session, message);
+        await sendOrUpdateDraftMessage(session, dm);
+        await announceDraftResult(session, dm);
 
         const sortedAiPicks = [...session.aiPicks].sort().join(',');
         const sortedUserPicks = [...session.userPicks].sort().join(',');
@@ -6614,12 +6632,12 @@ async function handleDraftCommand(message, args) {
         const evalRow = new ActionRowBuilder().addComponents(
           new ButtonBuilder()
             .setCustomId(`draft_eval_ai:${mapKey}:${sortedAiPicks}:up`)
-            .setLabel('Bonne Draft (IA)')
+            .setLabel('Good Draft (AI)')
             .setEmoji('👍')
             .setStyle(ButtonStyle.Success),
           new ButtonBuilder()
             .setCustomId(`draft_eval_ai:${mapKey}:${sortedAiPicks}:down`)
-            .setLabel('Mauvaise Draft (IA)')
+            .setLabel('Bad Draft (AI)')
             .setEmoji('👎')
             .setStyle(ButtonStyle.Danger),
           new ButtonBuilder()
@@ -6634,29 +6652,31 @@ async function handleDraftCommand(message, args) {
           components.push(buildRealResultRow(session.draftMatchId));
         }
 
-        await message.channel.send({
-          content: `📊 Comment évalues-tu la draft de l'IA sur **${mapName}** ?\n🎮 Une fois la partie jouée en jeu, reporte le vrai résultat ci-dessous : c'est ce qui entraîne réellement l'IA (bien plus fiable que les votes ci-dessus).`,
+        await dm.send({
+          content: `📊 How do you rate the AI's draft on **${mapName}**?\n🎮 Once you've played the match in-game, report the real result below: it's far more reliable than the votes above and directly trains the AI.`,
           components
         });
         return;
       }
 
-      await sendOrUpdateDraftMessage(session, message.channel);
+      await sendOrUpdateDraftMessage(session, dm);
       return;
     }
 
-  await message.reply({ content: 'Commande draft inconnue. Utilise `!draft help`.', allowedMentions: { repliedUser: false } });
+  await dm.send({ content: 'Unknown draft command. Use `!draft help`.' });
 }
 
 async function handleDraftFreeInput(message) {
-  const channelId = message.channel.id;
-  const session = draftSessions.get(channelId);
-  if (!session) {
+  // Le flow de draft se joue désormais entièrement en DM : on ignore tout
+  // texte libre tapé ailleurs (chaque session est de toute façon clé par
+  // userId, donc aucun risque de collision entre plusieurs drafts en cours).
+  if (message.guild) {
     return false;
   }
 
-  const isAdmin = hasPLAdminAccess(message);
-  if (session.ownerId !== message.author.id && !isAdmin) {
+  const userId = message.author.id;
+  const session = draftSessions.get(userId);
+  if (!session) {
     return false;
   }
 
@@ -6665,11 +6685,13 @@ async function handleDraftFreeInput(message) {
     return false;
   }
 
+  const dm = message.channel;
+
   if (session.phase === 'BAN') {
     const result = draft.applyUserBan(session, brawler);
     if (!result.ok) {
       await message.reply({
-        content: 'Impossible de bannir ce brawler maintenant.',
+        content: "Can't ban this brawler right now.",
         allowedMentions: { repliedUser: false }
       });
       return true;
@@ -6677,21 +6699,21 @@ async function handleDraftFreeInput(message) {
     if (session.phase === 'DRAFT') {
       draft.runAiPicks(session);
     }
-    await sendOrUpdateDraftMessage(session, message.channel);
+    await sendOrUpdateDraftMessage(session, dm);
     return true;
   }
 
   if (session.phase === 'DRAFT') {
     if (draft.isDraftDone(session)) {
       await message.reply({
-        content: 'La draft est déjà terminée.',
+        content: 'The draft is already over.',
         allowedMentions: { repliedUser: false }
       });
       return true;
     }
     if (draft.getTurn(session) !== 'USER') {
       await message.reply({
-        content: "Ce n'est pas encore ton tour.",
+        content: "It's not your turn yet.",
         allowedMentions: { repliedUser: false }
       });
       return true;
@@ -6699,18 +6721,18 @@ async function handleDraftFreeInput(message) {
     const result = draft.applyUserPick(session, brawler);
     if (!result.ok) {
       await message.reply({
-        content: 'Impossible de pick ce brawler maintenant.',
+        content: "Can't pick this brawler right now.",
         allowedMentions: { repliedUser: false }
       });
       return true;
     }
 
     draft.runAiPicks(session);
-    await sendOrUpdateDraftMessage(session, message.channel);
+    await sendOrUpdateDraftMessage(session, dm);
 
     if (draft.isDraftDone(session)) {
       await persistDraftResult(session, message);
-      await announceDraftResult(session, message);
+      await announceDraftResult(session, dm);
 
       const sortedAiPicks = [...session.aiPicks].sort().join(',');
       const sortedUserPicks = [...session.userPicks].sort().join(',');
@@ -6718,12 +6740,12 @@ async function handleDraftFreeInput(message) {
       const evalRow = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
           .setCustomId(`draft_eval_ai:${mapKey}:${sortedAiPicks}:up`)
-          .setLabel('Bonne Draft (IA)')
+          .setLabel('Good Draft (AI)')
           .setEmoji('👍')
           .setStyle(ButtonStyle.Success),
         new ButtonBuilder()
           .setCustomId(`draft_eval_ai:${mapKey}:${sortedAiPicks}:down`)
-          .setLabel('Mauvaise Draft (IA)')
+          .setLabel('Bad Draft (AI)')
           .setEmoji('👎')
           .setStyle(ButtonStyle.Danger),
         new ButtonBuilder()
@@ -6738,8 +6760,8 @@ async function handleDraftFreeInput(message) {
         components.push(buildRealResultRow(session.draftMatchId));
       }
 
-      await message.channel.send({
-        content: `📊 Comment évalues-tu la draft de l'IA sur **${mapName}** ?\n🎮 Une fois la partie jouée en jeu, reporte le vrai résultat ci-dessous : c'est ce qui entraîne réellement l'IA (bien plus fiable que les votes ci-dessus).`,
+      await dm.send({
+        content: `📊 How do you rate the AI's draft on **${mapName}**?\n🎮 Once you've played the match in-game, report the real result below: it's far more reliable than the votes above and directly trains the AI.`,
         components
       });
     }
@@ -7474,71 +7496,65 @@ async function handleInteraction(interaction) {
   }
 
   // --- Sélection de la map avant le démarrage de la draft ---
+  // Ces menus ne s'affichent que dans le DM du joueur : la clé userId suffit
+  // à identifier la bonne sélection, pas besoin de vérifier un "propriétaire"
+  // différent (chacun ne voit que son propre menu, en privé).
   if (interaction.isStringSelectMenu() && interaction.customId.startsWith('draft_mode_select:')) {
-    const channelId = interaction.customId.split(':')[1];
-    const pending = draftMapPending.get(channelId);
-    const isAdminSelect = hasPLAdminAccess(interaction);
+    const userId = interaction.customId.split(':')[1];
+    const pending = draftMapPending.get(userId);
 
-    if (!pending) {
-      await interaction.reply({ content: '❌ Cette sélection de map a expiré. Relance `!draft`.', flags: MessageFlags.Ephemeral });
-      return;
-    }
-    if (pending.ownerId !== interaction.user.id && !isAdminSelect) {
-      await interaction.reply({ content: "❌ Seul l'auteur de la draft (ou un admin) peut choisir la map.", flags: MessageFlags.Ephemeral });
+    if (!pending || interaction.user.id !== userId) {
+      await interaction.reply({ content: '❌ This map selection has expired. Run `!draft` again.', flags: MessageFlags.Ephemeral });
       return;
     }
 
     const modeKey = interaction.values[0];
     const mode = getGameMode(modeKey);
     if (!mode) {
-      await interaction.reply({ content: '❌ Mode de jeu inconnu.', flags: MessageFlags.Ephemeral });
+      await interaction.reply({ content: '❌ Unknown game mode.', flags: MessageFlags.Ephemeral });
       return;
     }
 
     pending.mode = modeKey;
 
     await interaction.update({
-      content: `${mode.emoji} **${mode.label}** — choisis maintenant la map 👇`,
-      components: [buildMapSelectRow(channelId, modeKey)]
+      content: `${mode.emoji} **${mode.label}** — now pick the map 👇`,
+      components: [buildMapSelectRow(userId, modeKey)]
     });
     return;
   }
 
   if (interaction.isStringSelectMenu() && interaction.customId.startsWith('draft_map_select:')) {
-    const [, channelId, modeKey] = interaction.customId.split(':');
-    const pending = draftMapPending.get(channelId);
-    const isAdminSelect = hasPLAdminAccess(interaction);
+    const [, userId, modeKey] = interaction.customId.split(':');
+    const pending = draftMapPending.get(userId);
 
-    if (!pending) {
-      await interaction.reply({ content: '❌ Cette sélection de map a expiré. Relance `!draft`.', flags: MessageFlags.Ephemeral });
-      return;
-    }
-    if (pending.ownerId !== interaction.user.id && !isAdminSelect) {
-      await interaction.reply({ content: "❌ Seul l'auteur de la draft (ou un admin) peut choisir la map.", flags: MessageFlags.Ephemeral });
+    if (!pending || interaction.user.id !== userId) {
+      await interaction.reply({ content: '❌ This map selection has expired. Run `!draft` again.', flags: MessageFlags.Ephemeral });
       return;
     }
 
     const mode = getGameMode(modeKey);
     const mapName = interaction.values[0];
     if (!mode || !mode.maps.includes(mapName)) {
-      await interaction.reply({ content: '❌ Map inconnue pour ce mode.', flags: MessageFlags.Ephemeral });
+      await interaction.reply({ content: '❌ Unknown map for this mode.', flags: MessageFlags.Ephemeral });
       return;
     }
 
-    draftMapPending.delete(channelId);
+    draftMapPending.delete(userId);
 
     const session = draft.createSession(pending.ownerId, draft.META_DEFAULT, {
       isAIDraft: true,
       map: { mode: modeKey, name: mapName }
     });
-    draftSessions.set(channelId, session);
+    draftSessions.set(userId, session);
 
     await interaction.update({
-      content: `${mode.emoji} **${mode.label}** — ${mapName} sélectionnée. Draft lancée juste en dessous 👇`,
+      content: `${mode.emoji} **${mode.label}** — ${mapName} selected. Draft starting right below 👇`,
       components: []
     });
 
-    await sendOrUpdateDraftMessage(session, interaction.channel);
+    const dm = await getDraftDMChannel(interaction.user);
+    await sendOrUpdateDraftMessage(session, dm);
     return;
   }
 
@@ -7551,7 +7567,7 @@ async function handleInteraction(interaction) {
       const outcome = parts[2]; // 'win' ou 'lose'
 
       if (!draftMatchId || !['win', 'lose'].includes(outcome)) {
-        await interaction.editReply({ content: '❌ Report invalide.' });
+        await interaction.editReply({ content: '❌ Invalid report.' });
         return;
       }
 
@@ -7571,8 +7587,8 @@ async function handleInteraction(interaction) {
 
       await interaction.editReply({
         content: outcome === 'win'
-          ? '🏆 Merci ! Ta victoire réelle a été enregistrée et va nourrir l\'apprentissage de l\'IA.'
-          : '💀 Merci ! Ta défaite réelle a été enregistrée et va nourrir l\'apprentissage de l\'IA.'
+          ? '🏆 Thanks! Your real win has been recorded and will feed the AI\'s learning.'
+          : '💀 Thanks! Your real loss has been recorded and will feed the AI\'s learning.'
       });
 
       // Rafraîchit immédiatement le cache d'apprentissage réel pour que les prochaines
@@ -7582,7 +7598,7 @@ async function handleInteraction(interaction) {
       );
     } catch (err) {
       errorLog('Failed to record real draft result:', err);
-      await interaction.editReply({ content: '❌ Impossible d\'enregistrer ce résultat pour le moment. Réessaie plus tard.' });
+      await interaction.editReply({ content: "❌ Couldn't save this result right now. Try again later." });
     }
 
     return;
@@ -7602,7 +7618,7 @@ async function handleInteraction(interaction) {
 
       if (!b1 || !b2 || !b3 || !['up', 'down'].includes(voteType)) {
         await interaction.editReply({
-          content: '❌ Vote invalide. Réessaie depuis une nouvelle draft.'
+          content: '❌ Invalid vote. Try again from a new draft.'
         });
         return;
       }
@@ -7652,13 +7668,13 @@ async function handleInteraction(interaction) {
 
       await interaction.editReply({
         content: voteType === 'up'
-          ? `👍 Merci ! Ton avis positif sur **${mapName || 'cette map'}** a été enregistré.`
-          : `👎 Merci ! Ton avis négatif sur **${mapName || 'cette map'}** a été enregistré.`
+          ? `👍 Thanks! Your positive vote on **${mapName || 'this map'}** has been recorded.`
+          : `👎 Thanks! Your negative vote on **${mapName || 'this map'}** has been recorded.`
       });
     } catch (err) {
       errorLog('Failed to record draft community eval:', err);
       await interaction.editReply({
-        content: '❌ Impossible d\'enregistrer ton vote pour le moment. Réessaie plus tard.'
+        content: "❌ Couldn't save your vote right now. Try again later."
       });
     }
 
@@ -7678,7 +7694,7 @@ async function handleInteraction(interaction) {
       const [b1, b2, b3] = brawlersPart.split(',');
 
       if (!b1 || !b2 || !b3) {
-        await interaction.editReply({ content: '❌ Données de draft invalides.' });
+        await interaction.editReply({ content: '❌ Invalid draft data.' });
         return;
       }
 
@@ -7717,11 +7733,11 @@ async function handleInteraction(interaction) {
       }
 
       await interaction.editReply({
-        content: `🤝 Noté — **${b1} / ${b2} / ${b3}** signalé comme compo serrée/viable sur **${mapName || 'cette map'}**.`
+        content: `🤝 Noted — **${b1} / ${b2} / ${b3}** flagged as a close/viable comp on **${mapName || 'this map'}**.`
       });
     } catch (err) {
       errorLog('Failed to record draft_ok_user vote:', err);
-      await interaction.editReply({ content: '❌ Impossible d\'enregistrer le vote. Réessaie plus tard.' });
+      await interaction.editReply({ content: "❌ Couldn't save the vote. Try again later." });
     }
 
     return;
@@ -9132,28 +9148,44 @@ async function handleMessage(message) {
   const content = message.content.trim();
 
   // ==========================================
-  // SÉCURITÉ & RESTRICTION DU SALON DE DRAFT
+  // FLOW DE DRAFT EN MESSAGE PRIVÉ
   // ==========================================
-  const ALLOWED_DRAFT_CHANNEL = '1510006264602693804';
-  
-  if (message.channel.id !== ALLOWED_DRAFT_CHANNEL) {
-    // Si l'utilisateur tente d'écrire un brawler ou d'utiliser la commande !draft hors du salon autorisé, on bloque.
-    const brawlerFound = draft.findBrawlerInText ? draft.findBrawlerInText(content) : false;
+  // Toute la draft (bans, picks, statut...) se joue désormais en DM, ce qui
+  // permet à plusieurs joueurs de drafter en simultané sans se gêner (chaque
+  // session est clé par userId). On traite ce cas AVANT la restriction
+  // générale de guilde, sinon ces messages seraient ignorés/spammés.
+  if (!message.guild) {
     if (content.toLowerCase().startsWith('!draft')) {
-      await message.reply({
-        embeds: [
-          new EmbedBuilder()
-            .setTitle('❌ Wrong channel')
-            .setDescription(`Draft can only be used in <#${ALLOWED_DRAFT_CHANNEL}>.`)
-            .setColor(0xed4245)
-        ],
-        allowedMentions: { repliedUser: false }
-      });
+      const [, ...draftArgs] = content.slice(1).split(/\s+/);
+      await handleDraftCommand(message, draftArgs);
       return;
     }
-    if (brawlerFound) {
-      return; // Le bot ignore silencieusement pour ne pas spammer
+    // Texte libre (nom de brawler) pour une session déjà en cours.
+    const handledDraft = await handleDraftFreeInput(message);
+    if (handledDraft) {
+      return;
     }
+    return; // On ignore silencieusement le reste des DMs pour ne pas spammer.
+  }
+
+  // ==========================================
+  // SÉCURITÉ & RESTRICTION DU SALON DE DÉCLENCHEMENT DE DRAFT
+  // ==========================================
+  // `!draft` ne peut être lancé que depuis ce salon (la suite se déroule en
+  // DM juste après).
+  const ALLOWED_DRAFT_CHANNEL = '1510006264602693804';
+
+  if (content.toLowerCase().startsWith('!draft') && message.channel.id !== ALLOWED_DRAFT_CHANNEL) {
+    await message.reply({
+      embeds: [
+        new EmbedBuilder()
+          .setTitle('❌ Wrong channel')
+          .setDescription(`Draft can only be started from <#${ALLOWED_DRAFT_CHANNEL}> (it then continues in your DMs).`)
+          .setColor(0xed4245)
+      ],
+      allowedMentions: { repliedUser: false }
+    });
+    return;
   }
 
   if (!message.guild || message.guild.id !== DISCORD_GUILD_ID) {
@@ -9164,11 +9196,6 @@ async function handleMessage(message) {
   }
 
   if (!content.startsWith('!')) {
-    // Analyse l'écriture des brawlers (uniquement lancée si on est dans le bon salon grâce à la sécurité du dessus)
-    const handledDraft = await handleDraftFreeInput(message);
-    if (handledDraft) {
-      return;
-    }
     return;
   }
 
