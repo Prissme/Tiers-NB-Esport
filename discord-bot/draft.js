@@ -804,7 +804,7 @@ function analyzePicks(picks, metaProfile, mapKey = null) {
 
 function buildVictoryArguments(session) {
   const summary = summarizeResult(session);
-  if (!summary || summary.winner === 'draw') return ['Compositions globalement équilibrées.'];
+  if (!summary || summary.winner === 'draw') return ['Overall balanced compositions.'];
 
   const isUser = summary.winner === 'user';
   const winnerPicks = isUser ? session.userPicks : session.aiPicks;
@@ -815,17 +815,17 @@ function buildVictoryArguments(session) {
   const reasons = [];
   const add = (score, text) => { if (score > 0) reasons.push({ score, text }); };
 
-  if (winnerPicks.includes('Clancy') && winnerPicks.includes('Gale') && winnerPicks.includes('Byron')) add(2.9, 'Gale neutralise totalement les sauts d\'Edgar, tandis que Clancy monte en puissance sous les soins de Byron.');
-  if (winnerPicks.includes('Sam') && winnerPicks.includes('Nova') && winnerPicks.includes('Crow')) add(2.8, 'Sam punit violemment le corps-à-corps tandis que le poison de Crow révèle les buissons.');
-  if (winnerPicks.includes('Ash') && winnerPicks.includes('Ruffs') && winnerPicks.includes('Otis')) add(2.9, 'Les améliorations de Ruffs et le silence d\'Otis permettent à Ash (Carry) de détruire la frontline.');
+  if (winnerPicks.includes('Clancy') && winnerPicks.includes('Gale') && winnerPicks.includes('Byron')) add(2.9, "Gale completely neutralizes Edgar's jumps, while Clancy ramps up under Byron's healing.");
+  if (winnerPicks.includes('Sam') && winnerPicks.includes('Nova') && winnerPicks.includes('Crow')) add(2.8, "Sam punishes melee brawlers hard while Crow's poison reveals bushes.");
+  if (winnerPicks.includes('Ash') && winnerPicks.includes('Ruffs') && winnerPicks.includes('Otis')) add(2.9, "Ruffs' buffs and Otis' silence let Ash (Carry) tear through the frontline.");
 
-  add(wM.mapPriority - lM.mapPriority, 'Meilleure priorité de map et contrôle des lignes à distance.');
-  add(wM.metaPower - lM.metaPower, 'Valeur intrinsèque et puissance brute des brawlers supérieures.');
-  add(wM.hpBonus - lM.hpBonus, 'Robustesse supérieure facilitant la tenue de zone.');
+  add(wM.mapPriority - lM.mapPriority, 'Better map priority and ranged lane control.');
+  add(wM.metaPower - lM.metaPower, 'Higher intrinsic value and raw brawler power.');
+  add(wM.hpBonus - lM.hpBonus, 'Superior tankiness, making it easier to hold zone.');
 
   for (const lp of loserPicks) {
     for (const wp of winnerPicks) {
-      if (getLearnedCounters(lp, session.mapKey).includes(wp)) add(1.5, `${wp} neutralise mécaniquement le gameplay de ${lp}.`);
+      if (getLearnedCounters(lp, session.mapKey).includes(wp)) add(1.5, `${wp} mechanically counters ${lp}'s gameplay.`);
     }
   }
 
