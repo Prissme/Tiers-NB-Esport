@@ -870,5 +870,54 @@ module.exports = {
       }
     }
     return [...bestByPartner.values()].sort((a, b) => b.ratio - a.ratio);
+  },
+
+  // Utilitaire pour !meta : classement des brawlers par priorité sur une map donnée
+  // (table statique MAP_PRIORITY / MAP_PRIORITY_OVERRIDES), regroupé par palier.
+  getMapPriorityRanking(mapKey = null) {
+    return ALL
+      .map((brawler) => ({ brawler, priority: getMapPriority(brawler, mapKey) }))
+      .filter((entry) => entry.priority > 0)
+      .sort((a, b) => b.priority - a.priority || a.brawler.localeCompare(b.brawler));
+  },
+
+  // Utilitaire pour !meta : snapshot de ce que l'IA a réellement appris sur une map
+  // donnée (vrais résultats de matchs en priorité, votes communautaires en repli), plus
+  // un indicateur du volume de données disponible pour juger si l'apprentissage avance.
+  getMapTopComps(mapKey) {
+    const formatBucketTop = (bucket, kind, minSamples, limit = 5) => {
+      if (!bucket) return [];
+      const out = [];
+      for (const [key, stat] of bucket[kind].entries()) {
+        if (stat.total < minSamples) continue;
+        out.push({ brawlers: key.split('_'), ratio: stat.up / stat.total, samples: stat.total });
+      }
+      return out.sort((a, b) => b.ratio - a.ratio || b.samples - a.samples).slice(0, limit);
+    };
+
+    const realMapBucket = mapKey ? REAL_RESULTS_CACHE.byMap.get(mapKey) : null;
+    const communityMapBucket = mapKey ? COMMUNITY_DRAFTS_CACHE.byMap.get(mapKey) : null;
+
+    const countSamples = (bucket, kind) => {
+      if (!bucket) return 0;
+      let total = 0;
+      for (const stat of bucket[kind].values()) total += stat.total;
+      return total;
+    };
+
+    return {
+      realPairs: formatBucketTop(realMapBucket, 'pairs', MIN_SAMPLES_REAL.pairs),
+      realTrios: formatBucketTop(realMapBucket, 'trios', MIN_SAMPLES_REAL.trios),
+      communityPairs: formatBucketTop(communityMapBucket, 'pairs', MIN_SAMPLES.pairs),
+      communityTrios: formatBucketTop(communityMapBucket, 'trios', MIN_SAMPLES.trios),
+      learningStats: {
+        realMatchSamples: countSamples(realMapBucket, 'pairs'),
+        realPairsObserved: realMapBucket ? realMapBucket.pairs.size : 0,
+        realTriosObserved: realMapBucket ? realMapBucket.trios.size : 0,
+        communityVoteSamples: countSamples(communityMapBucket, 'pairs'),
+        communityPairsObserved: communityMapBucket ? communityMapBucket.pairs.size : 0,
+        communityTriosObserved: communityMapBucket ? communityMapBucket.trios.size : 0
+      }
+    };
   }
 };
