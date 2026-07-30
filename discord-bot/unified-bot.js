@@ -222,6 +222,41 @@ function formatModeAndMap(session) {
   if (!mode || !session.map?.name) return null;
   return `${mode.emoji} **${mode.label}** — ${session.map.name}`;
 }
+
+// Recherche une map par nom approximatif (insensible à la casse/ponctuation) à travers
+// tous les modes de jeu. Utilisé par !meta pour laisser taper juste un bout du nom.
+function normalizeMapQuery(value) {
+  return String(value || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+function findMapEntry(query) {
+  const normalizedQuery = normalizeMapQuery(query);
+  if (!normalizedQuery) return null;
+
+  for (const mode of GAME_MODES) {
+    for (const mapName of mode.maps) {
+      if (normalizeMapQuery(mapName) === normalizedQuery) {
+        return { mode, mapName };
+      }
+    }
+  }
+  // Repli : correspondance partielle si aucune correspondance exacte.
+  for (const mode of GAME_MODES) {
+    for (const mapName of mode.maps) {
+      if (normalizeMapQuery(mapName).includes(normalizedQuery) || normalizedQuery.includes(normalizeMapQuery(mapName))) {
+        return { mode, mapName };
+      }
+    }
+  }
+  return null;
+}
+
+function listAllMapsText() {
+  return GAME_MODES
+    .map((mode) => `${mode.emoji} **${mode.label}**: ${mode.maps.join(', ')}`)
+    .join('\n');
+}
+
 const simpleLobbyQueues = new Map();
 
 function isSimpleLobbyChannel(message) {
@@ -6772,6 +6807,100 @@ async function handleDraftFreeInput(message) {
   return false;
 }
 
+const TIER_LABELS = {
+  3: '⭐⭐⭐ S-tier',
+  2: '⭐⭐ A-tier',
+  1: '⭐ B-tier'
+};
+
+function formatCompList(entries) {
+  return entries
+    .map((e) => `${e.brawlers.join(' + ')} (${Math.round(e.ratio * 100)}%, ${e.samples} matchs)`)
+    .join('\n');
+}
+
+async function handleMetaCommand(message, args) {
+  const query = args.join(' ').trim();
+
+  if (!query) {
+    await message.reply({
+      content:
+        '📊 **!meta <map>** — see what the AI currently knows about a map (top brawlers + best learned comps).\n' +
+        'Example: `!meta Hard Rock Mine`\n\n' +
+        `**Available maps:**\n${listAllMapsText()}`,
+      allowedMentions: { repliedUser: false }
+    });
+    return;
+  }
+
+  const found = findMapEntry(query);
+  if (!found) {
+    await message.reply({
+      content: `❌ Unknown map: **${query}**.\n\n**Available maps:**\n${listAllMapsText()}`,
+      allowedMentions: { repliedUser: false }
+    });
+    return;
+  }
+
+  const { mode, mapName } = found;
+  const mapKey = draft.buildMapKey(mode.key, mapName);
+  const ranking = draft.getMapPriorityRanking(mapKey);
+  const comps = draft.getMapTopComps(mapKey);
+
+  const embed = new EmbedBuilder()
+    .setTitle(`📊 Meta — ${mode.label} — ${mapName}`)
+    .setDescription("Here's what the AI currently knows about this map.")
+    .setColor(0x3498db)
+    .setTimestamp(new Date());
+
+  // Tier list statique (priorité de map), regroupée par palier.
+  const tierLines = [3, 2, 1]
+    .map((tier) => {
+      const names = ranking.filter((r) => r.priority === tier).map((r) => r.brawler);
+      return names.length ? `${TIER_LABELS[tier]}: ${names.join(', ')}` : null;
+    })
+    .filter(Boolean);
+
+  embed.addFields({
+    name: '🏆 Top brawlers (static tier list)',
+    value: tierLines.length ? tierLines.join('\n') : '—'
+  });
+
+  if (comps.realTrios.length) {
+    embed.addFields({ name: '🤖 Best trios — learned from real matches', value: formatCompList(comps.realTrios) });
+  }
+  if (comps.realPairs.length) {
+    embed.addFields({ name: '🤖 Best duos — learned from real matches', value: formatCompList(comps.realPairs) });
+  }
+  if (comps.communityTrios.length) {
+    embed.addFields({ name: '🗳️ Best trios — community votes', value: formatCompList(comps.communityTrios) });
+  }
+  if (comps.communityPairs.length) {
+    embed.addFields({ name: '🗳️ Best duos — community votes', value: formatCompList(comps.communityPairs) });
+  }
+
+  const { realMatchSamples, realPairsObserved, realTriosObserved, communityVoteSamples, communityPairsObserved, communityTriosObserved } =
+    comps.learningStats;
+
+  if (!realMatchSamples && !communityVoteSamples) {
+    embed.addFields({
+      name: '📈 Learning status',
+      value:
+        "No data learned yet for this map — the AI is only relying on the static tier list above.\n" +
+        "Report real match results (buttons after a draft) or vote on drafts to help it learn!"
+    });
+  } else {
+    embed.addFields({
+      name: '📈 Learning status',
+      value:
+        `Real match reports: **${realMatchSamples}** (${realPairsObserved} duos / ${realTriosObserved} trios observed)\n` +
+        `Community votes: **${communityVoteSamples}** (${communityPairsObserved} duos / ${communityTriosObserved} trios observed)`
+    });
+  }
+
+  await message.reply({ embeds: [embed], allowedMentions: { repliedUser: false } });
+}
+
 async function handleHelpCommand(message) {
   await message.reply({
     embeds: [
@@ -9160,6 +9289,11 @@ async function handleMessage(message) {
       await handleDraftCommand(message, draftArgs);
       return;
     }
+    if (content.toLowerCase().startsWith('!meta')) {
+      const [, ...metaArgs] = content.slice(1).split(/\s+/);
+      await handleMetaCommand(message, metaArgs);
+      return;
+    }
     // Texte libre (nom de brawler) pour une session déjà en cours.
     const handledDraft = await handleDraftFreeInput(message);
     if (handledDraft) {
@@ -9282,6 +9416,9 @@ async function handleMessage(message) {
         break;
       case 'draft':
         await handleDraftCommand(message, args);
+        break;
+      case 'meta':
+        await handleMetaCommand(message, args);
         break;
       case 'endscreen':
         await handleEndscreenCommand(message);
@@ -9408,7 +9545,8 @@ async function startUnifiedBot() {
       GatewayIntentBits.GuildMembers,
       GatewayIntentBits.GuildMessages,
       GatewayIntentBits.MessageContent,
-      GatewayIntentBits.GuildMessageReactions
+      GatewayIntentBits.GuildMessageReactions,
+      GatewayIntentBits.DirectMessages
     ],
     partials: [Partials.Channel, Partials.Message, Partials.GuildMember, Partials.User]
   });
