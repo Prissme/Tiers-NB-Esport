@@ -37,10 +37,16 @@ function buildMapKey(mode, name) {
 
 function getMapPriority(brawler, mapKey) {
   const overrides = mapKey ? MAP_PRIORITY_OVERRIDES[mapKey] : null;
-  if (overrides && Object.prototype.hasOwnProperty.call(overrides, brawler)) {
-    return overrides[brawler];
-  }
-  return MAP_PRIORITY[brawler] || 0;
+  const base = (overrides && Object.prototype.hasOwnProperty.call(overrides, brawler))
+    ? overrides[brawler]
+    : (MAP_PRIORITY[brawler] || 0);
+
+  // La tier list statique reste le point de départ (cold start), mais dès qu'on a assez
+  // de vrais résultats de matchs SUR CETTE MAP précise pour ce brawler, on l'ajuste à la
+  // hausse ou à la baisse — exactement le même principe que getLearnedCounters, mais pour
+  // la priorité de map plutôt que pour les counters.
+  const mapBucket = mapKey ? REAL_RESULTS_CACHE.byMap.get(mapKey) : null;
+  return base + learnedSoloAdjustment(mapBucket, brawler);
 }
 
 const MAP_PRIORITY = {
@@ -181,10 +187,64 @@ const MIN_SAMPLES = { pairs: 2, trios: 3 };
 // qui ne servent plus que de "cold start" tant qu'on manque de données réelles.
 let REAL_RESULTS_CACHE = {
   byMap: new Map(),
-  global: { trios: new Map(), pairs: new Map(), counters: new Map() }
+  // "solo" = performance individuelle d'un brawler (indépendante des paires/trios/counters) :
+  // sert à faire évoluer metaPowerOf (pouvoir global) et getMapPriority (priorité de map)
+  // au fil des vrais résultats, plutôt que de rester figés sur des tables codées en dur.
+  global: { trios: new Map(), pairs: new Map(), counters: new Map(), solo: new Map() }
 };
 
-const MIN_SAMPLES_REAL = { pairs: 2, trios: 2, counters: 2 };
+const MIN_SAMPLES_REAL = { pairs: 2, trios: 2, counters: 2, solo: 3 };
+
+// =========================================================================
+// SCORE DE WILSON — SEUILLAGE STATISTIQUEMENT FIABLE
+// =========================================================================
+// Un ratio brut (up/total) est trompeur sur petit échantillon : 2 victoires sur 3 (66%)
+// n'a pas la même fiabilité que 200 victoires sur 300 (66% aussi), pourtant les deux
+// passaient avant les mêmes seuils fixes (>=0.55, >=0.65...). L'intervalle de Wilson donne
+// une borne basse/haute qui se resserre automatiquement autour du ratio réel à mesure que
+// les échantillons s'accumulent : peu de données => bornes larges => on n'agit que sur des
+// signaux francs ; beaucoup de données => bornes serrées => on peut agir sur des signaux
+// plus fins. z=1.64 correspond à un intervalle de confiance à ~90% (unilatéral).
+const WILSON_Z = 1.64;
+
+function wilsonInterval(up, total) {
+  if (!total) return { lower: 0, upper: 1, center: 0.5 };
+  const z = WILSON_Z;
+  const n = total;
+  const phat = up / n;
+  const z2 = z * z;
+  const denom = 1 + z2 / n;
+  const margin = z * Math.sqrt((phat * (1 - phat) + z2 / (4 * n)) / n);
+  const center = (phat + z2 / (2 * n)) / denom;
+  const lower = Math.max(0, center - margin / denom);
+  const upper = Math.min(1, center + margin / denom);
+  return { lower, upper, center };
+}
+
+// Vrai si on peut affirmer avec confiance que le ratio réel dépasse `threshold` (borne basse).
+function wilsonConfidentAbove(up, total, threshold) {
+  return wilsonInterval(up, total).lower >= threshold;
+}
+
+// Vrai si on peut affirmer avec confiance que le ratio réel est sous `threshold` (borne haute).
+function wilsonConfidentBelow(up, total, threshold) {
+  return wilsonInterval(up, total).upper <= threshold;
+}
+
+// Ajustement appris (bonus/malus) basé sur la performance SOLO d'un brawler (win rate
+// individuel, indépendant des paires/trios/counters) dans un bucket donné (map précise ou
+// global). Sert de base à la fois à getMapPriority (ajustement par map) et à metaPowerOf
+// (ajustement global, ex. suite à un patch d'équilibrage). Wilson garantit qu'on n'agit
+// que quand on a assez de recul pour être confiant, peu importe le nombre brut d'échantillons.
+function learnedSoloAdjustment(bucket, brawler) {
+  const stat = bucket?.solo?.get(brawler);
+  if (!stat || stat.total < MIN_SAMPLES_REAL.solo) return 0;
+  if (wilsonConfidentAbove(stat.up, stat.total, 0.60)) return 1.5;
+  if (wilsonConfidentAbove(stat.up, stat.total, 0.55)) return 0.75;
+  if (wilsonConfidentBelow(stat.up, stat.total, 0.40)) return -1.5;
+  if (wilsonConfidentBelow(stat.up, stat.total, 0.45)) return -0.75;
+  return 0;
+}
 
 // Recharge REAL_RESULTS_CACHE depuis Supabase à partir des drafts dont le résultat réel
 // (real_winner) a été reporté par un joueur. Pour chaque match :
@@ -193,27 +253,44 @@ const MIN_SAMPLES_REAL = { pairs: 2, trios: 2, counters: 2 };
 //  - pour chaque brawler gagnant W face à un brawler perdant L, on incrémente la stat de
 //    counter W->L (W a battu L dans ce contexte), ce qui remplace petit à petit
 //    FALLBACK_COUNTERS par de la donnée observée en jeu.
+// Demi-vie (en jours) utilisée pour pondérer les vrais résultats de matchs par ancienneté :
+// un match reporté aujourd'hui compte pour 1, un match reporté il y a AGE_HALF_LIFE_DAYS
+// jours ne compte plus que pour 0.5, etc. Le meta de Brawl Stars bouge vite (updates
+// d'équilibrage régulières), donc un résultat vieux de plusieurs mois doit peser beaucoup
+// moins qu'un résultat d'hier sans pour autant être totalement ignoré.
+const AGE_HALF_LIFE_DAYS = 45;
+
+function recencyWeight(reportedAt) {
+  if (!reportedAt) return 1; // pas de date connue → on ne pénalise pas (ancien schéma / valeur manquante)
+  const ageMs = Date.now() - new Date(reportedAt).getTime();
+  const ageDays = ageMs / (1000 * 60 * 60 * 24);
+  if (!Number.isFinite(ageDays) || ageDays < 0) return 1;
+  return Math.pow(0.5, ageDays / AGE_HALF_LIFE_DAYS);
+}
+
 async function refreshRealResultsCache(supabaseClient) {
   if (!supabaseClient) return;
   try {
     const { data, error } = await supabaseClient
       .from('draft_matches')
-      .select('user_picks, ai_picks, map_mode, map_name, real_winner, user_victoire')
+      .select('user_picks, ai_picks, map_mode, map_name, real_winner, user_victoire, real_winner_reported_at')
       .not('real_winner', 'is', null)
       .neq('real_winner', 'draw');
     if (error) throw error;
 
     const byMap = new Map();
-    const global = { trios: new Map(), pairs: new Map(), counters: new Map() };
+    const global = { trios: new Map(), pairs: new Map(), counters: new Map(), solo: new Map() };
 
     const ensureMapBucket = (mapKey) => {
-      if (!byMap.has(mapKey)) byMap.set(mapKey, { trios: new Map(), pairs: new Map(), counters: new Map() });
+      if (!byMap.has(mapKey)) byMap.set(mapKey, { trios: new Map(), pairs: new Map(), counters: new Map(), solo: new Map() });
       return byMap.get(mapKey);
     };
-    const bump = (bucket, kind, key, isWin) => {
+    // `weight` (pondération de récence) remplace le "+1" fixe d'origine : un match récent
+    // pèse presque 1, un match ancien pèse une fraction, sans jamais tomber à 0 (long tail).
+    const bump = (bucket, kind, key, isWin, weight) => {
       const current = bucket[kind].get(key) || { up: 0, down: 0, total: 0 };
-      if (isWin) current.up += 1; else current.down += 1;
-      current.total += 1;
+      if (isWin) current.up += weight; else current.down += weight;
+      current.total += weight;
       bucket[kind].set(key, current);
     };
 
@@ -226,6 +303,7 @@ async function refreshRealResultsCache(supabaseClient) {
       const loserPicks = row.user_victoire ? (row.ai_picks || []) : (row.user_picks || []);
       if (winnerPicks.length < 2) continue;
 
+      const weight = recencyWeight(row.real_winner_reported_at);
       const mapKey = buildMapKey(row.map_mode, row.map_name);
       const mapBucket = ensureMapBucket(mapKey);
 
@@ -234,16 +312,16 @@ async function refreshRealResultsCache(supabaseClient) {
         for (let j = i + 1; j < winnerPicks.length; j++) {
           const sorted = [winnerPicks[i], winnerPicks[j]].sort();
           const key = `${sorted[0]}_${sorted[1]}`;
-          bump(mapBucket, 'pairs', key, true);
-          bump(global, 'pairs', key, true);
+          bump(mapBucket, 'pairs', key, true, weight);
+          bump(global, 'pairs', key, true, weight);
         }
       }
       for (let i = 0; i < loserPicks.length; i++) {
         for (let j = i + 1; j < loserPicks.length; j++) {
           const sorted = [loserPicks[i], loserPicks[j]].sort();
           const key = `${sorted[0]}_${sorted[1]}`;
-          bump(mapBucket, 'pairs', key, false);
-          bump(global, 'pairs', key, false);
+          bump(mapBucket, 'pairs', key, false, weight);
+          bump(global, 'pairs', key, false, weight);
         }
       }
 
@@ -251,14 +329,14 @@ async function refreshRealResultsCache(supabaseClient) {
       if (winnerPicks.length === 3) {
         const sorted = [...winnerPicks].sort();
         const key = `${sorted[0]}_${sorted[1]}_${sorted[2]}`;
-        bump(mapBucket, 'trios', key, true);
-        bump(global, 'trios', key, true);
+        bump(mapBucket, 'trios', key, true, weight);
+        bump(global, 'trios', key, true, weight);
       }
       if (loserPicks.length === 3) {
         const sorted = [...loserPicks].sort();
         const key = `${sorted[0]}_${sorted[1]}_${sorted[2]}`;
-        bump(mapBucket, 'trios', key, false);
-        bump(global, 'trios', key, false);
+        bump(mapBucket, 'trios', key, false, weight);
+        bump(global, 'trios', key, false, weight);
       }
 
       // Counters : chaque brawler gagnant W vs chaque brawler perdant L de ce match
@@ -266,19 +344,30 @@ async function refreshRealResultsCache(supabaseClient) {
         for (const l of loserPicks) {
           if (w === l) continue;
           const key = `${w}->${l}`;
-          bump(mapBucket, 'counters', key, true);
-          bump(global, 'counters', key, true);
+          bump(mapBucket, 'counters', key, true, weight);
+          bump(global, 'counters', key, true, weight);
           // La relation inverse (L a affronté W et a perdu) compte comme un échantillon
           // négatif pour "L counter W", sans quoi seule la moitié du signal serait captée.
           const reverseKey = `${l}->${w}`;
-          bump(mapBucket, 'counters', reverseKey, false);
-          bump(global, 'counters', reverseKey, false);
+          bump(mapBucket, 'counters', reverseKey, false, weight);
+          bump(global, 'counters', reverseKey, false, weight);
         }
+      }
+
+      // Performance individuelle (indépendante des paires/trios) : sert de base à
+      // metaPowerOf (pouvoir global appris) et à l'ajustement appris de getMapPriority.
+      for (const w of winnerPicks) {
+        bump(mapBucket, 'solo', w, true, weight);
+        bump(global, 'solo', w, true, weight);
+      }
+      for (const l of loserPicks) {
+        bump(mapBucket, 'solo', l, false, weight);
+        bump(global, 'solo', l, false, weight);
       }
     }
 
     REAL_RESULTS_CACHE = { byMap, global };
-    console.log(`[Draft AI] Apprentissage réel synchronisé : ${byMap.size} maps, ${global.trios.size} trios et ${global.pairs.size} paires basés sur des vrais résultats de matchs.`);
+    console.log(`[Draft AI] Apprentissage réel synchronisé : ${byMap.size} maps, ${global.trios.size} trios et ${global.pairs.size} paires basés sur des vrais résultats de matchs (pondérés par récence, demi-vie ${AGE_HALF_LIFE_DAYS}j).`);
   } catch (err) {
     console.error("[Draft AI] Erreur de synchronisation du cache de résultats réels:", err);
   }
@@ -323,11 +412,10 @@ function getLearnedCounters(brawler, mapKey) {
       const [w, l] = key.split('->');
       if (l !== brawler || seen.has(w)) continue;
       if (stat.total < MIN_SAMPLES_REAL.counters) continue;
+      if (!wilsonConfidentAbove(stat.up, stat.total, 0.55)) continue;
       const ratio = stat.up / stat.total;
-      if (ratio >= 0.55) {
-        results.push({ brawler: w, ratio, samples: stat.total });
-        seen.add(w);
-      }
+      results.push({ brawler: w, ratio, samples: stat.total });
+      seen.add(w);
     }
   };
 
@@ -353,15 +441,13 @@ function getCounterBonus(lastUserPick, candidate, mapKey) {
   const mapBucket = mapKey ? REAL_RESULTS_CACHE.byMap.get(mapKey) : null;
   const mapStat = mapBucket ? mapBucket.counters.get(key) : null;
   if (mapStat && mapStat.total >= MIN_SAMPLES_REAL.counters) {
-    const ratio = mapStat.up / mapStat.total;
-    if (ratio >= 0.55) return 1.5 + ratio; // jusqu'à ~2.5 pour un counter quasi systématique
-    if (ratio <= 0.45) return -1.0;
+    if (wilsonConfidentAbove(mapStat.up, mapStat.total, 0.55)) return 1.5 + mapStat.up / mapStat.total;
+    if (wilsonConfidentBelow(mapStat.up, mapStat.total, 0.45)) return -1.0;
   } else {
     const globalStat = REAL_RESULTS_CACHE.global.counters.get(key);
     if (globalStat && globalStat.total >= MIN_SAMPLES_REAL.counters) {
-      const ratio = globalStat.up / globalStat.total;
-      if (ratio >= 0.55) return 1.5 + ratio;
-      if (ratio <= 0.45) return -1.0;
+      if (wilsonConfidentAbove(globalStat.up, globalStat.total, 0.55)) return 1.5 + globalStat.up / globalStat.total;
+      if (wilsonConfidentBelow(globalStat.up, globalStat.total, 0.45)) return -1.0;
     }
   }
 
@@ -463,7 +549,12 @@ function getMetaConfig() {
   };
 }
 
-function metaPowerOf(brawler, metaProfile) { return 0; }
+// Pouvoir global appris d'un brawler (indépendant de la map précise) : reflète, par
+// exemple, un patch d'équilibrage récent, à partir du win rate individuel observé toutes
+// maps confondues. Reste à 0 tant qu'on n'a pas assez de vrais résultats (cold start).
+function metaPowerOf(brawler, metaProfile) {
+  return learnedSoloAdjustment(REAL_RESULTS_CACHE.global, brawler);
+}
 
 function metaHpBonusOf(brawler) {
   if (brawler === 'Mina') return 0;
@@ -565,9 +656,8 @@ function evaluateDraft(picks, metaProfile = META_DEFAULT, mapKey = null) {
       const pairKey = `${sortedPair[0]}_${sortedPair[1]}`;
       const found = getSynergyStat('pairs', pairKey, mapKey);
       if (found) {
-        const ratio = found.stat.up / found.stat.total;
-        if (ratio >= 0.65) score += 1.5;
-        if (ratio <= 0.35) score -= 1.5;
+        if (wilsonConfidentAbove(found.stat.up, found.stat.total, 0.65)) score += 1.5;
+        if (wilsonConfidentBelow(found.stat.up, found.stat.total, 0.35)) score -= 1.5;
       }
     }
   }
@@ -577,9 +667,8 @@ function evaluateDraft(picks, metaProfile = META_DEFAULT, mapKey = null) {
     const trioKey = `${sortedTrio[0]}_${sortedTrio[1]}_${sortedTrio[2]}`;
     const found = getSynergyStat('trios', trioKey, mapKey);
     if (found) {
-      const ratio = found.stat.up / found.stat.total;
-      if (ratio >= 0.70) score += 2.0;
-      if (ratio <= 0.35) score -= 2.5;
+      if (wilsonConfidentAbove(found.stat.up, found.stat.total, 0.70)) score += 2.0;
+      if (wilsonConfidentBelow(found.stat.up, found.stat.total, 0.35)) score -= 2.5;
     }
   }
 
@@ -613,6 +702,25 @@ function evaluateDraft(picks, metaProfile = META_DEFAULT, mapKey = null) {
   return score;
 }
 
+// Nombre de candidats explorés pour anticiper la réponse du joueur (cf. pickAI). Trié par
+// priorité statique décroissante pour garder les meilleurs candidats plausibles sans
+// scanner tout le pool disponible (~90 brawlers) à chaque candidat de l'IA.
+const LOOKAHEAD_POOL_SIZE = 20;
+
+// Simule le meilleur coup que le joueur pourrait jouer ensuite (parmi `pool`), en supposant
+// qu'il cherche lui aussi à maximiser son propre score — et éventuellement à contrer le
+// dernier pick de l'IA (`aiLastPick`). Renvoie le score projeté du joueur après ce coup
+// hypothétique, ou son score actuel si aucune amélioration n'est trouvée / pool vide.
+function simulateUserBestReply(aiLastPick, userPicks, pool, metaProfile, mapKey) {
+  let bestScore = evaluateDraft(userPicks, metaProfile, mapKey);
+  for (const candidate of pool) {
+    let score = evaluateDraft([...userPicks, candidate], metaProfile, mapKey);
+    score += getCounterBonus(aiLastPick, candidate, mapKey);
+    if (score > bestScore) bestScore = score;
+  }
+  return bestScore;
+}
+
 function pickAI({ available, lastUserPick, aiPicks = [], userPicks = [], metaProfile = META_DEFAULT, mapKey = null }) {
   if (!available.length) return '';
 
@@ -625,26 +733,39 @@ function pickAI({ available, lastUserPick, aiPicks = [], userPicks = [], metaPro
 
     aiScore += getCounterBonus(lastUserPick, candidate, mapKey);
 
+    const remainingAfterCandidate = available.filter(b => b !== candidate && !aiPicks.includes(b));
+
     if (currentAiPicks.length < 3) {
-      const remaining = available.filter(b => b !== candidate && !aiPicks.includes(b));
       let bestTrioBonus = 0;
-      for (const b2 of remaining.slice(0, 15)) {
+      for (const b2 of remainingAfterCandidate.slice(0, 15)) {
         const simulatedTrio = [...currentAiPicks, b2].slice(0, 3);
         if (simulatedTrio.length === 3) {
           const sorted = [...simulatedTrio].sort();
           const cacheKey = `${sorted[0]}_${sorted[1]}_${sorted[2]}`;
           const found = getSynergyStat('trios', cacheKey, mapKey);
           if (found) {
-            const ratio = found.stat.up / found.stat.total;
-            if (ratio >= 0.70) bestTrioBonus = Math.max(bestTrioBonus, 2.0);
-            if (ratio <= 0.35) bestTrioBonus = Math.min(bestTrioBonus, -2.5);
+            if (wilsonConfidentAbove(found.stat.up, found.stat.total, 0.70)) bestTrioBonus = Math.max(bestTrioBonus, 2.0);
+            if (wilsonConfidentBelow(found.stat.up, found.stat.total, 0.35)) bestTrioBonus = Math.min(bestTrioBonus, -2.5);
           }
         }
       }
       aiScore += bestTrioBonus;
     }
 
-    let userScore = evaluateDraft(userPicks, metaProfile, mapKey);
+    // --- LOOKAHEAD : anticipe la meilleure réponse du joueur à ce candidat plutôt que de
+    // comparer à son score actuel figé. Un pick qui semble bon dans l'instant peut être un
+    // mauvais choix s'il laisse un contre-pick évident au joueur juste après.
+    let userScore;
+    if (userPicks.length < 3 && remainingAfterCandidate.length) {
+      const pool = remainingAfterCandidate
+        .slice()
+        .sort((a, b) => getMapPriority(b, mapKey) - getMapPriority(a, mapKey))
+        .slice(0, LOOKAHEAD_POOL_SIZE);
+      userScore = simulateUserBestReply(candidate, userPicks, pool, metaProfile, mapKey);
+    } else {
+      userScore = evaluateDraft(userPicks, metaProfile, mapKey);
+    }
+
     let delta = aiScore - userScore;
 
     if (delta > bestDelta) {
