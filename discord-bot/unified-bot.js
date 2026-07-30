@@ -6853,10 +6853,15 @@ async function handleMetaCommand(message, args) {
     .setColor(0x3498db)
     .setTimestamp(new Date());
 
-  // Tier list statique (priorité de map), regroupée par palier.
+  // Tier list (priorité de map statique + ajustement appris), regroupée par palier.
+  // La priorité n'est plus forcément un entier depuis que getMapPriority peut être
+  // ajustée par les vrais résultats de matchs (ex. 2 + 0.75 = 2.75) : on arrondit au
+  // palier le plus proche pour l'affichage.
   const tierLines = [3, 2, 1]
     .map((tier) => {
-      const names = ranking.filter((r) => r.priority === tier).map((r) => r.brawler);
+      const names = ranking
+        .filter((r) => Math.max(1, Math.min(3, Math.round(r.priority))) === tier)
+        .map((r) => r.brawler);
       return names.length ? `${TIER_LABELS[tier]}: ${names.join(', ')}` : null;
     })
     .filter(Boolean);
