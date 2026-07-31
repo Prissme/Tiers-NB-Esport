@@ -91,6 +91,8 @@ const BOUNDS: Record<keyof RatingWeights, [number, number]> = {
   star_player_bonus: [0.5, 4.0],
   dmg_heal_fit_coef: [0.0, 0.8],
   victory_bonus_coef: [0.3, 2.0],
+  map_performance_coef: [0.0, 1.5],
+  role_kd_coef:      [0.0, 1.5],
 };
 
 // ─── Types ─────────────────────────────────────────────────────────────────
@@ -209,6 +211,8 @@ export async function applyReinforcementLearning(
         star_player_bonus: weightsRow.star_player_bonus,
         dmg_heal_fit_coef: weightsRow.dmg_heal_fit_coef ?? DEFAULT_WEIGHTS.dmg_heal_fit_coef,
         victory_bonus_coef: weightsRow.victory_bonus_coef ?? DEFAULT_WEIGHTS.victory_bonus_coef,
+        map_performance_coef: weightsRow.map_performance_coef ?? DEFAULT_WEIGHTS.map_performance_coef,
+        role_kd_coef:      weightsRow.role_kd_coef ?? DEFAULT_WEIGHTS.role_kd_coef,
       }
     : DEFAULT_WEIGHTS;
 
@@ -230,6 +234,8 @@ export async function applyReinforcementLearning(
     counterEffect: number;
     modeFitBonus: number;
     starPlayer: boolean;
+    mapPerformanceBonus?: number;
+    roleKdMultiplier?: number;
   };
 
   // 5. Résultat du match : signal primaire (objectif, terrain)
@@ -245,6 +251,8 @@ export async function applyReinforcementLearning(
     modeFitRaw:      bd.modeFitBonus,
     starPlayer:      bd.starPlayer,
     victoryRaw:      victory === null ? 0 : victory ? 1 : -1,
+    mapPerformanceRaw: bd.mapPerformanceBonus ?? 0,
+    roleKdRaw:       (bd.roleKdMultiplier ?? 1) - 1,
   };
 
   // 6. Combiner les deux signaux en une direction effective.
@@ -319,6 +327,23 @@ export async function applyReinforcementLearning(
     next.mode_fit_bonus = adjustOne(
       currentWeights.mode_fit_bonus, DEFAULT_WEIGHTS.mode_fit_bonus,
       BOUNDS.mode_fit_bonus, 1, effectiveDirection, effectiveLR
+    );
+  }
+  // ── Performance historique sur la map précise : dérivée de vrais résultats de matchs
+  //    (comme les synergies/counter ci-dessus) → signal principal = résultat du match.
+  if (raw.mapPerformanceRaw !== 0 && allowed("map_performance_coef")) {
+    next.map_performance_coef = adjustOne(
+      currentWeights.map_performance_coef, DEFAULT_WEIGHTS.map_performance_coef,
+      BOUNDS.map_performance_coef, sign(raw.mapPerformanceRaw), effectiveDirection, effectiveLR
+    );
+  }
+
+  // ── Multiplicateur de rôle sur le K/D : comme le K/D lui-même, c'est une lecture de
+  //    performance individuelle → victory ne dit rien là-dessus, direction admin seule.
+  if (raw.roleKdRaw !== 0 && allowed("role_kd_coef")) {
+    next.role_kd_coef = adjustOne(
+      currentWeights.role_kd_coef, DEFAULT_WEIGHTS.role_kd_coef,
+      BOUNDS.role_kd_coef, sign(raw.roleKdRaw), direction, lr
     );
   }
 
