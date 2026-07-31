@@ -22,6 +22,8 @@ const WEIGHT_LABELS: Record<keyof RatingWeights, string> = {
   star_player_bonus: "Bonus Joueur Star",
   dmg_heal_fit_coef: "Poids fit dégâts/soin",
   victory_bonus_coef: "Bonus/malus victoire ou défaite",
+  map_performance_coef: "Poids performance historique sur la map",
+  role_kd_coef: "Poids ajustement K/D selon le rôle (tank/dive vs support)",
 };
 
 type Breakdown = {
@@ -31,6 +33,8 @@ type Breakdown = {
   brawler: string;
   brawlerPriority: 0 | 1 | 2 | 3;
   diffMultiplier: number;
+  roleKdMultiplier: number;
+  roleKdMultiplierApplied: number;
   compAvgPriority: number;
   compPriorityBonus: number;
   pairSynergy: number;
@@ -39,6 +43,7 @@ type Breakdown = {
   trioDetail: { trio: string; ratio: number; effect: number; source: "map" | "global" } | null;
   opponentComp: string[];
   counterEffect: number;
+  counterSources: ("learned" | "static" | "none")[];
   counterBonus: number;
   gameMode: string | null;
   mapMode: string | null;
@@ -50,6 +55,8 @@ type Breakdown = {
   soin: number | null;
   dmgHealFitBonus: number;
   victory: boolean | null;
+  mapPerformanceBonus: number;
+  mapPerformanceBonusApplied: number;
 };
 
 type RatingResult = { note: number; computationId: string | null; breakdown: Breakdown };
@@ -530,12 +537,27 @@ export default function PerformanceRatingForm() {
             <li>
               {result.breakdown.brawler} — priorité draft {result.breakdown.brawlerPriority} → multiplicateur{" "}
               {result.breakdown.diffMultiplier.toFixed(2)}x
+              {result.breakdown.roleKdMultiplier !== 1 && (
+                <>
+                  {" "}
+                  ×{result.breakdown.roleKdMultiplierApplied.toFixed(2)} (
+                  {result.breakdown.roleKdMultiplier > 1 ? "rôle engagé, tank/dive" : "rôle support"})
+                </>
+              )}
             </li>
             <li>
               Niveau de comp moyen: {result.breakdown.compAvgPriority}/2 (bonus{" "}
               {result.breakdown.compPriorityBonus >= 0 ? "+" : ""}
               {result.breakdown.compPriorityBonus})
             </li>
+            {result.breakdown.mapPerformanceBonus !== 0 && (
+              <li>
+                Performance historique de {result.breakdown.brawler} sur cette map: (
+                {result.breakdown.mapPerformanceBonusApplied >= 0 ? "+" : ""}
+                {result.breakdown.mapPerformanceBonusApplied.toFixed(2)}) —{" "}
+                <span className="text-neutral-500">appris depuis les matchs déjà notés</span>
+              </li>
+            )}
             {result.breakdown.pairDetails.map((p) => (
               <li key={p.pair}>
                 Synergie duo {p.pair}: {Math.round(p.ratio * 100)}% d'avis positifs (
@@ -569,7 +591,12 @@ export default function PerformanceRatingForm() {
                 {result.breakdown.counterEffect < 0 && "désavantage mécanique (counter subi)"}
                 {result.breakdown.counterEffect === 0 && "pas de counter direct connu"} (
                 {result.breakdown.counterBonus >= 0 ? "+" : ""}
-                {result.breakdown.counterBonus})
+                {result.breakdown.counterBonus}) —{" "}
+                <span className="text-neutral-500">
+                  {result.breakdown.counterSources.includes("learned")
+                    ? "au moins un adversaire évalué depuis les vrais résultats"
+                    : "table de contre-picks statique"}
+                </span>
               </li>
             )}
             {result.breakdown.gameMode && (
