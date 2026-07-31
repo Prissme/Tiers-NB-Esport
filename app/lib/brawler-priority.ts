@@ -155,3 +155,23 @@ export function getModeFitBonus(brawler: string, mode: string | null): number {
   const sets = MODE_ROLE_FIT[mode as GameMode];
   return sets.some((s) => s.has(brawler)) ? 0.3 : 0;
 }
+
+// --- Multiplicateur de difficulté par RÔLE, appliqué au K/D ---
+// Un même K/D de 1.0 n'a pas la même valeur selon le rôle joué :
+//  - un dive/mêlée s'engage en première ligne et prend des risques pour avoir ses kills,
+//    donc un bon K/D avec ce profil est plus dur à obtenir → on le valorise davantage.
+//  - un support (Gus, Byron, Poco...) n'est presque jamais là pour farmer des kills ; son
+//    impact réel passe par le soin/les dégâts utilitaires (déjà capté par dmgHealFitBonus),
+//    donc on pondère moins fort son K/D pour ne pas le pénaliser injustement.
+//  - les autres rôles (snipers/poke...) restent à la valeur de référence.
+export const ROLE_KD_MULTIPLIER = {
+  ENGAGE: 1.15,
+  SUPPORT: 0.6,
+  DEFAULT: 1.0,
+} as const;
+
+export function getRoleDifficultyMultiplier(brawler: string): number {
+  if (SUPPORTS.has(brawler)) return ROLE_KD_MULTIPLIER.SUPPORT;
+  if (MELEES.has(brawler) || DIVE_UNITS.has(brawler)) return ROLE_KD_MULTIPLIER.ENGAGE;
+  return ROLE_KD_MULTIPLIER.DEFAULT;
+}
