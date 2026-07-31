@@ -12,6 +12,12 @@ export type RatingWeights = {
   star_player_bonus: number;
   dmg_heal_fit_coef: number;
   victory_bonus_coef: number;
+  // Poids du bonus/malus de performance historique du brawler SUR CETTE MAP précise
+  // (appris depuis performance_rating_computations, cf. route.ts).
+  map_performance_coef: number;
+  // Force du multiplicateur de rôle appliqué au K/D (0 = désactivé, 1 = effet plein,
+  // cf. getRoleDifficultyMultiplier dans brawler-priority.ts).
+  role_kd_coef: number;
 };
 
 export const DEFAULT_WEIGHTS: RatingWeights = {
@@ -28,6 +34,8 @@ export const DEFAULT_WEIGHTS: RatingWeights = {
   star_player_bonus: 2.0,
   dmg_heal_fit_coef: 0.4,
   victory_bonus_coef: 0.8,
+  map_performance_coef: 0.6,
+  role_kd_coef: 1.0,
 };
 
 // Bornes pour ne jamais laisser un poids partir en vrille avec des retours répétés.
@@ -45,6 +53,8 @@ const BOUNDS: Record<keyof RatingWeights, [number, number]> = {
   star_player_bonus: [0.5, 4.0],
   dmg_heal_fit_coef: [0, 0.8],
   victory_bonus_coef: [0.3, 2.0],
+  map_performance_coef: [0, 1.5],
+  role_kd_coef: [0, 1.5],
 };
 
 function clamp(value: number, [min, max]: [number, number]) {
@@ -71,8 +81,8 @@ export const FEEDBACK_REASON_LABELS: Record<FeedbackReason, string> = {
 
 // Groupes de poids concernés par chaque raison.
 export const FEEDBACK_REASON_WEIGHTS: Record<FeedbackReason, (keyof RatingWeights)[]> = {
-  matchup: ["diff_mult_tier0", "diff_mult_tier1", "diff_mult_tier2", "diff_mult_tier3", "counter_coef"],
-  role: ["mode_fit_bonus", "dmg_heal_fit_coef", "star_player_bonus"],
+  matchup: ["diff_mult_tier0", "diff_mult_tier1", "diff_mult_tier2", "diff_mult_tier3", "counter_coef", "map_performance_coef"],
+  role: ["mode_fit_bonus", "dmg_heal_fit_coef", "star_player_bonus", "role_kd_coef"],
   kd: ["kd_coef"],
   comp: ["comp_bonus_coef", "pair_synergy_coef", "trio_synergy_coef"],
 };
@@ -87,6 +97,8 @@ export type RawSignals = {
   modeFitRaw: number; // 0 ou >0
   starPlayer: boolean;
   victoryRaw: number; // 1 victoire, -1 défaite, 0 inconnu
+  mapPerformanceRaw: number; // bonus/malus appris (map précise), signe utilisé pour l'ajustement
+  roleKdRaw: number; // (roleMultiplier - 1) : >0 pour un rôle engage, <0 pour un support
 };
 
 const DIRECTIONAL_RATE = 0.08;
@@ -149,6 +161,17 @@ export function adjustWeightsDirectional(current: RatingWeights, direction: Dire
       sign(raw.victoryRaw),
       direction
     );
+  }
+  if (raw.mapPerformanceRaw !== 0) {
+    next.map_performance_coef = directionalAdjust(
+      current.map_performance_coef,
+      BOUNDS.map_performance_coef,
+      sign(raw.mapPerformanceRaw),
+      direction
+    );
+  }
+  if (raw.roleKdRaw !== 0) {
+    next.role_kd_coef = directionalAdjust(current.role_kd_coef, BOUNDS.role_kd_coef, sign(raw.roleKdRaw), direction);
   }
 
   return next;
