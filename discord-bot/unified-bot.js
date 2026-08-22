@@ -31,6 +31,7 @@ const seasonSystem = require('./season-system');
 const bracketPredictions = require('./bracket-predictions');
 const { slashCommandsData, handleTournamentInteractions } = require('./tournamentSystem');
 const tournamentPredictions = require('./tournament-predictions');
+const prissPredictions = require('./priss-predictions');
 const {
   initTierLeaderboard,
   refreshDiscordNames,
@@ -7586,6 +7587,7 @@ async function handleInteraction(interaction) {
   //  ON AJOUTE CES DEUX LIGNES ICI 
   if (await bracketPredictions.handleInteraction(interaction)) return;
   if (await tournamentPredictions.handleInteraction(interaction)) return;
+  if (await prissPredictions.handleInteraction(interaction)) return;
   const handledByTournament = await handleTournamentInteractions(interaction);
   if (handledByTournament) return; 
 
@@ -9140,6 +9142,7 @@ async function onReady(readyClient) {
     ...(Array.isArray(slashCommandsData) ? slashCommandsData : []),
     ...(Array.isArray(tournamentPredictions.slashCommands) ? tournamentPredictions.slashCommands : []),
     ...(Array.isArray(bracketPredictions.slashCommands) ? bracketPredictions.slashCommands : []),
+    ...(Array.isArray(prissPredictions.slashCommands) ? prissPredictions.slashCommands : []),
   ];
   log('[onReady] Enregistrement de ' + allCommands.length + ' slash commands...');
   const REGISTER_COMMANDS_TIMEOUT_MS = 60_000;
@@ -9241,6 +9244,12 @@ async function onReady(readyClient) {
     supabase, 
     guildId: DISCORD_GUILD_ID, 
     client: readyClient 
+  });
+
+  prissPredictions.init({
+    supabase,
+    guildId: DISCORD_GUILD_ID,
+    client: readyClient
   });
 
   // Cache communautaire des drafts (Version Intelligence Temps Réel)
