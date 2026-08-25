@@ -1488,7 +1488,9 @@ async function handleAdminSlashCommand(interaction) {
       'addplayer',
       'removeplayer',
       'resetelo',
-      'counters'
+      'counters',
+      'addearnings',
+      'changecountry'
     ].includes(command)
   ) {
     return false;
@@ -2011,6 +2013,123 @@ async function handleAdminSlashCommand(interaction) {
       flags: MessageFlags.Ephemeral
     });
 
+    return true;
+  }
+
+  if (command === 'addearnings' || command === 'changecountry') {
+    const { data: existingProfile, error: fetchProfileError } = await supabase
+      .from('lfn_player_profiles')
+      .select('*')
+      .eq('player_id', player.id)
+      .maybeSingle();
+
+    if (fetchProfileError && fetchProfileError.code !== 'PGRST116') {
+      errorLog('Failed to fetch player profile:', fetchProfileError);
+      await interaction.reply({
+        content: localizeText({
+          fr: 'Erreur lors de la récupération du profil du joueur.',
+          en: 'Error while fetching the player profile.'
+        }),
+        flags: MessageFlags.Ephemeral
+      });
+      return true;
+    }
+
+    const basePayload = {
+      player_id: player.id,
+      country_code: existingProfile?.country_code || 'FR',
+      description: existingProfile?.description || '',
+      ballon_dor: existingProfile?.ballon_dor || 0,
+      team_id: existingProfile?.team_id || null,
+      earnings: existingProfile?.earnings || 0,
+      updated_at: new Date().toISOString()
+    };
+
+    if (command === 'addearnings') {
+      const delta = interaction.options.getNumber('amount', true);
+      const currentEarnings = Number(existingProfile?.earnings || 0);
+      const nextEarnings = Math.max(0, Math.round((currentEarnings + delta) * 100) / 100);
+
+      const { error: upsertError } = await supabase
+        .from('lfn_player_profiles')
+        .upsert({ ...basePayload, earnings: nextEarnings }, { onConflict: 'player_id' });
+
+      if (upsertError) {
+        errorLog('Failed to update player earnings:', upsertError);
+        await interaction.reply({
+          content: localizeText({
+            fr: 'Erreur lors de la mise à jour des gains.',
+            en: 'Error while updating earnings.'
+          }),
+          flags: MessageFlags.Ephemeral
+        });
+        return true;
+      }
+
+      await interaction.reply({
+        embeds: [
+          new EmbedBuilder()
+            .setTitle(localizeText({ fr: 'Gains mis à jour', en: 'Earnings updated' }))
+            .setDescription(`<@${targetUser.id}>`)
+            .addFields(
+              { name: localizeText({ fr: 'Anciens gains', en: 'Previous earnings' }), value: `${currentEarnings.toFixed(2)} €`, inline: true },
+              { name: localizeText({ fr: 'Nouveaux gains', en: 'New earnings' }), value: `${nextEarnings.toFixed(2)} €`, inline: true },
+              { name: localizeText({ fr: 'Delta', en: 'Delta' }), value: `${delta >= 0 ? '+' : ''}${delta} €`, inline: true }
+            )
+            .setColor(delta >= 0 ? 0x2ecc71 : 0xe74c3c)
+            .setTimestamp(new Date())
+        ],
+        flags: MessageFlags.Ephemeral
+      });
+      return true;
+    }
+
+    // command === 'changecountry'
+    const rawCountry = interaction.options.getString('country', true);
+    const resolved = resolveCountry(rawCountry);
+
+    if (!resolved) {
+      await interaction.reply({
+        content: localizeText(
+          {
+            fr: '❌ Pays introuvable : "{query}". Essaie avec le nom complet (ex: "France") ou le code ISO à 2 lettres (ex: "FR").',
+            en: '❌ Country not found: "{query}". Try the full name (e.g. "France") or the 2-letter ISO code (e.g. "FR").'
+          },
+          { query: rawCountry }
+        ),
+        flags: MessageFlags.Ephemeral
+      });
+      return true;
+    }
+
+    const previousCountryCode = existingProfile?.country_code || 'FR';
+
+    const { error: upsertError } = await supabase
+      .from('lfn_player_profiles')
+      .upsert({ ...basePayload, country_code: resolved.code }, { onConflict: 'player_id' });
+
+    if (upsertError) {
+      errorLog('Failed to update player country:', upsertError);
+      await interaction.reply({
+        content: localizeText({
+          fr: 'Erreur lors de la mise à jour du pays.',
+          en: 'Error while updating the country.'
+        }),
+        flags: MessageFlags.Ephemeral
+      });
+      return true;
+    }
+
+    await interaction.reply({
+      content: localizeText(
+        {
+          fr: '✅ Pays de <@{userId}> mis à jour : **{previous}** → **{next}** ({name}).',
+          en: '✅ <@{userId}> country updated: **{previous}** → **{next}** ({name}).'
+        },
+        { userId: targetUser.id, previous: previousCountryCode, next: resolved.code, name: resolved.name }
+      ),
+      flags: MessageFlags.Ephemeral
+    });
     return true;
   }
 
