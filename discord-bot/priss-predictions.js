@@ -1,11 +1,10 @@
 'use strict';
 
-// Module de prédictions "PrissCoins" (LFN).
-// Un admin crée une prédiction avec 2 propositions ("/predictions"), les membres
-// misent des PrissCoins dessus (300 offerts au départ à chaque joueur), les côtes
-// évoluent en temps réel selon les mises (système "parimutuel", comme un vrai book
-// de paris communautaire), puis un admin valide le résultat ou annule via
-// "/validate_predictions".
+// "PrissCoins" predictions module (LFN).
+// An admin creates a prediction with 2 propositions ("/predictions"), members bet
+// PrissCoins on it (everyone gets 300 to start), odds move live based on the bets
+// ("parimutuel" system, like a real community sportsbook), then an admin validates
+// the result or cancels it via "/validate_predictions".
 
 const {
   ActionRowBuilder,
@@ -47,7 +46,7 @@ function init(options) {
 }
 
 // ========================
-// PORTEFEUILLE PRISSCOINS
+// PRISSCOINS WALLET
 // ========================
 
 async function getOrCreateWallet(guildId, userId) {
@@ -71,8 +70,8 @@ async function getOrCreateWallet(guildId, userId) {
   return created;
 }
 
-// Ajuste le solde d'un joueur. `wonDelta`/`lostDelta` ne servent qu'aux stats
-// affichées dans /pcoin (profit net gagné, total perdu), pas au solde lui-même.
+// Adjusts a player's balance. `wonDelta`/`lostDelta` only feed the stats shown
+// in the wallet embed (net profit, total lost), they don't affect the balance itself.
 async function adjustWallet(guildId, userId, delta, { wagerDelta = 0, wonDelta = 0, lostDelta = 0 } = {}) {
   const wallet = await getOrCreateWallet(guildId, userId);
   const newBalance = Math.max(0, wallet.balance + delta);
@@ -94,11 +93,11 @@ async function adjustWallet(guildId, userId, delta, { wagerDelta = 0, wonDelta =
 }
 
 // ========================
-// CÔTES DYNAMIQUES (PARIMUTUEL)
+// DYNAMIC (PARIMUTUEL) ODDS
 // ========================
 
-// Côte "live" = mise totale du pot / mise totale sur cette option.
-// Plus une option reçoit de mises, plus sa côte baisse (comme un vrai book).
+// Live odds = total pool / total pool bet on that option.
+// The more an option receives, the lower its odds get (like a real sportsbook).
 function computeLiveOdds(pool1, pool2) {
   const total = pool1 + pool2;
   if (!total) return { odds1: null, odds2: null };
@@ -114,7 +113,7 @@ function formatOdds(odds) {
 }
 
 // ========================
-// EMBED / BOUTONS
+// EMBED / BUTTONS
 // ========================
 
 async function fetchBets(predictionId) {
@@ -147,11 +146,11 @@ function buildPredictionEmbed(prediction, bets) {
   let title = `🔮 ${prediction.question}`;
   let color = 0x5865f2;
   if (isCancelled) {
-    title = `🚫 Annulé — ${prediction.question}`;
+    title = `🚫 Cancelled — ${prediction.question}`;
     color = 0x95a5a6;
   } else if (isResolved) {
     const winnerLabel = prediction.winner_option === 1 ? prediction.option1_label : prediction.option2_label;
-    title = `🏆 ${prediction.question} — Gagnant : ${winnerLabel}`;
+    title = `🏆 ${prediction.question} — Winner: ${winnerLabel}`;
     color = 0xf1c40f;
   }
 
@@ -160,29 +159,29 @@ function buildPredictionEmbed(prediction, bets) {
     .setColor(color)
     .addFields(
       {
-        name: `🔵 ${prediction.option1_label} — Côte ${formatOdds(odds1)}`,
-        value: `${buildProgressBar(pool1, totalPool)}\n${pool1} PrissCoins misés`,
+        name: `🔵 ${prediction.option1_label} — Odds ${formatOdds(odds1)}`,
+        value: `${buildProgressBar(pool1, totalPool)}\n${pool1} PrissCoins wagered`,
         inline: false
       },
       {
-        name: `🔴 ${prediction.option2_label} — Côte ${formatOdds(odds2)}`,
-        value: `${buildProgressBar(pool2, totalPool)}\n${pool2} PrissCoins misés`,
+        name: `🔴 ${prediction.option2_label} — Odds ${formatOdds(odds2)}`,
+        value: `${buildProgressBar(pool2, totalPool)}\n${pool2} PrissCoins wagered`,
         inline: false
       },
       {
-        name: '📊 Cagnotte totale',
-        value: `${totalPool} PrissCoins misés par ${bets.length} parieur(s)`,
+        name: '📊 Total pot',
+        value: `${totalPool} PrissCoins wagered by ${bets.length} bettor(s)`,
         inline: false
       }
     )
     .setTimestamp(new Date());
 
   if (isCancelled) {
-    embed.setFooter({ text: 'Prédiction annulée — toutes les mises ont été remboursées.' });
+    embed.setFooter({ text: 'Prediction cancelled — every bet has been refunded.' });
   } else if (isResolved) {
-    embed.setFooter({ text: 'Résultat validé — les gains ont été distribués.' });
+    embed.setFooter({ text: 'Result validated — winnings have been distributed.' });
   } else {
-    embed.setFooter({ text: `Mise minimum : ${MIN_BET} PrissCoins • Une seule mise par joueur` });
+    embed.setFooter({ text: `Minimum bet: ${MIN_BET} PrissCoins • One bet per player` });
   }
 
   return embed;
@@ -204,7 +203,7 @@ function buildBetButtons(predictionId, prediction, disabled = false) {
       .setDisabled(disabled),
     new ButtonBuilder()
       .setCustomId(`${BALANCE_BUTTON_PREFIX}:${predictionId}`)
-      .setLabel('Mon solde')
+      .setLabel('My balance')
       .setEmoji('💰')
       .setStyle(ButtonStyle.Secondary)
   );
@@ -225,7 +224,7 @@ async function refreshPredictionMessage(prediction) {
   await message.edit({
     embeds: [buildPredictionEmbed(prediction, bets)],
     components: isOpen ? [buildBetButtons(prediction.id, prediction, false)] : []
-  }).catch((err) => ctx.warn('Impossible de rafraîchir le message de prédiction:', err?.message || err));
+  }).catch((err) => ctx.warn('Unable to refresh prediction message:', err?.message || err));
 }
 
 async function fetchPrediction(guildId, predictionId) {
@@ -247,34 +246,34 @@ async function fetchPrediction(guildId, predictionId) {
 const slashCommands = [
   {
     name: 'predictions',
-    description: 'Créer une prédiction PrissCoins avec 2 propositions à parier',
+    description: 'Create a PrissCoins prediction with 2 propositions to bet on',
     dm_permission: false,
     default_member_permissions: String(PermissionsBitField.Flags.ManageGuild),
     options: [
       {
         name: 'option1',
-        description: 'Première proposition (ex: "PSG gagne")',
+        description: 'First proposition (e.g. "PSG wins")',
         type: ApplicationCommandOptionType.String,
         required: true,
         max_length: 80
       },
       {
         name: 'option2',
-        description: 'Deuxième proposition (ex: "Real Madrid gagne")',
+        description: 'Second proposition (e.g. "Real Madrid wins")',
         type: ApplicationCommandOptionType.String,
         required: true,
         max_length: 80
       },
       {
         name: 'question',
-        description: 'Titre de la prédiction (défaut : "Qui va gagner ?")',
+        description: 'Prediction title (default: "Who is going to win?")',
         type: ApplicationCommandOptionType.String,
         required: false,
         max_length: 150
       },
       {
         name: 'channel',
-        description: 'Salon où publier la prédiction (défaut : salon actuel)',
+        description: 'Channel to post the prediction in (default: current channel)',
         type: ApplicationCommandOptionType.Channel,
         required: false
       }
@@ -282,26 +281,26 @@ const slashCommands = [
   },
   {
     name: 'validate_predictions',
-    description: 'Valider le résultat d\'une prédiction ou la supprimer',
+    description: 'Validate the result of a prediction or delete it',
     dm_permission: false,
     default_member_permissions: String(PermissionsBitField.Flags.ManageGuild),
     options: [
       {
         name: 'prediction',
-        description: 'La prédiction concernée',
+        description: 'The prediction to resolve',
         type: ApplicationCommandOptionType.Integer,
         required: true,
         autocomplete: true
       },
       {
-        name: 'resultat',
-        description: 'Résultat à appliquer',
+        name: 'result',
+        description: 'Result to apply',
         type: ApplicationCommandOptionType.String,
         required: true,
         choices: [
-          { name: '✅ Option 1 gagne', value: 'option1' },
-          { name: '✅ Option 2 gagne', value: 'option2' },
-          { name: '🚫 Supprimer / Annuler (rembourse tout le monde)', value: 'cancel' }
+          { name: '✅ Option 1 wins', value: 'option1' },
+          { name: '✅ Option 2 wins', value: 'option2' },
+          { name: '🚫 Delete / Cancel (refunds everyone)', value: 'cancel' }
         ]
       }
     ]
@@ -315,12 +314,12 @@ async function handleCreateCommand(interaction) {
 
   const option1 = interaction.options.getString('option1', true).trim();
   const option2 = interaction.options.getString('option2', true).trim();
-  const question = interaction.options.getString('question')?.trim() || 'Qui va gagner ?';
+  const question = interaction.options.getString('question')?.trim() || 'Who is going to win?';
   const channelOption = interaction.options.getChannel('channel');
   const targetChannel = channelOption?.isTextBased() ? channelOption : interaction.channel;
 
   if (!targetChannel?.isTextBased()) {
-    await interaction.editReply({ content: '❌ Salon invalide.' });
+    await interaction.editReply({ content: '❌ Invalid channel.' });
     return true;
   }
 
@@ -339,8 +338,8 @@ async function handleCreateCommand(interaction) {
     .single();
 
   if (error) {
-    ctx.error('Échec de création de la prédiction:', error);
-    await interaction.editReply({ content: '❌ Erreur lors de la création de la prédiction.' });
+    ctx.error('Failed to create prediction:', error);
+    await interaction.editReply({ content: '❌ Error while creating the prediction.' });
     return true;
   }
 
@@ -352,7 +351,7 @@ async function handleCreateCommand(interaction) {
   await ctx.supabase.from(PREDICTIONS_TABLE).update({ message_id: sentMessage.id }).eq('id', prediction.id);
 
   await interaction.editReply({
-    content: `✅ Prédiction #${prediction.id} publiée dans ${targetChannel} !`
+    content: `✅ Prediction #${prediction.id} posted in ${targetChannel}!`
   });
 
   return true;
@@ -363,7 +362,7 @@ async function handleBetButton(interaction) {
 
   const prediction = await fetchPrediction(interaction.guild.id, predictionId);
   if (!prediction || prediction.status !== 'open') {
-    await interaction.reply({ content: '❌ Cette prédiction n\'accepte plus de mises.', flags: MessageFlags.Ephemeral });
+    await interaction.reply({ content: '❌ This prediction no longer accepts bets.', flags: MessageFlags.Ephemeral });
     return;
   }
 
@@ -377,7 +376,7 @@ async function handleBetButton(interaction) {
   if (existingBet) {
     const label = existingBet.option === 1 ? prediction.option1_label : prediction.option2_label;
     await interaction.reply({
-      content: `⚠️ Tu as déjà misé **${existingBet.amount} PrissCoins** sur **${label}**. Une seule mise par prédiction.`,
+      content: `⚠️ You already bet **${existingBet.amount} PrissCoins** on **${label}**. Only one bet per prediction.`,
       flags: MessageFlags.Ephemeral
     });
     return;
@@ -388,14 +387,14 @@ async function handleBetButton(interaction) {
 
   const modal = new ModalBuilder()
     .setCustomId(`${BET_MODAL_PREFIX}:${predictionId}:${option}`)
-    .setTitle(`Miser sur : ${label}`.slice(0, 45))
+    .setTitle(`Bet on: ${label}`.slice(0, 45))
     .addComponents(
       new ActionRowBuilder().addComponents(
         new TextInputBuilder()
           .setCustomId('amount')
-          .setLabel(`Montant (solde : ${wallet.balance} PrissCoins)`)
+          .setLabel(`Amount (balance: ${wallet.balance} PrissCoins)`)
           .setStyle(TextInputStyle.Short)
-          .setPlaceholder(`Entre ${MIN_BET} et ${wallet.balance}`)
+          .setPlaceholder(`Between ${MIN_BET} and ${wallet.balance}`)
           .setRequired(true)
           .setMaxLength(7)
       )
@@ -410,7 +409,7 @@ async function handleBetModalSubmit(interaction) {
 
   const prediction = await fetchPrediction(interaction.guild.id, predictionId);
   if (!prediction || prediction.status !== 'open') {
-    await interaction.reply({ content: '❌ Cette prédiction n\'accepte plus de mises.', flags: MessageFlags.Ephemeral });
+    await interaction.reply({ content: '❌ This prediction no longer accepts bets.', flags: MessageFlags.Ephemeral });
     return;
   }
 
@@ -419,21 +418,21 @@ async function handleBetModalSubmit(interaction) {
   const wallet = await getOrCreateWallet(interaction.guild.id, interaction.user.id);
 
   if (!Number.isFinite(amount) || amount < MIN_BET) {
-    await interaction.reply({ content: `❌ Mise minimum : ${MIN_BET} PrissCoins.`, flags: MessageFlags.Ephemeral });
+    await interaction.reply({ content: `❌ Minimum bet: ${MIN_BET} PrissCoins.`, flags: MessageFlags.Ephemeral });
     return;
   }
 
   if (amount > MAX_BET) {
-    await interaction.reply({ content: `❌ Mise maximum : ${MAX_BET} PrissCoins.`, flags: MessageFlags.Ephemeral });
+    await interaction.reply({ content: `❌ Maximum bet: ${MAX_BET} PrissCoins.`, flags: MessageFlags.Ephemeral });
     return;
   }
 
   if (amount > wallet.balance) {
-    await interaction.reply({ content: `❌ Solde insuffisant (${wallet.balance} PrissCoins).`, flags: MessageFlags.Ephemeral });
+    await interaction.reply({ content: `❌ Insufficient balance (${wallet.balance} PrissCoins).`, flags: MessageFlags.Ephemeral });
     return;
   }
 
-  // On revérifie qu'aucune mise n'a été posée entre-temps (double-clic, deux modals ouverts...).
+  // Re-check that no bet was placed in the meantime (double-click, two modals open...).
   const { data: existingBet } = await ctx.supabase
     .from(BETS_TABLE)
     .select('id')
@@ -442,7 +441,7 @@ async function handleBetModalSubmit(interaction) {
     .maybeSingle();
 
   if (existingBet) {
-    await interaction.reply({ content: '⚠️ Tu as déjà une mise sur cette prédiction.', flags: MessageFlags.Ephemeral });
+    await interaction.reply({ content: '⚠️ You already have a bet on this prediction.', flags: MessageFlags.Ephemeral });
     return;
   }
 
@@ -458,10 +457,10 @@ async function handleBetModalSubmit(interaction) {
   });
 
   if (error) {
-    // Remboursement en cas d'échec d'enregistrement de la mise.
+    // Refund if the bet failed to save.
     await adjustWallet(interaction.guild.id, interaction.user.id, amount, { wagerDelta: -amount });
-    ctx.error('Échec d\'enregistrement de la mise:', error);
-    await interaction.reply({ content: '❌ Erreur lors de la mise.', flags: MessageFlags.Ephemeral });
+    ctx.error('Failed to save bet:', error);
+    await interaction.reply({ content: '❌ Error while placing the bet.', flags: MessageFlags.Ephemeral });
     return;
   }
 
@@ -479,14 +478,14 @@ async function handleBetModalSubmit(interaction) {
     embeds: [
       new EmbedBuilder()
         .setColor(0x2ecc71)
-        .setTitle('✅ Mise enregistrée !')
+        .setTitle('✅ Bet placed!')
         .addFields(
           { name: 'Proposition', value: label, inline: true },
-          { name: 'Mise', value: `${amount} PrissCoins`, inline: true },
-          { name: 'Gain potentiel (estimé)', value: `**${estimatedGain} PrissCoins**`, inline: true },
-          { name: 'Nouveau solde', value: `${wallet.balance - amount} PrissCoins`, inline: true }
+          { name: 'Bet', value: `${amount} PrissCoins`, inline: true },
+          { name: 'Estimated gain', value: `**${estimatedGain} PrissCoins**`, inline: true },
+          { name: 'New balance', value: `${wallet.balance - amount} PrissCoins`, inline: true }
         )
-        .setFooter({ text: 'Le gain final dépend des mises totales au moment de la validation.' })
+        .setFooter({ text: 'The final payout depends on total bets at the time of validation.' })
     ],
     flags: MessageFlags.Ephemeral
   });
@@ -505,21 +504,21 @@ async function handleBalanceButton(interaction) {
 
   const prediction = await fetchPrediction(interaction.guild.id, predictionId);
 
-  const fields = [{ name: '💰 Solde', value: `**${wallet.balance} PrissCoins**`, inline: true }];
+  const fields = [{ name: '💰 Balance', value: `**${wallet.balance} PrissCoins**`, inline: true }];
 
   if (bet && prediction) {
     const label = bet.option === 1 ? prediction.option1_label : prediction.option2_label;
-    const statusText = { pending: '⏳ En attente', won: '✅ Gagné', lost: '❌ Perdu', refunded: '↩️ Remboursé' }[bet.status] || bet.status;
+    const statusText = { pending: '⏳ Pending', won: '✅ Won', lost: '❌ Lost', refunded: '↩️ Refunded' }[bet.status] || bet.status;
     fields.push(
-      { name: 'Ta mise', value: `${bet.amount} PrissCoins sur **${label}**`, inline: true },
-      { name: 'Statut', value: statusText, inline: true }
+      { name: 'Your bet', value: `${bet.amount} PrissCoins on **${label}**`, inline: true },
+      { name: 'Status', value: statusText, inline: true }
     );
   } else {
-    fields.push({ name: 'Ta mise', value: 'Aucune mise sur cette prédiction', inline: true });
+    fields.push({ name: 'Your bet', value: 'No bet on this prediction', inline: true });
   }
 
   await interaction.reply({
-    embeds: [new EmbedBuilder().setColor(0x3498db).setTitle('Ton portefeuille PrissCoins').addFields(fields)],
+    embeds: [new EmbedBuilder().setColor(0x3498db).setTitle('Your PrissCoins wallet').addFields(fields)],
     flags: MessageFlags.Ephemeral
   });
 }
@@ -530,22 +529,22 @@ async function handleValidateCommand(interaction) {
   await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
   const predictionId = interaction.options.getInteger('prediction', true);
-  const resultat = interaction.options.getString('resultat', true);
+  const result = interaction.options.getString('result', true);
 
   const prediction = await fetchPrediction(interaction.guild.id, predictionId);
   if (!prediction) {
-    await interaction.editReply({ content: `❌ Prédiction #${predictionId} introuvable.` });
+    await interaction.editReply({ content: `❌ Prediction #${predictionId} not found.` });
     return true;
   }
 
   if (prediction.status !== 'open') {
-    await interaction.editReply({ content: `❌ Cette prédiction est déjà ${prediction.status === 'cancelled' ? 'annulée' : 'validée'}.` });
+    await interaction.editReply({ content: `❌ This prediction is already ${prediction.status === 'cancelled' ? 'cancelled' : 'validated'}.` });
     return true;
   }
 
   const bets = await fetchBets(predictionId);
 
-  if (resultat === 'cancel') {
+  if (result === 'cancel') {
     for (const bet of bets) {
       await adjustWallet(interaction.guild.id, bet.user_id, bet.amount, { wagerDelta: -bet.amount });
       await ctx.supabase.from(BETS_TABLE).update({ status: 'refunded' }).eq('id', bet.id);
@@ -560,12 +559,12 @@ async function handleValidateCommand(interaction) {
     await refreshPredictionMessage(updatedPrediction);
 
     await interaction.editReply({
-      content: `🚫 Prédiction #${predictionId} annulée. ${bets.length} mise(s) remboursée(s).`
+      content: `🚫 Prediction #${predictionId} cancelled. ${bets.length} bet(s) refunded.`
     });
     return true;
   }
 
-  const winnerOption = resultat === 'option1' ? 1 : 2;
+  const winnerOption = result === 'option1' ? 1 : 2;
   const winningBets = bets.filter((b) => b.option === winnerOption);
   const losingBets = bets.filter((b) => b.option !== winnerOption);
   const winningPool = winningBets.reduce((s, b) => s + b.amount, 0);
@@ -575,14 +574,14 @@ async function handleValidateCommand(interaction) {
   const gainLines = [];
 
   for (const bet of winningBets) {
-    // Chaque gagnant récupère sa mise + une part de la cagnotte des perdants
-    // proportionnelle à sa mise (parimutuel classique).
+    // Each winner gets their stake back plus a share of the losers' pool
+    // proportional to their bet (classic parimutuel payout).
     const payout = Math.floor(bet.amount * (totalPool / winningPool));
     const profit = payout - bet.amount;
 
     await adjustWallet(interaction.guild.id, bet.user_id, payout, { wonDelta: Math.max(0, profit) });
     await ctx.supabase.from(BETS_TABLE).update({ status: 'won', payout }).eq('id', bet.id);
-    gainLines.push(`<@${bet.user_id}> : ${bet.amount} → **${payout} PrissCoins**`);
+    gainLines.push(`<@${bet.user_id}>: ${bet.amount} → **${payout} PrissCoins**`);
   }
 
   for (const bet of losingBets) {
@@ -607,11 +606,11 @@ async function handleValidateCommand(interaction) {
         embeds: [
           new EmbedBuilder()
             .setColor(0xf1c40f)
-            .setTitle(`🏆 Résultat — ${prediction.question}`)
+            .setTitle(`🏆 Result — ${prediction.question}`)
             .setDescription(
-              `**${winnerLabel}** l'emporte !\n\n${
-                gainLines.length ? `**Gagnants :**\n${gainLines.join('\n')}` : 'Aucun gagnant sur ce coup-ci.'
-              }${losingBets.length ? `\n\n${losingBets.length} parieur(s) reparten(t) bredouille.` : ''}`
+              `**${winnerLabel}** wins!\n\n${
+                gainLines.length ? `**Winners:**\n${gainLines.join('\n')}` : 'No winner this time.'
+              }${losingBets.length ? `\n\n${losingBets.length} bettor(s) walk away empty-handed.` : ''}`
             )
             .setTimestamp(new Date())
         ]
@@ -620,7 +619,7 @@ async function handleValidateCommand(interaction) {
   }
 
   await interaction.editReply({
-    content: `✅ Prédiction #${predictionId} validée : **${winnerLabel}** gagne. ${winningBets.length} gagnant(s), ${losingBets.length} perdant(s).`
+    content: `✅ Prediction #${predictionId} validated: **${winnerLabel}** wins. ${winningBets.length} winner(s), ${losingBets.length} loser(s).`
   });
 
   return true;
@@ -648,13 +647,13 @@ async function handleAutocomplete(interaction) {
       })
       .slice(0, 25)
       .map((p) => ({
-        name: `#${p.id} — ${p.question} (${p.status === 'open' ? 'ouverte' : p.status === 'closed' ? 'validée' : 'annulée'})`.slice(0, 100),
+        name: `#${p.id} — ${p.question} (${p.status === 'open' ? 'open' : p.status === 'closed' ? 'validated' : 'cancelled'})`.slice(0, 100),
         value: p.id
       }));
 
     await interaction.respond(suggestions);
   } catch (err) {
-    ctx.warn('Autocomplete /validate_predictions échoué:', err?.message || err);
+    ctx.warn('Autocomplete for /validate_predictions failed:', err?.message || err);
     try {
       await interaction.respond([]);
     } catch {
@@ -666,7 +665,7 @@ async function handleAutocomplete(interaction) {
 }
 
 // ========================
-// HANDLER PRINCIPAL
+// MAIN HANDLER
 // ========================
 
 async function handleInteraction(interaction) {
