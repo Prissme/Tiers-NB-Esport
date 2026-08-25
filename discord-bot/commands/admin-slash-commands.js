@@ -270,6 +270,46 @@ function buildAdminSlashCommands({ localizeText, optionType, adminPermission }) 
       description: localizeText({ fr: "Réinitialiser l'Elo de tous les joueurs", en: 'Reset every player Elo' }),
       dm_permission: false,
       default_member_permissions: adminPermission
+    },
+    {
+      name: 'addearnings',
+      description: localizeText({ fr: 'Ajouter des gains (€) au profil d’un joueur', en: 'Add earnings (€) to a player profile' }),
+      dm_permission: false,
+      default_member_permissions: adminPermission,
+      options: [
+        {
+          name: 'player',
+          description: localizeText({ fr: 'Joueur ciblé', en: 'Target player' }),
+          type: optionType.User,
+          required: true
+        },
+        {
+          name: 'amount',
+          description: localizeText({ fr: 'Montant à ajouter (peut être négatif pour retirer)', en: 'Amount to add (can be negative to remove)' }),
+          type: optionType.Number,
+          required: true
+        }
+      ]
+    },
+    {
+      name: 'changecountry',
+      description: localizeText({ fr: 'Changer le pays d’un joueur', en: 'Change a player country' }),
+      dm_permission: false,
+      default_member_permissions: adminPermission,
+      options: [
+        {
+          name: 'player',
+          description: localizeText({ fr: 'Joueur ciblé', en: 'Target player' }),
+          type: optionType.User,
+          required: true
+        },
+        {
+          name: 'country',
+          description: localizeText({ fr: 'Nom ou code ISO du pays (ex: France, FR)', en: 'Country name or ISO code (e.g. France, FR)' }),
+          type: optionType.String,
+          required: true
+        }
+      ]
     }
   ];
 
