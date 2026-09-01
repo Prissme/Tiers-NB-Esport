@@ -1490,7 +1490,8 @@ async function handleAdminSlashCommand(interaction) {
       'resetelo',
       'counters',
       'addearnings',
-      'changecountry'
+      'changecountry',
+      'addgn'
     ].includes(command)
   ) {
     return false;
@@ -2016,7 +2017,7 @@ async function handleAdminSlashCommand(interaction) {
     return true;
   }
 
-  if (command === 'addearnings' || command === 'changecountry') {
+  if (command === 'addearnings' || command === 'changecountry' || command === 'addgn') {
     const { data: existingProfile, error: fetchProfileError } = await supabase
       .from('lfn_player_profiles')
       .select('*')
@@ -2040,6 +2041,7 @@ async function handleAdminSlashCommand(interaction) {
       country_code: existingProfile?.country_code || 'FR',
       description: existingProfile?.description || '',
       ballon_dor: existingProfile?.ballon_dor || 0,
+      golden_nullser: existingProfile?.golden_nullser || 0,
       team_id: existingProfile?.team_id || null,
       earnings: existingProfile?.earnings || 0,
       updated_at: new Date().toISOString()
@@ -2077,6 +2079,45 @@ async function handleAdminSlashCommand(interaction) {
               { name: localizeText({ fr: 'Delta', en: 'Delta' }), value: `${delta >= 0 ? '+' : ''}${delta} €`, inline: true }
             )
             .setColor(delta >= 0 ? 0x2ecc71 : 0xe74c3c)
+            .setTimestamp(new Date())
+        ],
+        flags: MessageFlags.Ephemeral
+      });
+      return true;
+    }
+
+    if (command === 'addgn') {
+      const delta = interaction.options.getInteger('amount') ?? 1;
+      const currentGn = Number(existingProfile?.golden_nullser || 0);
+      const nextGn = Math.max(0, currentGn + delta);
+
+      const { error: upsertError } = await supabase
+        .from('lfn_player_profiles')
+        .upsert({ ...basePayload, golden_nullser: nextGn }, { onConflict: 'player_id' });
+
+      if (upsertError) {
+        errorLog('Failed to update player golden nullser count:', upsertError);
+        await interaction.reply({
+          content: localizeText({
+            fr: 'Erreur lors de la mise à jour du nombre de Golden Nullser.',
+            en: 'Error while updating the Golden Nullser count.'
+          }),
+          flags: MessageFlags.Ephemeral
+        });
+        return true;
+      }
+
+      await interaction.reply({
+        embeds: [
+          new EmbedBuilder()
+            .setTitle(localizeText({ fr: 'Golden Nullser mis à jour', en: 'Golden Nullser updated' }))
+            .setDescription(`<@${targetUser.id}>`)
+            .addFields(
+              { name: localizeText({ fr: 'Ancien total', en: 'Previous total' }), value: `${currentGn}`, inline: true },
+              { name: localizeText({ fr: 'Nouveau total', en: 'New total' }), value: `${nextGn}`, inline: true },
+              { name: localizeText({ fr: 'Delta', en: 'Delta' }), value: `${delta >= 0 ? '+' : ''}${delta}`, inline: true }
+            )
+            .setColor(delta >= 0 ? 0xf1c40f : 0xe74c3c)
             .setTimestamp(new Date())
         ],
         flags: MessageFlags.Ephemeral
@@ -2565,7 +2606,7 @@ async function fetchSiteTierLeaderboard() {
 
   let query = supabase
     .from('lfn_player_tier_points')
-    .select('player_id, points, tier, players!inner(id, name, discord_id, active), lfn_player_profiles(player_id, country_code, ballon_dor, earnings, team_id)')
+    .select('player_id, points, tier, players!inner(id, name, discord_id, active), lfn_player_profiles(player_id, country_code, ballon_dor, golden_nullser, earnings, team_id)')
     .order('points', { ascending: false });
 
   if (activeSeasonId) {
@@ -2587,7 +2628,7 @@ async function fetchSiteTierLeaderboard() {
     if (!playerIds.length) return [];
 
     const { data: players } = await supabase.from('players').select('id, name, discord_id, active').in('id', playerIds);
-    const { data: profiles } = await supabase.from('lfn_player_profiles').select('player_id, country_code, ballon_dor, earnings').in('player_id', playerIds);
+    const { data: profiles } = await supabase.from('lfn_player_profiles').select('player_id, country_code, ballon_dor, golden_nullser, earnings').in('player_id', playerIds);
 
     const playerMap = new Map((players || []).map(p => [p.id, p]));
     const profileMap = new Map((profiles || []).map(p => [p.player_id, p]));
@@ -2605,6 +2646,7 @@ async function fetchSiteTierLeaderboard() {
         points: Number(row.points || 0),
         countryCode,
         ballonDor: Number(profile?.ballon_dor || 0),
+        goldenNullser: Number(profile?.golden_nullser || 0),
         earnings: Number(profile?.earnings || 0),
       };
     }).filter(Boolean);
@@ -2626,6 +2668,7 @@ async function fetchSiteTierLeaderboard() {
       points: Number(row.points || 0),
       countryCode,
       ballonDor: Number(profile?.ballon_dor || 0),
+      goldenNullser: Number(profile?.golden_nullser || 0),
       earnings: Number(profile?.earnings || 0),
     };
   }).filter(Boolean);
@@ -5962,12 +6005,14 @@ async function handleTierCommand(message) {
   const tierLabel = String(siteTierPlayer.tier || 'No Tier');
   const tierEmoji = formatTierEmoji(tierLabel);
   const ballonDor = Number(siteTierPlayer.ballonDor || 0);
+  const goldenNullser = Number(siteTierPlayer.goldenNullser || 0);
   const earnings = Number(siteTierPlayer.earnings || 0);
 
   const embedFields = [
     { name: 'Classement global', value: `**${rankLabel}**`, inline: true },
     { name: 'Points', value: `**${Math.round(Number(siteTierPlayer.points || 0))}**`, inline: true },
     { name: "Ballon D'Or", value: `**🏆 ${ballonDor}**`, inline: true },
+    { name: 'Golden Nullser', value: `**⭐ ${goldenNullser}**`, inline: true },
     { name: 'Pays', value: `**${countryFlag} ${countryCode}**`, inline: true }
   ];
 
