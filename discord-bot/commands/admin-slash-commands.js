@@ -310,6 +310,26 @@ function buildAdminSlashCommands({ localizeText, optionType, adminPermission }) 
           required: true
         }
       ]
+    },
+    {
+      name: 'addgn',
+      description: localizeText({ fr: 'Ajouter un Golden Nullser au profil d’un joueur', en: 'Add a Golden Nullser to a player profile' }),
+      dm_permission: false,
+      default_member_permissions: adminPermission,
+      options: [
+        {
+          name: 'player',
+          description: localizeText({ fr: 'Joueur ciblé', en: 'Target player' }),
+          type: optionType.User,
+          required: true
+        },
+        {
+          name: 'amount',
+          description: localizeText({ fr: 'Nombre de Golden Nullser à ajouter (peut être négatif pour retirer)', en: 'Number of Golden Nullser to add (can be negative to remove)' }),
+          type: optionType.Integer,
+          required: false
+        }
+      ]
     }
   ];
 
