@@ -95,6 +95,7 @@ const COUNTRIES = [
   { code: "KR", name: "Corée du Sud" },
   { code: "KW", name: "Koweït" },
   { code: "KZ", name: "Kazakhstan" },
+  { code: "XK", name: "Kosovo" },
   { code: "LA", name: "Laos" },
   { code: "LB", name: "Liban" },
   { code: "LC", name: "Sainte-Lucie" },
