@@ -53,6 +53,7 @@ const COUNTRIES = [
   { code: "EG", name: "Égypte" },
   { code: "ER", name: "Érythrée" },
   { code: "ES", name: "Espagne" },
+  { code: "IC", name: "Îles Canaries" },
   { code: "ET", name: "Éthiopie" },
   { code: "FI", name: "Finlande" },
   { code: "FJ", name: "Fidji" },
@@ -240,7 +241,10 @@ const ALIASES = {
   'italia': 'IT',
   'brasil': 'BR',
   'vietnam': 'VN',
-  'ivoire': 'CI'
+  'ivoire': 'CI',
+  'canaries': 'IC',
+  'canary islands': 'IC',
+  'iles canaries': 'IC'
 };
 
 /**
