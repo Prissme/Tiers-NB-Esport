@@ -2637,15 +2637,22 @@ async function fetchSiteTierLeaderboard() {
   const playerIds = filtered.map(r => r.player_id);
   if (!playerIds.length) return [];
 
+  // Note importante : on ne filtre PAS avec .in('id'/'player_id', playerIds) ici.
+  // Avec ~400 joueurs, ça génère une URL GET de plusieurs milliers de caractères
+  // (chaque UUID fait 36 caractères) qui peut dépasser la limite de taille d'URL
+  // tolérée par certains proxys/reverse-proxys — et ça a fini par arriver en prod
+  // ("TypeError: fetch failed" systématique sur la requête profiles, jamais sur
+  // points qui est plus courte). Les deux tables restent petites (un nb de lignes
+  // proportionnel au nombre de joueurs), donc on récupère tout et on filtre en mémoire.
   const { data: players, error: playersError } = await withNetworkRetry('fetchSiteTierLeaderboard:players', () => (
-    supabase.from('players').select('id, name, discord_id, active').in('id', playerIds)
+    supabase.from('players').select('id, name, discord_id, active')
   ));
   if (playersError) {
     errorLog('[fetchSiteTierLeaderboard] players en échec après retries:', playersError.message || playersError);
   }
 
   const { data: profiles, error: profilesError } = await withNetworkRetry('fetchSiteTierLeaderboard:profiles', () => (
-    supabase.from('lfn_player_profiles').select('player_id, country_code, ballon_dor, golden_nullser, earnings').in('player_id', playerIds)
+    supabase.from('lfn_player_profiles').select('player_id, country_code, ballon_dor, golden_nullser, earnings')
   ));
   if (profilesError) {
     errorLog('[fetchSiteTierLeaderboard] profiles en échec après retries (les pays vont retomber sur FR par défaut !):', profilesError.message || profilesError);
