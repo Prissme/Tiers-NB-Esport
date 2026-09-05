@@ -2616,6 +2616,8 @@ async function fetchSiteTierLeaderboard() {
   const { data, error } = await query;
 
   if (error) {
+    errorLog('[fetchSiteTierLeaderboard] Requête principale (join) en échec, bascule sur le fallback:', error.message || error);
+
     // Fallback sans join si la FK n'est pas déclarée
     const { data: pointsData, error: pointsError } = await (activeSeasonId
       ? supabase.from('lfn_player_tier_points').select('player_id, points, tier').eq('season_id', activeSeasonId).order('points', { ascending: false })
@@ -2627,8 +2629,14 @@ async function fetchSiteTierLeaderboard() {
     const playerIds = filtered.map(r => r.player_id);
     if (!playerIds.length) return [];
 
-    const { data: players } = await supabase.from('players').select('id, name, discord_id, active').in('id', playerIds);
-    const { data: profiles } = await supabase.from('lfn_player_profiles').select('player_id, country_code, ballon_dor, golden_nullser, earnings').in('player_id', playerIds);
+    const { data: players, error: playersError } = await supabase.from('players').select('id, name, discord_id, active').in('id', playerIds);
+    if (playersError) {
+      errorLog('[fetchSiteTierLeaderboard] Fallback players en échec:', playersError.message || playersError);
+    }
+    const { data: profiles, error: profilesError } = await supabase.from('lfn_player_profiles').select('player_id, country_code, ballon_dor, golden_nullser, earnings').in('player_id', playerIds);
+    if (profilesError) {
+      errorLog('[fetchSiteTierLeaderboard] Fallback profiles en échec (les pays vont retomber sur FR par défaut !):', profilesError.message || profilesError);
+    }
 
     const playerMap = new Map((players || []).map(p => [p.id, p]));
     const profileMap = new Map((profiles || []).map(p => [p.player_id, p]));
