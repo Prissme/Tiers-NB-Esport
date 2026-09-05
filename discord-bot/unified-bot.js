@@ -2603,7 +2603,7 @@ function toCountryFlag(countryCode) {
 
 // Petit retry pour absorber les ratés réseau ponctuels ("TypeError: fetch failed")
 // vers Supabase, notamment lors des rafales de requêtes au démarrage du bot.
-async function withNetworkRetry(label, fn, attempts = 3, delayMs = 400) {
+async function withNetworkRetry(label, fn, attempts = 5, baseDelayMs = 500) {
   let lastError = null;
   for (let attempt = 1; attempt <= attempts; attempt++) {
     const result = await fn();
@@ -2611,6 +2611,7 @@ async function withNetworkRetry(label, fn, attempts = 3, delayMs = 400) {
     lastError = result.error;
     const isNetworkError = /fetch failed/i.test(String(result.error?.message || result.error || ''));
     if (!isNetworkError || attempt === attempts) return result;
+    const delayMs = baseDelayMs * Math.pow(2, attempt - 1); // 500, 1000, 2000, 4000...
     warn(`[${label}] Tentative ${attempt}/${attempts} échouée (réseau), nouvel essai dans ${delayMs}ms:`, lastError.message || lastError);
     await new Promise((resolve) => setTimeout(resolve, delayMs));
   }
@@ -9383,6 +9384,12 @@ async function onReady(readyClient) {
     }, 20_000))
   ]);
   log('[onReady] restorePLState terminé.');
+
+  // Petite pause tampon : syncWorstPlayerRole / restorePLState peuvent encore tourner
+  // en tâche de fond après leur timeout (le timeout arrête d'attendre, pas le travail
+  // lui-même). On laisse un peu de marge avant de solliciter Supabase pour les
+  // leaderboards, pour éviter une rafale réseau concurrente au démarrage.
+  await new Promise((resolve) => setTimeout(resolve, 3_000));
 
   // Tier leaderboard
   log('[onReady] Appel initTierLeaderboard...');
