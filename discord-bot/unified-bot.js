@@ -2601,73 +2601,63 @@ function toCountryFlag(countryCode) {
   return String.fromCodePoint(...Array.from(normalized).map((char) => 127397 + char.charCodeAt(0)));
 }
 
+// Petit retry pour absorber les ratés réseau ponctuels ("TypeError: fetch failed")
+// vers Supabase, notamment lors des rafales de requêtes au démarrage du bot.
+async function withNetworkRetry(label, fn, attempts = 3, delayMs = 400) {
+  let lastError = null;
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    const result = await fn();
+    if (!result.error) return result;
+    lastError = result.error;
+    const isNetworkError = /fetch failed/i.test(String(result.error?.message || result.error || ''));
+    if (!isNetworkError || attempt === attempts) return result;
+    warn(`[${label}] Tentative ${attempt}/${attempts} échouée (réseau), nouvel essai dans ${delayMs}ms:`, lastError.message || lastError);
+    await new Promise((resolve) => setTimeout(resolve, delayMs));
+  }
+  return { data: null, error: lastError };
+}
+
 async function fetchSiteTierLeaderboard() {
   const activeSeasonId = await getActiveSeasonId();
 
-  let query = supabase
-    .from('lfn_player_tier_points')
-    .select('player_id, points, tier, players!inner(id, name, discord_id, active), lfn_player_profiles(player_id, country_code, ballon_dor, golden_nullser, earnings, team_id)')
-    .order('points', { ascending: false });
-
-  if (activeSeasonId) {
-    query = query.eq('season_id', activeSeasonId);
-  }
-
-  const { data, error } = await query;
-
-  if (error) {
-    errorLog('[fetchSiteTierLeaderboard] Requête principale (join) en échec, bascule sur le fallback:', error.message || error);
-
-    // Fallback sans join si la FK n'est pas déclarée
-    const { data: pointsData, error: pointsError } = await (activeSeasonId
+  // Remarque : pas de relation FK déclarée entre lfn_player_tier_points et
+  // lfn_player_profiles côté PostgREST, donc un embed jointe échouerait à
+  // chaque appel ("Could not find a relationship..."). On va directement
+  // sur les requêtes séparées plutôt que de perdre un aller-retour à chaque cycle.
+  const { data: pointsData, error: pointsError } = await withNetworkRetry('fetchSiteTierLeaderboard:points', () => (
+    activeSeasonId
       ? supabase.from('lfn_player_tier_points').select('player_id, points, tier').eq('season_id', activeSeasonId).order('points', { ascending: false })
-      : supabase.from('lfn_player_tier_points').select('player_id, points, tier').order('points', { ascending: false }));
+      : supabase.from('lfn_player_tier_points').select('player_id, points, tier').order('points', { ascending: false })
+  ));
 
-    if (pointsError) throw new Error(pointsError.message);
+  if (pointsError) throw new Error(pointsError.message);
 
-    const filtered = (pointsData || []).filter(row => Number(row.points || 0) > 0);
-    const playerIds = filtered.map(r => r.player_id);
-    if (!playerIds.length) return [];
+  const filtered = (pointsData || []).filter(row => Number(row.points || 0) > 0);
+  const playerIds = filtered.map(r => r.player_id);
+  if (!playerIds.length) return [];
 
-    const { data: players, error: playersError } = await supabase.from('players').select('id, name, discord_id, active').in('id', playerIds);
-    if (playersError) {
-      errorLog('[fetchSiteTierLeaderboard] Fallback players en échec:', playersError.message || playersError);
-    }
-    const { data: profiles, error: profilesError } = await supabase.from('lfn_player_profiles').select('player_id, country_code, ballon_dor, golden_nullser, earnings').in('player_id', playerIds);
-    if (profilesError) {
-      errorLog('[fetchSiteTierLeaderboard] Fallback profiles en échec (les pays vont retomber sur FR par défaut !):', profilesError.message || profilesError);
-    }
-
-    const playerMap = new Map((players || []).map(p => [p.id, p]));
-    const profileMap = new Map((profiles || []).map(p => [p.player_id, p]));
-
-    return filtered.map(row => {
-      const player = playerMap.get(row.player_id);
-      if (!player || player.active === false) return null;
-      const profile = profileMap.get(row.player_id);
-      const countryCode = /^[A-Z]{2}$/.test(String(profile?.country_code || '').toUpperCase()) ? String(profile.country_code).toUpperCase() : 'FR';
-      return {
-        id: row.player_id,
-        name: player.name || 'Joueur',
-        discordId: player.discord_id || null,
-        tier: row.tier || 'Tier E',
-        points: Number(row.points || 0),
-        countryCode,
-        ballonDor: Number(profile?.ballon_dor || 0),
-        goldenNullser: Number(profile?.golden_nullser || 0),
-        earnings: Number(profile?.earnings || 0),
-      };
-    }).filter(Boolean);
+  const { data: players, error: playersError } = await withNetworkRetry('fetchSiteTierLeaderboard:players', () => (
+    supabase.from('players').select('id, name, discord_id, active').in('id', playerIds)
+  ));
+  if (playersError) {
+    errorLog('[fetchSiteTierLeaderboard] players en échec après retries:', playersError.message || playersError);
   }
 
-  const filtered = (data || []).filter(row => Number(row.points || 0) > 0);
+  const { data: profiles, error: profilesError } = await withNetworkRetry('fetchSiteTierLeaderboard:profiles', () => (
+    supabase.from('lfn_player_profiles').select('player_id, country_code, ballon_dor, golden_nullser, earnings').in('player_id', playerIds)
+  ));
+  if (profilesError) {
+    errorLog('[fetchSiteTierLeaderboard] profiles en échec après retries (les pays vont retomber sur FR par défaut !):', profilesError.message || profilesError);
+  }
+
+  const playerMap = new Map((players || []).map(p => [p.id, p]));
+  const profileMap = new Map((profiles || []).map(p => [p.player_id, p]));
+
   return filtered.map(row => {
-    const player = row.players;
+    const player = playerMap.get(row.player_id);
     if (!player || player.active === false) return null;
-    const profileRaw = row.lfn_player_profiles;
-    const profile = Array.isArray(profileRaw) ? profileRaw[0] : profileRaw;
-    const rawCountry = String(profile?.country_code || '').trim().toUpperCase();
-    const countryCode = /^[A-Z]{2}$/.test(rawCountry) ? rawCountry : 'FR';
+    const profile = profileMap.get(row.player_id);
+    const countryCode = /^[A-Z]{2}$/.test(String(profile?.country_code || '').toUpperCase()) ? String(profile.country_code).toUpperCase() : 'FR';
     return {
       id: row.player_id,
       name: player.name || 'Joueur',
@@ -2680,7 +2670,6 @@ async function fetchSiteTierLeaderboard() {
       earnings: Number(profile?.earnings || 0),
     };
   }).filter(Boolean);
-  // Pas de .sort() ici : la requête Supabase ordonne déjà par points (P2).
 }
 
 async function fetchSiteTierPlayerByDiscordId(discordId) {
