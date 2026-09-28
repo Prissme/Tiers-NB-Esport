@@ -2651,9 +2651,15 @@ async function fetchSiteTierLeaderboard() {
     errorLog('[fetchSiteTierLeaderboard] players en échec après retries:', playersError.message || playersError);
   }
 
-  const { data: profiles, error: profilesError } = await withNetworkRetry('fetchSiteTierLeaderboard:profiles', () => (
-    supabase.from('lfn_player_profiles').select('player_id, country_code, ballon_dor, golden_nullser, earnings')
+  let { data: profiles, error: profilesError } = await withNetworkRetry('fetchSiteTierLeaderboard:profiles', () => (
+    supabase.from('lfn_player_profiles').select('player_id, country_code, ballon_dor, golden_nullser, earnings, win_streak')
   ));
+  // Colonne win_streak pas encore migrée : on retombe sur l'ancien select pour ne pas casser les pays
+  if (profilesError?.code === '42703') {
+    ({ data: profiles, error: profilesError } = await withNetworkRetry('fetchSiteTierLeaderboard:profiles-legacy', () => (
+      supabase.from('lfn_player_profiles').select('player_id, country_code, ballon_dor, golden_nullser, earnings')
+    )));
+  }
   if (profilesError) {
     errorLog('[fetchSiteTierLeaderboard] profiles en échec après retries (les pays vont retomber sur FR par défaut !):', profilesError.message || profilesError);
   }
@@ -2676,6 +2682,7 @@ async function fetchSiteTierLeaderboard() {
       ballonDor: Number(profile?.ballon_dor || 0),
       goldenNullser: Number(profile?.golden_nullser || 0),
       earnings: Number(profile?.earnings || 0),
+      winStreak: Number(profile?.win_streak || 0),
     };
   }).filter(Boolean);
 }
@@ -6001,9 +6008,8 @@ async function handleTierCommand(message) {
   const playerRank = tierLeaderboard.findIndex(
     (player) => String(player?.discordId || '') === String(targetUser.id)
   ) + 1;
-  const totalPlayers = tierLeaderboard.length || null;
   const rankLabel = playerRank
-    ? `#${playerRank}${totalPlayers ? `/${totalPlayers}` : ''}`
+    ? `#${playerRank}`
     : localizeText({ fr: 'Non classé', en: 'Unranked' });
   const countryCode = String(siteTierPlayer.countryCode || 'FR').toUpperCase();
   const countryFlag = toCountryFlag(countryCode);
@@ -6012,6 +6018,7 @@ async function handleTierCommand(message) {
   const ballonDor = Number(siteTierPlayer.ballonDor || 0);
   const goldenNullser = Number(siteTierPlayer.goldenNullser || 0);
   const earnings = Number(siteTierPlayer.earnings || 0);
+  const winStreak = Number(siteTierPlayer.winStreak || 0);
 
   const embedFields = [
     { name: 'Classement global', value: `**${rankLabel}**`, inline: true },
@@ -6027,6 +6034,10 @@ async function handleTierCommand(message) {
       value: `**💰 ${earnings.toLocaleString('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: 2 })} €**`,
       inline: true
     });
+  }
+
+  if (winStreak > 0) {
+    embedFields.push({ name: 'Winstreak', value: `**🔥 ${winStreak}**`, inline: true });
   }
 
   await message.reply({
