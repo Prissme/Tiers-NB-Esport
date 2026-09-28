@@ -36,6 +36,7 @@ type TierPlayer = {
   description?: string;
   ballonDor?: number;
   earnings?: number;
+  winStreak?: number;
 };
 
 const toFlag = (countryCode?: string) => {
@@ -62,6 +63,7 @@ type NewPlayerForm = {
   description: string;
   ballonDor: number;
   earnings: number;
+  winStreak: number;
 };
 
 const defaultNewPlayer: NewPlayerForm = {
@@ -72,6 +74,7 @@ const defaultNewPlayer: NewPlayerForm = {
   description: "",
   ballonDor: 0,
   earnings: 0,
+  winStreak: 0,
 };
 
 export default function AdminPage() {
@@ -162,6 +165,7 @@ export default function AdminPage() {
     description: string;
     ballonDor: number;
     earnings: number;
+    winStreak: number;
   }) => {
     const { playerId } = payload;
     setUpdatingPlayerId(playerId);
@@ -186,7 +190,7 @@ export default function AdminPage() {
   };
 
   const createTierPlayer = async () => {
-    const { name, tier, points, countryCode, description, ballonDor, earnings } = newPlayer;
+    const { name, tier, points, countryCode, description, ballonDor, earnings, winStreak } = newPlayer;
     if (!name.trim()) {
       setErrorMessage("Le pseudo est obligatoire.");
       return;
@@ -200,7 +204,7 @@ export default function AdminPage() {
       const response = await fetch("/api/admin/player-standings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: name.trim(), tier, points, countryCode, description, ballonDor, earnings, seasonId }),
+        body: JSON.stringify({ name: name.trim(), tier, points, countryCode, description, ballonDor, earnings, winStreak, seasonId }),
       });
       if (!response.ok) {
         const body = (await response.json()) as { error?: string };
@@ -237,6 +241,27 @@ export default function AdminPage() {
     fetchSeasons();
     fetchTeams();
   }, []);
+
+  // Garde la session admin vivante (session glissante côté serveur) :
+  // ping toutes les 10 min + au retour sur l'onglet, pour ne plus être déconnecté
+  useEffect(() => {
+    const ping = () => {
+      fetch("/api/admin/session", { cache: "no-store" })
+        .then((res) => {
+          if (res.status === 401) router.replace("/admin/login");
+        })
+        .catch(() => {});
+    };
+    const interval = window.setInterval(ping, 10 * 60 * 1000);
+    const onVisible = () => {
+      if (document.visibilityState === "visible") ping();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      window.clearInterval(interval);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [router]);
 
   useEffect(() => {
     fetchAllMatches(seasonId);
@@ -562,6 +587,22 @@ export default function AdminPage() {
             </div>
 
             <div>
+              <label className="block text-xs uppercase tracking-[0.25em] text-white/50 mb-1">
+                Winstreak 🔥
+              </label>
+              <input
+                type="number"
+                min={0}
+                step="1"
+                value={newPlayer.winStreak}
+                onChange={(e) =>
+                  setNewPlayer((prev) => ({ ...prev, winStreak: Number(e.target.value) }))
+                }
+                className="surface-input"
+              />
+            </div>
+
+            <div>
               <button
                 type="button"
                 onClick={createTierPlayer}
@@ -666,6 +707,7 @@ type PlayerEditRowProps = {
     description: string;
     ballonDor: number;
     earnings: number;
+    winStreak: number;
   }) => void;
   onError: (msg: string) => void;
 };
@@ -679,6 +721,7 @@ function PlayerEditRow({ player, updating, onSave, onError }: PlayerEditRowProps
   const [description, setDescription] = useState(player.description ?? "");
   const [ballonDor, setBallonDor] = useState(player.ballonDor ?? 0);
   const [earnings, setEarnings] = useState(player.earnings ?? 0);
+  const [winStreak, setWinStreak] = useState(player.winStreak ?? 0);
 
   const handleSave = () => {
     if (!Number.isInteger(points)) {
@@ -697,7 +740,11 @@ function PlayerEditRow({ player, updating, onSave, onError }: PlayerEditRowProps
       onError("Les earnings doivent être un nombre positif.");
       return;
     }
-    onSave({ points, tier, countryCode: countryCode.toUpperCase(), description, ballonDor, earnings });
+    if (!Number.isInteger(winStreak) || winStreak < 0) {
+      onError("Le winstreak doit être un nombre entier positif.");
+      return;
+    }
+    onSave({ points, tier, countryCode: countryCode.toUpperCase(), description, ballonDor, earnings, winStreak });
   };
 
   return (
@@ -784,6 +831,20 @@ function PlayerEditRow({ player, updating, onSave, onError }: PlayerEditRowProps
           value={earnings}
           onChange={(e) => setEarnings(Number(e.target.value))}
           placeholder="Gains en argent (€)"
+          className="surface-input"
+        />
+      </div>
+      <div>
+        <label className="block text-xs uppercase tracking-[0.25em] text-white/50 mb-1">
+          Winstreak 🔥
+        </label>
+        <input
+          type="number"
+          min={0}
+          step="1"
+          value={winStreak}
+          onChange={(e) => setWinStreak(Number(e.target.value))}
+          placeholder="Victoires d'affilée"
           className="surface-input"
         />
       </div>
