@@ -19,6 +19,7 @@ export async function PATCH(request: Request) {
       description?: string;
       ballonDor?: number;
       earnings?: number;
+      winStreak?: number;
       seasonId?: string;
     };
     const playerId = String(body.playerId ?? "").trim();
@@ -28,6 +29,7 @@ export async function PATCH(request: Request) {
     const description = String(body.description ?? "").trim();
     const ballonDor = Number.isFinite(Number(body.ballonDor)) ? Math.max(0, Math.trunc(Number(body.ballonDor))) : 0;
     const earnings = Number.isFinite(Number(body.earnings)) ? Math.max(0, Number(body.earnings)) : 0;
+    const winStreak = Number.isFinite(Number(body.winStreak)) ? Math.max(0, Math.trunc(Number(body.winStreak))) : 0;
     const requestedSeasonId = String(body.seasonId ?? "").trim();
 
     if (
@@ -88,8 +90,11 @@ export async function PATCH(request: Request) {
           player_id: playerId,
           country_code: countryCode,
           description,
-          ballon_dor: ballonDor,
-          earnings,
+          // On n'écrit ces champs que s'ils sont réellement envoyés : avant, une valeur
+          // absente retombait sur 0 et écrasait les earnings existants à chaque sauvegarde
+          ...(body.ballonDor !== undefined ? { ballon_dor: ballonDor } : {}),
+          ...(body.earnings !== undefined ? { earnings } : {}),
+          ...(body.winStreak !== undefined ? { win_streak: winStreak } : {}),
           updated_at: new Date().toISOString(),
         },
         { onConflict: "player_id" }
@@ -133,6 +138,7 @@ export async function POST(request: Request) {
       description?: string;
       ballonDor?: number;
       earnings?: number;
+      winStreak?: number;
       seasonId?: string;
     };
 
@@ -143,6 +149,7 @@ export async function POST(request: Request) {
     const description = String(body.description ?? "").trim();
     const ballonDor = Number.isFinite(Number(body.ballonDor)) ? Math.max(0, Math.trunc(Number(body.ballonDor))) : 0;
     const earnings = Number.isFinite(Number(body.earnings)) ? Math.max(0, Number(body.earnings)) : 0;
+    const winStreak = Number.isFinite(Number(body.winStreak)) ? Math.max(0, Math.trunc(Number(body.winStreak))) : 0;
     const requestedSeasonId = String(body.seasonId ?? "").trim();
 
     if (
@@ -217,6 +224,7 @@ export async function POST(request: Request) {
           description,
           ballon_dor: ballonDor,
           earnings,
+          win_streak: winStreak,
           updated_at: new Date().toISOString(),
         },
         { onConflict: "player_id" }
