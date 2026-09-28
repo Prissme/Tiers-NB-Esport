@@ -22,6 +22,7 @@ type PlayerStanding = {
   teamName?: string | null;
   teamTag?: string | null;
   earnings?: number;
+  winStreak?: number;
 };
 
 const tierImageByName: Record<string, string> = {
@@ -836,6 +837,11 @@ export default function StandingsClient({ locale }: { locale: Locale }) {
             {Number(selectedPlayer.earnings || 0) > 0 ? (
               <p className="mb-2 text-sm font-semibold text-emerald-400">
                 💰 {content.earningsLabel}: {Number(selectedPlayer.earnings).toLocaleString(locale === "fr" ? "fr-FR" : "en-US", { style: "currency", currency: "EUR", maximumFractionDigits: 0 })}
+              </p>
+            ) : null}
+            {Number(selectedPlayer.winStreak || 0) > 0 ? (
+              <p className="mb-2 text-sm font-semibold text-orange-400">
+                🔥 Winstreak: {Number(selectedPlayer.winStreak)}
               </p>
             ) : null}
             <p className="whitespace-pre-wrap text-sm text-white/90">
