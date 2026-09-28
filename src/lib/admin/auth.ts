@@ -2,8 +2,12 @@ import { cookies } from "next/headers";
 
 export const ADMIN_COOKIE = "admin_session";
 
-/** Durée de vie d'une session admin : 8h, comme avant. */
-export const ADMIN_SESSION_TTL_MS = 8 * 60 * 60 * 1000;
+/**
+ * Durée de vie d'une session admin : 30 jours, renouvelée à chaque
+ * vérification (session glissante, cf. /api/admin/session). Avant : 8h fixes,
+ * ce qui déconnectait en plein travail.
+ */
+export const ADMIN_SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 
 /**
  * Le cookie de session admin est un token signé "expiry.signature" :
