@@ -803,7 +803,7 @@ function PlayerEditRow({ player, updating, onSave, onError }: PlayerEditRowProps
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           rows={3}
-          placeholder="Description affichée sur /classement et avec !tier"
+          placeholder="Description affichée sur /leaderboard et avec !tier"
           className="surface-textarea"
         />
       </div>
