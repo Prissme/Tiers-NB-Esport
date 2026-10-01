@@ -42,16 +42,10 @@ export default function Footer({ locale }: { locale: Locale }) {
         </div>
         <div className="flex flex-wrap gap-4 text-xs uppercase tracking-[0.3em]">
           <a
-            href="/reglement"
+            href="/rulebook"
             className="transition hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan/60 focus-visible:ring-offset-2 focus-visible:ring-offset-[#070a12]"
           >
             {content.rules}
-          </a>
-          <a
-            href="/matchs"
-            className="transition hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan/60 focus-visible:ring-offset-2 focus-visible:ring-offset-[#070a12]"
-          >
-            {content.matches}
           </a>
           <a
             href="/classement"
