@@ -34,9 +34,9 @@ const rulebooksByLocale: Record<"fr" | "en", Rulebook[]> = {
       intro:
         "This document defines the official Prissme TV player ranking framework for Null's Brawl.",
       highlights: [
-        "7 competitive tiers from No Tier to Tier S",
-        "Points are earned through wins and tournament progression",
-        "Tier S is reserved for the current global Top 3",
+        "6 competitive tiers from Tier E to Tier S",
+        "Points are earned through wins and tournament results",
+        "Tier S is reserved for the current global Top 10%",
       ],
       sections: [
         {
@@ -48,49 +48,38 @@ const rulebooksByLocale: Record<"fr" | "en", Rulebook[]> = {
           id: "2",
           title: "Tier Structure",
           bullets: [
-            "No Tier",
             "Tier E",
             "Tier D",
             "Tier C",
             "Tier B",
             "Tier A",
             "Tier S",
-            "All new players begin in No Tier.",
+            "All new players begin in Tier E with 1 point.",
           ],
         },
         {
           id: "3",
-          title: "Access to the System",
-          bullets: [
-            "A player enters the system after 3 validated wins, or",
-            "At least one semifinal appearance in a tournament.",
-            "Once validated, the player enters Tier E with 0 points.",
-            "If your Discord tier role is out of sync, use !synctiers in Discord.",
-          ],
-        },
-        {
-          id: "4",
           title: "General Points System",
           bullets: [
             "Players accumulate points through match wins.",
-            "Players accumulate points through tournament performances.",
+            "Players accumulate points through tournament results.",
             "Points directly determine tier progression.",
           ],
         },
         {
-          id: "5",
+          id: "4",
           title: "Tier Thresholds",
           bullets: [
-            "Tier E: 0 to 4 points",
+            "Tier E: 1 to 4 points",
             "Tier D: 5 to 14 points",
             "Tier C: 15 to 34 points",
             "Tier B: 35 to 54 points",
             "Tier A: 55+ points",
-            "Tier S is determined by global ranking position.",
+            "Tier S: current global Top 10%",
           ],
         },
         {
-          id: "6",
+          id: "5",
           title: "Points System — Match Results",
           body: "Points are awarded based on the tier comparison between the two teams at the time of the match.",
           bullets: [
@@ -100,80 +89,24 @@ const rulebooksByLocale: Record<"fr" | "en", Rulebook[]> = {
           ],
         },
         {
-          id: "7",
+          id: "6",
           title: "3v3 Team Level Calculation",
           body: "A team's level is based on tiers, not raw points.",
           bullets: [
-            "Tier values: No Tier = 0, Tier E = 1, Tier D = 2, Tier C = 3, Tier B = 4, Tier A = 5, Tier S = 6.",
+            "Tier values: Tier E = 1, Tier D = 2, Tier C = 3, Tier B = 4, Tier A = 5, Tier S = 6.",
             "Compute the average value of the three players.",
             "Round down to the nearest integer.",
             "Example: Tier B (4) + Tier C (3) + Tier C (3) = 10 / 3 = 3.33 -> Team tier = Tier C.",
           ],
         },
         {
-          id: "8",
+          id: "7",
           title: "Points System — Tournament Progression",
-          body: "Bonus points are awarded for each stage reached in a tournament, in addition to match win points.",
           bullets: [
-            "8-team tournament: Semifinal +1, Final +2, Winner +3",
-            "16-team tournament: Quarterfinal +1, Semifinal +2, Final +3, Winner +4",
+            "Top 1: +3 points",
+            "Top 2: +2 points",
+            "Top 3: +1 point",
           ],
-        },
-        {
-          id: "9",
-          title: "LFN (Main Competition)",
-          body: "LFN is the main competition in the system.",
-          bullets: [
-            "Semifinal: +5 points",
-            "Final: +7 points",
-            "Winner: +10 points",
-          ],
-        },
-        {
-          id: "10",
-          title: "Demotion System",
-          bullets: [
-            "3 consecutive losses: -2 points",
-            "5 consecutive losses: -5 points",
-            "If a player falls below their current tier threshold, demotion is automatic.",
-          ],
-        },
-        {
-          id: "11",
-          title: "Inactivity",
-          body: "Inactivity does not cause point loss. Players keep their acquired points even after a period without playing.",
-          bullets: [
-            "No point penalty is applied for inactivity.",
-            "Tiers remain based on earned points and sporting results.",
-          ],
-        },
-        {
-          id: "12",
-          title: "Tier S",
-          bullets: [
-            "Tier S represents the highest level.",
-            "Condition: the player must be in the global Top 3 ranking.",
-            "Retention depends on performance and earned points.",
-            "A player leaving the Top 3 automatically loses Tier S.",
-          ],
-        },
-        {
-          id: "13",
-          title: "Anti-Abuse Philosophy",
-          bullets: [
-            "The system is designed to prevent farming weaker players.",
-            "The system is designed to prevent farming small tournaments.",
-          ],
-        },
-        {
-          id: "14",
-          title: "Core Principles",
-          bullets: ["Merit", "Consistency", "Difficulty"],
-        },
-        {
-          id: "15",
-          title: "Conclusion",
-          body: "The Prissme TV Tier System aims to become the competitive reference on Null's Brawl. It creates a natural hierarchy where only the strongest and most consistent players reach the highest levels. Participation in the system implies full acceptance of this official rulebook.",
         },
       ],
     },
@@ -331,9 +264,9 @@ const rulebooksByLocale: Record<"fr" | "en", Rulebook[]> = {
       intro:
         "Ce document définit le cadre officiel du classement joueur Prissme TV sur Null's Brawl.",
       highlights: [
-        "7 niveaux compétitifs, de No Tier à Tier S",
-        "Des points gagnés via les victoires et les parcours en tournoi",
-        "Le Tier S est réservé au Top 3 global actuel",
+        "6 niveaux compétitifs, de Tier E à Tier S",
+        "Des points gagnés via les victoires et les résultats en tournoi",
+        "Le Tier S est réservé au Top 10% global actuel",
       ],
       sections: [
         {
@@ -345,49 +278,38 @@ const rulebooksByLocale: Record<"fr" | "en", Rulebook[]> = {
           id: "2",
           title: "Structure des tiers",
           bullets: [
-            "No Tier",
             "Tier E",
             "Tier D",
             "Tier C",
             "Tier B",
             "Tier A",
             "Tier S",
-            "Tout nouveau joueur débute en No Tier.",
+            "Tout nouveau joueur débute en Tier E avec 1 point.",
           ],
         },
         {
           id: "3",
-          title: "Accès au système",
-          bullets: [
-            "Un joueur intègre le système après 3 victoires validées, ou",
-            "Au moins une demi-finale en tournoi.",
-            "Une fois validé, le joueur entre en Tier E avec 0 point.",
-            "Si ton rôle de tier Discord n'est pas synchronisé, utilise !synctiers sur Discord.",
-          ],
-        },
-        {
-          id: "4",
           title: "Système général de points",
           bullets: [
             "Les joueurs cumulent des points via les victoires de match.",
-            "Les joueurs cumulent des points via les performances en tournoi.",
+            "Les joueurs cumulent des points via les résultats en tournoi.",
             "Les points déterminent directement la progression de tier.",
           ],
         },
         {
-          id: "5",
+          id: "4",
           title: "Seuils de tiers",
           bullets: [
-            "Tier E : 0 à 4 points",
+            "Tier E : 1 à 4 points",
             "Tier D : 5 à 14 points",
             "Tier C : 15 à 34 points",
             "Tier B : 35 à 54 points",
             "Tier A : 55+ points",
-            "Le Tier S dépend du classement global.",
+            "Tier S : Top 10% du classement global actuel",
           ],
         },
         {
-          id: "6",
+          id: "5",
           title: "Système de points — Résultats de match",
           body: "Les points sont attribués en fonction de la comparaison de tiers entre les deux équipes au moment du match.",
           bullets: [
@@ -397,80 +319,24 @@ const rulebooksByLocale: Record<"fr" | "en", Rulebook[]> = {
           ],
         },
         {
-          id: "7",
+          id: "6",
           title: "Calcul du niveau d'équipe en 3v3",
           body: "Le niveau d'une équipe est défini par les tiers, et non par les points bruts.",
           bullets: [
-            "Valeurs : No Tier = 0, Tier E = 1, Tier D = 2, Tier C = 3, Tier B = 4, Tier A = 5, Tier S = 6.",
+            "Valeurs : Tier E = 1, Tier D = 2, Tier C = 3, Tier B = 4, Tier A = 5, Tier S = 6.",
             "Calculer la moyenne des 3 joueurs.",
             "Arrondir à l'entier inférieur.",
             "Exemple : Tier B (4) + Tier C (3) + Tier C (3) = 10 / 3 = 3,33 -> Tier d'équipe = Tier C.",
           ],
         },
         {
-          id: "8",
+          id: "7",
           title: "Système de points — Progression en tournoi",
-          body: "Des points bonus sont attribués pour chaque tour atteint, en plus des points de victoire de match.",
           bullets: [
-            "Tournoi 8 équipes : demi-finale +1, finale +2, vainqueur +3",
-            "Tournoi 16 équipes : quart +1, demi +2, finale +3, vainqueur +4",
+            "Top 1 : +3 points",
+            "Top 2 : +2 points",
+            "Top 3 : +1 point",
           ],
-        },
-        {
-          id: "9",
-          title: "LFN (compétition principale)",
-          body: "La LFN est la compétition principale du système.",
-          bullets: [
-            "Demi-finale : +5 points",
-            "Finale : +7 points",
-            "Vainqueur : +10 points",
-          ],
-        },
-        {
-          id: "10",
-          title: "Système de relégation",
-          bullets: [
-            "3 défaites consécutives : -2 points",
-            "5 défaites consécutives : -5 points",
-            "Si un joueur passe sous le seuil de son tier, la relégation est automatique.",
-          ],
-        },
-        {
-          id: "11",
-          title: "Inactivité",
-          body: "L'inactivité n'entraîne plus de perte de points. Les joueurs conservent leurs points acquis même après une période sans jouer.",
-          bullets: [
-            "Aucune pénalité de points n'est appliquée pour inactivité.",
-            "Les tiers restent basés sur les points gagnés et les résultats sportifs.",
-          ],
-        },
-        {
-          id: "12",
-          title: "Tier S",
-          bullets: [
-            "Le Tier S représente le niveau le plus élevé.",
-            "Condition : être dans le Top 3 global.",
-            "Le maintien dépend de la performance et des points gagnés.",
-            "Toute sortie du Top 3 entraîne la perte automatique du Tier S.",
-          ],
-        },
-        {
-          id: "13",
-          title: "Philosophie anti-abus",
-          bullets: [
-            "Le système est conçu pour empêcher le farm de joueurs plus faibles.",
-            "Le système est conçu pour empêcher le farm de petits tournois.",
-          ],
-        },
-        {
-          id: "14",
-          title: "Principes fondamentaux",
-          bullets: ["Mérite", "Régularité", "Difficulté"],
-        },
-        {
-          id: "15",
-          title: "Conclusion",
-          body: "Le système de tiers Prissme TV a pour objectif de devenir la référence compétitive sur Null's Brawl. Il crée une hiérarchie naturelle dans laquelle seuls les joueurs les plus forts et les plus réguliers atteignent les plus hauts niveaux. Toute participation implique l'acceptation complète de ce règlement officiel.",
         },
       ],
     },
