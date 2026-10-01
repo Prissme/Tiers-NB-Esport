@@ -90,6 +90,7 @@ export default function RootLayout({
       </head>
       <body className="min-h-screen bg-[color:var(--color-bg)] text-[color:var(--color-text)]">
         <div className="relative min-h-screen overflow-hidden">
+          <div className="site-background-layer" aria-hidden="true" />
           <BackgroundFX />
           <Header locale={locale} />
           <main className="relative z-10">
