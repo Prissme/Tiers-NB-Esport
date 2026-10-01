@@ -31,7 +31,7 @@ export default function HeroCard({ locale }: { locale: Locale }) {
           <h1 className="hero-title hero-title--summit">
             {content.title}
           </h1>
-          <p className="hero-subtitle">
+          <p className="hero-subtitle hero-subtitle--prominent">
             {content.subtitle}{" "}
             <span className="hero-highlight-violet">{content.highlight}</span>
           </p>
