@@ -15,12 +15,10 @@ const INSCRIPTION_PATH = "/inscription";
 const navLinks = {
   fr: [
     { label: "Leaderboard", href: "/leaderboard" },
-    { label: "Hall Of Fame", href: "/hall-of-fame" },
     { label: "Règlement", href: "/rulebook" },
   ],
   en: [
     { label: "Leaderboard", href: "/leaderboard" },
-    { label: "Hall Of Fame", href: "/hall-of-fame" },
     { label: "Rules", href: "/rulebook" },
   ],
 };
