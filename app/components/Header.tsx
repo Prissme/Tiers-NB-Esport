@@ -19,7 +19,7 @@ const navLinks = {
   ],
   en: [
     { label: "Leaderboard", href: "/leaderboard" },
-    { label: "Rules", href: "/rulebook" },
+    { label: "Rulebook", href: "/rulebook" },
   ],
 };
 
