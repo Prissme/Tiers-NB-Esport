@@ -54,7 +54,7 @@ export default function PartenariatsPage() {
             ))}
           </div>
           <div className="flex flex-wrap gap-3">
-            <Button href="/classement" variant="secondary">
+            <Button href="/leaderboard" variant="secondary">
               {content.cta}
             </Button>
           </div>
