@@ -55,7 +55,7 @@ export default function ParticiperPage() {
             <Button href={INSCRIPTION_PATH} variant="primary" className="signup-button">
               {content.signup}
             </Button>
-            <Button href="/reglement" variant="secondary">
+            <Button href="/rulebook" variant="secondary">
               {content.rules}
             </Button>
           </div>
