@@ -14,18 +14,16 @@ const INSCRIPTION_PATH = "/inscription";
 
 const navLinks = {
   fr: [
-    { label: "Matchs", href: "/matchs" },
     { label: "Classement", href: "/classement" },
     { label: "Rosters", href: "/rosters" },
     { label: "Hall Of Fame", href: "/hall-of-fame" },
-    { label: "Règlement", href: "/reglement" },
+    { label: "Règlement", href: "/rulebook" },
   ],
   en: [
-    { label: "Matches", href: "/matchs" },
     { label: "Standings", href: "/classement" },
     { label: "Rosters", href: "/rosters" },
     { label: "Hall Of Fame", href: "/hall-of-fame" },
-    { label: "Rules", href: "/reglement" },
+    { label: "Rules", href: "/rulebook" },
   ],
 };
 
