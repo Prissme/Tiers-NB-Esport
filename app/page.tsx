@@ -1,34 +1,20 @@
 import HeroCard from "./components/HeroCard";
-import EliteOffer from "./components/EliteOffer";
-import Button from "./components/Button";
 import { getLocale } from "./lib/i18n";
 
 export default function HomePage() {
   const locale = getLocale();
   const copy = {
     fr: {
-      matches: "Matchs en LFN",
-      players: "Joueurs en LFN",
+      matches: "Tournois organisés",
+      players: "Joueurs",
       viewers: "Sur discord",
-      viewersCount: "30+ spectateurs",
-      competitionsTitle: "Compétitions",
-      eventTitle: "PrissCup",
-      eventDate: "Dimanche 26 avril à 16h",
-      eventDescription:
-        "La prochaine compétition démarre ce dimanche avec la PrissCup. Inscris-toi et viens tenter ta chance.",
-      joinButton: "Participer",
+      viewersCount: "2000 membres",
     },
     en: {
-      matches: "LFN matches",
-      players: "LFN players",
+      matches: "Tournaments hosted",
+      players: "Players",
       viewers: "On Discord",
-      viewersCount: "30+ viewers",
-      competitionsTitle: "Competitions",
-      eventTitle: "PrissCup",
-      eventDate: "Sunday, April 26 at 4 PM",
-      eventDescription:
-        "The next competition starts this Sunday with the PrissCup. Sign up and join the action.",
-      joinButton: "Join",
+      viewersCount: "2000 Members",
     },
   };
   const content = copy[locale];
@@ -46,7 +32,7 @@ export default function HomePage() {
                 </p>
               </article>
               <article className="social-proof-card social-proof-card--gold social-proof-card--delay">
-                <p className="social-proof-number text-4xl text-white sm:text-5xl">100+</p>
+                <p className="social-proof-number text-4xl text-white sm:text-5xl">400+</p>
                 <p className="social-proof-label mt-2 text-[10px] uppercase tracking-[0.3em] text-slate-200">
                   {content.players}
                 </p>
@@ -72,30 +58,6 @@ export default function HomePage() {
             </p>
           </div>
         </section>
-        <section className="secondary-section">
-          <div className="surface-dominant rounded-[14px] px-6 py-8 shadow-[0_20px_60px_rgba(4,10,30,0.45)] sm:px-10">
-            <p className="text-xs uppercase tracking-[0.35em] text-utility">{content.competitionsTitle}</p>
-            <div className="mt-5 flex flex-col gap-6 rounded-[12px] border border-white/10 bg-[rgba(7,13,27,0.72)] p-5 sm:p-6">
-              <div className="space-y-2">
-                <h2 className="font-sekuya text-2xl text-white sm:text-3xl">{content.eventTitle}</h2>
-                <p className="text-xs uppercase tracking-[0.28em] text-utility">{content.eventDate}</p>
-                <p className="max-w-3xl text-sm text-slate-200 sm:text-base">{content.eventDescription}</p>
-              </div>
-              <div>
-                <Button
-                  href="https://discord.com/events/1236724293027496047/1486382244644917288"
-                  external
-                >
-                  {content.joinButton}
-                </Button>
-              </div>
-            </div>
-          </div>
-        </section>
-        <div className="silent-gap" aria-hidden="true" />
-        <div className="secondary-section">
-          <EliteOffer locale={locale} />
-        </div>
       </div>
     </div>
   );
