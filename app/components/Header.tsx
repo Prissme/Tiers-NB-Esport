@@ -14,14 +14,12 @@ const INSCRIPTION_PATH = "/inscription";
 
 const navLinks = {
   fr: [
-    { label: "Classement", href: "/classement" },
-    { label: "Rosters", href: "/rosters" },
+    { label: "Leaderboard", href: "/leaderboard" },
     { label: "Hall Of Fame", href: "/hall-of-fame" },
     { label: "Règlement", href: "/rulebook" },
   ],
   en: [
-    { label: "Standings", href: "/classement" },
-    { label: "Rosters", href: "/rosters" },
+    { label: "Leaderboard", href: "/leaderboard" },
     { label: "Hall Of Fame", href: "/hall-of-fame" },
     { label: "Rules", href: "/rulebook" },
   ],
@@ -60,7 +58,7 @@ export default function Header({ locale }: { locale: Locale }) {
             />
           </span>
         </Link>
-        <nav className="hidden items-center gap-6 md:flex">
+        <nav className="hidden items-center justify-center gap-8 md:flex">
           {links.map((link) =>
             link.external ? (
               <a
@@ -82,6 +80,8 @@ export default function Header({ locale }: { locale: Locale }) {
               </Link>
             )
           )}
+        </nav>
+        <div className="hidden items-center justify-end gap-6 md:flex">
           <Button
             href={INSCRIPTION_PATH}
             variant="secondary"
@@ -93,7 +93,7 @@ export default function Header({ locale }: { locale: Locale }) {
             </span>
           </Button>
           <LanguageSwitcher locale={locale} />
-        </nav>
+        </div>
         <div className="md:hidden">
           <button
             type="button"
