@@ -858,17 +858,6 @@ body::before {
     background: #7a83ee !important;
   }
 
-  .hall-of-fame-emblem {
-    position: absolute;
-    right: 1rem;
-    bottom: 1rem;
-    width: 3.25rem;
-    height: 3.25rem;
-    transform: rotate(8deg);
-    filter: drop-shadow(0 0 12px rgba(201, 178, 106, 0.55));
-    opacity: 0.95;
-  }
-
   .particle-field {
     position: absolute;
     inset: 0;
