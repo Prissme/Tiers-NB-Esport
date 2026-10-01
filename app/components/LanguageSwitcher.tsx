@@ -18,7 +18,7 @@ export default function LanguageSwitcher({ locale }: { locale: Locale }) {
   };
 
   return (
-    <div className="flex items-center gap-1 rounded-full bg-white/5 p-1 text-[10px] uppercase tracking-[0.3em] text-utility">
+    <div className="language-switcher flex items-center gap-1 rounded-full bg-white/5 p-1 text-[10px] uppercase tracking-[0.3em] text-utility">
       {options.map((option) => (
         <button
           key={option.value}
