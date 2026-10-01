@@ -143,7 +143,7 @@ export default async function TeamDetailPage({ params }: { params: { id: string 
           {content.scheduleNote}
         </p>
         <Link
-          href="/classement"
+          href="/leaderboard"
           className="inline-flex items-center justify-center rounded-full bg-white/10 px-5 py-3 text-xs uppercase tracking-[0.3em] signal-accent"
         >
           {content.scheduleCta}
