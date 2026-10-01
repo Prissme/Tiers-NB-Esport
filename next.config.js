@@ -39,6 +39,12 @@ const nextConfig = {
       }
     ];
   },
+  async redirects() {
+    return [
+      { source: '/classement', destination: '/leaderboard', permanent: true },
+      { source: '/rosters', destination: '/', permanent: true }
+    ];
+  },
   async rewrites() {
     return [
       {
