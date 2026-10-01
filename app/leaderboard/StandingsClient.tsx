@@ -2,9 +2,6 @@
 
 import { useEffect, useMemo, useState } from "react";
 import SectionHeader from "../components/SectionHeader";
-import StandingsTable, { type StandingsRow } from "../components/StandingsTable";
-import type { SiteStandingsRow, SiteTeam } from "../lib/site-types";
-import { teams as fallbackTeams } from "../../src/data";
 import type { Locale } from "../lib/i18n";
 import ReloadingImage from "../components/ReloadingImage";
 
@@ -67,37 +64,6 @@ const getDisplayedTier = (player: PlayerStanding) => {
   return player.tier;
 };
 
-const mapFallbackTeams = (): SiteTeam[] =>
-  fallbackTeams.map((team) => ({
-    id: team.id,
-    name: team.name,
-    tag: null,
-    division: team.division,
-    logoUrl: team.logoUrl,
-  }));
-
-const getPoints = (row: SiteStandingsRow) => {
-  const points = row.setsWon ?? row.pointsSets ?? row.pointsTotal ?? 0;
-  return Math.max(0, points);
-};
-
-const toStandingsRows = (standings: SiteStandingsRow[]): StandingsRow[] =>
-  standings.map((row) => ({
-    teamId: row.teamId,
-    teamName: row.teamName,
-    wins: row.wins ?? 0,
-    losses: row.losses ?? 0,
-    points: getPoints(row),
-    matchesPlayed: (row.wins ?? 0) + (row.losses ?? 0),
-  }));
-
-const sortStandings = (rows: StandingsRow[]) =>
-  [...rows].sort((a, b) => {
-    if (b.points !== a.points) return b.points - a.points;
-    if (b.wins !== a.wins) return b.wins - a.wins;
-    return a.teamId.localeCompare(b.teamId, "fr");
-  });
-
 const copy = {
   fr: {
     info: "Information",
@@ -105,14 +71,6 @@ const copy = {
     comingDescription: "Programme public pendant la validation.",
     comingNote:
       "Résultats non publics. Classement publié après validation de l'organisation.",
-    standingsKicker: "Classement",
-    standingsTitle: "Classement officiel",
-    standingsFallback: "Liste des équipes enregistrées.",
-    standingsOfficial: "Publication officielle.",
-    fallbackData: "Données de secours (Supabase vide)",
-    gold: "Or",
-    silver: "Argent",
-    bronze: "Bronze",
     points: "Points",
     pointsShort: "pts",
     playersKicker: "Joueurs",
@@ -146,14 +104,6 @@ const copy = {
     comingDescription: "Public schedule during validation.",
     comingNote:
       "Results are private. Standings published after organization validation.",
-    standingsKicker: "Leaderboard",
-    standingsTitle: "Official leaderboard",
-    standingsFallback: "List of registered teams.",
-    standingsOfficial: "Official publication.",
-    fallbackData: "Fallback data (empty Supabase)",
-    gold: "Gold",
-    silver: "Silver",
-    bronze: "Bronze",
     points: "Points",
     pointsShort: "pts",
     playersKicker: "Players",
@@ -185,11 +135,7 @@ const copy = {
 
 export default function StandingsClient({ locale }: { locale: Locale }) {
   const content = copy[locale];
-  const [standings, setStandings] = useState<SiteStandingsRow[]>([]);
-  const [teams, setTeams] = useState<SiteTeam[]>([]);
   const [loading, setLoading] = useState(true);
-  const [source, setSource] = useState<"supabase" | "fallback">("supabase");
-  const [activeDivision, setActiveDivision] = useState<string | null>(null);
   const [playerStandings, setPlayerStandings] = useState<PlayerStanding[]>([]);
   const [selectedPlayer, setSelectedPlayer] = useState<PlayerStanding | null>(null);
   const [selectedCountry, setSelectedCountry] = useState("ALL");
@@ -197,86 +143,23 @@ export default function StandingsClient({ locale }: { locale: Locale }) {
   const [playerSearch, setPlayerSearch] = useState("");
   const [playersPage, setPlayersPage] = useState(1);
 
-  const teamFallbackStandings = useMemo<SiteStandingsRow[]>(() => {
-    return teams.map((team) => ({
-      teamId: team.id,
-      teamName: team.name,
-      teamTag: team.tag ?? null,
-      division: team.division ?? "D1",
-      wins: 0,
-      losses: 0,
-      setsWon: 0,
-      setsLost: 0,
-      pointsSets: 0,
-      pointsAdmin: 0,
-      pointsTotal: 0,
-    }));
-  }, [teams]);
-
-  const standingsToDisplay = useMemo(
-    () =>
-      (standings.length > 0 ? standings : teamFallbackStandings).filter(
-        (row) => (row.division ?? "D1") !== "D1"
-      ),
-    [standings, teamFallbackStandings]
-  );
-
   useEffect(() => {
     let mounted = true;
 
     const load = async () => {
       try {
-        const seasonResponse = await fetch("/api/site/season/current", { cache: "no-store" });
-        const seasonPayload = (await seasonResponse.json()) as { season?: { id?: string } };
-        const seasonId = seasonPayload.season?.id;
-        const query = seasonId ? `?season=${seasonId}` : "";
-
-        const fetchStandingsAndTeams = async (suffix: string) => {
-          const [standingsResponse, teamsResponse] = await Promise.all([
-            fetch(`/api/site/standings${suffix}`, { cache: "no-store" }),
-            fetch(`/api/site/teams${suffix}`, { cache: "no-store" }),
-          ]);
-          const standingsPayload = (await standingsResponse.json()) as {
-            standings?: SiteStandingsRow[];
-          };
-          const teamsPayload = (await teamsResponse.json()) as { teams?: SiteTeam[] };
-          return {
-            standings: standingsPayload.standings ?? [],
-            teams: teamsPayload.teams ?? [],
-          };
-        };
-
-        const [{ standings: seasonStandings, teams: seasonTeams }, playerStandingsResponse] =
-          await Promise.all([
-            fetchStandingsAndTeams(query),
-            fetch("/api/site/player-standings", { cache: "no-store" }),
-          ]);
+        const playerStandingsResponse = await fetch("/api/site/player-standings", {
+          cache: "no-store",
+        });
         const playersPayload = (await playerStandingsResponse.json()) as {
           players?: PlayerStanding[];
         };
-
-        const shouldRetryWithoutSeason =
-          Boolean(query) && seasonStandings.length === 0 && seasonTeams.length === 0;
-        const { standings: nextStandings, teams: nextTeams } = shouldRetryWithoutSeason
-          ? await fetchStandingsAndTeams("")
-          : { standings: seasonStandings, teams: seasonTeams };
-
         if (mounted) {
-          if (nextStandings.length === 0 && nextTeams.length === 0) {
-            setTeams(mapFallbackTeams());
-            setSource("fallback");
-            setPlayerStandings(playersPayload.players ?? []);
-          } else {
-            setStandings(nextStandings);
-            setTeams(nextTeams.length ? nextTeams : mapFallbackTeams());
-            setPlayerStandings(playersPayload.players ?? []);
-          }
+          setPlayerStandings(playersPayload.players ?? []);
         }
       } catch (error) {
         console.error("standings load error", error);
         if (mounted) {
-          setTeams(mapFallbackTeams());
-          setSource("fallback");
           setPlayerStandings([]);
         }
       } finally {
@@ -293,36 +176,6 @@ export default function StandingsClient({ locale }: { locale: Locale }) {
       window.clearInterval(refreshInterval);
     };
   }, []);
-
-  const { standingsByDivision, teamsById } = useMemo(() => {
-    const teamsMap = Object.fromEntries(teams.map((team) => [team.id, team]));
-    const grouped = standingsToDisplay.reduce<Record<string, SiteStandingsRow[]>>((acc, row) => {
-      const division = row.division ?? "D1";
-      if (!acc[division]) acc[division] = [];
-      acc[division].push(row);
-      return acc;
-    }, {});
-
-    return { standingsByDivision: grouped, teamsById: teamsMap };
-  }, [standingsToDisplay, teams]);
-
-  const availableDivisions = useMemo(() => {
-    const keys = Object.keys(standingsByDivision);
-    const preferred = ["D2"];
-    const preferredOrder = preferred.filter((division) => keys.includes(division));
-    const remaining = keys.filter((division) => !preferred.includes(division)).sort();
-    return [...preferredOrder, ...remaining];
-  }, [standingsByDivision]);
-
-  useEffect(() => {
-    if (availableDivisions.length === 0) {
-      setActiveDivision(null);
-      return;
-    }
-    if (!activeDivision || !availableDivisions.includes(activeDivision)) {
-      setActiveDivision(availableDivisions[0]);
-    }
-  }, [availableDivisions, activeDivision]);
 
   const availableCountries = useMemo(() => {
     const values = new Set(playerStandings.map((player) => getCountryCode(player.countryCode)));
@@ -399,7 +252,7 @@ export default function StandingsClient({ locale }: { locale: Locale }) {
     );
   }
 
-  if (standingsToDisplay.length === 0 && playerStandings.length === 0) {
+  if (playerStandings.length === 0) {
     return (
       <section className="section-card dominant-section space-y-4">
         <SectionHeader
@@ -667,172 +520,6 @@ export default function StandingsClient({ locale }: { locale: Locale }) {
         ) : null}
       </div>
 
-      {availableDivisions.length > 0 ? (
-        <>
-        <div className="signal-divider" />
-        <SectionHeader
-          kicker={content.standingsKicker}
-          title={content.standingsTitle}
-          description={standings.length === 0 ? content.standingsFallback : content.standingsOfficial}
-          tone="dominant"
-        />
-        {source === "fallback" ? (
-          <p className="text-xs uppercase tracking-[0.3em] text-utility">
-            {content.fallbackData}
-          </p>
-        ) : null}
-        {availableDivisions.length > 0 ? (
-          <div className="flex flex-wrap items-center gap-3">
-            {availableDivisions.map((division) => {
-              const isActive = division === activeDivision;
-              return (
-                <button
-                  key={division}
-                  type="button"
-                  onClick={() => setActiveDivision(division)}
-                  className={`division-toggle ${isActive ? "division-toggle--active" : ""}`}
-                >
-                  {division}
-                </button>
-              );
-            })}
-          </div>
-        ) : null}
-        {(activeDivision ? [[activeDivision, standingsByDivision[activeDivision] ?? []]] : []).map(
-          ([division, rows]) => {
-            const standingsRows = sortStandings(toStandingsRows(rows));
-            const podium = standingsRows.slice(0, 3);
-            const fourth = standingsRows[3];
-            const remainingRows = standingsRows.slice(fourth ? 4 : 3);
-            const tableOffset = fourth ? 4 : podium.length;
-            return (
-              <div key={division} className="space-y-6">
-                <p className="text-xs font-semibold uppercase tracking-[0.3em] text-utility">
-                  {division}
-                </p>
-                {podium.length > 0 ? (
-                  <div className="grid items-end gap-4 md:grid-cols-3">
-                    {[1, 0, 2].map((index) => {
-                      const row = podium[index];
-                      if (!row) return <div key={`podium-empty-${index}`} />;
-                      const team = teamsById[row.teamId];
-                      const teamName = team?.name ?? row.teamName ?? row.teamId;
-                      const logoUrl = team?.logoUrl ?? null;
-                      const accent =
-                        index === 0
-                          ? "from-amber-300/30 via-amber-200/10 to-transparent"
-                          : index === 1
-                            ? "from-slate-300/30 via-slate-200/10 to-transparent"
-                            : "from-amber-900/30 via-amber-800/10 to-transparent";
-                      const badge =
-                        index === 0
-                          ? "bg-amber-300 text-black"
-                          : index === 1
-                            ? "bg-slate-200 text-slate-900"
-                            : "bg-amber-800 text-amber-100";
-                      const heightClass =
-                        index === 0
-                          ? "min-h-[240px] md:min-h-[300px]"
-                          : index === 1
-                            ? "min-h-[210px] md:min-h-[260px]"
-                            : "min-h-[185px] md:min-h-[240px]";
-                      return (
-                        <div
-                          key={row.teamId}
-                          className={`relative flex flex-col justify-end overflow-hidden rounded-[18px] border border-white/10 bg-gradient-to-br ${accent} ${heightClass} p-6 text-center shadow-[0_25px_60px_-40px_rgba(0,0,0,0.9)]`}
-                        >
-                          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.18),transparent_60%)]" />
-                          <div className="absolute inset-x-0 bottom-0 h-10 bg-white/10" />
-                          <div className="relative z-10 space-y-4 pb-6">
-                            <div
-                              className={`mx-auto inline-flex items-center justify-center rounded-full px-4 py-1 text-[10px] uppercase tracking-[0.35em] ${badge}`}
-                            >
-                              <img
-                                src={trophyImageByRank[index + 1]}
-                                alt={`Top ${index + 1}`}
-                                className="h-5 w-5"
-                                loading="lazy"
-                              />
-                            </div>
-                            <div className="mx-auto flex h-20 w-20 items-center justify-center overflow-hidden rounded-2xl bg-white/10">
-                              {logoUrl ? (
-                                <ReloadingImage
-                                  src={logoUrl}
-                                  alt={`Logo ${teamName}`}
-                                  className="h-full w-full object-contain"
-                                  loading="lazy"
-                                />
-                              ) : (
-                                <span className="text-base font-semibold text-white">
-                                  {teamName.slice(0, 2).toUpperCase()}
-                                </span>
-                              )}
-                            </div>
-                            <div>
-                              <p className="text-lg font-semibold text-white">{teamName}</p>
-                              <p className="text-xs uppercase tracking-[0.3em] text-utility">
-                                {row.points} {content.pointsShort}
-                              </p>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                ) : null}
-                {fourth ? (
-                  <div className="flex flex-wrap items-center justify-between gap-4 rounded-[16px] border border-white/10 bg-white/5 px-6 py-4 shadow-[0_18px_50px_-40px_rgba(0,0,0,0.75)]">
-                    <div className="flex items-center gap-4">
-                      <span className="text-lg font-semibold text-white">#4</span>
-                      <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-[12px] bg-white/10">
-                        {teamsById[fourth.teamId]?.logoUrl ? (
-                          <ReloadingImage
-                            src={teamsById[fourth.teamId]?.logoUrl ?? ""}
-                            alt={`Logo ${teamsById[fourth.teamId]?.name ?? fourth.teamName}`}
-                            className="h-full w-full object-contain"
-                            loading="lazy"
-                          />
-                        ) : (
-                          <span className="text-xs font-semibold text-utility">
-                            {(teamsById[fourth.teamId]?.name ?? fourth.teamName ?? fourth.teamId)
-                              .slice(0, 2)
-                              .toUpperCase()}
-                          </span>
-                        )}
-                      </div>
-                      <div>
-                        <p className="text-base font-semibold text-white">
-                          {teamsById[fourth.teamId]?.name ?? fourth.teamName ?? fourth.teamId}
-                        </p>
-                        {teamsById[fourth.teamId]?.tag ? (
-                          <p className="text-xs uppercase tracking-[0.3em] text-utility">
-                            {teamsById[fourth.teamId]?.tag}
-                          </p>
-                        ) : null}
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-sm uppercase tracking-[0.3em] text-utility">
-                        {content.points}
-                      </p>
-                      <p className="text-xl font-semibold text-white">
-                        {fourth.points} {content.pointsShort}
-                      </p>
-                    </div>
-                  </div>
-                ) : null}
-                <StandingsTable
-                  rows={remainingRows}
-                  teamsById={teamsById}
-                  rankOffset={tableOffset}
-                  locale={locale}
-                />
-              </div>
-            );
-          }
-        )}
-        </>
-      ) : null}
       {selectedPlayer ? (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
