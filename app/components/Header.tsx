@@ -46,7 +46,7 @@ export default function Header({ locale }: { locale: Locale }) {
   const links = navLinks[locale];
 
   return (
-    <header className="relative z-20">
+    <header className="site-header relative z-20">
       <div className="header-shell">
         <Link href="/" className="flex items-center gap-3 text-[color:var(--color-text)]">
           <span className="flex h-11 w-11 items-center justify-center overflow-hidden">
