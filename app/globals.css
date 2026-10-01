@@ -203,6 +203,57 @@ body::before {
     @apply text-xs uppercase tracking-[0.32em] text-[color:var(--color-text-faint)] transition hover:text-[color:var(--color-text)];
   }
 
+  .site-header {
+    background-color: rgba(255, 255, 255, 0.8);
+    -webkit-backdrop-filter: blur(12px);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+  }
+
+  .site-header .nav-link {
+    color: rgba(15, 23, 42, 0.65);
+  }
+
+  .site-header .nav-link:hover {
+    color: #0f172a;
+  }
+
+  .site-header .language-switcher {
+    background-color: rgba(15, 23, 42, 0.06) !important;
+  }
+
+  .site-header .language-switcher button {
+    color: rgba(15, 23, 42, 0.65) !important;
+  }
+
+  .site-header .language-switcher button[aria-pressed="true"] {
+    background-color: #0f172a !important;
+    color: #ffffff !important;
+  }
+
+  .site-header .mobile-menu-toggle {
+    border-color: rgba(15, 23, 42, 0.15);
+    background-color: rgba(15, 23, 42, 0.05);
+    box-shadow: none;
+  }
+
+  .site-header .mobile-menu-bar {
+    background-color: rgba(15, 23, 42, 0.85);
+  }
+
+  .site-header .mobile-menu-panel {
+    background: rgba(255, 255, 255, 0.92);
+    border-top: 1px solid rgba(15, 23, 42, 0.08);
+  }
+
+  .site-header .mobile-menu-content {
+    color: #0f172a;
+  }
+
+  .site-header .mobile-menu-content a:not(.mobile-discord-button) {
+    background-color: rgba(15, 23, 42, 0.05);
+  }
+
   .hero-ironhill {
     @apply relative isolate flex min-h-[100vh] items-center px-4 sm:px-6 lg:px-8;
     overflow: visible;
