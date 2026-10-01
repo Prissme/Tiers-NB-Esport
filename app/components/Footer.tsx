@@ -48,7 +48,7 @@ export default function Footer({ locale }: { locale: Locale }) {
             {content.rules}
           </a>
           <a
-            href="/classement"
+            href="/leaderboard"
             className="transition hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan/60 focus-visible:ring-offset-2 focus-visible:ring-offset-[#070a12]"
           >
             {content.standings}

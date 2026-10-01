@@ -40,7 +40,7 @@ export default function HeroCard({ locale }: { locale: Locale }) {
           </p>
         </div>
         <div className="hero-cta hero-cta--center">
-          <Button href="/classement" variant="primary">
+          <Button href="/leaderboard" variant="primary">
             {content.watch}
           </Button>
           <Button href="/inscription" variant="secondary" className="hero-signup-button">
