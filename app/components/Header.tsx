@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import Button from "./Button";
 import DiscordIcon from "./DiscordIcon";
 import LanguageSwitcher from "./LanguageSwitcher";
@@ -29,12 +30,16 @@ const copy = {
     signup: "S'inscrire",
     join: "Rejoindre",
     openMenu: "Ouvrir le menu",
+    tagline: "Ligue Null's Brawl",
+    members: "2000 membres",
   },
   en: {
     logoAlt: "LFN logo",
     signup: "Sign up",
     join: "Join",
     openMenu: "Open menu",
+    tagline: "Null's Brawl League",
+    members: "2000 members",
   },
 };
 
@@ -42,55 +47,57 @@ export default function Header({ locale }: { locale: Locale }) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const content = copy[locale];
   const links = navLinks[locale];
+  const pathname = usePathname();
+  const isActive = (href: string) => pathname === href || pathname?.startsWith(`${href}/`);
 
   return (
     <header className="site-header relative z-20">
       <div className="header-shell">
-        <Link href="/" className="flex items-center gap-3 text-[color:var(--color-text)]">
-          <span className="flex h-11 w-11 items-center justify-center overflow-hidden">
-            <ReloadingImage
-              src={logoUrl}
-              alt={content.logoAlt}
-              className="h-full w-full object-contain"
-              loading="lazy"
-            />
-          </span>
-        </Link>
-        <nav className="hidden items-center justify-center gap-8 md:flex">
-          {links.map((link) =>
-            link.external ? (
-              <a
-                key={link.href}
-                href={link.href}
-                target="_blank"
-                rel="noreferrer"
-                className="nav-link focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-border)] focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--color-bg)]"
-              >
-                {link.label}
-              </a>
-            ) : (
+        <div className="header-left">
+          <Link href="/" className="header-brand" aria-label={content.logoAlt}>
+            <span className="header-logo">
+              <ReloadingImage
+                src={logoUrl}
+                alt={content.logoAlt}
+                className="h-full w-full object-contain"
+                loading="lazy"
+              />
+            </span>
+            <span className="header-wordmark">
+              <span className="header-wordmark__title">LFN</span>
+              <span className="header-wordmark__tagline">{content.tagline}</span>
+            </span>
+          </Link>
+          <span className="header-divider hidden md:block" aria-hidden="true" />
+          <nav className="hidden items-center gap-8 md:flex">
+            {links.map((link) => (
               <Link
                 key={link.href}
                 href={link.href}
-                className="nav-link focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-border)] focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--color-bg)]"
+                aria-current={isActive(link.href) ? "page" : undefined}
+                className={`nav-link ${isActive(link.href) ? "is-active" : ""}`}
               >
                 {link.label}
               </Link>
-            )
-          )}
-        </nav>
-        <div className="hidden items-center justify-end gap-6 md:flex">
+            ))}
+          </nav>
+        </div>
+        <div className="header-right hidden md:flex">
+          <span className="header-members">
+            <span className="header-members__dot" aria-hidden="true" />
+            {content.members}
+          </span>
+          <LanguageSwitcher locale={locale} />
           <Button
             href={INSCRIPTION_PATH}
-            variant="secondary"
+            variant="primary"
             ariaLabel={content.signup}
-            className="discord-cta"
+            className="header-cta"
           >
             <span className="flex items-center gap-2">
-              {content.signup} <DiscordIcon />
+              {content.signup} <DiscordIcon size={20} />
             </span>
           </Button>
-          <LanguageSwitcher locale={locale} />
         </div>
         <div className="md:hidden">
           <button
