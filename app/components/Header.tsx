@@ -11,7 +11,7 @@ import ReloadingImage from "./ReloadingImage";
 
 const logoUrl = "/LogoLFN.webp";
 
-const INSCRIPTION_PATH = "/inscription";
+const DISCORD_INVITE = "https://discord.gg/q6sFPWCKD7";
 
 const navLinks = {
   fr: [
@@ -89,8 +89,9 @@ export default function Header({ locale }: { locale: Locale }) {
           </span>
           <LanguageSwitcher locale={locale} />
           <Button
-            href={INSCRIPTION_PATH}
+            href={DISCORD_INVITE}
             variant="primary"
+            external
             ariaLabel={content.signup}
             className="header-cta"
           >
@@ -132,14 +133,16 @@ export default function Header({ locale }: { locale: Locale }) {
               </Link>
             )
           )}
-          <Link
-            href={INSCRIPTION_PATH}
+          <a
+            href={DISCORD_INVITE}
+            target="_blank"
+            rel="noreferrer"
             className="mobile-discord-button"
             onClick={() => setIsMenuOpen(false)}
           >
             <span>{content.join}</span>
             <DiscordIcon />
-          </Link>
+          </a>
           <LanguageSwitcher locale={locale} />
         </div>
       </div>
