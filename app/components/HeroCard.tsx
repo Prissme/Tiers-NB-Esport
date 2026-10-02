@@ -40,7 +40,12 @@ export default function HeroCard({ locale }: { locale: Locale }) {
           <Button href="/leaderboard" variant="primary">
             {content.watch}
           </Button>
-          <Button href="/inscription" variant="secondary" className="hero-signup-button">
+          <Button
+            href="https://discord.gg/q6sFPWCKD7"
+            variant="secondary"
+            external
+            className="hero-signup-button"
+          >
             <span className="flex items-center gap-2">
               {content.signup} <DiscordIcon />
             </span>
