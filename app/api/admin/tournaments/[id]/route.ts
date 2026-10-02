@@ -23,7 +23,7 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     }
     const supabase = withSchema(createAdminClient());
     const { data, error } = await supabase
-      .from("lfn_tournaments")
+      .from("lfn_site_tournaments")
       .update({ ...parsed.data, updated_at: new Date().toISOString() })
       .eq("id", params.id)
       .select(TOURNAMENT_COLUMNS)
@@ -46,7 +46,7 @@ export async function DELETE(_request: Request, { params }: { params: { id: stri
   }
   try {
     const supabase = withSchema(createAdminClient());
-    const { error } = await supabase.from("lfn_tournaments").delete().eq("id", params.id);
+    const { error } = await supabase.from("lfn_site_tournaments").delete().eq("id", params.id);
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
