@@ -1,3 +1,4 @@
+// EMPLACEMENT : app/api/admin/tournaments/banner/route.ts  (upload bannière)
 import { randomUUID } from "crypto";
 import { NextResponse } from "next/server";
 import { createAdminClient } from "../../../../../src/lib/supabase/admin";
