@@ -2,7 +2,7 @@ import Button from "../components/Button";
 import SectionHeader from "../components/SectionHeader";
 import { getLocale } from "../lib/i18n";
 
-const INSCRIPTION_PATH = "/inscription";
+const DISCORD_INVITE = "https://discord.gg/q6sFPWCKD7";
 
 export default function ParticiperPage() {
   const locale = getLocale();
@@ -52,7 +52,7 @@ export default function ParticiperPage() {
             ))}
           </div>
           <div className="flex flex-wrap gap-3">
-            <Button href={INSCRIPTION_PATH} variant="primary" className="signup-button">
+            <Button href={DISCORD_INVITE} variant="primary" external className="signup-button">
               {content.signup}
             </Button>
             <Button href="/rulebook" variant="secondary">
