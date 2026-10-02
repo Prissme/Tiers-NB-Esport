@@ -4,6 +4,7 @@ import { Fragment, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import MatchesTable, { type MatchRecord } from "./components/MatchesTable";
 import TeamsPanel from "./components/TeamsPanel";
+import TournamentsPanel from "./components/TournamentsPanel";
 import { supabase } from "../../lib/supabaseClient";
 import { COUNTRIES, CountrySearch } from "./components/CountrySearch";
 
@@ -11,6 +12,7 @@ const tabs = [
   { id: "programme", label: "Programme" },
   { id: "matchs", label: "Matchs" },
   { id: "teams", label: "Teams" },
+  { id: "tournois", label: "Tournois" },
   { id: "classement", label: "Classement" },
   { id: "joueurs", label: "Joueurs" },
 ];
@@ -436,6 +438,12 @@ export default function AdminPage() {
       {activeTab === "teams" && (
         <div className="secondary-section">
           <TeamsPanel />
+        </div>
+      )}
+
+      {activeTab === "tournois" && (
+        <div className="secondary-section">
+          <TournamentsPanel />
         </div>
       )}
 
