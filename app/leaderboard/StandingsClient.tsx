@@ -31,12 +31,6 @@ const tierImageByName: Record<string, string> = {
   "Tier E": "/TierE.webp",
 };
 
-const trophyImageByRank: Record<number, string> = {
-  1: "/GoldTrophy.webp",
-  2: "/SilverTrophy.webp",
-  3: "/BronzeTrophy.webp",
-};
-
 const getCountryCode = (countryCode?: string) => {
   const normalized = String(countryCode ?? "FR").trim().toUpperCase();
   return /^[A-Z]{2}$/.test(normalized) ? normalized : "UN";
@@ -275,83 +269,6 @@ export default function StandingsClient({ locale }: { locale: Locale }) {
           description={content.playersDescription}
           tone="dominant"
         />
-        <div className="grid items-end gap-4 md:grid-cols-3">
-          {[1, 0, 2].map((podiumIndex) => {
-            const player = topPlayers[podiumIndex];
-            if (!player) return <div key={`featured-empty-${podiumIndex}`} />;
-            const tierLabel = getDisplayedTier(player);
-            const tierImage = tierImageByName[player.tier] ?? "/TierE.webp";
-            const glow =
-              podiumIndex === 0
-                ? "from-amber-300/45 via-amber-100/20 to-transparent"
-                : podiumIndex === 1
-                  ? "from-slate-300/45 via-slate-100/20 to-transparent"
-                  : "from-amber-700/45 via-amber-900/20 to-transparent";
-            const rankBadgeStyle =
-              podiumIndex === 0
-                ? "bg-amber-300 text-black"
-                : podiumIndex === 1
-                  ? "bg-slate-200 text-slate-900"
-                  : "bg-amber-800 text-amber-100";
-            const heightClass =
-              podiumIndex === 0
-                ? "md:h-[420px]"
-                : podiumIndex === 1
-                  ? "md:h-[380px]"
-                  : "md:h-[350px]";
-            return (
-              <div
-                key={`featured-${player.id}`}
-                onClick={() => setSelectedPlayer(player)}
-                className={`relative flex flex-col justify-end overflow-hidden rounded-[18px] border border-white/10 bg-gradient-to-br ${glow} ${heightClass} p-6 shadow-[0_25px_60px_-40px_rgba(0,0,0,0.9)]`}
-              >
-                <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.2),transparent_60%)]" />
-                <div className="absolute inset-x-0 bottom-0 h-10 bg-white/10" />
-                <div className="relative z-10 space-y-4 pb-5 text-center">
-                  <div
-                    className={`mx-auto inline-flex items-center justify-center rounded-full px-4 py-1 text-[10px] uppercase tracking-[0.35em] ${rankBadgeStyle}`}
-                  >
-                    <img
-                      src={trophyImageByRank[podiumIndex + 1]}
-                      alt={`Top ${podiumIndex + 1}`}
-                      className="h-5 w-5"
-                      loading="lazy"
-                    />
-                  </div>
-                  <div className="mx-auto">
-                    <p className="text-lg font-semibold text-white">{player.name}</p>
-                    <p className="text-xs uppercase tracking-[0.2em] text-white/70">
-                      {player.teamTag ?? content.freeAgent}
-                    </p>
-                    <p className="text-sm text-white/70">
-                      <img
-                        src={`https://flagcdn.com/w40/${getCountryCode(player.countryCode).toLowerCase()}.png`}
-                        alt={getCountryCode(player.countryCode)}
-                        className="mr-2 inline-block h-4 w-6 rounded-sm object-cover align-middle"
-                        loading="lazy"
-                      />
-                      {getCountryCode(player.countryCode)}
-                    </p>
-                  </div>
-                  <div className="mx-auto flex flex-col items-center gap-2">
-                    <ReloadingImage
-                      src={tierImage}
-                      alt={tierLabel}
-                      className="h-20 w-20 object-contain drop-shadow-[0_12px_20px_rgba(0,0,0,0.4)]"
-                      loading="lazy"
-                    />
-                    <span className="text-xs uppercase tracking-[0.2em] text-white/70">
-                      {tierLabel}
-                    </span>
-                    <p className="text-sm font-semibold text-white/90">
-                      {player.points} {content.pointsShort}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
         <div className="overflow-x-auto rounded-xl border border-white/10 bg-black/20">
           <div className="flex flex-wrap gap-2 border-b border-white/10 p-3">
             <select
