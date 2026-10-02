@@ -16,10 +16,12 @@ const DISCORD_INVITE = "https://discord.gg/q6sFPWCKD7";
 const navLinks = {
   fr: [
     { label: "Leaderboard", href: "/leaderboard" },
+    { label: "Tournois", href: "/tournois" },
     { label: "Règlement", href: "/rulebook" },
   ],
   en: [
     { label: "Leaderboard", href: "/leaderboard" },
+    { label: "Tournaments", href: "/tournois" },
     { label: "Rulebook", href: "/rulebook" },
   ],
 };
