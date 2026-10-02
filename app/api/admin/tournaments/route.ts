@@ -19,7 +19,7 @@ export async function GET() {
   try {
     const supabase = withSchema(createAdminClient());
     const { data, error } = await supabase
-      .from("lfn_tournaments")
+      .from("lfn_site_tournaments")
       .select(TOURNAMENT_COLUMNS)
       .order("starts_at", { ascending: false, nullsFirst: true });
     if (error) {
@@ -45,7 +45,7 @@ export async function POST(request: Request) {
     }
     const supabase = withSchema(createAdminClient());
     const { data, error } = await supabase
-      .from("lfn_tournaments")
+      .from("lfn_site_tournaments")
       .insert(parsed.data)
       .select(TOURNAMENT_COLUMNS)
       .single();
