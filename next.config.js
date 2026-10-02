@@ -42,7 +42,8 @@ const nextConfig = {
   async redirects() {
     return [
       { source: '/classement', destination: '/leaderboard', permanent: true },
-      { source: '/rosters', destination: '/', permanent: true }
+      { source: '/rosters', destination: '/', permanent: true },
+      { source: '/tournois', destination: '/events', permanent: true }
     ];
   },
   async rewrites() {
