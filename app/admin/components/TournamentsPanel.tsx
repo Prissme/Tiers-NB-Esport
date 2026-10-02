@@ -396,11 +396,11 @@ export default function TournamentsPanel() {
 
           {form.status === "finished" ? (
             <div>
-              <label className={labelClass}>Gagnants ({form.winners.length}/{MAX_WINNERS}) — dans l'ordre du classement</label>
+              <label className={labelClass}>Gagnants ({form.winners.length}/{MAX_WINNERS}) — membres de l'équipe gagnante</label>
               <div className="space-y-2">
                 {form.winners.map((winner, index) => (
                   <div key={index} className="grid grid-cols-[2rem_1fr_auto_auto] items-center gap-2">
-                    <span className="text-center text-sm font-semibold text-[#f2d184]">{index + 1}</span>
+                    <span className="text-center text-sm font-semibold text-[#f2d184]">•</span>
                     <input
                       type="text"
                       value={winner.name}
