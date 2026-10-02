@@ -1,3 +1,4 @@
+// EMPLACEMENT : app/api/admin/tournaments/route.ts  (liste + création)
 import { NextResponse } from "next/server";
 import { createAdminClient } from "../../../../src/lib/supabase/admin";
 import { withSchema } from "../../../../src/lib/supabase/schema";
