@@ -100,7 +100,7 @@ const statusStyle: Record<Tournament["status"], string> = {
 async function loadTournaments(): Promise<Tournament[]> {
   try {
     const supabase = withSchema(createServerClient());
-    const { data, error } = await supabase.from("lfn_tournaments").select(TOURNAMENT_COLUMNS);
+    const { data, error } = await supabase.from("lfn_site_tournaments").select(TOURNAMENT_COLUMNS);
     if (error) {
       console.error("tournaments load error", error.message);
       return [];
