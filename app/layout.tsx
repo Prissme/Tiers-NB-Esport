@@ -37,27 +37,17 @@ export const metadata: Metadata = {
     shortcut: "/favicon.svg",
     apple: "/LogoLFN.webp",
   },
+  // Embed Discord : juste la barre dorée (themeColor) + titre + sous-titre, aucune image
   openGraph: {
-    title: "LFN — Ligue francophone",
-    description:
-      "LFN — Ligue francophone. Accès sur sélection, saisons encadrées, classement officiel.",
+    title: "LFN : Null's Brawl Tournaments",
+    description: "Powered By Prissme TV",
     type: "website",
     url: "https://www.lfn-esports.fr/",
-    images: [
-      {
-        url: "/Montagne.webp",
-        width: 1200,
-        height: 630,
-        alt: "LFN — Ligue francophone",
-      },
-    ],
   },
   twitter: {
-    card: "summary_large_image",
-    title: "LFN — Ligue francophone",
-    description:
-      "LFN — Ligue francophone. Accès sur sélection, saisons encadrées, classement officiel.",
-    images: ["/Montagne.webp"],
+    card: "summary",
+    title: "LFN : Null's Brawl Tournaments",
+    description: "Powered By Prissme TV",
   },
 };
 
