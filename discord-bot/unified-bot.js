@@ -6009,9 +6009,7 @@ async function handleTierCommand(message) {
   const playerRank = tierLeaderboard.findIndex(
     (player) => String(player?.discordId || '') === String(targetUser.id)
   ) + 1;
-  const rankLabel = playerRank
-    ? `#${playerRank}`
-    : localizeText({ fr: 'Non classé', en: 'Unranked' });
+  const rankLabel = playerRank ? `#${playerRank}` : 'Unranked';
   const countryCode = String(siteTierPlayer.countryCode || 'FR').toUpperCase();
   const countryFlag = toCountryFlag(countryCode);
   const tierLabel = String(siteTierPlayer.tier || 'No Tier');
@@ -6022,17 +6020,17 @@ async function handleTierCommand(message) {
   const winStreak = Number(siteTierPlayer.winStreak || 0);
 
   const embedFields = [
-    { name: 'Classement global', value: `**${rankLabel}**`, inline: true },
+    { name: 'Global Rank', value: `**${rankLabel}**`, inline: true },
     { name: 'Points', value: `**${Math.round(Number(siteTierPlayer.points || 0))}**`, inline: true },
     { name: "Ballon D'Or", value: `**🏆 ${ballonDor}**`, inline: true },
     { name: 'Golden Nullser', value: `**⭐ ${goldenNullser}**`, inline: true },
-    { name: 'Pays', value: `**${countryFlag} ${countryCode}**`, inline: true }
+    { name: 'Country', value: `**${countryFlag} ${countryCode}**`, inline: true }
   ];
 
   if (earnings > 0) {
     embedFields.push({
       name: 'Earnings',
-      value: `**💰 ${earnings.toLocaleString('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: 2 })} €**`,
+      value: `**💰 €${earnings.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}**`,
       inline: true
     });
   }
