@@ -2,7 +2,7 @@
 
 // ============================================================
 // country-roles.js
-// Crée automatiquement un rôle Discord par pays (ex: "🇧🇪 Belgique")
+// Crée automatiquement un rôle Discord par pays (ex: "🇧🇪 Belgium")
 // et y met tous les joueurs de ce pays.
 //
 // - Source : tables `players` (discord_id) + `lfn_player_profiles` (country_code),
@@ -19,7 +19,7 @@ const { COUNTRIES } = require('./utils/countries');
 const COUNTRY_ROLES_SYNC_INTERVAL_MS = 10 * 60 * 1000; // 10 minutes
 const ACTION_DELAY_MS = 400; // petite pause entre chaque appel Discord (rate limit)
 
-const REGION_NAMES_FR = new Intl.DisplayNames(['fr'], { type: 'region' });
+const REGION_NAMES_EN = new Intl.DisplayNames(['en'], { type: 'region' });
 
 // ── État interne ────────────────────────────────────────────
 let _intervalRef = null;
@@ -47,16 +47,15 @@ function toCountryFlag(countryCode) {
 }
 
 function getCountryName(countryCode) {
-  const known = COUNTRIES.find((c) => c.code === countryCode);
-  if (known?.name) return known.name;
+  // Noms de pays en anglais (ex: "Belgium", "Germany")
   try {
-    return REGION_NAMES_FR.of(countryCode) || countryCode;
+    return REGION_NAMES_EN.of(countryCode) || countryCode;
   } catch {
     return countryCode;
   }
 }
 
-/** Nom du rôle Discord pour un pays, ex: "🇧🇪 Belgique". */
+/** Nom du rôle Discord pour un pays, ex: "🇧🇪 Belgium". */
 function getCountryRoleName(countryCode) {
   return `${toCountryFlag(countryCode)} ${getCountryName(countryCode)}`;
 }
@@ -69,24 +68,29 @@ async function fetchPlayersWithCountry(supabase) {
   const { data: players, error: playersError } = await supabase
     .from('players')
     .select('id, discord_id, active')
-    .not('discord_id', 'is', null);
+    .not('discord_id', 'is', null)
+    .limit(5000);
   if (playersError) throw new Error(playersError.message || 'players: lecture impossible');
 
   const { data: profiles, error: profilesError } = await supabase
     .from('lfn_player_profiles')
-    .select('player_id, country_code');
+    .select('player_id, country_code')
+    .limit(5000);
   if (profilesError) throw new Error(profilesError.message || 'profiles: lecture impossible');
 
   const profileMap = new Map((profiles || []).map((p) => [p.player_id, p.country_code]));
 
+  // Map<discordId, countryCode | null> — null = joueur inactif (on lui retire son rôle pays)
   const byDiscordId = new Map();
   for (const player of players || []) {
-    if (player.active === false) continue;
     const discordId = String(player.discord_id || '').trim();
     if (!/^\d{15,25}$/.test(discordId)) continue;
-    byDiscordId.set(discordId, normalizeCountryCode(profileMap.get(player.id)));
+    byDiscordId.set(
+      discordId,
+      player.active === false ? null : normalizeCountryCode(profileMap.get(player.id))
+    );
   }
-  return byDiscordId; // Map<discordId, countryCode>
+  return byDiscordId;
 }
 
 // ── Gestion des rôles ────────────────────────────────────────
@@ -112,67 +116,92 @@ async function ensureCountryRole(guild, countryCode) {
 }
 
 /**
- * Synchronise les rôles pays de tout le serveur.
+ * Synchronise les rôles pays du serveur.
+ * Les membres sont récupérés un par un (comme la synchro des rôles de tier) :
+ * un members.fetch() global peut expirer sur un gros serveur.
  *
  * @param {import('discord.js').Guild} guild
  * @param {import('@supabase/supabase-js').SupabaseClient} supabase
- * @returns {Promise<{ synced: boolean, added?: number, removed?: number, created?: number, reason?: string }>}
  */
 async function syncCountryRoles(guild, supabase) {
   if (_isSyncing) return { synced: false, reason: 'already_syncing' };
-  if (!guild || !supabase) return { synced: false, reason: 'missing_context' };
+  if (!guild || !supabase) {
+    console.warn('[CountryRoles] Contexte manquant (guild ou supabase), synchro annulée.');
+    return { synced: false, reason: 'missing_context' };
+  }
 
   _isSyncing = true;
-  const stats = { added: 0, removed: 0, created: 0 };
+  const stats = { created: 0, added: 0, removed: 0, missing: 0 };
 
   try {
+    console.log('[CountryRoles] Synchro démarrée...');
+
     const me = guild.members.me || (await guild.members.fetchMe());
     if (!me.permissions.has('ManageRoles')) {
-      console.warn('[CountryRoles] Permission "Gérer les rôles" manquante, synchro annulée.');
+      console.warn('[CountryRoles] Permission "Gérer les rôles" manquante pour le bot, synchro annulée.');
       return { synced: false, reason: 'missing_manage_roles' };
     }
 
     const countryByDiscordId = await fetchPlayersWithCountry(supabase);
+    console.log(`[CountryRoles] ${countryByDiscordId.size} joueur(s) avec un Discord ID en base.`);
 
-    // Membres du serveur (nécessite l'intent GuildMembers, déjà activé)
-    await guild.members.fetch();
     await guild.roles.fetch();
 
-    // Tous les noms de rôles pays possibles : sert à reconnaître "nos" rôles
-    // pour retirer un joueur d'un ancien pays sans toucher aux autres rôles.
+    // Noms de tous les rôles pays possibles : sert à reconnaître "nos" rôles
+    // sans jamais toucher aux autres rôles du joueur.
     const knownCountryRoleNames = new Set(COUNTRIES.map((c) => getCountryRoleName(c.code)));
-    for (const code of new Set(countryByDiscordId.values())) {
-      knownCountryRoleNames.add(getCountryRoleName(code));
+    for (const code of countryByDiscordId.values()) {
+      if (code) knownCountryRoleNames.add(getCountryRoleName(code));
     }
 
-    // Pays qui ont au moins un joueur présent sur le serveur
-    const neededCountries = new Set();
-    for (const [discordId, code] of countryByDiscordId) {
-      if (guild.members.cache.has(discordId)) neededCountries.add(code);
+    // 1) Récupère chaque membre présent sur le serveur
+    const presentMembers = []; // { member, countryCode }
+    for (const [discordId, countryCode] of countryByDiscordId) {
+      let member = guild.members.cache.get(discordId) || null;
+      if (!member) {
+        try {
+          member = await guild.members.fetch(discordId);
+        } catch (err) {
+          member = null; // pas sur le serveur (code 10007) ou erreur ponctuelle
+        }
+      }
+      if (!member) {
+        stats.missing += 1;
+        continue;
+      }
+      presentMembers.push({ member, countryCode });
     }
+    console.log(
+      `[CountryRoles] ${presentMembers.length} joueur(s) trouvé(s) sur le serveur, ${stats.missing} absent(s).`
+    );
 
-    // 1) Création des rôles manquants
+    // 2) Crée les rôles pays manquants (seulement ceux avec au moins 1 joueur présent)
     const roleByCountry = new Map();
+    const neededCountries = new Set(
+      presentMembers.map((entry) => entry.countryCode).filter(Boolean)
+    );
     for (const code of neededCountries) {
-      const hadRole = guild.roles.cache.some((role) => role.name === getCountryRoleName(code));
+      const roleName = getCountryRoleName(code);
+      const hadRole = guild.roles.cache.some((role) => role.name === roleName);
       const role = await ensureCountryRole(guild, code);
       if (!role) continue;
-      if (!hadRole) stats.created += 1;
+      if (!hadRole) {
+        stats.created += 1;
+        console.log(`[CountryRoles] Rôle créé : ${roleName}`);
+      }
       roleByCountry.set(code, role);
     }
 
-    // 2) Attribution / retrait membre par membre
-    for (const member of guild.members.cache.values()) {
+    // 3) Attribue / retire les rôles
+    for (const { member, countryCode } of presentMembers) {
       if (member.user?.bot) continue;
 
-      const countryCode = countryByDiscordId.get(member.id) || null;
       const targetRole = countryCode ? roleByCountry.get(countryCode) || null : null;
-
       const memberCountryRoles = member.roles.cache.filter((role) =>
         knownCountryRoleNames.has(role.name)
       );
 
-      // Retire les rôles pays qui ne correspondent plus (changement de pays, joueur inactif...)
+      // Retire les anciens rôles pays (changement de pays, joueur inactif...)
       for (const role of memberCountryRoles.values()) {
         if (targetRole && role.id === targetRole.id) continue;
         try {
@@ -191,7 +220,11 @@ async function syncCountryRoles(guild, supabase) {
           stats.added += 1;
           await sleep(ACTION_DELAY_MS);
         } catch (err) {
-          console.warn(`[CountryRoles] Ajout ${targetRole.name} -> ${member.id} impossible:`, err?.message || err);
+          console.warn(
+            `[CountryRoles] Ajout ${targetRole.name} -> ${member.id} impossible ` +
+              '(le rôle du bot est-il AU-DESSUS des rôles pays ?):',
+            err?.message || err
+          );
         }
       }
     }
@@ -201,7 +234,7 @@ async function syncCountryRoles(guild, supabase) {
     );
     return { synced: true, ...stats };
   } catch (err) {
-    console.error('[CountryRoles] Erreur pendant la synchro:', err?.message || err);
+    console.error('[CountryRoles] Erreur pendant la synchro:', err?.stack || err?.message || err);
     return { synced: false, reason: 'error' };
   } finally {
     _isSyncing = false;
