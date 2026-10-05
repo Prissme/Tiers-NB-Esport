@@ -42,6 +42,7 @@ const {
   sendOrUpdateWorldLeaderboardEmbed,
   setFetchSiteTierLeaderboard
 } = require('./world-country-leaderboard');
+const { initCountryRoles } = require('./country-roles');
 const { buildAdminSlashCommands } = require('./commands/admin-slash-commands');
 const {
   buildSeasonStartEmbed,
@@ -9419,6 +9420,11 @@ async function onReady(readyClient) {
   setFetchSiteTierLeaderboard(fetchSiteTierLeaderboard); // même source de data que !worldlb
   initWorldCountryLeaderboard(readyClient, guild);
   log('[onReady] initWorldCountryLeaderboard appelé.');
+
+  // Rôles Discord par pays (ex: "🇧🇪 Belgique") + attribution aux joueurs
+  log('[onReady] Appel initCountryRoles...');
+  initCountryRoles(guild, supabase);
+  log('[onReady] initCountryRoles appelé.');
   
   tournamentPredictions.init({
     supabase,
