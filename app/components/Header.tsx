@@ -139,7 +139,16 @@ export default function Header({ locale, user }: { locale: Locale; user: SiteUse
             </a>
           )}
         </div>
-        <div className="md:hidden">
+        <div className="flex items-center gap-3 md:hidden">
+          {user?.avatarUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={user.avatarUrl}
+              alt={user.name}
+              className="h-8 w-8 rounded-full object-cover"
+              referrerPolicy="no-referrer"
+            />
+          ) : null}
           <button
             type="button"
             className="mobile-menu-toggle"
@@ -174,7 +183,18 @@ export default function Header({ locale, user }: { locale: Locale; user: SiteUse
           )}
           {user ? (
             <form action="/auth/logout" method="post" className="flex items-center justify-between gap-3">
-              <span className="truncate">{user.name}</span>
+              <span className="flex min-w-0 items-center gap-2">
+                {user.avatarUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={user.avatarUrl}
+                    alt=""
+                    className="h-8 w-8 rounded-full object-cover"
+                    referrerPolicy="no-referrer"
+                  />
+                ) : null}
+                <span className="truncate">{user.name}</span>
+              </span>
               <button type="submit">{content.logout}</button>
             </form>
           ) : (
