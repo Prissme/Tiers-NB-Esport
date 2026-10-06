@@ -43,6 +43,7 @@ type TierPlayer = {
 
 const toFlag = (countryCode?: string) => {
   const normalized = String(countryCode ?? "FR").trim().toUpperCase();
+  if (normalized === "ZZ") return "🌐"; // pays non spécifié
   if (!/^[A-Z]{2}$/.test(normalized)) return "🏳️";
   return String.fromCodePoint(
     ...Array.from(normalized).map((char) => 127397 + char.charCodeAt(0))
