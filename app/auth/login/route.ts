@@ -1,12 +1,13 @@
 import { NextResponse } from "next/server";
 import { createAuthClient } from "../../../src/lib/auth/supabase-auth";
-import { getBaseUrl } from "../../lib/get-base-url";
+import { getRequestOrigin } from "../../../src/lib/auth/origin";
 
 export const dynamic = "force-dynamic";
 
 /** Démarre le login Discord (OAuth) puis redirige vers Discord. */
 export async function GET(request: Request) {
-  const baseUrl = getBaseUrl();
+  const baseUrl = getRequestOrigin(request);
+  console.log("[auth] origin:", baseUrl);
   const next = new URL(request.url).searchParams.get("next") ?? "/";
   const safeNext = next.startsWith("/") && !next.startsWith("//") ? next : "/";
 
