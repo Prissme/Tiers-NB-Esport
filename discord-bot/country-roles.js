@@ -36,6 +36,12 @@ function normalizeCountryCode(raw) {
   return /^[A-Z]{2}$/.test(code) ? code : 'FR';
 }
 
+/** Code pays pour le rôle, ou null si non spécifié ('ZZ') : pas de rôle pays dans ce cas. */
+function toRoleCountryCode(raw) {
+  const code = normalizeCountryCode(raw);
+  return code === 'ZZ' ? null : code;
+}
+
 function toCountryFlag(countryCode) {
   try {
     return String.fromCodePoint(
@@ -87,7 +93,7 @@ async function fetchPlayersWithCountry(supabase) {
     if (!/^\d{15,25}$/.test(discordId)) continue;
     byDiscordId.set(
       discordId,
-      player.active === false ? null : normalizeCountryCode(profileMap.get(player.id))
+      player.active === false ? null : toRoleCountryCode(profileMap.get(player.id))
     );
   }
   return byDiscordId;
