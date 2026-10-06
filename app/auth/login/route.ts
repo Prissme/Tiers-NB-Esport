@@ -15,7 +15,9 @@ export async function GET(request: Request) {
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: "discord",
       options: {
-        redirectTo: `${baseUrl}/auth/callback?next=${encodeURIComponent(safeNext)}`,
+        // URL EXACTE de la liste Supabase : un `?next=` ferait échouer la comparaison
+        // et Supabase retomberait sur la Site URL (page d'accueil avec ?code=...)
+        redirectTo: `${baseUrl}/auth/callback`,
         scopes: "identify",
         skipBrowserRedirect: true,
       },
@@ -26,7 +28,18 @@ export async function GET(request: Request) {
       return NextResponse.redirect(`${baseUrl}/?auth=error`);
     }
 
-    return NextResponse.redirect(data.url);
+    const response = NextResponse.redirect(data.url);
+    if (safeNext !== "/") {
+      // Page de retour après login (valable 10 min)
+      response.cookies.set("lfn_auth_next", safeNext, {
+        httpOnly: true,
+        sameSite: "lax",
+        secure: baseUrl.startsWith("https://"),
+        path: "/",
+        maxAge: 600,
+      });
+    }
+    return response;
   } catch (err) {
     console.error("[auth] login error:", err);
     return NextResponse.redirect(`${baseUrl}/?auth=error`);
