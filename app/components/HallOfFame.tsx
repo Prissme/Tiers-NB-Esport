@@ -64,7 +64,7 @@ const hallOfFameEntries = {
   ],
 };
 
-const INSCRIPTION_PATH = "/inscription";
+const INSCRIPTION_PATH = "/auth/login";
 const HALL_EMBLEM_URL = "/Trophée.webp";
 const SIGNUP_EMBLEM_URL = "/Discord.webp";
 
