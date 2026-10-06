@@ -3,6 +3,7 @@ import type { Metadata, Viewport } from "next";
 import { Cormorant_Garamond, Inter } from "next/font/google";
 import Footer from "./components/Footer";
 import Header from "./components/Header";
+import { getSiteUser } from "../src/lib/auth/site-user";
 import BackgroundFX from "./components/BackgroundFX";
 import PageTransition from "./components/PageTransition";
 import { getLocale } from "./lib/i18n";
@@ -55,12 +56,13 @@ export const viewport: Viewport = {
   themeColor: "#E39F30",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
   const locale = getLocale();
+  const siteUser = await getSiteUser();
   return (
     <html lang={locale} className={`${inter.variable} ${cormorant.variable}`}>
       <head>
@@ -82,7 +84,7 @@ export default function RootLayout({
         <div className="relative min-h-screen overflow-hidden">
           <div className="site-background-layer" aria-hidden="true" />
           <BackgroundFX />
-          <Header locale={locale} />
+          <Header locale={locale} user={siteUser} />
           <main className="relative z-10">
             <PageTransition>{children}</PageTransition>
           </main>
