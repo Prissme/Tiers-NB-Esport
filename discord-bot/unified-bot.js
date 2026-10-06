@@ -2596,6 +2596,9 @@ async function getSiteRankingMap() {
 
 function toCountryFlag(countryCode) {
   const normalized = String(countryCode || 'FR').trim().toUpperCase();
+  if (normalized === 'ZZ') {
+    return '🌐'; // pays non spécifié
+  }
   if (!/^[A-Z]{2}$/.test(normalized)) {
     return '🏳️';
   }
@@ -4763,7 +4766,7 @@ async function handleLeaderboardCommand(message, args) {
           ) + 1;
         const countryFlag = toCountryFlag(player.countryCode);
         const displayRank = absoluteRank > 0 ? absoluteRank : '?';
-        return `**#${displayRank}** **${player.name}** • ${countryFlag} ${String(player.countryCode || 'FR').toUpperCase()} • ${
+        return `**#${displayRank}** **${player.name}** • ${countryFlag} ${String(player.countryCode || 'FR').toUpperCase() === 'ZZ' ? 'N/A' : String(player.countryCode || 'FR').toUpperCase()} • ${
           player.tier
         } • **${Math.round(Number(player.points || 0))} pts**`;
       });
@@ -6024,7 +6027,7 @@ async function handleTierCommand(message) {
     { name: 'Points', value: `**${Math.round(Number(siteTierPlayer.points || 0))}**`, inline: true },
     { name: "Ballon D'Or", value: `**🏆 ${ballonDor}**`, inline: true },
     { name: 'Golden Nullser', value: `**⭐ ${goldenNullser}**`, inline: true },
-    { name: 'Country', value: `**${countryFlag} ${countryCode}**`, inline: true }
+    { name: 'Country', value: countryCode === 'ZZ' ? '**🌐 Unspecified**' : `**${countryFlag} ${countryCode}**`, inline: true }
   ];
 
   if (earnings > 0) {
