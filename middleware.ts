@@ -96,6 +96,20 @@ export async function middleware(request: NextRequest) {
     }
   }
 
+  // ── 2ter. Filet de sécurité login Discord ────────────────────────────
+  // Si Supabase renvoie sur la Site URL (/?code=...) au lieu de /auth/callback
+  // (URL de retour non reconnue), on traite quand même le code. Le cookie
+  // "code-verifier" prouve que ce visiteur a bien démarré un login chez nous.
+  if (
+    pathname === "/" &&
+    request.nextUrl.searchParams.has("code") &&
+    request.cookies.getAll().some((cookie) => cookie.name.includes("code-verifier"))
+  ) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/auth/callback";
+    return NextResponse.rewrite(url);
+  }
+
   // ── 3. Bloquer les bots évidents sur toutes les pages ────────────────
   const ua = request.headers.get("user-agent") ?? "";
   const botPatterns = [
