@@ -3,13 +3,14 @@ import { NextResponse } from "next/server";
 import { createAuthClient } from "../../../src/lib/auth/supabase-auth";
 import { getDiscordIdentity } from "../../../src/lib/auth/site-user";
 import { ensurePlayerForDiscordUser } from "../../../src/lib/auth/ensure-player";
-import { getBaseUrl } from "../../lib/get-base-url";
+import { getRequestOrigin } from "../../../src/lib/auth/origin";
 
 export const dynamic = "force-dynamic";
 
 /** Retour de Discord : échange le code, associe ou crée le joueur, puis redirige. */
 export async function GET(request: Request) {
-  const baseUrl = getBaseUrl();
+  const baseUrl = getRequestOrigin(request);
+  console.log("[auth] origin:", baseUrl);
   const url = new URL(request.url);
   const code = url.searchParams.get("code");
   const next = cookies().get("lfn_auth_next")?.value ?? "/";
