@@ -3,10 +3,10 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import Button from "./Button";
 import DiscordIcon from "./DiscordIcon";
 import LanguageSwitcher from "./LanguageSwitcher";
 import type { Locale } from "../lib/i18n";
+import type { SiteUser } from "../../src/lib/auth/site-user";
 import ReloadingImage from "./ReloadingImage";
 
 const logoUrl = "/LogoLFN.webp";
@@ -30,6 +30,7 @@ const copy = {
   fr: {
     logoAlt: "Logo LFN",
     signup: "S'inscrire",
+    logout: "Se déconnecter",
     join: "Rejoindre",
     openMenu: "Ouvrir le menu",
     tagline: "Ligue Null's Brawl",
@@ -38,6 +39,7 @@ const copy = {
   en: {
     logoAlt: "LFN logo",
     signup: "Sign up",
+    logout: "Log out",
     join: "Join",
     openMenu: "Open menu",
     tagline: "Null's Brawl League",
@@ -45,7 +47,7 @@ const copy = {
   },
 };
 
-export default function Header({ locale }: { locale: Locale }) {
+export default function Header({ locale, user }: { locale: Locale; user: SiteUser | null }) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const content = copy[locale];
   const links = navLinks[locale];
@@ -90,17 +92,52 @@ export default function Header({ locale }: { locale: Locale }) {
             {content.members}
           </span>
           <LanguageSwitcher locale={locale} />
-          <Button
+          {/* Invitation au serveur Discord (pour les nouveaux) */}
+          <a
             href={DISCORD_INVITE}
-            variant="primary"
-            external
-            ariaLabel={content.signup}
-            className="header-cta"
+            target="_blank"
+            rel="noreferrer"
+            aria-label={content.join}
+            title={content.join}
+            className="inline-flex h-10 w-10 items-center justify-center rounded-[8px] bg-[rgba(255,255,255,0.04)] text-[color:var(--color-text-faint)] transition hover:bg-[rgba(255,255,255,0.1)] hover:text-[color:var(--color-text)]"
           >
-            <span className="flex items-center gap-2">
-              {content.signup} <DiscordIcon size={20} />
-            </span>
-          </Button>
+            <DiscordIcon size={20} />
+          </a>
+          {user ? (
+            <div className="flex items-center gap-3">
+              <span className="flex items-center gap-2 text-sm text-[color:var(--color-text)]">
+                {user.avatarUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={user.avatarUrl}
+                    alt=""
+                    className="h-8 w-8 rounded-full object-cover"
+                    referrerPolicy="no-referrer"
+                  />
+                ) : null}
+                <span className="max-w-[140px] truncate">{user.name}</span>
+              </span>
+              <form action="/auth/logout" method="post">
+                <button
+                  type="submit"
+                  className="text-xs uppercase tracking-[0.12em] text-[color:var(--color-text-faint)] transition hover:text-[color:var(--color-text)]"
+                >
+                  {content.logout}
+                </button>
+              </form>
+            </div>
+          ) : (
+            // <a> natif : /auth/login redirige vers Discord (un <Link> le prefetcherait)
+            <a
+              href="/auth/login"
+              aria-label={content.signup}
+              className="header-cta relative inline-flex items-center justify-center gap-2 overflow-hidden rounded-[8px] bg-[color:var(--color-accent)] px-7 py-[14px] text-xs font-semibold uppercase tracking-[0.12em] text-[#20180a] shadow-[0_0_30px_rgba(201,178,106,0.35)] transition duration-300 hover:bg-[color:var(--color-accent-deep)]"
+            >
+              <span className="flex items-center gap-2">
+                {content.signup} <DiscordIcon size={20} />
+              </span>
+            </a>
+          )}
         </div>
         <div className="md:hidden">
           <button
@@ -135,15 +172,24 @@ export default function Header({ locale }: { locale: Locale }) {
               </Link>
             )
           )}
+          {user ? (
+            <form action="/auth/logout" method="post" className="flex items-center justify-between gap-3">
+              <span className="truncate">{user.name}</span>
+              <button type="submit">{content.logout}</button>
+            </form>
+          ) : (
+            <a href="/auth/login" className="mobile-discord-button">
+              <span>{content.signup}</span>
+              <DiscordIcon />
+            </a>
+          )}
           <a
             href={DISCORD_INVITE}
             target="_blank"
             rel="noreferrer"
-            className="mobile-discord-button"
             onClick={() => setIsMenuOpen(false)}
           >
-            <span>{content.join}</span>
-            <DiscordIcon />
+            {content.join} Discord
           </a>
           <LanguageSwitcher locale={locale} />
         </div>
