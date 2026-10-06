@@ -74,6 +74,8 @@ function computeCountryRanking(players) {
     // Même fallback que fetchSiteTierLeaderboard (unified-bot.js) : 'FR' si code invalide/absent,
     // pour rester cohérent avec !worldlb.
     const countryCode = /^[A-Z]{2}$/.test(rawCountryCode) ? rawCountryCode : 'FR';
+    // 'ZZ' = pays non spécifié : exclu du classement par pays
+    if (countryCode === 'ZZ') continue;
 
     const points = Number(player?.points || 0);
     const entry = countries.get(countryCode) || {
