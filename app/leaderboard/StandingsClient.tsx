@@ -36,8 +36,14 @@ const getCountryCode = (countryCode?: string) => {
   return /^[A-Z]{2}$/.test(normalized) ? normalized : "UN";
 };
 
+// "ZZ" = pays non spécifié (joueur inscrit via le login Discord, pas encore de pays)
+const UNSPECIFIED_COUNTRY = "ZZ";
+
 const toFlagEmoji = (countryCode?: string) => {
   const code = getCountryCode(countryCode);
+  if (code === UNSPECIFIED_COUNTRY) {
+    return "🌐";
+  }
   if (!/^[A-Z]{2}$/.test(code)) {
     return "🏳️";
   }
@@ -220,6 +226,7 @@ export default function StandingsClient({ locale }: { locale: Locale }) {
       const pts = Number(player.points ?? 0);
       if (!Number.isFinite(pts) || pts <= 0) continue;
       const code = getCountryCode(player.countryCode);
+      if (code === UNSPECIFIED_COUNTRY) continue; // pas de pays => pas dans le classement par pays
       const list = byCountry.get(code) ?? [];
       list.push(pts);
       byCountry.set(code, list);
@@ -281,7 +288,7 @@ export default function StandingsClient({ locale }: { locale: Locale }) {
               </option>
               {availableCountries.map((country) => (
                 <option key={country} value={country}>
-                  {content.filterCountry}: {toFlagEmoji(country)} {country}
+                  {content.filterCountry}: {toFlagEmoji(country)} {country === UNSPECIFIED_COUNTRY ? "—" : country}
                 </option>
               ))}
             </select>
@@ -344,13 +351,22 @@ export default function StandingsClient({ locale }: { locale: Locale }) {
                     <td className="px-3 py-2 text-white/90">{player.name}</td>
                     <td className="px-3 py-2">
                       <div className="flex items-center gap-2">
-                        <img
-                          src={`https://flagcdn.com/w40/${getCountryCode(player.countryCode).toLowerCase()}.png`}
-                          alt={getCountryCode(player.countryCode)}
-                          className="h-4 w-6 rounded-sm object-cover"
-                          loading="lazy"
-                        />
-                        <span>{getCountryCode(player.countryCode)}</span>
+                        {getCountryCode(player.countryCode) === UNSPECIFIED_COUNTRY ? (
+                          <>
+                            <span className="flex h-4 w-6 items-center justify-center text-sm leading-none">🌐</span>
+                            <span>—</span>
+                          </>
+                        ) : (
+                          <>
+                            <img
+                              src={`https://flagcdn.com/w40/${getCountryCode(player.countryCode).toLowerCase()}.png`}
+                              alt={getCountryCode(player.countryCode)}
+                              className="h-4 w-6 rounded-sm object-cover"
+                              loading="lazy"
+                            />
+                            <span>{getCountryCode(player.countryCode)}</span>
+                          </>
+                        )}
                       </div>
                     </td>
                     <td className="px-3 py-2">
