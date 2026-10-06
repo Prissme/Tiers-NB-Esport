@@ -1,3 +1,4 @@
+import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { createAuthClient } from "../../../src/lib/auth/supabase-auth";
 import { getDiscordIdentity } from "../../../src/lib/auth/site-user";
@@ -11,7 +12,7 @@ export async function GET(request: Request) {
   const baseUrl = getBaseUrl();
   const url = new URL(request.url);
   const code = url.searchParams.get("code");
-  const next = url.searchParams.get("next") ?? "/";
+  const next = cookies().get("lfn_auth_next")?.value ?? "/";
   const safeNext = next.startsWith("/") && !next.startsWith("//") ? next : "/";
 
   if (!code) {
@@ -41,7 +42,9 @@ export async function GET(request: Request) {
       console.error("[auth] ensure player failed:", err);
     }
 
-    return NextResponse.redirect(`${baseUrl}${safeNext}`);
+    const response = NextResponse.redirect(`${baseUrl}${safeNext}`);
+    response.cookies.delete("lfn_auth_next");
+    return response;
   } catch (err) {
     console.error("[auth] callback error:", err);
     return NextResponse.redirect(`${baseUrl}/?auth=error`);
