@@ -40,16 +40,15 @@ export default function HeroCard({ locale }: { locale: Locale }) {
           <Button href="/leaderboard" variant="primary">
             {content.watch}
           </Button>
-          <Button
-            href="https://discord.gg/q6sFPWCKD7"
-            variant="secondary"
-            external
-            className="hero-signup-button"
+          {/* <a> natif : /auth/login est une route handler qui redirige vers Discord (pas de prefetch) */}
+          <a
+            href="/auth/login"
+            className="hero-signup-button relative inline-flex items-center justify-center gap-2 overflow-hidden rounded-[8px] bg-[rgba(255,255,255,0.04)] px-7 py-[14px] text-xs font-semibold uppercase tracking-[0.12em] text-[color:var(--color-text-faint)] transition duration-300 hover:bg-[rgba(255,255,255,0.1)] hover:text-[color:var(--color-text)]"
           >
             <span className="flex items-center gap-2">
               {content.signup} <DiscordIcon />
             </span>
-          </Button>
+          </a>
         </div>
         <CountdownTimer locale={locale} />
       </div>
