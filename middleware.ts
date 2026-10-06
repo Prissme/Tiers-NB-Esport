@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { createServerClient } from "@supabase/ssr";
 
 /**
  * URL secrète pour accéder au panel admin.
@@ -109,6 +110,40 @@ export async function middleware(request: NextRequest) {
   ];
   if (botPatterns.some((pattern) => pattern.test(ua))) {
     return new NextResponse("Not Found", { status: 404 });
+  }
+
+  // ── 4. Rafraîchir la session Supabase (login Discord) ────────────────
+  // Sans ça, le token expire (~1h) et le visiteur apparaît déconnecté, car les
+  // Server Components ne peuvent pas réécrire les cookies. On ne fait l'appel
+  // que si un cookie de session existe (visiteurs anonymes : aucun coût).
+  const hasSessionCookie = request.cookies
+    .getAll()
+    .some((cookie) => cookie.name.startsWith("sb-") && cookie.name.includes("auth-token"));
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  if (hasSessionCookie && supabaseUrl && supabaseAnonKey) {
+    try {
+      let response = NextResponse.next({ request });
+      const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
+        cookies: {
+          getAll() {
+            return request.cookies.getAll();
+          },
+          setAll(cookiesToSet) {
+            cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
+            response = NextResponse.next({ request });
+            cookiesToSet.forEach(({ name, value, options }) =>
+              response.cookies.set(name, value, options)
+            );
+          },
+        },
+      });
+      await supabase.auth.getUser();
+      return response;
+    } catch {
+      // On ne bloque jamais une page à cause de l'auth
+    }
   }
 
   return NextResponse.next();
