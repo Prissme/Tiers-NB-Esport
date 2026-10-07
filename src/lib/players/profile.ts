@@ -3,6 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { createAdminClient } from "../supabase/admin";
 import { withSchema } from "../supabase/schema";
 import { assignSlugs } from "./slug";
+import { getPlayerBio } from "./social";
 
 export type PlayerProfile = {
   id: string;
@@ -20,6 +21,7 @@ export type PlayerProfile = {
   winStreak: number;
   teamName: string | null;
   teamTag: string | null;
+  bio: string;
 };
 
 const TIER_RANK: Record<string, number> = {
@@ -136,6 +138,8 @@ export async function getPlayerProfile(slugOrDiscordId: string): Promise<PlayerP
   const team = profile?.team_id ? teamsById.get(profile.team_id) : undefined;
   const rawCountry = String(profile?.country_code ?? "FR").trim().toUpperCase();
 
+  const bio = await getPlayerBio(target.id);
+
   return {
     id: target.id,
     slug: slugs.get(target.id) ?? wanted,
@@ -152,6 +156,7 @@ export async function getPlayerProfile(slugOrDiscordId: string): Promise<PlayerP
     winStreak: Number(profile?.win_streak ?? 0),
     teamName: team?.name ?? null,
     teamTag: team?.tag ?? null,
+    bio,
   };
 }
 
