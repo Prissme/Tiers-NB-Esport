@@ -33,8 +33,6 @@ const copy = {
     logout: "Se déconnecter",
     join: "Rejoindre",
     openMenu: "Ouvrir le menu",
-    tagline: "Ligue Null's Brawl",
-    members: "2000 membres",
   },
   en: {
     logoAlt: "LFN logo",
@@ -42,8 +40,6 @@ const copy = {
     logout: "Log out",
     join: "Join",
     openMenu: "Open menu",
-    tagline: "Null's Brawl League",
-    members: "2000 members",
   },
 };
 
@@ -67,30 +63,34 @@ export default function Header({ locale, user }: { locale: Locale; user: SiteUse
                 loading="lazy"
               />
             </span>
-            <span className="header-wordmark">
-              <span className="header-wordmark__title">LFN</span>
-              <span className="header-wordmark__tagline">{content.tagline}</span>
-            </span>
           </Link>
           <span className="header-divider hidden md:block" aria-hidden="true" />
-          <nav className="hidden items-center gap-8 md:flex">
-            {links.map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                aria-current={isActive(link.href) ? "page" : undefined}
-                className={`nav-link ${isActive(link.href) ? "is-active" : ""}`}
-              >
-                {link.label}
-              </Link>
-            ))}
+          <nav className="hidden items-center gap-11 pl-4 md:flex">
+            {links.map((link) => {
+              const active = isActive(link.href);
+              return (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  aria-current={active ? "page" : undefined}
+                  className={`group relative py-2 text-[15px] font-medium tracking-[0.01em] transition-colors duration-200 ${
+                    active ? "text-white" : "text-white/60 hover:text-white"
+                  }`}
+                >
+                  {/* Losange doré : repère de la page active, apparaît au survol */}
+                  <span
+                    aria-hidden="true"
+                    className={`absolute -left-4 top-1/2 h-[6px] w-[6px] -translate-y-1/2 rotate-45 bg-[color:var(--color-accent)] shadow-[0_0_8px_rgba(242,209,132,0.7)] transition duration-200 ${
+                      active ? "scale-100 opacity-100" : "scale-0 opacity-0 group-hover:scale-100 group-hover:opacity-60"
+                    }`}
+                  />
+                  {link.label}
+                </Link>
+              );
+            })}
           </nav>
         </div>
         <div className="header-right hidden md:flex">
-          <span className="header-members">
-            <span className="header-members__dot" aria-hidden="true" />
-            {content.members}
-          </span>
           <LanguageSwitcher locale={locale} />
           {/* Invitation au serveur Discord (pour les nouveaux) */}
           <a
@@ -104,17 +104,17 @@ export default function Header({ locale, user }: { locale: Locale; user: SiteUse
             <DiscordIcon size={20} />
           </a>
           {user ? (
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
               <a
                 href="/player/me"
-                className="flex items-center gap-2 text-sm text-[color:var(--color-text)] transition hover:opacity-80"
+                className="group flex items-center gap-2.5 rounded-full py-1 pl-1 pr-3 text-sm text-[color:var(--color-text)] transition hover:bg-white/[0.06]"
               >
                 {user.avatarUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={user.avatarUrl}
                     alt=""
-                    className="h-8 w-8 rounded-full object-cover"
+                    className="h-8 w-8 rounded-full object-cover ring-1 ring-[rgba(242,209,132,0.45)] transition group-hover:ring-[rgba(242,209,132,0.9)]"
                     referrerPolicy="no-referrer"
                   />
                 ) : null}
@@ -123,9 +123,27 @@ export default function Header({ locale, user }: { locale: Locale; user: SiteUse
               <form action="/auth/logout" method="post">
                 <button
                   type="submit"
-                  className="text-xs uppercase tracking-[0.12em] text-[color:var(--color-text-faint)] transition hover:text-[color:var(--color-text)]"
+                  aria-label={content.logout}
+                  title={content.logout}
+                  className="group flex h-9 w-9 items-center justify-center rounded-full text-white/40 transition hover:bg-white/[0.06] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-border)]"
                 >
-                  {content.logout}
+                  <svg
+                    width="18"
+                    height="18"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden="true"
+                  >
+                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                    <g className="transition-transform duration-200 group-hover:translate-x-0.5">
+                      <polyline points="16 17 21 12 16 7" />
+                      <line x1="21" y1="12" x2="9" y2="12" />
+                    </g>
+                  </svg>
                 </button>
               </form>
             </div>
