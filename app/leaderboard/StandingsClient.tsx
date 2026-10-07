@@ -9,6 +9,7 @@ import ReloadingImage from "../components/ReloadingImage";
 
 type PlayerStanding = {
   id: string;
+  slug?: string | null;
   name: string;
   tier: string;
   points: number;
@@ -488,6 +489,14 @@ export default function StandingsClient({ locale }: { locale: Locale }) {
             <p className="whitespace-pre-wrap text-sm text-white/90">
               {selectedPlayer.description?.trim() || content.playerDescriptionFallback}
             </p>
+            {selectedPlayer.slug ? (
+              <a
+                href={`/player/${selectedPlayer.slug}`}
+                className="mt-4 inline-block text-xs font-semibold uppercase tracking-[0.12em] text-[#c9b26a] hover:underline"
+              >
+                {locale === "fr" ? "Voir le profil →" : "View profile →"}
+              </a>
+            ) : null}
           </div>
         </div>
       ) : null}
