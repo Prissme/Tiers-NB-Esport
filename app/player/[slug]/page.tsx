@@ -1,120 +1,203 @@
-import AchievementGrid, { type Achievement } from '../../components/AchievementGrid';
-import PlayerCard, { type PlayerCardPlayer } from '../../components/PlayerCard';
-import type { EloDataPoint } from '../../components/StatsGraph';
-import { headers } from 'next/headers';
-import { notFound } from 'next/navigation';
-import { getLocale } from '../../lib/i18n';
+import type { Metadata } from "next";
+import { notFound, redirect } from "next/navigation";
+import { getLocale } from "../../lib/i18n";
+import { getPlayerProfile, type PlayerProfile } from "../../../src/lib/players/profile";
+import { getDiscordAvatarUrl } from "../../../src/lib/players/discord-avatar";
 
-const resolveBaseUrl = () => {
-  if (process.env.NEXT_PUBLIC_SITE_URL) {
-    return process.env.NEXT_PUBLIC_SITE_URL;
-  }
-  const host = headers().get('host');
-  if (!host) {
-    return '';
-  }
-  const protocol = host.includes('localhost') ? 'http' : 'https';
-  return `${protocol}://${host}`;
+export const dynamic = "force-dynamic";
+
+// Même visuel que la carte !tier du bot : tier, rang, points, Ballon d'Or, Golden Nullser, pays...
+const TIER_IMAGE: Record<string, string> = {
+  "Tier S": "/TierS.webp",
+  "Tier A": "/TierA.webp",
+  "Tier B": "/TierB.webp",
+  "Tier C": "/TierC.webp",
+  "Tier D": "/TierD.webp",
+  "Tier E": "/TierE.webp",
 };
 
-type PlayerProfileResponse = {
-  player: PlayerCardPlayer & {
-    wins: number;
-    losses: number;
-    gamesPlayed: number | null;
-    winStreak: number | null;
-    loseStreak: number | null;
-    discordId: string | null;
-    soloElo: number | null;
-    bio: string | null;
-  };
-  stats: {
-    winRateByMode: Array<{ mode: string; winRate: number; wins: number; total: number }>;
-    eloHistory: EloDataPoint[];
-  };
-  achievements: Achievement[];
-  recentMatches: Array<{
-    id: string | number;
-    date: string;
-    mode: string;
-    map: string;
-    result: 'win' | 'loss' | null;
-    score: string | null;
-  }>;
+const copy = {
+  fr: {
+    noTier: "No Tier",
+    achievements: "Palmarès",
+    noAchievements: "Aucun palmarès renseigné pour le moment.",
+    rank: "Classement global",
+    points: "Points",
+    ballonDor: "Ballon d'Or",
+    goldenNullser: "Golden Nullser",
+    country: "Pays",
+    unspecified: "Non spécifié",
+    earnings: "Gains",
+    winStreak: "Winstreak",
+    team: "Équipe",
+    unranked: "Non classé",
+    back: "← Retour au classement",
+  },
+  en: {
+    noTier: "No Tier",
+    achievements: "Achievements",
+    noAchievements: "No achievements listed yet.",
+    rank: "Global Rank",
+    points: "Points",
+    ballonDor: "Ballon D'Or",
+    goldenNullser: "Golden Nullser",
+    country: "Country",
+    unspecified: "Unspecified",
+    earnings: "Earnings",
+    winStreak: "Winstreak",
+    team: "Team",
+    unranked: "Unranked",
+    back: "← Back to leaderboard",
+  },
 };
 
-async function fetchPlayerProfile(slug: string): Promise<PlayerProfileResponse> {
-  const baseUrl = resolveBaseUrl();
-  const response = await fetch(`${baseUrl}/api/player/${slug}`, { cache: 'no-store' });
+const toFlag = (code: string) => {
+  if (code === "ZZ" || !/^[A-Z]{2}$/.test(code)) return "🌐";
+  return String.fromCodePoint(...Array.from(code).map((char) => 0x1f1e6 - 65 + char.charCodeAt(0)));
+};
 
-  if (!response.ok) {
-    throw new Error('Failed to fetch player profile');
-  }
+/** Rend une ligne de palmarès en gras sur les **...** (même syntaxe que Discord), sans HTML brut. */
+function renderLine(line: string) {
+  return line.split(/(\*\*[^*]+\*\*)/g).map((part, index) =>
+    part.startsWith("**") && part.endsWith("**") ? (
+      <strong key={index} className="font-semibold text-[color:var(--color-text)]">
+        {part.slice(2, -2)}
+      </strong>
+    ) : (
+      <span key={index}>{part}</span>
+    )
+  );
+}
 
-  return response.json();
+/** Palmarès : lignes de la description, hors titre "Achievements" (déjà affiché en en-tête). */
+function getAchievementLines(description: string) {
+  return description
+    .split("\n")
+    .map((line) => line.replace(/^\s*(?:[-•*]\s+)/, "").trim())
+    .filter((line) => line && !/^\W*\**\s*(achievements?|palmar[eè]s)\s*\**\W*$/i.test(line));
+}
+
+export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
+  const profile = await getPlayerProfile(params.slug).catch(() => null);
+  return { title: profile ? profile.name : "Player" };
 }
 
 export default async function PlayerProfilePage({ params }: { params: { slug: string } }) {
   const locale = getLocale();
-  let profile: PlayerProfileResponse;
+  const content = copy[locale];
 
+  let profile: PlayerProfile | null = null;
   try {
-    profile = await fetchPlayerProfile(params.slug);
+    profile = await getPlayerProfile(params.slug);
   } catch (error) {
-    console.error(error);
+    console.error("[player profile]", error);
+  }
+  if (!profile) {
     notFound();
   }
 
-  const { player, achievements } = profile;
-  const copy = {
-    fr: {
-      statsClosed: "Stats publiques fermées",
-      statsTitle: "Statistiques",
-      statsDescription: "Statistiques publiques après validation.",
-      achievementsTitle: "Succès",
-      achievementsDescription: "Débloqués en match.",
-      historyTitle: "Historique récent",
-      historyDescription: "Historique des matchs non public.",
+  // Lien via ID Discord (ou ancien slug) : on redirige vers l'URL propre /player/<pseudo>
+  if (decodeURIComponent(params.slug).toLowerCase() !== profile.slug) {
+    redirect(`/player/${profile.slug}`);
+  }
+
+  const avatarUrl = await getDiscordAvatarUrl(profile.discordId);
+  const tierLabel = profile.tier ?? content.noTier;
+  const achievementLines = getAchievementLines(profile.description);
+  const formatMoney = (value: number) =>
+    `€${value.toLocaleString(locale === "fr" ? "fr-FR" : "en-US", { maximumFractionDigits: 2 })}`;
+
+  const stats: Array<{ label: string; value: string }> = [
+    { label: content.rank, value: profile.rank ? `#${profile.rank}` : content.unranked },
+    { label: content.points, value: String(Math.round(profile.points)) },
+    { label: content.ballonDor, value: `🏆 ${profile.ballonDor}` },
+    { label: content.goldenNullser, value: `⭐ ${profile.goldenNullser}` },
+    {
+      label: content.country,
+      value:
+        profile.countryCode === "ZZ"
+          ? `🌐 ${content.unspecified}`
+          : `${toFlag(profile.countryCode)} ${profile.countryCode}`,
     },
-    en: {
-      statsClosed: "Public stats closed",
-      statsTitle: "Statistics",
-      statsDescription: "Public stats after validation.",
-      achievementsTitle: "Achievements",
-      achievementsDescription: "Unlocked in matches.",
-      historyTitle: "Recent history",
-      historyDescription: "Match history is private.",
-    },
-  };
-  const content = copy[locale];
+  ];
+  if (profile.earnings > 0) stats.push({ label: content.earnings, value: `💰 ${formatMoney(profile.earnings)}` });
+  if (profile.winStreak > 0) stats.push({ label: content.winStreak, value: `🔥 ${profile.winStreak}` });
+  if (profile.teamName) {
+    stats.push({
+      label: content.team,
+      value: profile.teamTag ? `${profile.teamName} [${profile.teamTag}]` : profile.teamName,
+    });
+  }
 
   return (
-    <main className="min-h-screen bg-slate-950 px-4 pb-20 pt-10 text-slate-100">
-      <div className="page-stack page-stack--tight">
-        <PlayerCard player={player} locale={locale}>
-          <div className="flex flex-wrap gap-4 text-xs text-utility">
-            <span className="badge">{content.statsClosed}</span>
+    <main className="min-h-screen px-4 pb-20 pt-10 text-[color:var(--color-text)]">
+      <div className="page-stack page-stack--tight mx-auto max-w-3xl">
+        <a
+          href="/leaderboard"
+          className="mb-4 inline-block text-xs uppercase tracking-[0.12em] text-[color:var(--color-text-faint)] transition hover:text-[color:var(--color-text)]"
+        >
+          {content.back}
+        </a>
+
+        <section className="section-card space-y-8 border border-[color:var(--color-border-soft)]">
+          {/* En-tête : avatar Discord + pseudo + badge tier */}
+          <div className="flex flex-wrap items-center gap-5">
+            {avatarUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={avatarUrl}
+                alt={profile.name}
+                className="h-24 w-24 rounded-2xl border border-[color:var(--color-border)] object-cover"
+                referrerPolicy="no-referrer"
+              />
+            ) : (
+              <div className="flex h-24 w-24 items-center justify-center rounded-2xl border border-[color:var(--color-border)] text-3xl font-semibold">
+                {profile.name.slice(0, 1).toUpperCase()}
+              </div>
+            )}
+            <div className="min-w-0 flex-1">
+              <h1 className="truncate text-3xl font-semibold">{profile.name}</h1>
+              <div className="mt-2 flex items-center gap-3">
+                {profile.tier && TIER_IMAGE[profile.tier] ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={TIER_IMAGE[profile.tier]} alt={tierLabel} className="h-10 w-10 object-contain" />
+                ) : null}
+                <span className="text-sm font-semibold uppercase tracking-[0.14em] text-[color:var(--color-accent)]">
+                  🏆 {tierLabel}
+                </span>
+              </div>
+            </div>
           </div>
-          {player.bio ? <p className="mt-3 text-sm text-muted">{player.bio}</p> : null}
-        </PlayerCard>
 
-        <section className="section-card secondary-section space-y-4">
-          <h2 className="text-lg font-semibold text-white">{content.statsTitle}</h2>
-          <p className="text-sm text-muted">{content.statsDescription}</p>
-        </section>
+          {/* Stats : mêmes champs que la carte !tier */}
+          <dl className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+            {stats.map((stat) => (
+              <div
+                key={stat.label}
+                className="rounded-[10px] border border-[color:var(--color-border-soft)] bg-[rgba(255,255,255,0.03)] p-4"
+              >
+                <dt className="text-[11px] uppercase tracking-[0.12em] text-[color:var(--color-text-faint)]">
+                  {stat.label}
+                </dt>
+                <dd className="mt-1 text-lg font-semibold">{stat.value}</dd>
+              </div>
+            ))}
+          </dl>
 
-        <section className="section-card secondary-section space-y-6">
+          {/* Palmarès (description du profil, comme sur Discord) */}
           <div>
-            <h2 className="text-lg font-semibold text-white">{content.achievementsTitle}</h2>
-            <p className="text-sm text-muted">{content.achievementsDescription}</p>
-          </div>
-          <AchievementGrid achievements={achievements} locale={locale} />
-        </section>
-
-        <section className="section-card secondary-section space-y-4">
-          <div>
-            <h2 className="text-lg font-semibold text-white">{content.historyTitle}</h2>
-            <p className="text-sm text-muted">{content.historyDescription}</p>
+            <h2 className="mb-3 text-sm font-semibold uppercase tracking-[0.14em] text-[color:var(--color-text-faint)]">
+              📝 {content.achievements}
+            </h2>
+            {achievementLines.length > 0 ? (
+              <ul className="space-y-1.5 text-sm text-[color:var(--color-text-muted)]">
+                {achievementLines.map((line, index) => (
+                  <li key={index}>{renderLine(line)}</li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-sm text-[color:var(--color-text-muted)]">{content.noAchievements}</p>
+            )}
           </div>
         </section>
       </div>
