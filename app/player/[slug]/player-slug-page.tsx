@@ -3,6 +3,10 @@ import { notFound, redirect } from "next/navigation";
 import { getLocale } from "../../lib/i18n";
 import { getPlayerProfile, type PlayerProfile } from "../../../src/lib/players/profile";
 import { getDiscordAvatarUrl } from "../../../src/lib/players/discord-avatar";
+import { getSiteUser } from "../../../src/lib/auth/site-user";
+import { BIO_MAX_LENGTH, getLikeState } from "../../../src/lib/players/social";
+import LikeButton from "../../components/LikeButton";
+import BioEditor from "../../components/BioEditor";
 
 export const dynamic = "force-dynamic";
 
@@ -32,6 +36,17 @@ const copy = {
     team: "Équipe",
     unranked: "Non classé",
     back: "← Retour au classement",
+    bio: "À propos",
+    bioEmptyOwner: "Ajoute une description personnelle pour te présenter.",
+    bioEdit: "Modifier",
+    bioSave: "Enregistrer",
+    bioCancel: "Annuler",
+    bioPlaceholder: "Présente-toi en quelques mots…",
+    like: "Aimer ce profil",
+    unlike: "Retirer mon cœur",
+    likeLogin: "Connecte-toi avec Discord pour liker",
+    likeOwn: "Tu ne peux pas liker ton propre profil",
+    error: "Une erreur est survenue, réessaie.",
   },
   en: {
     noTier: "No Tier",
@@ -48,6 +63,17 @@ const copy = {
     team: "Team",
     unranked: "Unranked",
     back: "← Back to leaderboard",
+    bio: "About",
+    bioEmptyOwner: "Add a personal description to introduce yourself.",
+    bioEdit: "Edit",
+    bioSave: "Save",
+    bioCancel: "Cancel",
+    bioPlaceholder: "Introduce yourself in a few words…",
+    like: "Like this profile",
+    unlike: "Remove my heart",
+    likeLogin: "Log in with Discord to like",
+    likeOwn: "You can't like your own profile",
+    error: "Something went wrong, please try again.",
   },
 };
 
@@ -101,7 +127,12 @@ export default async function PlayerProfilePage({ params }: { params: { slug: st
     redirect(`/player/${profile.slug}`);
   }
 
-  const avatarUrl = await getDiscordAvatarUrl(profile.discordId);
+  const viewer = await getSiteUser();
+  const isOwner = Boolean(viewer && profile.discordId && viewer.discordId === profile.discordId);
+  const [avatarUrl, likeState] = await Promise.all([
+    getDiscordAvatarUrl(profile.discordId),
+    getLikeState(profile.id, viewer?.discordId ?? null),
+  ]);
   const tierLabel = profile.tier ?? content.noTier;
   const achievementLines = getAchievementLines(profile.description);
   const formatMoney = (value: number) =>
@@ -167,7 +198,38 @@ export default async function PlayerProfilePage({ params }: { params: { slug: st
                 </span>
               </div>
             </div>
+            <LikeButton
+              playerId={profile.id}
+              initialCount={likeState.count}
+              initialLiked={likeState.liked}
+              loginHref={viewer ? null : `/auth/login?next=${encodeURIComponent(`/player/${profile.slug}`)}`}
+              disabled={isOwner}
+              labels={{
+                like: content.like,
+                unlike: content.unlike,
+                login: content.likeLogin,
+                own: content.likeOwn,
+                error: content.error,
+              }}
+            />
           </div>
+
+          {/* Bio personnelle (éditable par le propriétaire connecté) */}
+          <BioEditor
+            initialBio={profile.bio}
+            isOwner={isOwner}
+            maxLength={BIO_MAX_LENGTH}
+            labels={{
+              title: content.bio,
+              empty: "",
+              emptyOwner: content.bioEmptyOwner,
+              edit: content.bioEdit,
+              save: content.bioSave,
+              cancel: content.bioCancel,
+              placeholder: content.bioPlaceholder,
+              error: content.error,
+            }}
+          />
 
           {/* Stats : mêmes champs que la carte !tier */}
           <dl className="grid grid-cols-2 gap-4 sm:grid-cols-3">
