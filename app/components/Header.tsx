@@ -105,7 +105,10 @@ export default function Header({ locale, user }: { locale: Locale; user: SiteUse
           </a>
           {user ? (
             <div className="flex items-center gap-3">
-              <span className="flex items-center gap-2 text-sm text-[color:var(--color-text)]">
+              <a
+                href="/player/me"
+                className="flex items-center gap-2 text-sm text-[color:var(--color-text)] transition hover:opacity-80"
+              >
                 {user.avatarUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
@@ -116,7 +119,7 @@ export default function Header({ locale, user }: { locale: Locale; user: SiteUse
                   />
                 ) : null}
                 <span className="max-w-[140px] truncate">{user.name}</span>
-              </span>
+              </a>
               <form action="/auth/logout" method="post">
                 <button
                   type="submit"
@@ -141,13 +144,15 @@ export default function Header({ locale, user }: { locale: Locale; user: SiteUse
         </div>
         <div className="flex items-center gap-3 md:hidden">
           {user?.avatarUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={user.avatarUrl}
-              alt={user.name}
-              className="h-8 w-8 rounded-full object-cover"
-              referrerPolicy="no-referrer"
-            />
+            <a href="/player/me" aria-label={user.name}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={user.avatarUrl}
+                alt={user.name}
+                className="h-8 w-8 rounded-full object-cover"
+                referrerPolicy="no-referrer"
+              />
+            </a>
           ) : null}
           <button
             type="button"
