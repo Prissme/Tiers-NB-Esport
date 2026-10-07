@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createServerClient } from "../../../../src/lib/supabase/server";
 import { withSchema } from "../../../../src/lib/supabase/schema";
+import { assignSlugs } from "../../../../src/lib/players/slug";
 
 type PlayerRow = {
   id: string;
@@ -151,6 +152,9 @@ export async function GET(request: Request) {
       });
     }
 
+    // Slug de profil (/player/<slug>), calculé sur TOUS les joueurs actifs (comme la page profil)
+    const slugByPlayerId = assignSlugs(((players as PlayerRow[] | null) ?? []).map((p) => ({ id: p.id, name: p.name })));
+
     const rankedPlayers = ((players as PlayerRow[] | null) ?? [])
       .map((player) => {
         const playerPoints = pointsByPlayerId.get(player.id);
@@ -160,6 +164,7 @@ export async function GET(request: Request) {
         const team = teamsById.get(teamIdByPlayerId.get(player.id) ?? "");
         return {
           id: player.id,
+          slug: slugByPlayerId.get(player.id) ?? null,
           name: player.name || "Joueur",
           discordId: player.discord_id,
           tier,
