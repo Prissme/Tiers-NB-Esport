@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSiteUser } from "../../../../src/lib/auth/site-user";
 import { createPost, isUuid, listReplies, listRootPosts } from "../../../../src/lib/chat/posts";
+import { createNotification } from "../../../../src/lib/notifications/notifications";
 import { allow } from "../../../../src/lib/simpleRateLimit";
 
 export const dynamic = "force-dynamic";
@@ -52,6 +53,15 @@ export async function POST(request: Request) {
     if (!result.ok) {
       const status = result.reason === "parent_not_found" ? 404 : 400;
       return NextResponse.json({ error: result.reason }, { status });
+    }
+    if (parentId && result.parentAuthorDiscordId) {
+      await createNotification({
+        recipient: result.parentAuthorDiscordId,
+        actor: user.discordId,
+        type: "reply",
+        refId: parentId,
+        snippet: result.post.content,
+      });
     }
     return NextResponse.json({ post: result.post }, { status: 201 });
   } catch (err) {
