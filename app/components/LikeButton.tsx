@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { HeartIcon } from "./icons";
 
 type Props = {
   playerId: string;
@@ -28,7 +29,7 @@ export default function LikeButton({ playerId, initialCount, initialLiked, login
         title={labels.login}
         className={`${base} border-[color:var(--color-border-soft)] text-[color:var(--color-text-muted)] hover:text-[color:var(--color-text)]`}
       >
-        <span aria-hidden>🤍</span>
+        <HeartIcon className="h-4 w-4" />
         <span>{count}</span>
       </a>
     );
@@ -40,7 +41,7 @@ export default function LikeButton({ playerId, initialCount, initialLiked, login
         title={labels.own}
         className={`${base} cursor-default border-[color:var(--color-border-soft)] text-[color:var(--color-text-muted)]`}
       >
-        <span aria-hidden>❤️</span>
+        <HeartIcon filled className="h-4 w-4 text-[#ef4444]" />
         <span>{count}</span>
       </span>
     );
@@ -87,7 +88,7 @@ export default function LikeButton({ playerId, initialCount, initialLiked, login
             : "border-[color:var(--color-border-soft)] text-[color:var(--color-text-muted)] hover:text-[color:var(--color-text)]"
         } disabled:opacity-70`}
       >
-        <span aria-hidden>{liked ? "❤️" : "🤍"}</span>
+        <HeartIcon filled={liked} className={`h-4 w-4 transition ${liked ? "text-[#ef4444]" : ""}`} />
         <span>{count}</span>
       </button>
       {error ? <span className="text-xs text-red-400">{labels.error}</span> : null}
