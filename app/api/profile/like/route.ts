@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSiteUser } from "../../../../src/lib/auth/site-user";
 import { getPlayerIdByDiscordId, toggleLike } from "../../../../src/lib/players/social";
+import { createNotification, getDiscordIdByPlayerId } from "../../../../src/lib/notifications/notifications";
 import { allow } from "../../../../src/lib/simpleRateLimit";
 
 export const dynamic = "force-dynamic";
@@ -30,6 +31,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Cannot like your own profile." }, { status: 403 });
     }
     const state = await toggleLike(playerId, user.discordId);
+    if (state.liked) {
+      const recipient = await getDiscordIdByPlayerId(playerId);
+      if (recipient) {
+        await createNotification({ recipient, actor: user.discordId, type: "like" });
+      }
+    }
     return NextResponse.json(state);
   } catch (err) {
     console.error("[profile/like]", err);
