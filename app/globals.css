@@ -878,51 +878,197 @@ body::before {
 
   .mobile-menu-toggle {
     @apply flex h-11 w-11 flex-col items-center justify-center gap-1 rounded-full border border-white/10 bg-white/5;
-    box-shadow: 0 0 18px rgba(255, 255, 255, 0.08);
+    transition: background-color 0.2s ease, border-color 0.2s ease;
+  }
+
+  .mobile-menu-toggle[aria-expanded="true"] {
+    background-color: rgba(242, 209, 132, 0.12);
+    border-color: rgba(242, 209, 132, 0.5);
   }
 
   .mobile-menu-bar {
     height: 2px;
     width: 20px;
-    background-color: rgba(255, 255, 255, 0.7);
+    background-color: rgba(255, 255, 255, 0.85);
     border-radius: 999px;
+    transition: transform 0.25s ease, opacity 0.2s ease;
   }
 
+  .mobile-menu-toggle[aria-expanded="true"] .mobile-menu-bar:nth-child(1) {
+    transform: translateY(6px) rotate(45deg);
+  }
+
+  .mobile-menu-toggle[aria-expanded="true"] .mobile-menu-bar:nth-child(2) {
+    opacity: 0;
+  }
+
+  .mobile-menu-toggle[aria-expanded="true"] .mobile-menu-bar:nth-child(3) {
+    transform: translateY(-6px) rotate(-45deg);
+  }
+
+  /* Panneau en surimpression : n'écarte plus le contenu de la page */
   .mobile-menu-panel {
     @apply md:hidden;
-    max-height: 0;
-    opacity: 0;
-    overflow: hidden;
-    transition: max-height 0.35s ease, opacity 0.35s ease;
-    background: rgba(7, 10, 18, 0.92);
-    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    z-index: 30;
+    display: grid;
+    grid-template-rows: 0fr;
+    visibility: hidden;
+    background: rgba(8, 10, 18, 0.97);
+    -webkit-backdrop-filter: blur(18px);
+    backdrop-filter: blur(18px);
+    border-bottom: 1px solid rgba(242, 209, 132, 0.25);
+    box-shadow: 0 24px 40px rgba(0, 0, 0, 0.5);
+    transition: grid-template-rows 0.3s ease, visibility 0s linear 0.3s;
   }
 
   .mobile-menu-panel.is-open {
-    max-height: 360px;
-    opacity: 1;
+    grid-template-rows: 1fr;
+    visibility: visible;
+    transition: grid-template-rows 0.3s ease, visibility 0s linear 0s;
+  }
+
+  .mobile-menu-scroll {
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .mobile-menu-panel.is-open .mobile-menu-scroll {
+    max-height: calc(100dvh - 5rem);
+    overflow-y: auto;
+    overscroll-behavior: contain;
   }
 
   .mobile-menu-content {
-    @apply mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 pb-6 text-sm uppercase tracking-[0.3em];
+    @apply mx-auto flex w-full max-w-xl flex-col gap-5 px-5 pb-6 pt-2;
     color: var(--color-text);
   }
 
-  .mobile-menu-content a {
-    @apply rounded-full px-4 py-2;
-    background-color: rgba(255, 255, 255, 0.04);
+  .mobile-nav {
+    display: flex;
+    flex-direction: column;
   }
 
-  .mobile-discord-button {
-    @apply flex items-center justify-between gap-2 rounded-full px-4 py-2 text-[11px] uppercase tracking-[0.35em];
-    border: 1px solid rgba(108, 118, 224, 0.6);
-    background: #6c76e0;
+  .mobile-nav-link {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-height: 3.25rem;
+    padding: 0 0.25rem;
+    font-size: 1.0625rem;
+    font-weight: 500;
+    letter-spacing: 0.01em;
+    color: rgba(255, 255, 255, 0.72);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    transition: color 0.2s ease;
+  }
+
+  .mobile-nav-link svg {
+    color: rgba(255, 255, 255, 0.28);
+  }
+
+  .mobile-nav-link:active {
     color: #ffffff;
-    box-shadow: 0 0 20px rgba(108, 118, 224, 0.4);
   }
 
-  .mobile-discord-button:hover {
-    background: #7a83ee;
+  .mobile-nav-link.is-active {
+    color: #f2d184;
+  }
+
+  .mobile-nav-link.is-active svg {
+    color: #f2d184;
+  }
+
+  .mobile-account {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.625rem 0.75rem;
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.07);
+  }
+
+  .mobile-account__who {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    gap: 0.75rem;
+    font-size: 0.9375rem;
+    font-weight: 600;
+    color: #ffffff;
+  }
+
+  .mobile-account__logout {
+    flex-shrink: 0;
+    padding: 0.5rem 0.875rem;
+    border-radius: 999px;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.7);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    background: transparent;
+  }
+
+  .mobile-account__logout:active {
+    background: rgba(255, 255, 255, 0.08);
+  }
+
+  .mobile-signup {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.625rem;
+    min-height: 3rem;
+    border-radius: 999px;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: #20180a;
+    background: linear-gradient(135deg, #f2d184 0%, #c9b26a 100%);
+    box-shadow: 0 0 24px rgba(245, 201, 102, 0.3);
+  }
+
+  .mobile-menu-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+  }
+
+  .mobile-discord-link {
+    display: inline-flex;
+    flex: 1;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    min-height: 2.75rem;
+    padding: 0 1rem;
+    border-radius: 999px;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: #ffffff;
+    background: rgba(108, 118, 224, 0.18);
+    border: 1px solid rgba(108, 118, 224, 0.5);
+  }
+
+  .mobile-discord-link:active {
+    background: rgba(108, 118, 224, 0.32);
+  }
+
+  @media (max-width: 767px) {
+    .header-shell {
+      @apply gap-3 py-2.5;
+    }
+
+    .header-logo {
+      @apply h-12 w-12;
+    }
   }
 
   .discord-cta {
