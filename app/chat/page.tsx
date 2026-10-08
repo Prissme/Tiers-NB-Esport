@@ -25,7 +25,7 @@ export default async function ChatPage() {
   }
 
   return (
-    <main className="min-h-screen px-4 pb-20 pt-10 text-[color:var(--color-text)]">
+    <div className="min-h-screen px-4 pb-20 pt-8 text-[color:var(--color-text)] sm:pt-10">
       <div className="mx-auto max-w-2xl">
         <ChatView
           locale={locale}
@@ -36,6 +36,6 @@ export default async function ChatPage() {
           loadError={loadError}
         />
       </div>
-    </main>
+    </div>
   );
 }
