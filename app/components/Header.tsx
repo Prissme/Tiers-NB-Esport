@@ -16,11 +16,13 @@ const DISCORD_INVITE = "https://discord.gg/q6sFPWCKD7";
 const navLinks = {
   fr: [
     { label: "Leaderboard", href: "/leaderboard" },
+    { label: "Chat", href: "/chat" },
     { label: "Évènements", href: "/events" },
     { label: "Règlement", href: "/rulebook" },
   ],
   en: [
     { label: "Leaderboard", href: "/leaderboard" },
+    { label: "Chat", href: "/chat" },
     { label: "Events", href: "/events" },
     { label: "Rulebook", href: "/rulebook" },
   ],
