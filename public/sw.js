@@ -16,7 +16,7 @@ self.addEventListener("push", (event) => {
       await self.registration.showNotification(data.title, {
         body: data.body,
         icon: "/LogoLFN.webp",
-        badge: "/LogoLFN.webp",
+        badge: "/badge-lfn.png",
         tag: data.tag,
         data: { url: data.url },
       });
