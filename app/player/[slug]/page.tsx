@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import type { ReactNode } from "react";
 import { notFound, redirect } from "next/navigation";
 import { getLocale } from "../../lib/i18n";
 import { getPlayerProfile, type PlayerProfile } from "../../../src/lib/players/profile";
@@ -7,6 +8,7 @@ import { getSiteUser } from "../../../src/lib/auth/site-user";
 import { BIO_MAX_LENGTH, getLikeState } from "../../../src/lib/players/social";
 import LikeButton from "../../components/LikeButton";
 import BioEditor from "../../components/BioEditor";
+import { FlameIcon, GlobeIcon, TrophyIcon } from "../../components/icons";
 
 export const dynamic = "force-dynamic";
 
@@ -77,11 +79,6 @@ const copy = {
   },
 };
 
-const toFlag = (code: string) => {
-  if (code === "ZZ" || !/^[A-Z]{2}$/.test(code)) return "🌐";
-  return String.fromCodePoint(...Array.from(code).map((char) => 0x1f1e6 - 65 + char.charCodeAt(0)));
-};
-
 /** Rend une ligne de palmarès en gras sur les **...** (même syntaxe que Discord), sans HTML brut. */
 function renderLine(line: string) {
   return line.split(/(\*\*[^*]+\*\*)/g).map((part, index) =>
@@ -119,6 +116,7 @@ export default async function PlayerProfilePage({ params }: { params: { slug: st
     console.error("[player profile]", error);
   }
   if (!profile) {
+    console.warn("[player profile] not found for slug:", params.slug);
     notFound();
   }
 
@@ -138,21 +136,44 @@ export default async function PlayerProfilePage({ params }: { params: { slug: st
   const formatMoney = (value: number) =>
     `€${value.toLocaleString(locale === "fr" ? "fr-FR" : "en-US", { maximumFractionDigits: 2 })}`;
 
-  const stats: Array<{ label: string; value: string }> = [
+  const stats: Array<{ label: string; value: ReactNode }> = [
     { label: content.rank, value: profile.rank ? `#${profile.rank}` : content.unranked },
     { label: content.points, value: String(Math.round(profile.points)) },
-    { label: content.ballonDor, value: `🏆 ${profile.ballonDor}` },
-    { label: content.goldenNullser, value: `⭐ ${profile.goldenNullser}` },
+    { label: content.ballonDor, value: String(profile.ballonDor) },
+    { label: content.goldenNullser, value: String(profile.goldenNullser) },
     {
       label: content.country,
       value:
-        profile.countryCode === "ZZ"
-          ? `🌐 ${content.unspecified}`
-          : `${toFlag(profile.countryCode)} ${profile.countryCode}`,
+        profile.countryCode === "ZZ" || !/^[A-Z]{2}$/.test(profile.countryCode) ? (
+          <span className="inline-flex items-center gap-2">
+            <GlobeIcon className="h-5 w-5 text-[color:var(--color-text-muted)]" />
+            {content.unspecified}
+          </span>
+        ) : (
+          <span className="inline-flex items-center gap-2">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={`https://flagcdn.com/w40/${profile.countryCode.toLowerCase()}.png`}
+              alt=""
+              className="h-4 w-6 rounded-sm object-cover"
+            />
+            {profile.countryCode}
+          </span>
+        ),
     },
   ];
-  if (profile.earnings > 0) stats.push({ label: content.earnings, value: `💰 ${formatMoney(profile.earnings)}` });
-  if (profile.winStreak > 0) stats.push({ label: content.winStreak, value: `🔥 ${profile.winStreak}` });
+  if (profile.earnings > 0) stats.push({ label: content.earnings, value: formatMoney(profile.earnings) });
+  if (profile.winStreak > 0) {
+    stats.push({
+      label: content.winStreak,
+      value: (
+        <span className="inline-flex items-center gap-2">
+          <FlameIcon className="h-5 w-5 text-orange-400" />
+          {profile.winStreak}
+        </span>
+      ),
+    });
+  }
   if (profile.teamName) {
     stats.push({
       label: content.team,
@@ -194,7 +215,7 @@ export default async function PlayerProfilePage({ params }: { params: { slug: st
                   <img src={TIER_IMAGE[profile.tier]} alt={tierLabel} className="h-10 w-10 object-contain" />
                 ) : null}
                 <span className="text-sm font-semibold uppercase tracking-[0.14em] text-[color:var(--color-accent)]">
-                  🏆 {tierLabel}
+                  {tierLabel}
                 </span>
               </div>
             </div>
@@ -248,8 +269,9 @@ export default async function PlayerProfilePage({ params }: { params: { slug: st
 
           {/* Palmarès (description du profil, comme sur Discord) */}
           <div>
-            <h2 className="mb-3 text-sm font-semibold uppercase tracking-[0.14em] text-[color:var(--color-text-faint)]">
-              📝 {content.achievements}
+            <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.14em] text-[color:var(--color-text-faint)]">
+              <TrophyIcon className="h-4 w-4" />
+              {content.achievements}
             </h2>
             {achievementLines.length > 0 ? (
               <ul className="space-y-1.5 text-sm text-[color:var(--color-text-muted)]">
