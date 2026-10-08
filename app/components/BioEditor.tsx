@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { MessageIcon, PencilIcon } from "./icons";
 
 type Props = {
   initialBio: string;
@@ -55,8 +56,9 @@ export default function BioEditor({ initialBio, isOwner, maxLength, labels }: Pr
   return (
     <div>
       <div className="mb-3 flex items-center justify-between gap-3">
-        <h2 className="text-sm font-semibold uppercase tracking-[0.14em] text-[color:var(--color-text-faint)]">
-          💬 {labels.title}
+        <h2 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.14em] text-[color:var(--color-text-faint)]">
+          <MessageIcon className="h-4 w-4" />
+          {labels.title}
         </h2>
         {isOwner && !editing ? (
           <button
@@ -65,9 +67,10 @@ export default function BioEditor({ initialBio, isOwner, maxLength, labels }: Pr
               setDraft(bio);
               setEditing(true);
             }}
-            className="text-xs uppercase tracking-[0.12em] text-[color:var(--color-text-faint)] transition hover:text-[color:var(--color-text)]"
+            className="flex items-center gap-1.5 text-xs uppercase tracking-[0.12em] text-[color:var(--color-text-faint)] transition hover:text-[color:var(--color-text)]"
           >
-            ✏️ {labels.edit}
+            <PencilIcon className="h-3.5 w-3.5" />
+            {labels.edit}
           </button>
         ) : null}
       </div>
