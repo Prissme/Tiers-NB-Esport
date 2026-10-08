@@ -8,6 +8,7 @@ import LanguageSwitcher from "./LanguageSwitcher";
 import type { Locale } from "../lib/i18n";
 import type { SiteUser } from "../../src/lib/auth/site-user";
 import ReloadingImage from "./ReloadingImage";
+import NotificationBell from "./NotificationBell";
 
 const logoUrl = "/LogoLFN.webp";
 
@@ -107,6 +108,7 @@ export default function Header({ locale, user }: { locale: Locale; user: SiteUse
           </a>
           {user ? (
             <div className="flex items-center gap-2">
+              <NotificationBell locale={locale} />
               <a
                 href="/player/me"
                 className="group flex items-center gap-2.5 rounded-full py-1 pl-1 pr-3 text-sm text-[color:var(--color-text)] transition hover:bg-white/[0.06]"
@@ -163,6 +165,7 @@ export default function Header({ locale, user }: { locale: Locale; user: SiteUse
           )}
         </div>
         <div className="flex items-center gap-3 md:hidden">
+          {user ? <NotificationBell locale={locale} /> : null}
           {user?.avatarUrl ? (
             <a href="/player/me" aria-label={user.name}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
