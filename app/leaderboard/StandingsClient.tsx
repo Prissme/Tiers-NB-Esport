@@ -10,6 +10,7 @@ import ReloadingImage from "../components/ReloadingImage";
 type PlayerStanding = {
   id: string;
   slug?: string | null;
+  discordId?: string | null;
   name: string;
   tier: string;
   points: number;
@@ -152,6 +153,11 @@ export default function StandingsClient({ locale }: { locale: Locale }) {
         const playerStandingsResponse = await fetch("/api/site/player-standings", {
           cache: "no-store",
         });
+        // Erreur serveur (ex. base de données en timeout) : on garde le classement déjà affiché
+        // au lieu de le vider, et on réessaie au prochain rafraîchissement
+        if (!playerStandingsResponse.ok) {
+          throw new Error(`standings request failed (${playerStandingsResponse.status})`);
+        }
         const playersPayload = (await playerStandingsResponse.json()) as {
           players?: PlayerStanding[];
         };
@@ -160,9 +166,6 @@ export default function StandingsClient({ locale }: { locale: Locale }) {
         }
       } catch (error) {
         console.error("standings load error", error);
-        if (mounted) {
-          setPlayerStandings([]);
-        }
       } finally {
         if (mounted) {
           setLoading(false);
@@ -349,7 +352,30 @@ export default function StandingsClient({ locale }: { locale: Locale }) {
                     onClick={() => setSelectedPlayer(player)}
                   >
                     <td className="px-3 py-2">{(playersPage - 1) * 50 + index + 1}</td>
-                    <td className="px-3 py-2 text-white/90">{player.name}</td>
+                    <td className="px-3 py-2 text-white/90">
+                      <div className="flex items-center gap-3">
+                        {player.discordId ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={`/api/site/avatar/${player.discordId}?size=64`}
+                            alt=""
+                            width={28}
+                            height={28}
+                            loading="lazy"
+                            decoding="async"
+                            className={`h-7 w-7 shrink-0 rounded-full bg-white/10 object-cover ring-1 ${
+                              (playersPage - 1) * 50 + index === 0 ? "ring-amber-300/70" : "ring-white/15"
+                            }`}
+                            onError={(event) => {
+                              event.currentTarget.style.visibility = "hidden";
+                            }}
+                          />
+                        ) : (
+                          <span className="h-7 w-7 shrink-0 rounded-full bg-white/10 ring-1 ring-white/15" aria-hidden="true" />
+                        )}
+                        <span className="truncate">{player.name}</span>
+                      </div>
+                    </td>
                     <td className="px-3 py-2">
                       <div className="flex items-center gap-2">
                         {getCountryCode(player.countryCode) === UNSPECIFIED_COUNTRY ? (
