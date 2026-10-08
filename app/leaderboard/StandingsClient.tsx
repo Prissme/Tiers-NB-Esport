@@ -258,7 +258,7 @@ export default function StandingsClient({ locale }: { locale: Locale }) {
   }
 
   return (
-    <section className="section-card dominant-section space-y-10 border-0 bg-white/[0.03]">
+    <section className="section-card dominant-section space-y-10 border-0 bg-white/[0.03] !px-2 !py-8 sm:!px-12 sm:!py-16">
       <div className="space-y-4">
         <SectionHeader
           kicker={content.playersKicker}
@@ -305,7 +305,7 @@ export default function StandingsClient({ locale }: { locale: Locale }) {
             />
           </div>
           <table className="surface-table w-full text-sm text-white/80">
-            <thead className="surface-table__header text-xs uppercase text-white/40">
+            <thead className="surface-table__header text-[10px] uppercase tracking-[0.08em] text-white/40 sm:text-xs sm:tracking-[0.3em]">
               <tr>
                 <th className="px-2 py-2 sm:px-3 text-left">#</th>
                 <th className="w-full px-2 py-2 text-left sm:px-3">{content.playerName}</th>
@@ -405,7 +405,7 @@ export default function StandingsClient({ locale }: { locale: Locale }) {
                           className="h-7 w-7 shrink-0 object-contain sm:h-8 sm:w-8"
                           loading="lazy"
                         />
-                        <span className="whitespace-nowrap text-xs sm:text-sm">{getDisplayedTier(player)}</span>
+                        <span className="hidden whitespace-nowrap text-sm sm:inline">{getDisplayedTier(player)}</span>
                       </div>
                     </td>
                     <td className="px-2 py-2 sm:px-3 font-semibold">{player.points}</td>
