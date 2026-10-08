@@ -123,7 +123,7 @@ export async function getPost(id: string): Promise<ChatPost | null> {
 }
 
 export type CreatePostResult =
-  | { ok: true; post: ChatPost }
+  | { ok: true; post: ChatPost; parentAuthorDiscordId: string | null }
   | { ok: false; reason: "empty" | "parent_not_found" | "parent_is_reply" };
 
 export async function createPost(input: {
@@ -136,17 +136,19 @@ export async function createPost(input: {
   if (!content) return { ok: false, reason: "empty" };
 
   const supabase = db();
+  let parentAuthorDiscordId: string | null = null;
 
   if (input.parentId) {
     const { data: parent, error } = await supabase
       .from("lfn_chat_posts")
-      .select("id,parent_id")
+      .select("id,parent_id,author_discord_id")
       .eq("id", input.parentId)
       .maybeSingle();
     if (error) throw new Error(`chat parent lookup failed: ${error.message}`);
     if (!parent) return { ok: false, reason: "parent_not_found" };
     // Un seul niveau de réponses : on ne répond pas à une réponse
     if ((parent as { parent_id: string | null }).parent_id) return { ok: false, reason: "parent_is_reply" };
+    parentAuthorDiscordId = (parent as { author_discord_id: string }).author_discord_id;
   }
 
   // Le nom affiché vient de la table players : on s'assure que le joueur existe
@@ -160,7 +162,7 @@ export async function createPost(input: {
   if (error || !data) throw new Error(`chat insert failed: ${error?.message ?? "no data"}`);
 
   const post = (await hydrate([data as PostRow]))[0];
-  return { ok: true, post };
+  return { ok: true, post, parentAuthorDiscordId };
 }
 
 export type DeletePostResult = "deleted" | "not_found" | "forbidden";
