@@ -70,7 +70,6 @@ const copy = {
     playersDescription: "Classement des joueurs avec rôle de tier.",
     playerName: "Pseudo",
     playerTier: "Tier",
-    playerTeam: "Équipe",
     countryRankingTitle: "Classement par pays",
     countryRankingDescription:
       "Points pondérés : 1er joueur ×1, 2e ×1/2, 3e ×1/4, etc.",
@@ -88,7 +87,6 @@ const copy = {
     previousPage: "Précédent",
     nextPage: "Suivant",
     page: "Page",
-    freeAgent: "F/A",
   },
   en: {
     info: "Information",
@@ -103,7 +101,6 @@ const copy = {
     playersDescription: "Ranking of players with a tier role.",
     playerName: "Nickname",
     playerTier: "Tier",
-    playerTeam: "Team",
     countryRankingTitle: "Country leaderboard",
     countryRankingDescription:
       "Weighted points: 1st player ×1, 2nd ×1/2, 3rd ×1/4, etc.",
@@ -121,7 +118,6 @@ const copy = {
     previousPage: "Previous",
     nextPage: "Next",
     page: "Page",
-    freeAgent: "F/A",
   },
 };
 
@@ -302,27 +298,26 @@ export default function StandingsClient({ locale }: { locale: Locale }) {
             </select>
             <input
               type="search"
-              className="min-w-[220px] rounded-md border border-white/20 bg-black/30 px-2 py-1 text-xs text-white placeholder:text-white/50"
+              className="min-w-[160px] flex-1 rounded-md border border-white/20 bg-black/30 px-2 py-1 text-xs text-white placeholder:text-white/50"
               placeholder={content.searchPlayerPlaceholder}
               value={playerSearch}
               onChange={(event) => setPlayerSearch(event.target.value)}
             />
           </div>
-          <table className="surface-table min-w-full text-sm text-white/80">
+          <table className="surface-table w-full text-sm text-white/80">
             <thead className="surface-table__header text-xs uppercase text-white/40">
               <tr>
-                <th className="px-3 py-2 text-left">#</th>
-                <th className="px-3 py-2 text-left">{content.playerName}</th>
-                <th className="px-3 py-2 text-left">Pays</th>
-                <th className="px-3 py-2 text-left">{content.playerTier}</th>
-                <th className="px-3 py-2 text-left">{content.playerTeam}</th>
-                <th className="px-3 py-2 text-left">{content.points}</th>
+                <th className="px-2 py-2 sm:px-3 text-left">#</th>
+                <th className="w-full px-2 py-2 text-left sm:px-3">{content.playerName}</th>
+                <th className="px-2 py-2 sm:px-3 text-left">Pays</th>
+                <th className="px-2 py-2 sm:px-3 text-left">{content.playerTier}</th>
+                <th className="px-2 py-2 sm:px-3 text-left">{content.points}</th>
               </tr>
             </thead>
             <tbody>
               {topPlayers.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-3 py-4 text-center text-white/40">
+                  <td colSpan={5} className="px-3 py-4 text-center text-white/40">
                     {content.emptyPlayers}
                   </td>
                 </tr>
@@ -347,9 +342,9 @@ export default function StandingsClient({ locale }: { locale: Locale }) {
                     }`}
                     onClick={profileHref ? () => router.push(profileHref) : undefined}
                   >
-                    <td className="px-3 py-2">{(playersPage - 1) * 50 + index + 1}</td>
-                    <td className="px-3 py-2 text-white/90">
-                      <div className="flex items-center gap-3">
+                    <td className="px-2 py-2 sm:px-3">{(playersPage - 1) * 50 + index + 1}</td>
+                    <td className="max-w-0 px-2 py-2 text-white/90 sm:px-3">
+                      <div className="flex min-w-0 items-center gap-2 sm:gap-3">
                         {player.discordId ? (
                           // eslint-disable-next-line @next/next/no-img-element
                           <img
@@ -367,7 +362,7 @@ export default function StandingsClient({ locale }: { locale: Locale }) {
                             }}
                           />
                         ) : (
-                          <span className="h-7 w-7 shrink-0 rounded-full bg-white/10 ring-1 ring-white/15" aria-hidden="true" />
+                          <span className="h-6 w-6 shrink-0 rounded-full bg-white/10 ring-1 ring-white/15 sm:h-7 sm:w-7" aria-hidden="true" />
                         )}
                         {profileHref ? (
                           <a
@@ -382,12 +377,12 @@ export default function StandingsClient({ locale }: { locale: Locale }) {
                         )}
                       </div>
                     </td>
-                    <td className="px-3 py-2">
+                    <td className="px-2 py-2 sm:px-3">
                       <div className="flex items-center gap-2">
                         {getCountryCode(player.countryCode) === UNSPECIFIED_COUNTRY ? (
                           <>
                             <GlobeIcon className="h-4 w-4 text-white/60" />
-                            <span>—</span>
+                            <span className="hidden sm:inline">—</span>
                           </>
                         ) : (
                           <>
@@ -397,26 +392,23 @@ export default function StandingsClient({ locale }: { locale: Locale }) {
                               className="h-4 w-6 rounded-sm object-cover"
                               loading="lazy"
                             />
-                            <span>{getCountryCode(player.countryCode)}</span>
+                            <span className="hidden sm:inline">{getCountryCode(player.countryCode)}</span>
                           </>
                         )}
                       </div>
                     </td>
-                    <td className="px-3 py-2">
+                    <td className="px-2 py-2 sm:px-3">
                       <div className="flex items-center gap-2">
                         <ReloadingImage
                           src={tierImageByName[player.tier] ?? "/TierE.webp"}
                           alt={getDisplayedTier(player)}
-                          className="h-8 w-8 object-contain"
+                          className="h-7 w-7 shrink-0 object-contain sm:h-8 sm:w-8"
                           loading="lazy"
                         />
-                        <span>{getDisplayedTier(player)}</span>
+                        <span className="whitespace-nowrap text-xs sm:text-sm">{getDisplayedTier(player)}</span>
                       </div>
                     </td>
-                    <td className="px-3 py-2">
-                      {player.teamTag ?? player.teamName ?? content.freeAgent}
-                    </td>
-                    <td className="px-3 py-2 font-semibold">{player.points}</td>
+                    <td className="px-2 py-2 sm:px-3 font-semibold">{player.points}</td>
                   </tr>
                   );
                 })
