@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import DiscordIcon from "./DiscordIcon";
@@ -36,6 +36,7 @@ const copy = {
     logout: "Se déconnecter",
     join: "Rejoindre",
     openMenu: "Ouvrir le menu",
+    closeMenu: "Fermer le menu",
   },
   en: {
     logoAlt: "LFN logo",
@@ -43,6 +44,7 @@ const copy = {
     logout: "Log out",
     join: "Join",
     openMenu: "Open menu",
+    closeMenu: "Close menu",
   },
 };
 
@@ -52,6 +54,20 @@ export default function Header({ locale, user }: { locale: Locale; user: SiteUse
   const links = navLinks[locale];
   const pathname = usePathname();
   const isActive = (href: string) => pathname === href || pathname?.startsWith(`${href}/`);
+
+  // Referme le menu mobile à chaque changement de page et avec la touche Échap
+  useEffect(() => {
+    setIsMenuOpen(false);
+  }, [pathname]);
+
+  useEffect(() => {
+    if (!isMenuOpen) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setIsMenuOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [isMenuOpen]);
 
   return (
     <header className="site-header relative z-20">
@@ -164,7 +180,7 @@ export default function Header({ locale, user }: { locale: Locale; user: SiteUse
             </a>
           )}
         </div>
-        <div className="flex items-center gap-3 md:hidden">
+        <div className="flex items-center gap-2.5 md:hidden">
           {user ? <NotificationBell locale={locale} /> : null}
           {user?.avatarUrl ? (
             <a href="/player/me" aria-label={user.name}>
@@ -172,7 +188,7 @@ export default function Header({ locale, user }: { locale: Locale; user: SiteUse
               <img
                 src={user.avatarUrl}
                 alt={user.name}
-                className="h-8 w-8 rounded-full object-cover"
+                className="h-9 w-9 rounded-full object-cover ring-1 ring-[rgba(242,209,132,0.45)]"
                 referrerPolicy="no-referrer"
               />
             </a>
@@ -181,7 +197,8 @@ export default function Header({ locale, user }: { locale: Locale; user: SiteUse
             type="button"
             className="mobile-menu-toggle"
             aria-expanded={isMenuOpen}
-            aria-label={content.openMenu}
+            aria-controls="mobile-menu"
+            aria-label={isMenuOpen ? content.closeMenu : content.openMenu}
             onClick={() => setIsMenuOpen((prev) => !prev)}
           >
             <span className="mobile-menu-bar" />
@@ -190,56 +207,82 @@ export default function Header({ locale, user }: { locale: Locale; user: SiteUse
           </button>
         </div>
       </div>
-      <div className={`mobile-menu-panel ${isMenuOpen ? "is-open" : ""}`}>
-        <div className="mobile-menu-content">
-          {links.map((link) =>
-            link.external ? (
+      <div id="mobile-menu" className={`mobile-menu-panel ${isMenuOpen ? "is-open" : ""}`}>
+        <div className="mobile-menu-scroll">
+          <div className="mobile-menu-content">
+            <nav className="mobile-nav" aria-label="Menu">
+              {links.map((link) => {
+                const active = isActive(link.href);
+                return (
+                  <Link
+                    key={link.href}
+                    href={link.href}
+                    aria-current={active ? "page" : undefined}
+                    className={`mobile-nav-link ${active ? "is-active" : ""}`}
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    <span>{link.label}</span>
+                    <svg
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.8"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      aria-hidden="true"
+                    >
+                      <polyline points="9 6 15 12 9 18" />
+                    </svg>
+                  </Link>
+                );
+              })}
+            </nav>
+
+            {user ? (
+              <div className="mobile-account">
+                <a href="/player/me" className="mobile-account__who">
+                  {user.avatarUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={user.avatarUrl}
+                      alt=""
+                      className="h-10 w-10 shrink-0 rounded-full object-cover ring-1 ring-[rgba(242,209,132,0.45)]"
+                      referrerPolicy="no-referrer"
+                    />
+                  ) : null}
+                  <span className="truncate">{user.name}</span>
+                </a>
+                <form action="/auth/logout" method="post">
+                  <button type="submit" className="mobile-account__logout">
+                    {content.logout}
+                  </button>
+                </form>
+              </div>
+            ) : (
+              <a href="/auth/login" className="mobile-signup">
+                <span>{content.signup}</span>
+                <DiscordIcon size={20} />
+              </a>
+            )}
+
+            <div className="mobile-menu-footer">
               <a
-                key={link.href}
-                href={link.href}
+                href={DISCORD_INVITE}
                 target="_blank"
                 rel="noreferrer"
+                className="mobile-discord-link"
                 onClick={() => setIsMenuOpen(false)}
               >
-                {link.label}
+                <DiscordIcon size={18} />
+                <span>
+                  {content.join} Discord
+                </span>
               </a>
-            ) : (
-              <Link key={link.href} href={link.href} onClick={() => setIsMenuOpen(false)}>
-                {link.label}
-              </Link>
-            )
-          )}
-          {user ? (
-            <form action="/auth/logout" method="post" className="flex items-center justify-between gap-3">
-              <span className="flex min-w-0 items-center gap-2">
-                {user.avatarUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={user.avatarUrl}
-                    alt=""
-                    className="h-8 w-8 rounded-full object-cover"
-                    referrerPolicy="no-referrer"
-                  />
-                ) : null}
-                <span className="truncate">{user.name}</span>
-              </span>
-              <button type="submit">{content.logout}</button>
-            </form>
-          ) : (
-            <a href="/auth/login" className="mobile-discord-button">
-              <span>{content.signup}</span>
-              <DiscordIcon />
-            </a>
-          )}
-          <a
-            href={DISCORD_INVITE}
-            target="_blank"
-            rel="noreferrer"
-            onClick={() => setIsMenuOpen(false)}
-          >
-            {content.join} Discord
-          </a>
-          <LanguageSwitcher locale={locale} />
+              <LanguageSwitcher locale={locale} />
+            </div>
+          </div>
         </div>
       </div>
     </header>
