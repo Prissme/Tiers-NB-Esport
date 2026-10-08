@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import SectionHeader from "../components/SectionHeader";
 import type { Locale } from "../lib/i18n";
 import ReloadingImage from "../components/ReloadingImage";
+import { GlobeIcon } from "../components/icons";
 
 
 
@@ -43,22 +45,10 @@ const UNSPECIFIED_COUNTRY = "ZZ";
 
 const toFlagEmoji = (countryCode?: string) => {
   const code = getCountryCode(countryCode);
-  if (code === UNSPECIFIED_COUNTRY) {
-    return "🌐";
-  }
-  if (!/^[A-Z]{2}$/.test(code)) {
-    return "🏳️";
+  if (code === UNSPECIFIED_COUNTRY || !/^[A-Z]{2}$/.test(code)) {
+    return "";
   }
   return String.fromCodePoint(...[...code].map((char) => 127397 + char.charCodeAt(0)));
-};
-
-const TIER_EMOJI: Record<string, string> = {
-  "Tier S": "💎",
-  "Tier A": "🥇",
-  "Tier B": "🥈",
-  "Tier C": "🥉",
-  "Tier D": "🛡️",
-  "Tier E": "⚔️",
 };
 
 const getDisplayedTier = (player: PlayerStanding) => {
@@ -139,7 +129,7 @@ export default function StandingsClient({ locale }: { locale: Locale }) {
   const content = copy[locale];
   const [loading, setLoading] = useState(true);
   const [playerStandings, setPlayerStandings] = useState<PlayerStanding[]>([]);
-  const [selectedPlayer, setSelectedPlayer] = useState<PlayerStanding | null>(null);
+  const router = useRouter();
   const [selectedCountry, setSelectedCountry] = useState("ALL");
   const [selectedTier, setSelectedTier] = useState("ALL");
   const [playerSearch, setPlayerSearch] = useState("");
@@ -292,7 +282,7 @@ export default function StandingsClient({ locale }: { locale: Locale }) {
               </option>
               {availableCountries.map((country) => (
                 <option key={country} value={country}>
-                  {content.filterCountry}: {toFlagEmoji(country)} {country === UNSPECIFIED_COUNTRY ? "—" : country}
+                  {content.filterCountry}: {country === UNSPECIFIED_COUNTRY ? "—" : `${toFlagEmoji(country)} ${country}`.trim()}
                 </option>
               ))}
             </select>
@@ -306,7 +296,7 @@ export default function StandingsClient({ locale }: { locale: Locale }) {
               </option>
               {availableTiers.map((tier) => (
                 <option key={tier} value={tier}>
-                  {content.filterTier}: {TIER_EMOJI[tier] ?? "🏷️"} {tier}
+                  {content.filterTier}: {tier}
                 </option>
               ))}
             </select>
@@ -337,10 +327,16 @@ export default function StandingsClient({ locale }: { locale: Locale }) {
                   </td>
                 </tr>
               ) : (
-                topPlayers.map((player, index) => (
+                topPlayers.map((player, index) => {
+                  const profileHref = player.slug
+                    ? `/player/${player.slug}`
+                    : player.discordId
+                      ? `/player/${player.discordId}`
+                      : null;
+                  return (
                   <tr
                     key={player.id}
-                    className={`surface-table__row cursor-pointer ${
+                    className={`surface-table__row ${profileHref ? "cursor-pointer" : ""} ${
                       index === 0
                         ? "bg-gradient-to-r from-amber-300/20 via-amber-200/10 to-transparent"
                         : index === 1
@@ -349,7 +345,7 @@ export default function StandingsClient({ locale }: { locale: Locale }) {
                             ? "bg-gradient-to-r from-amber-800/20 via-amber-700/10 to-transparent"
                             : ""
                     }`}
-                    onClick={() => setSelectedPlayer(player)}
+                    onClick={profileHref ? () => router.push(profileHref) : undefined}
                   >
                     <td className="px-3 py-2">{(playersPage - 1) * 50 + index + 1}</td>
                     <td className="px-3 py-2 text-white/90">
@@ -373,14 +369,24 @@ export default function StandingsClient({ locale }: { locale: Locale }) {
                         ) : (
                           <span className="h-7 w-7 shrink-0 rounded-full bg-white/10 ring-1 ring-white/15" aria-hidden="true" />
                         )}
-                        <span className="truncate">{player.name}</span>
+                        {profileHref ? (
+                          <a
+                            href={profileHref}
+                            onClick={(event) => event.stopPropagation()}
+                            className="truncate hover:underline"
+                          >
+                            {player.name}
+                          </a>
+                        ) : (
+                          <span className="truncate">{player.name}</span>
+                        )}
                       </div>
                     </td>
                     <td className="px-3 py-2">
                       <div className="flex items-center gap-2">
                         {getCountryCode(player.countryCode) === UNSPECIFIED_COUNTRY ? (
                           <>
-                            <span className="flex h-4 w-6 items-center justify-center text-sm leading-none">🌐</span>
+                            <GlobeIcon className="h-4 w-4 text-white/60" />
                             <span>—</span>
                           </>
                         ) : (
@@ -412,7 +418,8 @@ export default function StandingsClient({ locale }: { locale: Locale }) {
                     </td>
                     <td className="px-3 py-2 font-semibold">{player.points}</td>
                   </tr>
-                ))
+                  );
+                })
               )}
             </tbody>
           </table>
@@ -479,53 +486,6 @@ export default function StandingsClient({ locale }: { locale: Locale }) {
           </div>
         ) : null}
       </div>
-
-      {selectedPlayer ? (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
-          onClick={() => setSelectedPlayer(null)}
-        >
-          <div
-            className="w-full max-w-xl rounded-xl border border-white/20 bg-[#101820] p-5 text-white"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className="mb-3 flex items-center justify-between gap-3">
-              <h3 className="text-lg font-semibold">{selectedPlayer.name}</h3>
-              <button
-                type="button"
-                className="rounded-md border border-white/20 px-2 py-1 text-xs text-white/80"
-                onClick={() => setSelectedPlayer(null)}
-              >
-                {content.close}
-              </button>
-            </div>
-            <p className="mb-2 text-sm text-white/70">
-              {getDisplayedTier(selectedPlayer)} • {selectedPlayer.points} {content.pointsShort}
-            </p>
-            {Number(selectedPlayer.earnings || 0) > 0 ? (
-              <p className="mb-2 text-sm font-semibold text-emerald-400">
-                💰 {content.earningsLabel}: {Number(selectedPlayer.earnings).toLocaleString(locale === "fr" ? "fr-FR" : "en-US", { style: "currency", currency: "EUR", maximumFractionDigits: 0 })}
-              </p>
-            ) : null}
-            {Number(selectedPlayer.winStreak || 0) > 0 ? (
-              <p className="mb-2 text-sm font-semibold text-orange-400">
-                🔥 Winstreak: {Number(selectedPlayer.winStreak)}
-              </p>
-            ) : null}
-            <p className="whitespace-pre-wrap text-sm text-white/90">
-              {selectedPlayer.description?.trim() || content.playerDescriptionFallback}
-            </p>
-            {selectedPlayer.slug ? (
-              <a
-                href={`/player/${selectedPlayer.slug}`}
-                className="mt-4 inline-block text-xs font-semibold uppercase tracking-[0.12em] text-[#c9b26a] hover:underline"
-              >
-                {locale === "fr" ? "Voir le profil →" : "View profile →"}
-              </a>
-            ) : null}
-          </div>
-        </div>
-      ) : null}
     </section>
   );
 }
