@@ -1,12 +1,13 @@
 "use client";
 
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import MatchesTable, { type MatchRecord } from "./components/MatchesTable";
 import TeamsPanel from "./components/TeamsPanel";
 import TournamentsPanel from "./components/TournamentsPanel";
 import { supabase } from "../../lib/supabaseClient";
 import { COUNTRIES, CountrySearch } from "./components/CountrySearch";
+import { FlagInsertButton } from "./components/FlagInsertButton";
 
 const tabs = [
   { id: "programme", label: "Programme" },
@@ -105,6 +106,7 @@ export default function AdminPage() {
 
   // New player form
   const [newPlayer, setNewPlayer] = useState<NewPlayerForm>(defaultNewPlayer);
+  const newDescriptionRef = useRef<HTMLTextAreaElement>(null);
 
   const fetchAllMatches = async (seasonOverride?: string | null) => {
     let query = supabase
@@ -560,10 +562,18 @@ export default function AdminPage() {
             </div>
 
             <div>
-              <label className="block text-xs uppercase tracking-[0.25em] text-white/50 mb-1">
-                Description (optionnel)
-              </label>
+              <div className="mb-1 flex items-center justify-between gap-3">
+                <label className="block text-xs uppercase tracking-[0.25em] text-white/50">
+                  Description (optionnel)
+                </label>
+                <FlagInsertButton
+                  textareaRef={newDescriptionRef}
+                  value={newPlayer.description}
+                  onChange={(next) => setNewPlayer((prev) => ({ ...prev, description: next }))}
+                />
+              </div>
               <textarea
+                ref={newDescriptionRef}
                 value={newPlayer.description}
                 onChange={(e) =>
                   setNewPlayer((prev) => ({ ...prev, description: e.target.value }))
@@ -792,6 +802,7 @@ function PlayerEditRow({ player, updating, onSave, onError }: PlayerEditRowProps
   const [winStreak, setWinStreak] = useState(player.winStreak ?? 0);
   const [coachPoints, setCoachPoints] = useState(player.coachPoints ?? 0);
   const [managerPoints, setManagerPoints] = useState(player.managerPoints ?? 0);
+  const descriptionRef = useRef<HTMLTextAreaElement>(null);
 
   const handleSave = () => {
     if (!Number.isInteger(points)) {
@@ -915,10 +926,14 @@ function PlayerEditRow({ player, updating, onSave, onError }: PlayerEditRowProps
         </p>
       </div>
       <div>
-        <label className="block text-xs uppercase tracking-[0.25em] text-white/50 mb-1">
-          Description
-        </label>
+        <div className="mb-1 flex items-center justify-between gap-3">
+          <label className="block text-xs uppercase tracking-[0.25em] text-white/50">
+            Description
+          </label>
+          <FlagInsertButton textareaRef={descriptionRef} value={description} onChange={setDescription} />
+        </div>
         <textarea
+          ref={descriptionRef}
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           rows={3}
