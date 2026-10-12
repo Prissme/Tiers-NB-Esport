@@ -30,6 +30,13 @@ const { createPerformanceStores } = require('./performance-store');
 const seasonSystem = require('./season-system');
 const bracketPredictions = require('./bracket-predictions');
 const { slashCommandsData, handleTournamentInteractions } = require('./tournamentSystem');
+const {
+  isStaffKind,
+  fetchStaffRanking,
+  buildStaffEmbed,
+  buildStaffTierEmbed,
+  buildStaffSlashCommands
+} = require('./staff-leaderboard');
 const tournamentPredictions = require('./tournament-predictions');
 const prissPredictions = require('./priss-predictions');
 const {
@@ -1465,6 +1472,147 @@ async function finalizeMatchOutcome(matchState, outcome, userId, clientRef, opti
   await updateMatchMessage(clientRef, matchState, summary);
   runInBackground('Match resource cleanup', () => cleanupMatchResources(matchState));
   return summary;
+}
+
+// ─── Commandes slash publiques : /tier, /countrylb, /coachlb, /managerlb ─────
+async function handlePublicSlashCommand(interaction) {
+  if (!interaction.isChatInputCommand()) {
+    return false;
+  }
+  const name = interaction.commandName;
+  if (!['tier', 'countrylb', 'coachlb', 'managerlb'].includes(name)) {
+    return false;
+  }
+
+  await interaction.deferReply();
+  const staffKindOption = interaction.options.getString('role');
+  const staffKind = isStaffKind(staffKindOption) ? staffKindOption : null;
+  const staffError = (err) =>
+    err?.code === '42703'
+      ? localizeText({
+          fr: 'Classements coach/manager indisponibles : la migration SQL 202610120001 n’a pas encore été exécutée.',
+          en: 'Coach/manager rankings are unavailable: the 202610120001 SQL migration has not been run yet.'
+        })
+      : localizeText({ fr: '❌ Erreur lors de la récupération du classement.', en: '❌ Failed to load the ranking.' });
+
+  try {
+    // /coachlb et /managerlb : top général
+    if (name === 'coachlb' || name === 'managerlb') {
+      const kind = name === 'coachlb' ? 'coach' : 'manager';
+      const entries = await fetchStaffRanking(supabase, kind);
+      await interaction.editReply({
+        embeds: [
+          buildStaffEmbed({
+            kind,
+            entries,
+            title: kind === 'coach' ? '🎯 TOP COACHS' : '📋 TOP MANAGERS',
+            limit: 25,
+            footer: localizeText(
+              { fr: '{count} classé(s)', en: '{count} ranked' },
+              { count: entries.length }
+            ),
+            emptyText: localizeText({ fr: 'Aucun classé pour le moment.', en: 'Nobody ranked yet.' })
+          })
+        ]
+      });
+      return true;
+    }
+
+    // /countrylb <pays> [coach|manager]
+    if (name === 'countrylb') {
+      const query = interaction.options.getString('country', true);
+      if (!staffKind) {
+        // Même rendu que !countrylb
+        await handleCountryLeaderboardCommand(
+          { reply: (payload) => interaction.editReply(payload) },
+          query.split(/\s+/)
+        );
+        return true;
+      }
+
+      const country = resolveCountry(query);
+      if (!country) {
+        await interaction.editReply({
+          content: localizeText({
+            fr: `❌ Pays introuvable : "${query}". Essaie avec le nom en anglais (ex: "France") ou le code à 2 lettres (ex: "FR").`,
+            en: `❌ Country not found: "${query}". Try the English name (e.g. "France") or the 2-letter code (e.g. "FR").`
+          })
+        });
+        return true;
+      }
+
+      const entries = await fetchStaffRanking(supabase, staffKind, { countryCode: country.code });
+      const flag = toCountryFlag(country.code);
+      await interaction.editReply({
+        embeds: [
+          buildStaffEmbed({
+            kind: staffKind,
+            entries,
+            title: `${flag} ${staffKind === 'coach' ? 'Top Coachs' : 'Top Managers'} — ${country.name}`,
+            limit: 30,
+            footer: localizeText(
+              { fr: '{count} classé(s) pour {country}', en: '{count} ranked for {country}' },
+              { count: entries.length, country: country.name }
+            ),
+            emptyText: localizeText(
+              {
+                fr: `Aucun classé pour ${flag} ${country.name} pour le moment.`,
+                en: `Nobody ranked for ${flag} ${country.name} yet.`
+              }
+            )
+          })
+        ]
+      });
+      return true;
+    }
+
+    // /tier [user] [coach|manager]
+    const targetUser = interaction.options.getUser('user') || interaction.user;
+    if (!staffKind) {
+      // Même rendu que !tier
+      await handleTierCommand({
+        mentions: { users: { first: () => targetUser } },
+        author: targetUser,
+        reply: (payload) => interaction.editReply(payload)
+      });
+      return true;
+    }
+
+    const ranking = await fetchStaffRanking(supabase, staffKind);
+    const index = ranking.findIndex((entry) => String(entry.discordId || '') === String(targetUser.id));
+    if (index === -1) {
+      await interaction.editReply({
+        content: localizeText(
+          {
+            fr: '<@{userId}> n’a pas de points de {role} pour le moment.',
+            en: '<@{userId}> has no {role} points yet.'
+          },
+          { userId: targetUser.id, role: staffKind },
+        ),
+        allowedMentions: { parse: [] }
+      });
+      return true;
+    }
+
+    await interaction.editReply({
+      embeds: [
+        buildStaffTierEmbed({
+          kind: staffKind,
+          entry: ranking[index],
+          rank: index + 1,
+          rankLabel: localizeText({ fr: 'Rang', en: 'Rank' }),
+          pointsLabel: 'Points',
+          countryLabel: localizeText({ fr: 'Pays', en: 'Country' }),
+          user: targetUser
+        })
+      ]
+    });
+    return true;
+  } catch (err) {
+    errorLog(`Slash command /${name} failed:`, err);
+    await interaction.editReply({ content: staffError(err), embeds: [] }).catch(() => null);
+    return true;
+  }
 }
 
 async function handleAdminSlashCommand(interaction) {
@@ -7933,6 +8081,10 @@ async function handleInteraction(interaction) {
     return;
   }
 
+  if (await handlePublicSlashCommand(interaction)) {
+    return;
+  }
+
   // --- Évaluation communautaire des drafts ---
   if (interaction.isButton() && interaction.customId === 'draft_lang_fr') {
     currentLanguage = LANGUAGE_FR;
@@ -9494,6 +9646,7 @@ async function onReady(readyClient) {
       optionType: ApplicationCommandOptionType,
       adminPermission: String(PermissionsBitField.Flags.ManageGuild)
     }),
+    ...buildStaffSlashCommands({ localizeText, optionType: ApplicationCommandOptionType }),
     ...(Array.isArray(slashCommandsData) ? slashCommandsData : []),
     ...(Array.isArray(tournamentPredictions.slashCommands) ? tournamentPredictions.slashCommands : []),
     ...(Array.isArray(bracketPredictions.slashCommands) ? bracketPredictions.slashCommands : []),
