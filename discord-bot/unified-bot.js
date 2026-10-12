@@ -1478,6 +1478,7 @@ async function handleAdminSlashCommand(interaction) {
       'addelo',
       'removeelo',
       'addpoints',
+      'removepoints',
       'setws',
       'setls',
       'banpl',
@@ -2176,112 +2177,135 @@ async function handleAdminSlashCommand(interaction) {
   }
 
   const amount = interaction.options.getInteger('amount', true);
-  if (command === 'addpoints') {
+  if (command === 'addpoints' || command === 'removepoints') {
+    // Les points de tier existent en 3 versions : joueur, coach, manager (colonnes séparées)
+    const pointsRole = interaction.options.getString('role') || 'player';
+    const roleFields = {
+      player: { pointsKey: 'points', tierKey: 'tier', label: { fr: 'joueur', en: 'player' } },
+      coach: { pointsKey: 'coach_points', tierKey: 'coach_tier', label: { fr: 'coach', en: 'coach' } },
+      manager: { pointsKey: 'manager_points', tierKey: 'manager_tier', label: { fr: 'manager', en: 'manager' } }
+    }[pointsRole];
+    const { pointsKey, tierKey } = roleFields;
+    const isAdd = command === 'addpoints';
+    const signedDelta = isAdd ? amount : -amount;
+    const roleLabel = localizeText(roleFields.label);
+
+    // La création des rôles Discord peut dépasser 3 s : on prend la main avant
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+
     const activeSeasonId = await getActiveSeasonId();
     if (!activeSeasonId) {
-      await interaction.reply({
+      await interaction.editReply({
         content: localizeText({
           fr: 'Aucune saison active trouvée pour mettre à jour les points de tier.',
           en: 'No active season found to update tier points.'
-        }),
-        flags: MessageFlags.Ephemeral
+        })
       });
       return true;
     }
 
     const { data: existingTierEntry, error: fetchTierError } = await supabase
       .from('lfn_player_tier_points')
-      .select('points,tier')
+      .select(`${pointsKey},${tierKey}`)
       .eq('player_id', player.id)
       .eq('season_id', activeSeasonId)
       .maybeSingle();
 
     if (fetchTierError) {
       errorLog('Failed to fetch current tier points:', fetchTierError);
-      await interaction.reply({
-        content: localizeText({
-          fr: 'Erreur lors de la récupération des points de tier.',
-          en: 'Error while fetching tier points.'
-        }),
-        flags: MessageFlags.Ephemeral
+      await interaction.editReply({
+        content:
+          fetchTierError.code === '42703'
+            ? localizeText({
+                fr: 'Colonnes coach/manager manquantes : exécute la migration SQL 202610120001 sur Supabase.',
+                en: 'Coach/manager columns are missing: run the 202610120001 SQL migration on Supabase.'
+              })
+            : localizeText({
+                fr: 'Erreur lors de la récupération des points de tier.',
+                en: 'Error while fetching tier points.'
+              })
       });
       return true;
     }
 
-    const currentPoints = Number(existingTierEntry?.points || 0);
-    const nextPoints = currentPoints + amount;
-    const currentTier = existingTierEntry?.tier || 'Tier E';
+    const currentPoints = Number(existingTierEntry?.[pointsKey] || 0);
+    const nextPoints = Math.max(0, currentPoints + signedDelta);
+    const currentTier = existingTierEntry?.[tierKey] || (pointsRole === 'player' ? 'Tier E' : 'No Tier');
 
     // Il faut connaître les points de TOUS les joueurs de la saison pour
-    // appliquer correctement la règle Tier S = top 20% des Tier A.
+    // appliquer correctement la règle Tier S = meilleurs des Tier A.
     const { data: seasonPointsRows, error: seasonPointsError } = await supabase
       .from('lfn_player_tier_points')
-      .select('player_id, points')
+      .select(`player_id, ${pointsKey}`)
       .eq('season_id', activeSeasonId);
 
     if (seasonPointsError) {
       errorLog('Failed to fetch season points for tier recompute:', seasonPointsError);
-      await interaction.reply({
-        content: localizeText({
-          fr: 'Erreur lors du calcul du tier.',
-          en: 'Error while computing tier.'
-        }),
-        flags: MessageFlags.Ephemeral
+      await interaction.editReply({
+        content: localizeText({ fr: 'Erreur lors du calcul du tier.', en: 'Error while computing tier.' })
       });
       return true;
     }
 
-    const seasonPoints = (seasonPointsRows || []).filter((row) => row.player_id !== player.id);
+    const seasonPoints = (seasonPointsRows || [])
+      .filter((row) => row.player_id !== player.id)
+      .map((row) => ({ player_id: row.player_id, points: Number(row[pointsKey] || 0) }));
     seasonPoints.push({ player_id: player.id, points: nextPoints });
 
     const tierMap = computeTiersForSeason(seasonPoints);
     const recalculatedTier = tierMap.get(player.id) ?? null;
-    const persistedTier = recalculatedTier || 'Tier E';
 
-    const { error: updateTierError } = await supabase.from('lfn_player_tier_points').upsert(
-      {
-        player_id: player.id,
-        season_id: activeSeasonId,
-        points: nextPoints,
-        tier: persistedTier,
-        updated_at: new Date().toISOString()
-      },
-      { onConflict: 'player_id,season_id' }
-    );
+    const upsertPayload = {
+      player_id: player.id,
+      season_id: activeSeasonId,
+      [pointsKey]: nextPoints,
+      // Joueur : le tier reste "Tier E" par défaut ; coach/manager : null = pas de rôle
+      [tierKey]: pointsRole === 'player' ? recalculatedTier || 'Tier E' : recalculatedTier,
+      updated_at: new Date().toISOString()
+    };
+
+    const { error: updateTierError } = await supabase
+      .from('lfn_player_tier_points')
+      .upsert(upsertPayload, { onConflict: 'player_id,season_id' });
 
     if (updateTierError) {
       errorLog('Failed to update tier points:', updateTierError);
-      await interaction.reply({
+      await interaction.editReply({
         content: localizeText({
           fr: 'Erreur lors de la mise à jour des points de tier.',
           en: 'Error while updating tier points.'
-        }),
-        flags: MessageFlags.Ephemeral
+        })
       });
       return true;
     }
 
-    await upsertSeasonStatsForPlayer(player.id, {
-      points: nextPoints,
-      tier: persistedTier,
-      wins: Number(player.wins || 0),
-      losses: Number(player.losses || 0),
-      games_played: Number(player.games_played || 0),
-      solo_elo: Number(player.solo_elo || DEFAULT_ELO)
-    });
-    await syncSingleMemberTierRole(interaction.guild, targetUser.id, recalculatedTier);
+    if (pointsRole === 'player') {
+      await upsertSeasonStatsForPlayer(player.id, {
+        points: nextPoints,
+        tier: recalculatedTier || 'Tier E',
+        wins: Number(player.wins || 0),
+        losses: Number(player.losses || 0),
+        games_played: Number(player.games_played || 0),
+        solo_elo: Number(player.solo_elo || DEFAULT_ELO)
+      });
+      await syncSingleMemberTierRole(interaction.guild, targetUser.id, recalculatedTier);
+    } else {
+      await syncSingleMemberStaffRoles(interaction.guild, targetUser.id, { [pointsRole]: recalculatedTier });
+    }
 
-    // La frontière Tier S (top 20% des Tier A) a pu bouger pour d'autres
-    // joueurs suite à ce changement de points : on relance une synchro
-    // complète en arrière-plan pour les corriger, sans bloquer la réponse.
-    syncTiersWithRoles().catch((err) => errorLog('Background tier sync after addpoints failed:', err));
+    // La frontière Tier S a pu bouger pour d'autres : synchro complète en arrière-plan
+    syncTiersWithRoles().catch((err) => errorLog('Background tier sync after points change failed:', err));
 
     performanceStores.playerStore.invalidateRankingSnapshot();
-    await interaction.reply({
+    await interaction.editReply({
       embeds: [
         new EmbedBuilder()
-          .setTitle(localizeText({ fr: 'Points de tier ajoutés', en: 'Tier points added' }))
-          .setDescription(`<@${targetUser.id}>`)
+          .setTitle(
+            isAdd
+              ? localizeText({ fr: 'Points de tier ajoutés', en: 'Tier points added' })
+              : localizeText({ fr: 'Points de tier retirés', en: 'Tier points removed' })
+          )
+          .setDescription(`<@${targetUser.id}> · ${roleLabel}`)
           .addFields(
             {
               name: localizeText({ fr: 'Anciens points', en: 'Previous points' }),
@@ -2295,7 +2319,7 @@ async function handleAdminSlashCommand(interaction) {
             },
             {
               name: localizeText({ fr: 'Delta', en: 'Delta' }),
-              value: `${amount >= 0 ? '+' : ''}${amount}`,
+              value: `${nextPoints - currentPoints >= 0 ? '+' : ''}${nextPoints - currentPoints}`,
               inline: true
             },
             {
@@ -2304,10 +2328,9 @@ async function handleAdminSlashCommand(interaction) {
               inline: true
             }
           )
-          .setColor(0x2ecc71)
+          .setColor(isAdd ? 0x2ecc71 : 0xe74c3c)
           .setTimestamp(new Date())
-      ],
-      flags: MessageFlags.Ephemeral
+      ]
     });
     return true;
   }
@@ -6168,6 +6191,116 @@ async function syncSingleMemberTierRole(targetGuild, discordId, tierLabel) {
   }
 }
 
+// ─── Rôles Tier Coach / Manager ──────────────────────────────────────────────
+// 12 rôles (Coach Tier S..E, Manager Tier S..E) créés automatiquement par le bot s'ils n'existent pas.
+// Un ID peut être forcé via ROLE_COACH_TIER_S, ROLE_MANAGER_TIER_A, etc.
+const STAFF_ROLE_KINDS = ['coach', 'manager'];
+const staffRoleCache = new Map(); // "coach:S" -> roleId
+let staffRolesPending = null;
+let staffRolesLastAttempt = 0;
+
+function staffRoleName(kind, letter) {
+  return `${kind === 'coach' ? 'Coach' : 'Manager'} Tier ${letter}`;
+}
+
+async function doEnsureStaffRoles(targetGuild) {
+  await targetGuild.roles.fetch().catch(() => null);
+  for (const kind of STAFF_ROLE_KINDS) {
+    for (const letter of ROOM_TIER_ORDER) {
+      const key = `${kind}:${letter}`;
+      const cachedId = staffRoleCache.get(key);
+      if (cachedId && targetGuild.roles.cache.has(cachedId)) {
+        continue;
+      }
+
+      const name = staffRoleName(kind, letter);
+      const envId = process.env[`ROLE_${kind.toUpperCase()}_TIER_${letter}`];
+      let role = envId ? targetGuild.roles.cache.get(envId) : null;
+      if (!role) {
+        role = targetGuild.roles.cache.find((candidate) => candidate.name.toLowerCase() === name.toLowerCase());
+      }
+      if (!role) {
+        try {
+          role = await targetGuild.roles.create({
+            name,
+            color: PUBLIC_TIER_COLORS[`Tier ${letter}`],
+            hoist: false,
+            mentionable: false,
+            reason: 'Coach/Manager tier roles'
+          });
+          log(`Created staff role "${name}".`);
+        } catch (err) {
+          warn(`Unable to create staff role "${name}":`, err?.message || err);
+        }
+      }
+      if (role) {
+        staffRoleCache.set(key, role.id);
+      }
+    }
+  }
+}
+
+// Une seule création à la fois ; si des rôles manquent encore, on ne réessaie qu'après 5 minutes (sauf force)
+function ensureStaffRoles(targetGuild, { force = false } = {}) {
+  if (!targetGuild) {
+    return Promise.resolve();
+  }
+  const complete = staffRoleCache.size === STAFF_ROLE_KINDS.length * ROOM_TIER_ORDER.length;
+  if (complete && !force) {
+    return Promise.resolve();
+  }
+  if (!force && Date.now() - staffRolesLastAttempt < 5 * 60 * 1000) {
+    return staffRolesPending || Promise.resolve();
+  }
+  if (!staffRolesPending) {
+    staffRolesLastAttempt = Date.now();
+    staffRolesPending = doEnsureStaffRoles(targetGuild).finally(() => {
+      staffRolesPending = null;
+    });
+  }
+  return staffRolesPending;
+}
+
+// tiers: { coach?: 'Tier A' | null, manager?: 'Tier B' | null } — une clé absente = on n'y touche pas, null = on retire le rôle
+async function syncSingleMemberStaffRoles(targetGuild, discordId, tiers) {
+  if (!targetGuild || !discordId) {
+    return;
+  }
+
+  await ensureStaffRoles(targetGuild);
+
+  let member = null;
+  try {
+    member = await targetGuild.members.fetch(discordId);
+  } catch (err) {
+    return;
+  }
+  if (!member) {
+    return;
+  }
+
+  for (const kind of STAFF_ROLE_KINDS) {
+    if (!Object.prototype.hasOwnProperty.call(tiers, kind)) {
+      continue;
+    }
+    const letter = tierLabelToLetter(tiers[kind]);
+    const targetRoleId = letter ? staffRoleCache.get(`${kind}:${letter}`) : null;
+    const kindRoleIds = ROOM_TIER_ORDER.map((tierLetter) => staffRoleCache.get(`${kind}:${tierLetter}`)).filter(Boolean);
+    const rolesToRemove = kindRoleIds.filter((id) => id !== targetRoleId && member.roles.cache.has(id));
+
+    if (targetRoleId && !member.roles.cache.has(targetRoleId)) {
+      await member.roles.add(targetRoleId, 'Staff tier synchronization').catch((err) => {
+        warn(`Unable to add ${kind} tier role to ${member.id}:`, err?.message || err);
+      });
+    }
+    for (const roleId of rolesToRemove) {
+      await member.roles.remove(roleId, 'Staff tier synchronization').catch((err) => {
+        warn(`Unable to remove ${kind} tier role ${roleId} from ${member.id}:`, err?.message || err);
+      });
+    }
+  }
+}
+
 async function handleSeasonCommand(message, args) {
   const sub = String(args[0] || '').toLowerCase();
 
@@ -9208,6 +9341,7 @@ async function syncTiersWithRoles() {
 
   let players = [];
   let pointsRows = [];
+  let staffSyncEnabled = true;
   try {
     const { data: playersData, error: playersError } = await supabase
       .from('players')
@@ -9218,10 +9352,19 @@ async function syncTiersWithRoles() {
       throw playersError;
     }
 
-    const { data: tierData, error: tierError } = await supabase
+    let { data: tierData, error: tierError } = await supabase
       .from('lfn_player_tier_points')
-      .select('player_id, points, tier')
+      .select('player_id, points, tier, coach_points, coach_tier, manager_points, manager_tier')
       .eq('season_id', activeSeasonId);
+
+    // Migration coach/manager pas encore passée : on synchronise les joueurs seulement
+    if (tierError && tierError.code === '42703') {
+      staffSyncEnabled = false;
+      ({ data: tierData, error: tierError } = await supabase
+        .from('lfn_player_tier_points')
+        .select('player_id, points, tier')
+        .eq('season_id', activeSeasonId));
+    }
 
     if (tierError) {
       throw tierError;
@@ -9242,6 +9385,15 @@ async function syncTiersWithRoles() {
   const pointsByPlayerId = new Map(pointsRows.map((row) => [row.player_id, row]));
   const playersToSync = players.filter((player) => player.active !== false);
   const tierMap = computeTiersForSeason(pointsRows);
+  const coachTierMap = staffSyncEnabled
+    ? computeTiersForSeason(pointsRows.map((row) => ({ player_id: row.player_id, points: row.coach_points })))
+    : null;
+  const managerTierMap = staffSyncEnabled
+    ? computeTiersForSeason(pointsRows.map((row) => ({ player_id: row.player_id, points: row.manager_points })))
+    : null;
+  if (staffSyncEnabled) {
+    await ensureStaffRoles(guild);
+  }
 
   for (const player of playersToSync) {
     const tierRow = pointsByPlayerId.get(player.id);
@@ -9264,6 +9416,24 @@ async function syncTiersWithRoles() {
 
     await upsertSeasonStatsForPlayer(player.id, { points, tier: persistedTier });
     await syncSingleMemberTierRole(guild, player.discord_id, recalculatedTier);
+
+    if (staffSyncEnabled && tierRow) {
+      const coachTier = coachTierMap.get(player.id) ?? null;
+      const managerTier = managerTierMap.get(player.id) ?? null;
+      if ((tierRow.coach_tier ?? null) !== coachTier || (tierRow.manager_tier ?? null) !== managerTier) {
+        await supabase
+          .from('lfn_player_tier_points')
+          .update({ coach_tier: coachTier, manager_tier: managerTier })
+          .eq('season_id', activeSeasonId)
+          .eq('player_id', player.id)
+          .then(({ error }) => {
+            if (error) {
+              warn(`Unable to update staff tiers for ${player.id}:`, error.message);
+            }
+          });
+      }
+      await syncSingleMemberStaffRoles(guild, player.discord_id, { coach: coachTier, manager: managerTier });
+    }
   }
 
   log('Tier synchronization complete.');
@@ -9311,6 +9481,9 @@ async function onReady(readyClient) {
     warn(`Unable to fetch log channel ${LOG_CHANNEL_ID}:`, err.message);
     logChannel = null;
   }
+
+  // Crée les 12 rôles Coach/Manager Tier s'ils n'existent pas encore (sans bloquer le démarrage)
+  ensureStaffRoles(guild, { force: true }).catch((err) => warn('Unable to prepare staff roles:', err?.message || err));
 
   // ENREGISTREMENT UNIQUE DES COMMANDES SLASH
   // Le premier appel redondant a été supprimé — on envoie tout en une seule fois
