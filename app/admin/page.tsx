@@ -39,6 +39,10 @@ type TierPlayer = {
   ballonDor?: number;
   earnings?: number;
   winStreak?: number;
+  coachPoints?: number;
+  coachTier?: string | null;
+  managerPoints?: number;
+  managerTier?: string | null;
 };
 
 const toFlag = (countryCode?: string) => {
@@ -67,6 +71,8 @@ type NewPlayerForm = {
   ballonDor: number;
   earnings: number;
   winStreak: number;
+  coachPoints: number;
+  managerPoints: number;
 };
 
 const defaultNewPlayer: NewPlayerForm = {
@@ -78,6 +84,8 @@ const defaultNewPlayer: NewPlayerForm = {
   ballonDor: 0,
   earnings: 0,
   winStreak: 0,
+  coachPoints: 0,
+  managerPoints: 0,
 };
 
 export default function AdminPage() {
@@ -151,7 +159,7 @@ export default function AdminPage() {
     try {
       const effectiveSeason = seasonOverride ?? seasonId;
       const query = effectiveSeason ? `?season=${encodeURIComponent(effectiveSeason)}` : "";
-      const response = await fetch(`/api/site/player-standings${query}`, { cache: "no-store" });
+      const response = await fetch(`/api/admin/player-standings${query}`, { cache: "no-store" });
       const payload = (await response.json()) as { players?: TierPlayer[] };
       setTierPlayers(payload.players ?? []);
     } catch (error) {
@@ -169,6 +177,8 @@ export default function AdminPage() {
     ballonDor: number;
     earnings: number;
     winStreak: number;
+    coachPoints: number;
+    managerPoints: number;
   }) => {
     const { playerId } = payload;
     setUpdatingPlayerId(playerId);
@@ -193,7 +203,7 @@ export default function AdminPage() {
   };
 
   const createTierPlayer = async () => {
-    const { name, tier, points, countryCode, description, ballonDor, earnings, winStreak } = newPlayer;
+    const { name, tier, points, countryCode, description, ballonDor, earnings, winStreak, coachPoints, managerPoints } = newPlayer;
     if (!name.trim()) {
       setErrorMessage("Le pseudo est obligatoire.");
       return;
@@ -207,7 +217,7 @@ export default function AdminPage() {
       const response = await fetch("/api/admin/player-standings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: name.trim(), tier, points, countryCode, description, ballonDor, earnings, winStreak, seasonId }),
+        body: JSON.stringify({ name: name.trim(), tier, points, countryCode, description, ballonDor, earnings, winStreak, coachPoints, managerPoints, seasonId }),
       });
       if (!response.ok) {
         const body = (await response.json()) as { error?: string };
@@ -611,6 +621,39 @@ export default function AdminPage() {
               />
             </div>
 
+            <div className="grid gap-3 md:grid-cols-2">
+              <div>
+                <label className="block text-xs uppercase tracking-[0.25em] text-white/50 mb-1">
+                  Points coach
+                </label>
+                <input
+                  type="number"
+                  min={0}
+                  step="1"
+                  value={newPlayer.coachPoints}
+                  onChange={(e) =>
+                    setNewPlayer((prev) => ({ ...prev, coachPoints: Number(e.target.value) }))
+                  }
+                  className="surface-input"
+                />
+              </div>
+              <div>
+                <label className="block text-xs uppercase tracking-[0.25em] text-white/50 mb-1">
+                  Points manager
+                </label>
+                <input
+                  type="number"
+                  min={0}
+                  step="1"
+                  value={newPlayer.managerPoints}
+                  onChange={(e) =>
+                    setNewPlayer((prev) => ({ ...prev, managerPoints: Number(e.target.value) }))
+                  }
+                  className="surface-input"
+                />
+              </div>
+            </div>
+
             <div>
               <button
                 type="button"
@@ -643,13 +686,15 @@ export default function AdminPage() {
                   <th className="px-3 py-2 text-left">Pseudo</th>
                   <th className="px-3 py-2 text-left">Pays</th>
                   <th className="px-3 py-2 text-left">Tier</th>
+                  <th className="px-3 py-2 text-left">Coach</th>
+                  <th className="px-3 py-2 text-left">Manager</th>
                   <th className="px-3 py-2 text-left">Édition</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredTierPlayers.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="px-3 py-4 text-center text-white/40">
+                    <td colSpan={7} className="px-3 py-4 text-center text-white/40">
                       {tierPlayers.length === 0
                         ? "Aucun joueur avec tier actif."
                         : "Aucun joueur ne correspond à la recherche."}
@@ -673,14 +718,26 @@ export default function AdminPage() {
                           <td className="px-3 py-2">
                             {toFlag(player.countryCode)} {player.countryCode ?? "FR"}
                           </td>
-                          <td className="px-3 py-2">{player.tier}</td>
+                          <td className="px-3 py-2">
+                            {player.points > 0 ? `${player.tier} · ${player.points}` : "—"}
+                          </td>
+                          <td className="px-3 py-2">
+                            {(player.coachPoints ?? 0) > 0
+                              ? `${player.coachTier ?? "Tier E"} · ${player.coachPoints}`
+                              : "—"}
+                          </td>
+                          <td className="px-3 py-2">
+                            {(player.managerPoints ?? 0) > 0
+                              ? `${player.managerTier ?? "Tier E"} · ${player.managerPoints}`
+                              : "—"}
+                          </td>
                           <td className="px-3 py-2 text-xs text-white/60">
                             {isExpanded ? "Masquer édition" : "Cliquer pour éditer"}
                           </td>
                         </tr>
                         {isExpanded ? (
                           <tr className="surface-table__row bg-white/5">
-                            <td colSpan={5} className="px-3 py-3">
+                            <td colSpan={7} className="px-3 py-3">
                               <PlayerEditRow
                                 player={player}
                                 updating={updatingPlayerId === player.id}
@@ -717,6 +774,8 @@ type PlayerEditRowProps = {
     ballonDor: number;
     earnings: number;
     winStreak: number;
+    coachPoints: number;
+    managerPoints: number;
   }) => void;
   onError: (msg: string) => void;
 };
@@ -731,6 +790,8 @@ function PlayerEditRow({ player, updating, onSave, onError }: PlayerEditRowProps
   const [ballonDor, setBallonDor] = useState(player.ballonDor ?? 0);
   const [earnings, setEarnings] = useState(player.earnings ?? 0);
   const [winStreak, setWinStreak] = useState(player.winStreak ?? 0);
+  const [coachPoints, setCoachPoints] = useState(player.coachPoints ?? 0);
+  const [managerPoints, setManagerPoints] = useState(player.managerPoints ?? 0);
 
   const handleSave = () => {
     if (!Number.isInteger(points)) {
@@ -753,7 +814,25 @@ function PlayerEditRow({ player, updating, onSave, onError }: PlayerEditRowProps
       onError("Le winstreak doit être un nombre entier positif.");
       return;
     }
-    onSave({ points, tier, countryCode: countryCode.toUpperCase(), description, ballonDor, earnings, winStreak });
+    if (!Number.isInteger(coachPoints) || coachPoints < 0) {
+      onError("Les points coach doivent être un nombre entier positif.");
+      return;
+    }
+    if (!Number.isInteger(managerPoints) || managerPoints < 0) {
+      onError("Les points manager doivent être un nombre entier positif.");
+      return;
+    }
+    onSave({
+      points,
+      tier,
+      countryCode: countryCode.toUpperCase(),
+      description,
+      ballonDor,
+      earnings,
+      winStreak,
+      coachPoints,
+      managerPoints,
+    });
   };
 
   return (
@@ -803,6 +882,37 @@ function PlayerEditRow({ player, updating, onSave, onError }: PlayerEditRowProps
             {updating ? "..." : "Sauver"}
           </button>
         </div>
+      </div>
+      <div className="grid gap-3 md:grid-cols-2">
+        <div>
+          <label className="block text-xs uppercase tracking-[0.25em] text-white/50 mb-1">
+            Points coach {player.coachTier ? `(${player.coachTier})` : ""}
+          </label>
+          <input
+            type="number"
+            min={0}
+            step="1"
+            value={coachPoints}
+            onChange={(e) => setCoachPoints(Number(e.target.value))}
+            className="surface-input"
+          />
+        </div>
+        <div>
+          <label className="block text-xs uppercase tracking-[0.25em] text-white/50 mb-1">
+            Points manager {player.managerTier ? `(${player.managerTier})` : ""}
+          </label>
+          <input
+            type="number"
+            min={0}
+            step="1"
+            value={managerPoints}
+            onChange={(e) => setManagerPoints(Number(e.target.value))}
+            className="surface-input"
+          />
+        </div>
+        <p className="text-xs text-white/40 md:col-span-2">
+          Le tier coach/manager se calcule d'après les points ; les rôles Discord sont mis à jour par le bot à sa prochaine synchro (≤ 10 min).
+        </p>
       </div>
       <div>
         <label className="block text-xs uppercase tracking-[0.25em] text-white/50 mb-1">
