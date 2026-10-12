@@ -49,7 +49,7 @@ function buildAdminSlashCommands({ localizeText, optionType, adminPermission }) 
     },
     {
       name: 'addpoints',
-      description: localizeText({ fr: 'Ajouter des points de tier à un joueur', en: 'Add tier points to a player' }),
+      description: localizeText({ fr: 'Ajouter des points de tier (joueur, coach ou manager)', en: 'Add tier points (player, coach or manager)' }),
       dm_permission: false,
       default_member_permissions: adminPermission,
       options: [
@@ -66,6 +66,50 @@ function buildAdminSlashCommands({ localizeText, optionType, adminPermission }) 
           required: true,
           min_value: 1,
           max_value: 10000
+        },
+        {
+          name: 'role',
+          description: localizeText({ fr: 'Type de points (par défaut : joueur)', en: 'Points type (default: player)' }),
+          type: optionType.String,
+          required: false,
+          choices: [
+            { name: 'Joueur / Player', value: 'player' },
+            { name: 'Coach', value: 'coach' },
+            { name: 'Manager', value: 'manager' }
+          ]
+        }
+      ]
+    },
+    {
+      name: 'removepoints',
+      description: localizeText({ fr: 'Retirer des points de tier (joueur, coach ou manager)', en: 'Remove tier points (player, coach or manager)' }),
+      dm_permission: false,
+      default_member_permissions: adminPermission,
+      options: [
+        {
+          name: 'player',
+          description: localizeText({ fr: 'Joueur ciblé', en: 'Target player' }),
+          type: optionType.User,
+          required: true
+        },
+        {
+          name: 'amount',
+          description: localizeText({ fr: 'Nombre de points à retirer', en: 'Points amount to remove' }),
+          type: optionType.Integer,
+          required: true,
+          min_value: 1,
+          max_value: 10000
+        },
+        {
+          name: 'role',
+          description: localizeText({ fr: 'Type de points (par défaut : joueur)', en: 'Points type (default: player)' }),
+          type: optionType.String,
+          required: false,
+          choices: [
+            { name: 'Joueur / Player', value: 'player' },
+            { name: 'Coach', value: 'coach' },
+            { name: 'Manager', value: 'manager' }
+          ]
         }
       ]
     },
