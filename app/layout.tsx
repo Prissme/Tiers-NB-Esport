@@ -1,6 +1,5 @@
 import "./globals.css";
 import type { Metadata, Viewport } from "next";
-import { Cormorant_Garamond, Inter } from "next/font/google";
 import Footer from "./components/Footer";
 import Header from "./components/Header";
 import { getSiteUser } from "../src/lib/auth/site-user";
@@ -8,19 +7,6 @@ import BackgroundFX from "./components/BackgroundFX";
 import PageTransition from "./components/PageTransition";
 import { getLocale } from "./lib/i18n";
 import Script from "next/script"; // Importation pour Analytics
-
-const inter = Inter({
-  subsets: ["latin"],
-  display: "swap",
-  variable: "--font-sans",
-});
-
-const cormorant = Cormorant_Garamond({
-  subsets: ["latin"],
-  display: "swap",
-  weight: ["400", "500", "600", "700"],
-  variable: "--font-serif",
-});
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://www.lfn-esports.fr"),
@@ -64,8 +50,15 @@ export default async function RootLayout({
   const locale = getLocale();
   const siteUser = await getSiteUser();
   return (
-    <html lang={locale} className={`${inter.variable} ${cormorant.variable}`}>
+    <html lang={locale}>
       <head>
+        {/* Polices chargées côté navigateur (évite le fetch Google Fonts pendant le build) */}
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link
+          rel="stylesheet"
+          href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=Inter:wght@100..900&display=swap"
+        />
         {/* Google Analytics */}
         <Script
           src="https://www.googletagmanager.com/gtag/js?id=G-7QKWJL07DZ"
