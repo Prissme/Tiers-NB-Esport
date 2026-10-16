@@ -213,6 +213,214 @@ const NAME_INDEX = new Map(
   COUNTRIES.map((c) => [normalize(c.name), c])
 );
 
+const EN_NAMES = {
+  AD: ["Andorra"],
+  AE: ["United Arab Emirates", "Emirates"],
+  AF: ["Afghanistan"],
+  AG: ["Antigua and Barbuda", "Antigua"],
+  AL: ["Albania"],
+  AM: ["Armenia"],
+  AO: ["Angola"],
+  AR: ["Argentina"],
+  AT: ["Austria"],
+  AU: ["Australia"],
+  AZ: ["Azerbaijan"],
+  BA: ["Bosnia and Herzegovina", "Bosnia"],
+  BB: ["Barbados"],
+  BD: ["Bangladesh"],
+  BE: ["Belgium"],
+  BF: ["Burkina Faso"],
+  BG: ["Bulgaria"],
+  BH: ["Bahrain"],
+  BI: ["Burundi"],
+  BJ: ["Benin"],
+  BN: ["Brunei"],
+  BO: ["Bolivia"],
+  BR: ["Brazil"],
+  BS: ["Bahamas", "The Bahamas"],
+  BT: ["Bhutan"],
+  BW: ["Botswana"],
+  BY: ["Belarus"],
+  BZ: ["Belize"],
+  CA: ["Canada"],
+  CD: ["Democratic Republic of the Congo", "DR Congo", "Congo Kinshasa", "Congo DRC"],
+  CF: ["Central African Republic", "CAR"],
+  CG: ["Republic of the Congo", "Congo Brazzaville"],
+  CH: ["Switzerland"],
+  CI: ["Ivory Coast", "Cote d'Ivoire"],
+  CL: ["Chile"],
+  CM: ["Cameroon"],
+  CN: ["China"],
+  CO: ["Colombia"],
+  CR: ["Costa Rica"],
+  CU: ["Cuba"],
+  CV: ["Cape Verde", "Cabo Verde"],
+  CY: ["Cyprus"],
+  CZ: ["Czechia", "Czech Republic"],
+  DE: ["Germany"],
+  DJ: ["Djibouti"],
+  DK: ["Denmark"],
+  DM: ["Dominica"],
+  DO: ["Dominican Republic"],
+  DZ: ["Algeria"],
+  EC: ["Ecuador"],
+  EE: ["Estonia"],
+  EG: ["Egypt"],
+  ER: ["Eritrea"],
+  ES: ["Spain"],
+  IC: ["Canary Islands", "Canaries"],
+  ET: ["Ethiopia"],
+  FI: ["Finland"],
+  FJ: ["Fiji"],
+  FM: ["Micronesia"],
+  FR: ["France"],
+  GA: ["Gabon"],
+  GB: ["United Kingdom", "Great Britain", "England", "Britain", "Scotland", "Wales"],
+  GD: ["Grenada"],
+  GE: ["Georgia"],
+  GH: ["Ghana"],
+  GM: ["Gambia", "The Gambia"],
+  GN: ["Guinea"],
+  GQ: ["Equatorial Guinea"],
+  GR: ["Greece"],
+  GT: ["Guatemala"],
+  GW: ["Guinea-Bissau", "Guinea Bissau"],
+  GY: ["Guyana"],
+  HN: ["Honduras"],
+  HR: ["Croatia"],
+  HT: ["Haiti"],
+  HU: ["Hungary"],
+  ID: ["Indonesia"],
+  IE: ["Ireland"],
+  IL: ["Israel"],
+  IN: ["India"],
+  IQ: ["Iraq"],
+  IR: ["Iran"],
+  IS: ["Iceland"],
+  IT: ["Italy"],
+  JM: ["Jamaica"],
+  JO: ["Jordan"],
+  JP: ["Japan"],
+  KE: ["Kenya"],
+  KG: ["Kyrgyzstan"],
+  KH: ["Cambodia"],
+  KI: ["Kiribati"],
+  KM: ["Comoros"],
+  KN: ["Saint Kitts and Nevis", "St Kitts and Nevis"],
+  KP: ["North Korea"],
+  KR: ["South Korea", "Korea"],
+  KW: ["Kuwait"],
+  KZ: ["Kazakhstan"],
+  XK: ["Kosovo"],
+  LA: ["Laos"],
+  LB: ["Lebanon"],
+  LC: ["Saint Lucia", "St Lucia"],
+  LI: ["Liechtenstein"],
+  LK: ["Sri Lanka"],
+  LR: ["Liberia"],
+  LS: ["Lesotho"],
+  LT: ["Lithuania"],
+  LU: ["Luxembourg"],
+  LV: ["Latvia"],
+  LY: ["Libya"],
+  MA: ["Morocco"],
+  MC: ["Monaco"],
+  MD: ["Moldova"],
+  ME: ["Montenegro"],
+  MG: ["Madagascar"],
+  MH: ["Marshall Islands"],
+  MK: ["North Macedonia", "Macedonia"],
+  ML: ["Mali"],
+  MM: ["Myanmar", "Burma"],
+  MN: ["Mongolia"],
+  MR: ["Mauritania"],
+  MT: ["Malta"],
+  MU: ["Mauritius"],
+  MV: ["Maldives"],
+  MW: ["Malawi"],
+  MX: ["Mexico"],
+  MY: ["Malaysia"],
+  MZ: ["Mozambique"],
+  NA: ["Namibia"],
+  NE: ["Niger"],
+  NG: ["Nigeria"],
+  NI: ["Nicaragua"],
+  NL: ["Netherlands", "The Netherlands", "Holland"],
+  NO: ["Norway"],
+  NP: ["Nepal"],
+  NR: ["Nauru"],
+  NZ: ["New Zealand"],
+  OM: ["Oman"],
+  PA: ["Panama"],
+  PE: ["Peru"],
+  PG: ["Papua New Guinea"],
+  PH: ["Philippines", "The Philippines"],
+  PK: ["Pakistan"],
+  PL: ["Poland"],
+  PT: ["Portugal"],
+  PW: ["Palau"],
+  PY: ["Paraguay"],
+  QA: ["Qatar"],
+  RO: ["Romania"],
+  RS: ["Serbia"],
+  RU: ["Russia"],
+  RW: ["Rwanda"],
+  SA: ["Saudi Arabia"],
+  SB: ["Solomon Islands"],
+  SC: ["Seychelles"],
+  SD: ["Sudan"],
+  SE: ["Sweden"],
+  SG: ["Singapore"],
+  SI: ["Slovenia"],
+  SK: ["Slovakia"],
+  SL: ["Sierra Leone"],
+  SM: ["San Marino"],
+  SN: ["Senegal"],
+  SO: ["Somalia"],
+  SR: ["Suriname"],
+  SS: ["South Sudan"],
+  ST: ["Sao Tome and Principe", "Sao Tome"],
+  SV: ["El Salvador"],
+  SY: ["Syria"],
+  SZ: ["Eswatini", "Swaziland"],
+  TD: ["Chad"],
+  TG: ["Togo"],
+  TH: ["Thailand"],
+  TJ: ["Tajikistan"],
+  TL: ["Timor-Leste", "East Timor"],
+  TM: ["Turkmenistan"],
+  TN: ["Tunisia"],
+  TO: ["Tonga"],
+  TR: ["Turkey", "Turkiye"],
+  TT: ["Trinidad and Tobago", "Trinidad"],
+  TV: ["Tuvalu"],
+  TZ: ["Tanzania"],
+  UA: ["Ukraine"],
+  UG: ["Uganda"],
+  US: ["United States", "United States of America", "America"],
+  UY: ["Uruguay"],
+  UZ: ["Uzbekistan"],
+  VA: ["Vatican City", "Vatican", "Holy See"],
+  VC: ["Saint Vincent and the Grenadines", "St Vincent"],
+  VE: ["Venezuela"],
+  VN: ["Vietnam", "Viet Nam"],
+  VU: ["Vanuatu"],
+  WS: ["Samoa"],
+  YE: ["Yemen"],
+  ZA: ["South Africa"],
+  ZM: ["Zambia"],
+  ZW: ["Zimbabwe"],
+};
+
+// Index « nom anglais normalisé → pays » (les noms affichés restent en français)
+const EN_NAME_INDEX = new Map();
+for (const country of COUNTRIES) {
+  for (const englishName of EN_NAMES[country.code] || []) {
+    const key = normalize(englishName);
+    if (key && !EN_NAME_INDEX.has(key)) EN_NAME_INDEX.set(key, country);
+  }
+}
+
 // Alias courants (anglicismes, abréviations, variantes) → code ISO
 const ALIASES = {
   'uk': 'GB',
@@ -269,21 +477,28 @@ function resolveCountry(input) {
     return NAME_INDEX.get(normalized);
   }
 
+  // Nom anglais exact (ex: "Germany", "Ivory Coast")
+  if (EN_NAME_INDEX.has(normalized)) {
+    return EN_NAME_INDEX.get(normalized);
+  }
+
   // Alias connus
   if (ALIASES[normalized]) {
     const code = ALIASES[normalized];
     return COUNTRIES.find((c) => c.code === code) || null;
   }
 
+  // Tous les noms normalisés d'un pays (français + anglais)
+  const namesOf = (c) => [c.name, ...(EN_NAMES[c.code] || [])].map(normalize);
+
   // Correspondance partielle (le nom du pays commence par la saisie, ou l'inverse)
-  const partial = COUNTRIES.filter((c) => {
-    const n = normalize(c.name);
-    return n.startsWith(normalized) || normalized.startsWith(n);
-  });
+  const partial = COUNTRIES.filter((c) =>
+    namesOf(c).some((n) => n.startsWith(normalized) || normalized.startsWith(n))
+  );
   if (partial.length === 1) return partial[0];
 
   // Correspondance "contient" en dernier recours, seulement si non ambiguë
-  const contains = COUNTRIES.filter((c) => normalize(c.name).includes(normalized));
+  const contains = COUNTRIES.filter((c) => namesOf(c).some((n) => n.includes(normalized)));
   if (contains.length === 1) return contains[0];
 
   return null;
