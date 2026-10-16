@@ -51,6 +51,7 @@ const {
 } = require('./world-country-leaderboard');
 const { initCountryRoles } = require('./country-roles');
 const { buildAdminSlashCommands } = require('./commands/admin-slash-commands');
+const { sendWelcomeDM } = require('./welcome');
 const {
   buildSeasonStartEmbed,
   buildSeasonLeaderboardEmbed,
@@ -1615,6 +1616,53 @@ async function handlePublicSlashCommand(interaction) {
   }
 }
 
+// ─── Message de bienvenue en privé ───────────────────────────────────────────
+const WELCOME_COOLDOWN_MS = 60 * 60 * 1000; // évite le spam si quelqu'un quitte/rejoint en boucle
+const welcomeSentAt = new Map();
+
+/** Contexte du message de bienvenue (nom du serveur, pseudo, salons utiles). */
+function buildWelcomeContext(guildContext, user) {
+  return {
+    guildName: guildContext?.name,
+    username: user?.displayName || user?.username || '',
+    plRoleChannelId: PL_ROLE_CHANNEL_ID,
+    plQueueChannelId: PL_QUEUE_CHANNEL_ID
+  };
+}
+
+/** Envoie le DM de bienvenue quand un membre rejoint le serveur. */
+async function handleGuildMemberAdd(member) {
+  try {
+    if (!member?.user || member.user.bot) {
+      return;
+    }
+    if (DISCORD_GUILD_ID && member.guild?.id !== DISCORD_GUILD_ID) {
+      return;
+    }
+
+    const now = Date.now();
+    if (now - (welcomeSentAt.get(member.id) || 0) < WELCOME_COOLDOWN_MS) {
+      return;
+    }
+    welcomeSentAt.set(member.id, now);
+    if (welcomeSentAt.size > 1000) {
+      for (const [id, sentAt] of welcomeSentAt) {
+        if (now - sentAt >= WELCOME_COOLDOWN_MS) welcomeSentAt.delete(id);
+      }
+    }
+
+    const result = await sendWelcomeDM(member.user, buildWelcomeContext(member.guild, member.user));
+    if (result.ok) {
+      log(`[Welcome] DM de bienvenue envoyé à ${member.user.tag} (${member.id}).`);
+    } else {
+      // 50007 = l'utilisateur a fermé ses DM : cas normal, pas une erreur
+      warn(`[Welcome] DM impossible pour ${member.user.tag} (${member.id}) :`, result.error?.code || result.error?.message || result.error);
+    }
+  } catch (err) {
+    errorLog('[Welcome] Erreur dans handleGuildMemberAdd:', err);
+  }
+}
+
 async function handleAdminSlashCommand(interaction) {
   if (!interaction.isChatInputCommand()) {
     return false;
@@ -1641,7 +1689,8 @@ async function handleAdminSlashCommand(interaction) {
       'counters',
       'addearnings',
       'changecountry',
-      'addgn'
+      'addgn',
+      'welcometest'
     ].includes(command)
   ) {
     return false;
@@ -1656,6 +1705,35 @@ async function handleAdminSlashCommand(interaction) {
       }),
       flags: MessageFlags.Ephemeral
     });
+    return true;
+  }
+
+  // /welcometest : t'envoie le message de bienvenue en privé pour le prévisualiser
+  if (command === 'welcometest') {
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+
+    const result = await sendWelcomeDM(
+      interaction.user,
+      buildWelcomeContext(interaction.guild, interaction.user)
+    );
+
+    if (result.ok) {
+      await interaction.editReply({
+        content: localizeText({
+          fr: '✅ Message de bienvenue envoyé en privé. Regarde tes DM !',
+          en: '✅ Welcome message sent to your DMs. Check them!'
+        })
+      });
+    } else {
+      // DM fermés : on affiche l'aperçu ici (visible uniquement par toi)
+      await interaction.editReply({
+        content: localizeText({
+          fr: "⚠️ Je n'ai pas pu t'écrire en privé (DM fermés ?). Voici l'aperçu :",
+          en: "⚠️ I couldn't DM you (DMs closed?). Here is the preview:"
+        }),
+        ...result.payload
+      });
+    }
     return true;
   }
 
@@ -10100,6 +10178,7 @@ async function startUnifiedBot() {
     });
   });
   client.on(Events.MessageCreate, handleMessage);
+  client.on(Events.GuildMemberAdd, handleGuildMemberAdd);
   client.on(Events.InteractionCreate, handleInteraction);
   client.on(Events.Error, (err) => errorLog('Discord client error:', err));
   client.on(Events.Warn, (msg) => warn('Discord warning:', msg));
