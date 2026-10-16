@@ -5494,6 +5494,16 @@ async function handleWorldLeaderboardCommand(message) {
   }
 }
 
+const COUNTRY_NAMES_EN = new Intl.DisplayNames(['en'], { type: 'region' });
+
+function getEnglishCountryName(country) {
+  try {
+    return COUNTRY_NAMES_EN.of(country.code) || country.name;
+  } catch {
+    return country.name;
+  }
+}
+
 async function handleCountryLeaderboardCommand(message, args) {
   try {
     const query = (args || []).join(' ').trim();
@@ -5544,22 +5554,23 @@ async function handleCountryLeaderboardCommand(message, args) {
       const rank = index + 1;
       const trophy = rank <= 3 ? `${TROPHY_EMOJI} ` : '';
       const points = Math.round(Number(player?.points || 0));
-      const tier = player?.tier ? ` • ${player.tier}` : '';
+      const tier = player?.tier ? ` • ${formatTierEmoji(player.tier)}` : '';
       return `**#${rank}** ${trophy}**${player.name}** • **${points} pts**${tier}`;
     });
 
     const flag = toCountryFlag(country.code);
+    const countryNameEn = getEnglishCountryName(country);
 
     await message.reply({
       embeds: [
         new EmbedBuilder()
           .setColor(0x3498db)
-          .setTitle(`${flag} Classement — ${country.name}`)
+          .setTitle(`${flag} Leaderboard — ${countryNameEn}`)
           .setDescription(lines.join('\n'))
           .setFooter({
             text: localizeText(
               { fr: '{count} joueur(s) classé(s) pour {country}', en: '{count} ranked player(s) for {country}' },
-              { count: countryPlayers.length, country: country.name }
+              { count: countryPlayers.length, country: countryNameEn }
             )
           })
           .setTimestamp(new Date())
