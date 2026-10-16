@@ -374,6 +374,15 @@ function buildAdminSlashCommands({ localizeText, optionType, adminPermission }) 
           required: false
         }
       ]
+    },
+    {
+      name: 'welcometest',
+      description: localizeText({
+        fr: 'T’envoie le message de bienvenue en privé (test)',
+        en: 'Sends you the welcome DM (test)'
+      }),
+      dm_permission: false,
+      default_member_permissions: adminPermission
     }
   ];
 
