@@ -16,6 +16,21 @@ const EMOJI_LFN = '<:LogoLFN:1490290213501669598>';
 const EMOJI_YOUTUBE = '<:YouTube:1550937181088915506>';
 const EMOJI_TWITCH = '<:Twitchlogo:1530924923529199708>';
 
+// Emotes des tiers (remplacent les lettres)
+const TIER_EMOJIS = {
+  S: '<:TierS:1482724565657321594>',
+  A: '<:TierA:1482724563874877592>',
+  B: '<:TierB:1482724560993259651>',
+  C: '<:TierC:1482724558015299706>',
+  D: '<:TierD:1482724568387817484>',
+  E: '<:TierE:1482723920309260439>'
+};
+
+// Salons du serveur (mentions cliquables)
+const BEST_COUNTRIES_CHANNEL_ID = '1528195571096096844';
+const BEST_PLAYERS_CHANNEL_ID = '1505250882231468102';
+const QUESTIONS_CHANNEL_ID = '1376052088047665242';
+
 /**
  * Construit le message de bienvenue (1 embed, en anglais).
  * @param {{ guildName?: string, username?: string }} ctx
@@ -30,28 +45,39 @@ function buildWelcomeMessage(ctx = {}) {
     .setURL(SITE_URL)
     .setDescription(
       [
-        `Hey${username ? ` **${username}**` : ''}! This is **LFN Esports**, the French-speaking Null's Brawl league: seasons, standings, matches and teams.`,
+        `Hey${username ? ` **${username}**` : ''}! **LFN Esports** is an international league with one goal: bringing Null's Brawl esports to life.`,
         '',
-        'Here is how it works 👇',
+        "Here's what you need to know 👇",
         '_Commands are typed on the server, not in this private message._'
       ].join('\n')
     )
     .addFields(
       {
+        name: '🏆 How to earn points',
+        value: [
+          'Perform well in **tournaments** and **international scrims** to earn points.',
+          'The more you perform, the more points you get and the higher you climb the leaderboard.'
+        ].join('\n')
+      },
+      {
         name: '📊 Tiers',
         value: [
-          'Your points decide your **tier**:',
-          '`E` 0-4 • `D` 5-14 • `C` 15-34 • `B` 35-54 • `A` 55+ • `S` top of tier A',
-          'Your Discord role follows your tier. Out of date? Use `!synctiers`.',
+          'Your points decide your **tier**, and your Discord role follows it:',
+          `${TIER_EMOJIS.E} 0-4 • ${TIER_EMOJIS.D} 5-14 • ${TIER_EMOJIS.C} 15-34 • ${TIER_EMOJIS.B} 35-54 • ${TIER_EMOJIS.A} 55+ • ${TIER_EMOJIS.S} top of tier A`,
           'More info: `!tiercriteria` and `!tier <name>`.'
         ].join('\n')
       },
       {
-        name: '🌍 Leaderboards & tools',
+        name: '🌍 Leaderboards',
         value: [
-          '`!tierlb` • `!worldlb` • `!countrylb <country>` (English or French name, or a code like `FR`)',
-          '`!draft` (draft system) • `!help` (all commands)'
+          `<#${BEST_COUNTRIES_CHANNEL_ID}> — best countries`,
+          `<#${BEST_PLAYERS_CHANNEL_ID}> — best players`,
+          'Or use `!tierlb`, `!worldlb` and `!countrylb <country>`. Also: `!draft` and `!help`.'
         ].join('\n')
+      },
+      {
+        name: '❓ Questions?',
+        value: `Ask in <#${QUESTIONS_CHANNEL_ID}>, we're happy to help!`
       },
       {
         name: '🔗 Links',
