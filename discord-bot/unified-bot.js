@@ -1620,13 +1620,11 @@ async function handlePublicSlashCommand(interaction) {
 const WELCOME_COOLDOWN_MS = 60 * 60 * 1000; // évite le spam si quelqu'un quitte/rejoint en boucle
 const welcomeSentAt = new Map();
 
-/** Contexte du message de bienvenue (nom du serveur, pseudo, salons utiles). */
+/** Contexte du message de bienvenue (nom du serveur et pseudo). */
 function buildWelcomeContext(guildContext, user) {
   return {
     guildName: guildContext?.name,
-    username: user?.displayName || user?.username || '',
-    plRoleChannelId: PL_ROLE_CHANNEL_ID,
-    plQueueChannelId: PL_QUEUE_CHANNEL_ID
+    username: user?.displayName || user?.username || ''
   };
 }
 
