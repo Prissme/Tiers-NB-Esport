@@ -2,7 +2,7 @@
 
 // ============================================================
 // country-roles.js
-// Crée automatiquement un rôle Discord par pays (ex: "🇧🇪 Belgium")
+// Crée automatiquement un rôle Discord par pays (ex: "Belgium", "⭐⭐ France")
 // et y met tous les joueurs de ce pays.
 //
 // - Source : tables `players` (discord_id) + `lfn_player_profiles` (country_code),
@@ -20,6 +20,14 @@ const COUNTRY_ROLES_SYNC_INTERVAL_MS = 10 * 60 * 1000; // 10 minutes
 const ACTION_DELAY_MS = 400; // petite pause entre chaque appel Discord (rate limit)
 
 const REGION_NAMES_EN = new Intl.DisplayNames(['en'], { type: 'region' });
+
+// Nombre d'étoiles ⭐ affichées devant le nom du rôle (pas de drapeau).
+const COUNTRY_STARS = {
+  BG: 1, // Bulgarie
+  FR: 2, // France
+  RO: 1, // Roumanie
+  PL: 1, // Pologne
+};
 
 // ── État interne ────────────────────────────────────────────
 let _intervalRef = null;
@@ -61,8 +69,15 @@ function getCountryName(countryCode) {
   }
 }
 
-/** Nom du rôle Discord pour un pays, ex: "🇧🇪 Belgium". */
+/** Nom du rôle Discord pour un pays, ex: "Belgium" ou "⭐⭐ France" (sans drapeau). */
 function getCountryRoleName(countryCode) {
+  const stars = '⭐'.repeat(COUNTRY_STARS[countryCode] || 0);
+  const name = getCountryName(countryCode);
+  return stars ? `${stars} ${name}` : name;
+}
+
+/** Ancien nom (avec drapeau), ex: "🇧🇪 Belgium" : sert à migrer les rôles existants. */
+function getLegacyCountryRoleName(countryCode) {
   return `${toCountryFlag(countryCode)} ${getCountryName(countryCode)}`;
 }
 
@@ -101,10 +116,25 @@ async function fetchPlayersWithCountry(supabase) {
 
 // ── Gestion des rôles ────────────────────────────────────────
 
+/** @returns {Promise<{ role: import('discord.js').Role | null, created: boolean }>} */
 async function ensureCountryRole(guild, countryCode) {
   const roleName = getCountryRoleName(countryCode);
   const existing = guild.roles.cache.find((role) => role.name === roleName);
-  if (existing) return existing;
+  if (existing) return { role: existing, created: false };
+
+  // Migration : renomme l'ancien rôle avec drapeau (garde membres, position et permissions)
+  const legacyName = getLegacyCountryRoleName(countryCode);
+  const legacy = guild.roles.cache.find((role) => role.name === legacyName);
+  if (legacy) {
+    try {
+      const renamed = await legacy.setName(roleName, 'Rôle pays: nouveau format (sans drapeau)');
+      await sleep(ACTION_DELAY_MS);
+      console.log(`[CountryRoles] Rôle renommé : ${legacyName} -> ${roleName}`);
+      return { role: renamed, created: false };
+    } catch (err) {
+      console.warn(`[CountryRoles] Impossible de renommer ${legacyName}:`, err?.message || err);
+    }
+  }
 
   try {
     const role = await guild.roles.create({
@@ -114,10 +144,10 @@ async function ensureCountryRole(guild, countryCode) {
       reason: 'Rôle pays automatique',
     });
     await sleep(ACTION_DELAY_MS);
-    return role;
+    return { role, created: true };
   } catch (err) {
     console.warn(`[CountryRoles] Impossible de créer le rôle ${roleName}:`, err?.message || err);
-    return null;
+    return { role: null, created: false };
   }
 }
 
@@ -155,9 +185,15 @@ async function syncCountryRoles(guild, supabase) {
 
     // Noms de tous les rôles pays possibles : sert à reconnaître "nos" rôles
     // sans jamais toucher aux autres rôles du joueur.
-    const knownCountryRoleNames = new Set(COUNTRIES.map((c) => getCountryRoleName(c.code)));
+    // (inclut les anciens noms avec drapeau pour nettoyer d'éventuels restes)
+    const knownCountryRoleNames = new Set();
+    const addKnownNames = (code) => {
+      knownCountryRoleNames.add(getCountryRoleName(code));
+      knownCountryRoleNames.add(getLegacyCountryRoleName(code));
+    };
+    for (const c of COUNTRIES) addKnownNames(c.code);
     for (const code of countryByDiscordId.values()) {
-      if (code) knownCountryRoleNames.add(getCountryRoleName(code));
+      if (code) addKnownNames(code);
     }
 
     // 1) Récupère chaque membre présent sur le serveur
@@ -188,10 +224,9 @@ async function syncCountryRoles(guild, supabase) {
     );
     for (const code of neededCountries) {
       const roleName = getCountryRoleName(code);
-      const hadRole = guild.roles.cache.some((role) => role.name === roleName);
-      const role = await ensureCountryRole(guild, code);
+      const { role, created } = await ensureCountryRole(guild, code);
       if (!role) continue;
-      if (!hadRole) {
+      if (created) {
         stats.created += 1;
         console.log(`[CountryRoles] Rôle créé : ${roleName}`);
       }
