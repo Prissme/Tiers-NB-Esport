@@ -3065,8 +3065,24 @@ async function getActiveSeasonId() {
   return data?.id || null;
 }
 
+// Saison active mise en cache 60 s : évite 1 requête lfn_seasons par joueur synchronisé
+let cachedActiveSeasonForStats = null;
+let cachedActiveSeasonForStatsExpires = 0;
+
+async function getActiveSeasonCached() {
+  if (cachedActiveSeasonForStats && cachedActiveSeasonForStatsExpires > Date.now()) {
+    return cachedActiveSeasonForStats;
+  }
+  const season = await seasonSystem.getActiveSeason(supabase).catch(() => null);
+  if (season?.id) {
+    cachedActiveSeasonForStats = season;
+    cachedActiveSeasonForStatsExpires = Date.now() + 60 * 1000;
+  }
+  return season;
+}
+
 async function upsertSeasonStatsForPlayer(playerId, payload) {
-  const activeSeason = await seasonSystem.getActiveSeason(supabase).catch(() => null);
+  const activeSeason = await getActiveSeasonCached();
   if (!activeSeason?.id || !playerId) {
     return;
   }
@@ -9634,6 +9650,25 @@ async function syncTiersWithRoles() {
     await ensureStaffRoles(guild);
   }
 
+  // EGRESS/LOGS : on charge les stats de saison UNE fois (pagination 1000) au lieu de
+  // 3 requêtes par joueur à chaque synchro, et on n'écrit que ce qui a changé.
+  const seasonStatsByPlayerId = new Map();
+  try {
+    const PAGE = 1000;
+    for (let from = 0; ; from += PAGE) {
+      const { data: statsPage, error: statsError } = await supabase
+        .from('lfn_player_season_stats')
+        .select('player_id, points, tier')
+        .eq('season_id', activeSeasonId)
+        .range(from, from + PAGE - 1);
+      if (statsError) throw statsError;
+      for (const row of statsPage || []) seasonStatsByPlayerId.set(row.player_id, row);
+      if (!statsPage || statsPage.length < PAGE) break;
+    }
+  } catch (err) {
+    warn('Unable to preload season stats for tier sync (fallback: write everything):', err?.message || err);
+  }
+
   for (const player of playersToSync) {
     const tierRow = pointsByPlayerId.get(player.id);
     const points = Number(tierRow?.points || 0);
@@ -9653,7 +9688,10 @@ async function syncTiersWithRoles() {
         });
     }
 
-    await upsertSeasonStatsForPlayer(player.id, { points, tier: persistedTier });
+    const existingStats = seasonStatsByPlayerId.get(player.id);
+    if (!existingStats || Number(existingStats.points || 0) !== points || existingStats.tier !== persistedTier) {
+      await upsertSeasonStatsForPlayer(player.id, { points, tier: persistedTier });
+    }
     await syncSingleMemberTierRole(guild, player.discord_id, recalculatedTier);
 
     if (staffSyncEnabled && tierRow) {
