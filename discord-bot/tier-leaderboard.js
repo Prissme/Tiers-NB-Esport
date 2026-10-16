@@ -8,7 +8,6 @@
 // ============================================================
 
 const { EmbedBuilder } = require('discord.js');
-const { fetchStaffRanking, buildStaffEmbed } = require('./staff-leaderboard');
 
 const TIER_LEADERBOARD_CHANNEL_ID = '1505250882231468102';
 const TIER_LEADERBOARD_UPDATE_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
@@ -520,30 +519,6 @@ async function sendOrUpdateTierLeaderboardEmbed() {
       isFirstTier = false;
     }
 
-    // Top managers puis top coachs, en dessous du classement des tiers (toujours présents pour garder un nombre d'embeds stable)
-    const staffTitles = {
-      manager: '📋 TOP MANAGERS',
-      coach: '🎯 TOP COACHS'
-    };
-    for (const kind of ['manager', 'coach']) {
-      let entries = [];
-      try {
-        entries = await fetchStaffRanking(_supabase, kind);
-      } catch (err) {
-        console.warn(`[TierLeaderboard] Impossible de charger le top ${kind}:`, err.message);
-      }
-      embeds.push(
-        buildStaffEmbed({
-          kind,
-          entries,
-          title: staffTitles[kind],
-          limit: 25,
-          footer: `${entries.length} ${kind === 'manager' ? 'manager' : 'coach'}${entries.length > 1 ? 's' : ''} classé${entries.length > 1 ? 's' : ''}`,
-          emptyText: kind === 'manager' ? 'Aucun manager classé pour le moment.' : 'Aucun coach classé pour le moment.'
-        })
-      );
-    }
-
     // Édition si on a déjà des messages, sinon post initial
     if (_postedMessageIds.length > 0) {
       await editExistingEmbeds(embeds);
@@ -575,6 +550,7 @@ async function recoverExistingMessages(embeds) {
       (m) =>
         m.author.id === _client.user?.id &&
         m.embeds?.length > 0 &&
+        // TOP MANAGERS / TOP COACHS : anciens messages, gardés dans le filtre pour être purgés au repost
         (m.embeds[0]?.title?.includes("BEST NULL'S BRAWL PLAYERS") ||
           m.embeds[0]?.title?.includes('TOP MANAGERS') ||
           m.embeds[0]?.title?.includes('TOP COACHS') ||
