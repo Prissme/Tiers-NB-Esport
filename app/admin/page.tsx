@@ -24,6 +24,16 @@ type Team = {
   division: string | null;
 };
 
+type StaffKind = "coach" | "manager";
+type StaffDescriptions = Record<StaffKind, string>;
+
+const STAFF_KIND_OPTIONS: Array<{ kind: StaffKind; label: string }> = [
+  { kind: "coach", label: "Coach" },
+  { kind: "manager", label: "Manager" },
+];
+const emptyStaffDescriptions: StaffDescriptions = { coach: "", manager: "" };
+const MAX_STAFF_DESCRIPTION_LENGTH = 1000;
+
 type Season = {
   id: string;
   name?: string | null;
@@ -107,6 +117,11 @@ export default function AdminPage() {
   // New player form
   const [newPlayer, setNewPlayer] = useState<NewPlayerForm>(defaultNewPlayer);
   const newDescriptionRef = useRef<HTMLTextAreaElement>(null);
+
+  // Descriptions affichées dans /tier coach et /tier manager (Discord)
+  const [staffDescriptions, setStaffDescriptions] = useState<StaffDescriptions>(emptyStaffDescriptions);
+  const [savedStaffDescriptions, setSavedStaffDescriptions] = useState<StaffDescriptions>(emptyStaffDescriptions);
+  const [savingStaffKind, setSavingStaffKind] = useState<StaffKind | null>(null);
 
   const fetchAllMatches = async (seasonOverride?: string | null) => {
     let query = supabase
@@ -204,6 +219,48 @@ export default function AdminPage() {
     }
   };
 
+  const fetchStaffDescriptions = async () => {
+    try {
+      const response = await fetch("/api/admin/staff-descriptions", { cache: "no-store" });
+      if (!response.ok) return;
+      const payload = (await response.json()) as { descriptions?: Partial<StaffDescriptions> };
+      const loaded: StaffDescriptions = {
+        coach: payload.descriptions?.coach ?? "",
+        manager: payload.descriptions?.manager ?? "",
+      };
+      setStaffDescriptions(loaded);
+      setSavedStaffDescriptions(loaded);
+    } catch (error) {
+      console.error("Unable to load staff descriptions", error);
+    }
+  };
+
+  const saveStaffDescription = async (kind: StaffKind) => {
+    setSavingStaffKind(kind);
+    try {
+      const response = await fetch("/api/admin/staff-descriptions", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ kind, description: staffDescriptions[kind] }),
+      });
+      if (!response.ok) {
+        const body = (await response.json()) as { error?: string };
+        setErrorMessage(body.error ?? "Impossible d'enregistrer la description.");
+        return;
+      }
+      const body = (await response.json()) as { description?: string };
+      const saved = (body.description ?? staffDescriptions[kind]).trim();
+      setStaffDescriptions((prev) => ({ ...prev, [kind]: saved }));
+      setSavedStaffDescriptions((prev) => ({ ...prev, [kind]: saved }));
+      setErrorMessage(null);
+    } catch (error) {
+      console.error("Unable to save staff description", error);
+      setErrorMessage("Impossible d'enregistrer la description.");
+    } finally {
+      setSavingStaffKind(null);
+    }
+  };
+
   const createTierPlayer = async () => {
     const { name, tier, points, countryCode, description, ballonDor, earnings, winStreak, coachPoints, managerPoints } = newPlayer;
     if (!name.trim()) {
@@ -255,6 +312,7 @@ export default function AdminPage() {
     checkAdmin();
     fetchSeasons();
     fetchTeams();
+    fetchStaffDescriptions();
   }, []);
 
   // Garde la session admin vivante (session glissante côté serveur) :
@@ -501,6 +559,58 @@ export default function AdminPage() {
             <div>
               <p className="text-xs uppercase tracking-[0.3em] text-utility">Joueurs</p>
               <h3 className="text-lg font-semibold text-white">Classement joueurs (tiers Prissme TV)</h3>
+            </div>
+          </div>
+
+          {/* ── Descriptions /tier coach & /tier manager ── */}
+          <div className="mt-4 grid gap-3 rounded-xl border border-white/10 bg-black/20 p-4">
+            <div>
+              <p className="text-xs uppercase tracking-[0.25em] text-white/50">
+                Descriptions des fiches /tier coach et /tier manager
+              </p>
+              <p className="mt-1 text-xs text-white/40">
+                Affichée dans la fiche Discord du rôle (1000 caractères max). Vide = aucune description.
+              </p>
+            </div>
+            <div className="grid gap-3 md:grid-cols-2">
+              {STAFF_KIND_OPTIONS.map(({ kind, label }) => {
+                const draft = staffDescriptions[kind];
+                const isDirty = draft.trim() !== savedStaffDescriptions[kind];
+                return (
+                  <div key={kind} className="grid gap-2">
+                    <label
+                      htmlFor={`staff-description-${kind}`}
+                      className="block text-xs uppercase tracking-[0.25em] text-white/50"
+                    >
+                      /tier {kind} — {label}
+                    </label>
+                    <textarea
+                      id={`staff-description-${kind}`}
+                      rows={4}
+                      maxLength={MAX_STAFF_DESCRIPTION_LENGTH}
+                      value={draft}
+                      onChange={(e) =>
+                        setStaffDescriptions((prev) => ({ ...prev, [kind]: e.target.value }))
+                      }
+                      placeholder={`Décris le rôle ${label.toLowerCase()}…`}
+                      className="surface-input"
+                    />
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-xs text-white/40">
+                        {draft.length}/{MAX_STAFF_DESCRIPTION_LENGTH}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => saveStaffDescription(kind)}
+                        disabled={!isDirty || savingStaffKind === kind}
+                        className="surface-pill surface-pill--active px-4 py-2 text-sm font-semibold text-black disabled:opacity-50"
+                      >
+                        {savingStaffKind === kind ? "Enregistrement..." : "Enregistrer"}
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
 
