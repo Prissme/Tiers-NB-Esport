@@ -50,6 +50,8 @@ type TierPlayer = {
   ballonDor?: number;
   earnings?: number;
   winStreak?: number;
+  wins?: number;
+  losses?: number;
   coachPoints?: number;
   coachTier?: string | null;
   managerPoints?: number;
@@ -192,6 +194,8 @@ export default function AdminPage() {
     ballonDor: number;
     earnings: number;
     winStreak: number;
+    wins: number;
+    losses: number;
     coachPoints: number;
     managerPoints: number;
   }) => {
@@ -848,6 +852,8 @@ type PlayerEditRowProps = {
     ballonDor: number;
     earnings: number;
     winStreak: number;
+    wins: number;
+    losses: number;
     coachPoints: number;
     managerPoints: number;
   }) => void;
@@ -866,6 +872,8 @@ function PlayerEditRow({ player, updating, staffDescriptions, onSaveStaffDescrip
   const [ballonDor, setBallonDor] = useState(player.ballonDor ?? 0);
   const [earnings, setEarnings] = useState(player.earnings ?? 0);
   const [winStreak, setWinStreak] = useState(player.winStreak ?? 0);
+  const [wins, setWins] = useState(player.wins ?? 0);
+  const [losses, setLosses] = useState(player.losses ?? 0);
   const [coachPoints, setCoachPoints] = useState(player.coachPoints ?? 0);
   const [managerPoints, setManagerPoints] = useState(player.managerPoints ?? 0);
   const descriptionRef = useRef<HTMLTextAreaElement>(null);
@@ -891,6 +899,10 @@ function PlayerEditRow({ player, updating, staffDescriptions, onSaveStaffDescrip
       onError("Le winstreak doit être un nombre entier positif.");
       return;
     }
+    if (!Number.isInteger(wins) || wins < 0 || !Number.isInteger(losses) || losses < 0) {
+      onError("Les victoires et défaites doivent être des nombres entiers positifs.");
+      return;
+    }
     if (!Number.isInteger(coachPoints) || coachPoints < 0) {
       onError("Les points coach doivent être un nombre entier positif.");
       return;
@@ -907,6 +919,8 @@ function PlayerEditRow({ player, updating, staffDescriptions, onSaveStaffDescrip
       ballonDor,
       earnings,
       winStreak,
+      wins,
+      losses,
       coachPoints,
       managerPoints,
     });
@@ -1047,6 +1061,36 @@ function PlayerEditRow({ player, updating, staffDescriptions, onSaveStaffDescrip
           placeholder="Victoires d'affilée"
           className="surface-input"
         />
+      </div>
+      <div className="grid gap-3 md:grid-cols-3">
+        <div>
+          <label className="block text-xs uppercase tracking-[0.25em] text-white/50 mb-1">Victoires</label>
+          <input
+            type="number"
+            min={0}
+            step="1"
+            value={wins}
+            onChange={(e) => setWins(Number(e.target.value))}
+            className="surface-input"
+          />
+        </div>
+        <div>
+          <label className="block text-xs uppercase tracking-[0.25em] text-white/50 mb-1">Défaites</label>
+          <input
+            type="number"
+            min={0}
+            step="1"
+            value={losses}
+            onChange={(e) => setLosses(Number(e.target.value))}
+            className="surface-input"
+          />
+        </div>
+        <div>
+          <label className="block text-xs uppercase tracking-[0.25em] text-white/50 mb-1">Winrate</label>
+          <div className="surface-input flex items-center">
+            {wins + losses > 0 ? `${((wins / (wins + losses)) * 100).toFixed(1)}%` : "—"}
+          </div>
+        </div>
       </div>
       <div className="grid gap-3 md:grid-cols-2">
         {STAFF_KIND_OPTIONS.map(({ kind, label }) => {
