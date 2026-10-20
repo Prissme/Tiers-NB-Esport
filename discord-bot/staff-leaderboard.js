@@ -142,14 +142,37 @@ function buildStaffEmbed({ kind, entries, title, limit = 25, footer = null, empt
   return embed;
 }
 
+/**
+ * Descriptions par rôle, éditées dans l'admin panel (table staff_tier_descriptions).
+ * Retourne { coach: string|null, manager: string|null }. Ne lève jamais : si la table
+ * n'existe pas encore (migration non passée), la fiche s'affiche simplement sans description.
+ */
+async function fetchStaffDescriptions(supabase) {
+  const descriptions = { coach: null, manager: null };
+  try {
+    const { data, error } = await supabase
+      .from('staff_tier_descriptions')
+      .select('kind, description');
+    if (error) return descriptions;
+    for (const row of data || []) {
+      if (isStaffKind(row.kind) && row.description && row.description.trim()) {
+        descriptions[row.kind] = row.description.trim();
+      }
+    }
+  } catch (_) {
+    // Pas bloquant : la fiche reste utilisable sans description
+  }
+  return descriptions;
+}
+
 /** Fiche d'un coach / manager (équivalent de !tier pour les joueurs). */
-function buildStaffTierEmbed({ kind, entry, rank, rankLabel, pointsLabel, countryLabel, user }) {
+function buildStaffTierEmbed({ kind, entry, rank, rankLabel, pointsLabel, countryLabel, user, description = null }) {
   const config = STAFF_KINDS[kind];
   const tier = entry.tier || 'Tier E';
   return new EmbedBuilder()
     .setColor(TIER_COLORS[tier] || config.color)
     .setTitle(`${config.emoji} ${config.label.en.toUpperCase()} — ${tier.toUpperCase()}`)
-    .setDescription('‎')
+    .setDescription(description ? description.slice(0, 4000) : '‎')
     .addFields(
       { name: rankLabel, value: `**#${rank}**`, inline: true },
       { name: pointsLabel, value: `**${Math.round(entry.points)}**`, inline: true },
@@ -227,6 +250,7 @@ module.exports = {
   STAFF_KINDS,
   isStaffKind,
   fetchStaffRanking,
+  fetchStaffDescriptions,
   buildStaffEmbed,
   buildStaffTierEmbed,
   buildStaffSlashCommands
