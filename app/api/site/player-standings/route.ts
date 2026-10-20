@@ -24,6 +24,8 @@ type PlayerProfileRow = {
   ballon_dor?: number | null;
   earnings?: number | null;
   win_streak?: number | null;
+  wins?: number | null;
+  losses?: number | null;
   team_id?: string | null;
 };
 
@@ -87,7 +89,7 @@ export async function GET(request: Request) {
       pointsQuery,
       supabase
         .from("lfn_player_profiles")
-        .select("player_id,country_code,description,ballon_dor,earnings,win_streak,team_id"),
+        .select("player_id,country_code,description,ballon_dor,earnings,win_streak,wins,losses,team_id"),
       supabase.from("lfn_teams").select("id,name,tag").eq("is_active", true),
     ]);
 
@@ -134,6 +136,8 @@ export async function GET(request: Request) {
     const ballonDorByPlayerId = new Map<string, number>();
     const earningsByPlayerId = new Map<string, number>();
     const winStreakByPlayerId = new Map<string, number>();
+    const winsByPlayerId = new Map<string, number>();
+    const lossesByPlayerId = new Map<string, number>();
     const teamIdByPlayerId = new Map<string, string>();
     const teamsById = new Map<string, TeamRow>();
     (teamsRows as TeamRow[] | null)?.forEach((row) => {
@@ -146,6 +150,8 @@ export async function GET(request: Request) {
         ballonDorByPlayerId.set(row.player_id, Number(row.ballon_dor ?? 0));
         earningsByPlayerId.set(row.player_id, Number(row.earnings ?? 0));
         winStreakByPlayerId.set(row.player_id, Number(row.win_streak ?? 0));
+        winsByPlayerId.set(row.player_id, Number(row.wins ?? 0));
+        lossesByPlayerId.set(row.player_id, Number(row.losses ?? 0));
         if (row.team_id) {
           teamIdByPlayerId.set(row.player_id, row.team_id);
         }
@@ -175,6 +181,8 @@ export async function GET(request: Request) {
           ballonDor: ballonDorByPlayerId.get(player.id) ?? 0,
           earnings: earningsByPlayerId.get(player.id) ?? 0,
           winStreak: winStreakByPlayerId.get(player.id) ?? 0,
+          wins: winsByPlayerId.get(player.id) ?? 0,
+          losses: lossesByPlayerId.get(player.id) ?? 0,
           teamId: team?.id ?? null,
           teamName: team?.name ?? null,
           teamTag: team?.tag ?? null,
