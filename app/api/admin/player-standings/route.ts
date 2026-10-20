@@ -15,6 +15,13 @@ function tierForPoints(points: number): string | null {
   return "Tier E";
 }
 
+/** Winrate en % (1 décimale), null tant qu'il n'y a aucune partie. */
+function winRatePercent(wins: number, losses: number): number | null {
+  const games = wins + losses;
+  if (games <= 0) return null;
+  return Math.round((wins / games) * 1000) / 10;
+}
+
 /** Entier >= 0 si la valeur est fournie, undefined si absente (champ non modifié), NaN si invalide. */
 function optionalStaffPoints(value: unknown): number | undefined {
   if (value === undefined || value === null || value === "") return undefined;
@@ -68,7 +75,7 @@ export async function GET(request: Request) {
 
     const [playersResult, profilesResult] = await Promise.all([
       supabase.from("players").select("id,name,discord_id,active").eq("active", true).order("name", { ascending: true }),
-      supabase.from("lfn_player_profiles").select("player_id,country_code,description,ballon_dor,earnings,win_streak"),
+      supabase.from("lfn_player_profiles").select("player_id,country_code,description,ballon_dor,earnings,win_streak,wins,losses"),
     ]);
 
     const profileMissing = profilesResult.error?.code === "42P01";
@@ -95,6 +102,8 @@ export async function GET(request: Request) {
       ballon_dor: number | null;
       earnings: number | null;
       win_streak: number | null;
+      wins: number | null;
+      losses: number | null;
     };
     const profileByPlayer = new Map<string, ProfileRow>();
     if (!profileMissing) {
@@ -120,6 +129,9 @@ export async function GET(request: Request) {
           ballonDor: Number(profile?.ballon_dor ?? 0),
           earnings: Number(profile?.earnings ?? 0),
           winStreak: Number(profile?.win_streak ?? 0),
+          wins: Number(profile?.wins ?? 0),
+          losses: Number(profile?.losses ?? 0),
+          winRate: winRatePercent(Number(profile?.wins ?? 0), Number(profile?.losses ?? 0)),
         };
       })
       .filter((player) => player.points > 0 || player.coachPoints > 0 || player.managerPoints > 0)
@@ -149,6 +161,8 @@ export async function PATCH(request: Request) {
       ballonDor?: number;
       earnings?: number;
       winStreak?: number;
+      wins?: number;
+      losses?: number;
       seasonId?: string;
       coachPoints?: number;
       managerPoints?: number;
@@ -163,6 +177,8 @@ export async function PATCH(request: Request) {
     const ballonDor = Number.isFinite(Number(body.ballonDor)) ? Math.max(0, Math.trunc(Number(body.ballonDor))) : 0;
     const earnings = Number.isFinite(Number(body.earnings)) ? Math.max(0, Number(body.earnings)) : 0;
     const winStreak = Number.isFinite(Number(body.winStreak)) ? Math.max(0, Math.trunc(Number(body.winStreak))) : 0;
+    const wins = Number.isFinite(Number(body.wins)) ? Math.max(0, Math.trunc(Number(body.wins))) : 0;
+    const losses = Number.isFinite(Number(body.losses)) ? Math.max(0, Math.trunc(Number(body.losses))) : 0;
     const requestedSeasonId = String(body.seasonId ?? "").trim();
 
     if (
@@ -233,6 +249,8 @@ export async function PATCH(request: Request) {
           ...(body.ballonDor !== undefined ? { ballon_dor: ballonDor } : {}),
           ...(body.earnings !== undefined ? { earnings } : {}),
           ...(body.winStreak !== undefined ? { win_streak: winStreak } : {}),
+          ...(body.wins !== undefined ? { wins } : {}),
+          ...(body.losses !== undefined ? { losses } : {}),
           updated_at: new Date().toISOString(),
         },
         { onConflict: "player_id" }
