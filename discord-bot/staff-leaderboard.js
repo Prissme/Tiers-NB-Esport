@@ -143,26 +143,25 @@ function buildStaffEmbed({ kind, entries, title, limit = 25, footer = null, empt
 }
 
 /**
- * Descriptions par rôle, éditées dans l'admin panel (table staff_tier_descriptions).
- * Retourne { coach: string|null, manager: string|null }. Ne lève jamais : si la table
- * n'existe pas encore (migration non passée), la fiche s'affiche simplement sans description.
+ * Description coach/manager d'un joueur (table staff_tier_descriptions, éditée dans l'admin panel).
+ * Retourne la description ou null. Ne lève jamais : si la table n'existe pas encore
+ * (migration non passée), la fiche s'affiche simplement sans description.
  */
-async function fetchStaffDescriptions(supabase) {
-  const descriptions = { coach: null, manager: null };
+async function fetchStaffDescription(supabase, playerId, kind) {
+  if (!playerId || !isStaffKind(kind)) return null;
   try {
     const { data, error } = await supabase
       .from('staff_tier_descriptions')
-      .select('kind, description');
-    if (error) return descriptions;
-    for (const row of data || []) {
-      if (isStaffKind(row.kind) && row.description && row.description.trim()) {
-        descriptions[row.kind] = row.description.trim();
-      }
-    }
+      .select('description')
+      .eq('player_id', playerId)
+      .eq('kind', kind)
+      .maybeSingle();
+    if (error) return null;
+    const text = data?.description ? String(data.description).trim() : '';
+    return text || null;
   } catch (_) {
-    // Pas bloquant : la fiche reste utilisable sans description
+    return null;
   }
-  return descriptions;
 }
 
 /** Fiche d'un coach / manager (équivalent de !tier pour les joueurs). */
@@ -250,7 +249,7 @@ module.exports = {
   STAFF_KINDS,
   isStaffKind,
   fetchStaffRanking,
-  fetchStaffDescriptions,
+  fetchStaffDescription,
   buildStaffEmbed,
   buildStaffTierEmbed,
   buildStaffSlashCommands
