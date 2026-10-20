@@ -2906,7 +2906,7 @@ async function fetchSiteTierLeaderboard() {
   }
 
   let { data: profiles, error: profilesError } = await withNetworkRetry('fetchSiteTierLeaderboard:profiles', () => (
-    supabase.from('lfn_player_profiles').select('player_id, country_code, ballon_dor, golden_nullser, earnings, win_streak')
+    supabase.from('lfn_player_profiles').select('player_id, country_code, ballon_dor, golden_nullser, earnings, win_streak, wins, losses')
   ));
   // Colonne win_streak pas encore migrée : on retombe sur l'ancien select pour ne pas casser les pays
   if (profilesError?.code === '42703') {
@@ -2937,6 +2937,8 @@ async function fetchSiteTierLeaderboard() {
       goldenNullser: Number(profile?.golden_nullser || 0),
       earnings: Number(profile?.earnings || 0),
       winStreak: Number(profile?.win_streak || 0),
+      wins: Number(profile?.wins || 0),
+      losses: Number(profile?.losses || 0),
     };
   }).filter(Boolean);
 }
@@ -6317,6 +6319,14 @@ async function handleTierCommand(message) {
 
   if (winStreak > 0) {
     embedFields.push({ name: 'Winstreak', value: `**🔥 ${winStreak}**`, inline: true });
+  }
+
+  const wins = Number(siteTierPlayer.wins || 0);
+  const losses = Number(siteTierPlayer.losses || 0);
+  if (wins + losses > 0) {
+    const winRate = Math.round((wins / (wins + losses)) * 1000) / 10;
+    embedFields.push({ name: 'W / L', value: `**${wins} / ${losses}**`, inline: true });
+    embedFields.push({ name: 'Winrate', value: `**${winRate}%**`, inline: true });
   }
 
   await message.reply({
