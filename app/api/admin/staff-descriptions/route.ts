@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createServerClient } from "../../../../src/lib/supabase/server";
+import { createAdminClient } from "../../../../src/lib/supabase/admin";
 import { withSchema } from "../../../../src/lib/supabase/schema";
 import { isAdminAuthenticated } from "../../../../src/lib/admin/auth";
 
@@ -7,6 +7,8 @@ const STAFF_KINDS = ["coach", "manager"] as const;
 type StaffKind = (typeof STAFF_KINDS)[number];
 const MAX_DESCRIPTION_LENGTH = 1000;
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+
 
 function isStaffKind(value: unknown): value is StaffKind {
   return typeof value === "string" && (STAFF_KINDS as readonly string[]).includes(value);
@@ -18,7 +20,7 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
   }
 
-  const supabase = withSchema(createServerClient());
+  const supabase = withSchema(createAdminClient());
   const { data, error } = await supabase
     .from("staff_tier_descriptions")
     .select("player_id,kind,description");
@@ -65,7 +67,7 @@ export async function PUT(request: Request) {
     );
   }
 
-  const supabase = withSchema(createServerClient());
+  const supabase = withSchema(createAdminClient());
   const { error } = await supabase.from("staff_tier_descriptions").upsert(
     {
       player_id: body.playerId,
