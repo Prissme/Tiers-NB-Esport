@@ -33,6 +33,7 @@ const { slashCommandsData, handleTournamentInteractions } = require('./tournamen
 const {
   isStaffKind,
   fetchStaffRanking,
+  fetchStaffDescriptions,
   buildStaffEmbed,
   buildStaffTierEmbed,
   buildStaffSlashCommands
@@ -1595,6 +1596,7 @@ async function handlePublicSlashCommand(interaction) {
       return true;
     }
 
+    const staffDescriptions = await fetchStaffDescriptions(supabase);
     await interaction.editReply({
       embeds: [
         buildStaffTierEmbed({
@@ -1604,7 +1606,8 @@ async function handlePublicSlashCommand(interaction) {
           rankLabel: localizeText({ fr: 'Rang', en: 'Rank' }),
           pointsLabel: 'Points',
           countryLabel: localizeText({ fr: 'Pays', en: 'Country' }),
-          user: targetUser
+          user: targetUser,
+          description: staffDescriptions[staffKind]
         })
       ]
     });
