@@ -83,9 +83,9 @@ const rulebooksByLocale: Record<"fr" | "en", Rulebook[]> = {
           title: "Points System — Match Results",
           body: "Points are awarded based on the tier comparison between the two teams at the time of the match.",
           bullets: [
-            "Win against a higher-tier team (upset): +3 points for the winner, -2 points for the loser",
-            "Win against a team of the same tier: +2 points for the winner, -1 point for the loser",
-            "Win against a lower-tier team: +1 point for the winner, 0 points for the loser",
+            "Win against a higher-tier team (upset): +3 points for the winner, -3 points for the loser",
+            "Win against a team of the same tier: +2 points for the winner, -2 points for the loser",
+            "Win against a lower-tier team: +1 point for the winner, -1 point for the loser",
           ],
         },
         {
@@ -106,6 +106,15 @@ const rulebooksByLocale: Record<"fr" | "en", Rulebook[]> = {
             "Top 1: +3 points",
             "Top 2: +2 points",
             "Top 3: +1 point",
+          ],
+        },
+        {
+          id: "8",
+          title: "Common Rules",
+          bullets: [
+            "In case of a connection bug, no replay is possible.",
+            "In case of a dodge, replay the set with the same bans/picks. If the opponent does not ban/pick as before, you are allowed to dodge again. Take screenshots and report it to the admins.",
+            "Smurfing, wintrading and abusive toxicity are not allowed.",
           ],
         },
       ],
@@ -168,9 +177,9 @@ const rulebooksByLocale: Record<"fr" | "en", Rulebook[]> = {
           title: "Système de points — Résultats de match",
           body: "Les points sont attribués en fonction de la comparaison de tiers entre les deux équipes au moment du match.",
           bullets: [
-            "Victoire contre une équipe de tier supérieur (upset) : +3 pts pour le vainqueur, -2 pts pour le perdant",
-            "Victoire contre une équipe du même tier : +2 pts pour le vainqueur, -1 pt pour le perdant",
-            "Victoire contre une équipe de tier inférieur : +1 pt pour le vainqueur, 0 pt pour le perdant",
+            "Victoire contre une équipe de tier supérieur (upset) : +3 pts pour le vainqueur, -3 pts pour le perdant",
+            "Victoire contre une équipe du même tier : +2 pts pour le vainqueur, -2 pts pour le perdant",
+            "Victoire contre une équipe de tier inférieur : +1 pt pour le vainqueur, -1 pt pour le perdant",
           ],
         },
         {
@@ -191,6 +200,15 @@ const rulebooksByLocale: Record<"fr" | "en", Rulebook[]> = {
             "Top 1 : +3 points",
             "Top 2 : +2 points",
             "Top 3 : +1 point",
+          ],
+        },
+        {
+          id: "8",
+          title: "Règles communes",
+          bullets: [
+            "En cas de bug de connexion, aucun replay n'est possible.",
+            "En cas de dodge, relancez le set avec les mêmes bans/picks. Si l'adversaire ne ban/pick pas comme avant, vous avez le droit de dodge à nouveau. N'hésitez pas à prendre des screenshots pour les signaler aux admins.",
+            "Le smurfing, le wintrading et la toxicité abusive sont interdits.",
           ],
         },
       ],
