@@ -43,7 +43,8 @@ const prissPredictions = require('./priss-predictions');
 const {
   initTierLeaderboard,
   refreshDiscordNames,
-  sendOrUpdateTierLeaderboardEmbed
+  sendOrUpdateTierLeaderboardEmbed,
+  TOP100_BUTTON_IDS
 } = require('./tier-leaderboard');
 const {
   initWorldCountryLeaderboard,
@@ -6742,9 +6743,9 @@ async function handleSeasonCommand(message, args) {
   });
 }
 
-async function handleTierCriteriaCommand(message) {
-  const roleARef = formatRoleReference(message.guild, ROLE_TIER_A, 'Tier A');
-  const roleSRef = formatRoleReference(message.guild, ROLE_TIER_S, 'Tier S');
+function buildTierCriteriaEmbed(guild) {
+  const roleARef = formatRoleReference(guild, ROLE_TIER_A, 'Tier A');
+  const roleSRef = formatRoleReference(guild, ROLE_TIER_S, 'Tier S');
   const rows = [
     { tier: 'E', criteria: '0 à 4 points' },
     { tier: 'D', criteria: '5 à 14 points' },
@@ -6763,16 +6764,60 @@ async function handleTierCriteriaCommand(message) {
     })
     .join('\n\n');
 
-  await message.reply({
-    embeds: [
-      new EmbedBuilder()
-        .setColor(0xf1c40f)
-        .setTitle('📊 Critères des tiers')
-        .setDescription(`${description}\n\n⚠️ Si ton rôle Discord n'est pas à jour, utilise \`!synctiers\`.`)
-        .addFields({ name: 'Rulebook complet', value: rulebookUrl })
-        .setURL(rulebookUrl)
-    ]
-  });
+  return new EmbedBuilder()
+    .setColor(0xf1c40f)
+    .setTitle('📊 Critères des tiers')
+    .setDescription(`${description}\n\n⚠️ Si ton rôle Discord n'est pas à jour, utilise \`!synctiers\`.`)
+    .addFields({ name: 'Rulebook complet', value: rulebookUrl })
+    .setURL(rulebookUrl);
+}
+
+async function handleTierCriteriaCommand(message) {
+  await message.reply({ embeds: [buildTierCriteriaEmbed(message.guild)] });
+}
+
+// ── Boutons du Top 100 ───────────────────────────────────────
+
+function buildTop100HowTierEmbed() {
+  return new EmbedBuilder()
+    .setColor(0xf1c40f)
+    .setTitle('How to Get Your Tier ?')
+    .setDescription(
+      'To Claim Tier E, Register to your First Tournament / IS and create a ticket in https://discord.com/channels/1236724293027496047/1376052088047665242'
+    );
+}
+
+function buildTop100PointsEmbed() {
+  return new EmbedBuilder()
+    .setColor(0xf1c40f)
+    .setTitle('How to win points ?')
+    .setDescription(
+      [
+        '**Match results** — points depend on the tier of both teams at the time of the match:',
+        '• Win against a higher tier (upset): **+3** for the winner, **-2** for the loser',
+        '• Win against the same tier: **+2** for the winner, **-1** for the loser',
+        '• Win against a lower tier: **+1** for the winner, **0** for the loser',
+        '',
+        '**Tournament placement:**',
+        '• Top 1: **+3**',
+        '• Top 2: **+2**',
+        '• Top 3: **+1**'
+      ].join('\n')
+    );
+}
+
+async function handleTop100Button(interaction) {
+  let embed;
+  if (interaction.customId === TOP100_BUTTON_IDS.howTier) {
+    embed = buildTop100HowTierEmbed();
+  } else if (interaction.customId === TOP100_BUTTON_IDS.criteria) {
+    embed = buildTierCriteriaEmbed(interaction.guild);
+  } else if (interaction.customId === TOP100_BUTTON_IDS.points) {
+    embed = buildTop100PointsEmbed();
+  } else {
+    return;
+  }
+  await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
 }
 
 async function handleLfnCommand(message) {
@@ -8163,6 +8208,10 @@ async function applyMatchOutcome(state, outcome, userId) {
 }
 
 async function handleInteraction(interaction) {
+  if (interaction.isButton() && Object.values(TOP100_BUTTON_IDS).includes(interaction.customId)) {
+    await handleTop100Button(interaction);
+    return;
+  }
   //  ON AJOUTE CES DEUX LIGNES ICI 
   if (await bracketPredictions.handleInteraction(interaction)) return;
   if (await tournamentPredictions.handleInteraction(interaction)) return;
