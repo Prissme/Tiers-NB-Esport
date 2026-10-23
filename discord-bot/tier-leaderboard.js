@@ -7,7 +7,31 @@
 // Stratégie : édition des messages existants (pas delete/resend)
 // ============================================================
 
-const { EmbedBuilder } = require('discord.js');
+const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+
+// Boutons d'information rattachés au dernier message du Top 100 (gérés dans unified-bot.js)
+const TOP100_BUTTON_IDS = {
+  howTier: 'top100_how_tier',
+  criteria: 'top100_criteria',
+  points: 'top100_points'
+};
+
+function buildTop100ButtonsRow() {
+  return new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId(TOP100_BUTTON_IDS.howTier)
+      .setLabel('How to Get Your Tier ?')
+      .setStyle(ButtonStyle.Primary),
+    new ButtonBuilder()
+      .setCustomId(TOP100_BUTTON_IDS.criteria)
+      .setLabel('Tier Criteria')
+      .setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder()
+      .setCustomId(TOP100_BUTTON_IDS.points)
+      .setLabel('How to win points ?')
+      .setStyle(ButtonStyle.Secondary)
+  );
+}
 
 const TIER_LEADERBOARD_CHANNEL_ID = '1505250882231468102';
 const TIER_LEADERBOARD_UPDATE_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
@@ -407,9 +431,14 @@ async function purgeChannelMessages() {
 async function postFreshEmbeds(embeds) {
   _postedMessageIds = [];
 
-  for (const embed of embeds) {
+  for (let i = 0; i < embeds.length; i++) {
+    const embed = embeds[i];
+    const isLast = i === embeds.length - 1;
     try {
-      const sent = await _leaderboardChannel.send({ embeds: [embed] });
+      const sent = await _leaderboardChannel.send({
+        embeds: [embed],
+        components: isLast ? [buildTop100ButtonsRow()] : []
+      });
       _postedMessageIds.push(sent.id);
       await sleep(500); // petit délai entre les envois
     } catch (err) {
@@ -441,7 +470,11 @@ async function editExistingEmbeds(embeds) {
 
     try {
       const msg = await _leaderboardChannel.messages.fetch(msgId);
-      await msg.edit({ embeds: [embeds[i]] });
+      const isLast = i === embeds.length - 1;
+      await msg.edit({
+        embeds: [embeds[i]],
+        components: isLast ? [buildTop100ButtonsRow()] : []
+      });
       await sleep(300);
     } catch (err) {
       console.warn(`[TierLeaderboard] Impossible d'éditer le message ${msgId}:`, err.message);
@@ -669,6 +702,7 @@ function initTierLeaderboard(client, guild, supabase) {
 }
 
 module.exports = {
+  TOP100_BUTTON_IDS,
   initTierLeaderboard,
   refreshDiscordNames,
   fetchTierPlayers,
