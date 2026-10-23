@@ -6794,9 +6794,9 @@ function buildTop100PointsEmbed() {
     .setDescription(
       [
         '**Match results** — points depend on the tier of both teams at the time of the match:',
-        '• Win against a higher tier (upset): **+3** for the winner, **-2** for the loser',
-        '• Win against the same tier: **+2** for the winner, **-1** for the loser',
-        '• Win against a lower tier: **+1** for the winner, **0** for the loser',
+        '• Win against a higher tier (upset): **+3** for the winner, **-3** for the loser',
+        '• Win against the same tier: **+2** for the winner, **-2** for the loser',
+        '• Win against a lower tier: **+1** for the winner, **-1** for the loser',
         '',
         '**Tournament placement:**',
         '• Top 1: **+3**',
