@@ -2,18 +2,16 @@
  * tournamentSystem.js
  * ───────────────────
  * Guide statique des tournois PTV (discord.js v14).
- * Remplace l'ancien système de calendrier dynamique (Supabase lfn_tournaments) :
- * les PrissCup OPEN/ELITE et les International Scrims sont des événements
- * récurrents, donc ce guide est écrit en dur et n'a jamais besoin d'être
- * mis à jour manuellement.
+ * Les tournois sont récurrents, donc le guide est écrit en dur et n'a jamais besoin
+ * d'être mis à jour automatiquement. Le détail de chaque tournoi s'affiche via un
+ * menu déroulant (éphémère). Les textes marqués « Coming soon » restent à remplir.
  */
 
 const {
     SlashCommandBuilder,
     PermissionFlagsBits,
     EmbedBuilder,
-    ButtonBuilder,
-    ButtonStyle,
+    StringSelectMenuBuilder,
     ActionRowBuilder,
     MessageFlags,
     AttachmentBuilder
@@ -25,6 +23,98 @@ const EMBED_COLOR_MAIN = 0x0A192F;
 const EMBED_COLOR_DETAIL = 0x0A192F;
 const FOOTER_TEXT = "La course vers le first Tier A continue !";
 const TWITCH_URL = 'https://www.twitch.tv/prissmetv';
+const SELECT_CUSTOM_ID = 'guide_select:tournament';
+const COMING_SOON = '🚧 Coming soon';
+
+/**
+ * Hebdomadaire : 3 tournois par semaine (heures en UTC+1).
+ */
+const WEEKLY_SCHEDULE = [
+    { day: 'Wednesday', time: '8:00 PM (UTC+1)' },
+    { day: 'Saturday', time: '4:00 PM (UTC+1)' },
+    { day: 'Sunday', time: '4:00 PM (UTC+1)' }
+];
+
+/**
+ * Tournois proposés dans le menu. Pour remplir un détail plus tard, modifie
+ * `details` : chaque champ devient un champ de l'embed.
+ */
+const TOURNAMENTS = {
+    open_elite: {
+        label: 'PrissCup OPEN / ELITE',
+        emoji: '🏆',
+        summary: 'Weekly PrissCup cups (OPEN and ELITE)',
+        details: {
+            schedule: COMING_SOON,
+            entry: COMING_SOON,
+            format: COMING_SOON,
+            prizes: COMING_SOON
+        }
+    },
+    fearless: {
+        label: 'PrissCup Fearless',
+        emoji: '🏆',
+        summary: 'PrissCup Fearless',
+        details: {
+            schedule: COMING_SOON,
+            entry: COMING_SOON,
+            format: COMING_SOON,
+            prizes: COMING_SOON
+        }
+    },
+    nations: {
+        label: 'PrissCup Nations',
+        emoji: '🏆',
+        summary: 'PrissCup Nations',
+        details: {
+            schedule: COMING_SOON,
+            entry: COMING_SOON,
+            format: COMING_SOON,
+            prizes: COMING_SOON
+        }
+    },
+    mixer: {
+        label: 'PrissCup Mixer',
+        emoji: '🏆',
+        summary: 'PrissCup Mixer',
+        details: {
+            schedule: COMING_SOON,
+            entry: COMING_SOON,
+            format: COMING_SOON,
+            prizes: COMING_SOON
+        }
+    },
+    swiss: {
+        label: 'Swiss PrissCup',
+        emoji: '🏆',
+        summary: 'Swiss PrissCup',
+        details: {
+            schedule: COMING_SOON,
+            entry: COMING_SOON,
+            format: COMING_SOON,
+            prizes: COMING_SOON
+        }
+    },
+    paid: {
+        label: 'Paid tournaments',
+        emoji: '💰',
+        summary: 'Paid tournaments',
+        details: {
+            schedule: COMING_SOON,
+            entry: COMING_SOON,
+            format: COMING_SOON,
+            prizes: COMING_SOON
+        }
+    }
+};
+
+/**
+ * Anciens boutons (messages déjà postés) : redirigés vers les nouveaux détails.
+ */
+const LEGACY_BUTTON_MAP = {
+    open: 'open_elite',
+    elite: 'open_elite'
+};
 
 /**
  * Fonction d'aide pour localiser une image dans le dossier public
@@ -47,75 +137,71 @@ function getPublicAttachment(fileName) {
 }
 
 /**
- * Génère l'embed principal du guide (statique, aucune requête DB).
+ * Génère l'embed principal du guide et le menu déroulant (statique, aucune requête DB).
  */
 function buildGuideMenu() {
+    const scheduleLines = WEEKLY_SCHEDULE
+        .map(({ day, time }) => `📅 **${day}** — ${time}`)
+        .join('\n');
+
+    const tournamentLines = Object.values(TOURNAMENTS)
+        .map((t) => `${t.emoji} ${t.label}`)
+        .join('\n');
+
     const embed = new EmbedBuilder()
         .setColor(EMBED_COLOR_MAIN)
         .setThumbnail('attachment://PTV.webp')
         .setImage('attachment://Tournois.webp')
         .setDescription(
             "# 🏆 PTV Tournaments Guide\n" +
-            "Click a cup below for its full rules and entry conditions.\n\u200b\n" +
-            "🥈 **PrissCup OPEN** — every **Saturday at 4:00 PM (CET)**\n" +
-            "No cashprize · open to Low Tier teams\n\n" +
-            "👑 **PrissCup ELITE** — every **Sunday at 4:00 PM (CET)**\n" +
-            "💰 10€ cashprize · reserved for High Tier teams\n\n" +
-            `Both cups are streamed live on Twitch → ${TWITCH_URL}\n\u200b\n` +
-            "🌍 **International Scrims (IS)** — held from time to time\n" +
-            "2 country teams face off to prepare for the **NWC in November**."
+            "We run **3 tournaments every week**:\n" +
+            `${scheduleLines}\n\u200b\n` +
+            "**Tournaments**\n" +
+            `${tournamentLines}\n\u200b\n` +
+            "Pick a tournament in the menu below to see how it works.\n\n" +
+            `Streamed live on Twitch → ${TWITCH_URL}`
         )
         .setFooter({ text: FOOTER_TEXT });
 
-    const buttons = [
-        new ButtonBuilder()
-            .setCustomId('guide_btn:open')
-            .setLabel('PrissCup OPEN')
-            .setStyle(ButtonStyle.Secondary)
-            .setEmoji({ id: '1510208177541611540', name: 'WinnerPin' }),
-        new ButtonBuilder()
-            .setCustomId('guide_btn:elite')
-            .setLabel('PrissCup ELITE')
-            .setStyle(ButtonStyle.Secondary)
-            .setEmoji({ id: '1510208177541611540', name: 'WinnerPin' })
-    ];
+    const menu = new StringSelectMenuBuilder()
+        .setCustomId(SELECT_CUSTOM_ID)
+        .setPlaceholder('Choose a tournament to learn more')
+        .addOptions(
+            Object.entries(TOURNAMENTS).map(([value, t]) => ({
+                label: t.label,
+                value,
+                description: t.summary.slice(0, 100),
+                emoji: t.emoji
+            }))
+        );
 
-    return { embed, buttons };
+    const row = new ActionRowBuilder().addComponents(menu);
+
+    return { embed, row };
 }
 
 /**
- * Détail statique de chaque cup, affiché en éphémère au clic sur un bouton.
+ * Détail d'un tournoi, affiché en éphémère après sélection dans le menu.
  */
-function buildCupDetailEmbed(kind) {
-    if (kind === 'elite') {
-        return new EmbedBuilder()
-            .setDescription("# 👑  PrissCup ELITE\nWeekly cup reserved for High Tier teams.\n\u200b")
-            .setColor(EMBED_COLOR_DETAIL)
-            .addFields(
-                { name: "📅  Schedule", value: "Every Sunday, 4:00 PM (CET)", inline: true },
-                { name: "💰  Cashprize", value: "10€", inline: true },
-                { name: "🎯  Entry conditions", value: "High Tier teams only", inline: true },
-                { name: "📺  Live on Twitch", value: TWITCH_URL, inline: false }
-            )
-            .setThumbnail('attachment://PTV.webp');
-    }
+function buildTournamentDetailEmbed(key) {
+    const tournament = TOURNAMENTS[key];
+    if (!tournament) return null;
 
     return new EmbedBuilder()
-        .setDescription("# 🥈  PrissCup OPEN\nWeekly cup open to Low Tier teams.\n\u200b")
+        .setDescription(`# ${tournament.emoji}  ${tournament.label}\n${tournament.summary}\n\u200b`)
         .setColor(EMBED_COLOR_DETAIL)
         .addFields(
-            { name: "📅  Schedule", value: "Every Saturday, 4:00 PM (CET)", inline: true },
-            { name: "💰  Cashprize", value: "None", inline: true },
-            { name: "🎯  Entry conditions", value: "Low Tier teams only", inline: true },
-            { name: "📺  Live on Twitch", value: TWITCH_URL, inline: false }
+            { name: '📅  Schedule', value: tournament.details.schedule, inline: true },
+            { name: '🎯  Entry conditions', value: tournament.details.entry, inline: true },
+            { name: '⚙️  Format', value: tournament.details.format, inline: true },
+            { name: '💰  Prizes', value: tournament.details.prizes, inline: true },
+            { name: '📺  Live on Twitch', value: TWITCH_URL, inline: false }
         )
         .setThumbnail('attachment://PTV.webp');
 }
 
 /**
- * Met à jour le message du guide déjà posté (utile si on veut forcer un refresh visuel,
- * par ex. après un changement de texte dans le code). Le guide étant statique, ce n'est
- * jamais requis automatiquement.
+ * Met à jour le message du guide déjà posté (utile après un changement de texte dans le code).
  */
 async function refreshGuideMenuDirect(interaction) {
     if (!interaction) return;
@@ -138,8 +224,7 @@ async function refreshGuideMenuDirect(interaction) {
         const message = await channel.messages.fetch(menuRef.message_id).catch(() => null);
         if (!message || typeof message.edit !== 'function') return;
 
-        const { embed, buttons } = buildGuideMenu();
-        const row = new ActionRowBuilder().addComponents(buttons);
+        const { embed, row } = buildGuideMenu();
 
         const files = [];
         const fileTournois = getPublicAttachment('Tournois.webp');
@@ -154,36 +239,45 @@ async function refreshGuideMenuDirect(interaction) {
 }
 
 /**
- * Intercepteur principal des interactions (Commandes, Boutons)
+ * Intercepteur principal des interactions (Commandes, menu, anciens boutons)
  */
 async function handleTournamentInteractions(interaction) {
     if (!interaction) return false;
 
-    // 1. CLIC SUR UN BOUTON DE CUP (détail statique)
-    if (interaction.isButton() && interaction.customId?.startsWith('guide_btn:')) {
-        try {
-            await interaction.deferReply({ flags: [MessageFlags.Ephemeral] }).catch(() => null);
-        } catch (e) {
-            return true;
-        }
-
-        const kind = interaction.customId.split(':')[1];
-        const detailEmbed = buildCupDetailEmbed(kind);
+    // 1. SÉLECTION D'UN TOURNOI DANS LE MENU
+    if (interaction.isStringSelectMenu() && interaction.customId === SELECT_CUSTOM_ID) {
+        const key = interaction.values?.[0];
+        const detailEmbed = buildTournamentDetailEmbed(key);
+        if (!detailEmbed) return true;
 
         const files = [];
         const filePTV = getPublicAttachment('PTV.webp');
         if (filePTV) files.push(filePTV);
 
-        await interaction.followUp({ embeds: [detailEmbed], files, flags: [MessageFlags.Ephemeral] }).catch(() => null);
+        await interaction.reply({ embeds: [detailEmbed], files, flags: [MessageFlags.Ephemeral] }).catch(() => null);
         return true;
     }
 
-    // 2. COMMANDE SLASH
+    // 2. ANCIENS BOUTONS (messages postés avant le menu déroulant)
+    if (interaction.isButton() && interaction.customId?.startsWith('guide_btn:')) {
+        const legacyKey = interaction.customId.split(':')[1];
+        const key = LEGACY_BUTTON_MAP[legacyKey];
+        const detailEmbed = key ? buildTournamentDetailEmbed(key) : null;
+        if (!detailEmbed) return true;
+
+        const files = [];
+        const filePTV = getPublicAttachment('PTV.webp');
+        if (filePTV) files.push(filePTV);
+
+        await interaction.reply({ embeds: [detailEmbed], files, flags: [MessageFlags.Ephemeral] }).catch(() => null);
+        return true;
+    }
+
+    // 3. COMMANDE SLASH
     if (interaction.isChatInputCommand() && interaction.commandName === 'cup_menu') {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] }).catch(() => null);
 
-        const { embed, buttons } = buildGuideMenu();
-        const row = new ActionRowBuilder().addComponents(buttons);
+        const { embed, row } = buildGuideMenu();
 
         const files = [];
         const fileTournois = getPublicAttachment('Tournois.webp');
