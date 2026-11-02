@@ -27,6 +27,7 @@ const COUNTRY_STARS = {
   FR: 2, // France
   RO: 1, // Roumanie
   PL: 1, // Pologne
+  DE: 1, // Allemagne
 };
 
 // ── État interne ────────────────────────────────────────────
@@ -133,6 +134,20 @@ async function ensureCountryRole(guild, countryCode) {
       return { role: renamed, created: false };
     } catch (err) {
       console.warn(`[CountryRoles] Impossible de renommer ${legacyName}:`, err?.message || err);
+    }
+  }
+
+  // Migration : renomme le rôle sans étoile (ex: "Germany") vers le nom avec étoiles (ex: "⭐ Germany")
+  const plainName = getCountryName(countryCode);
+  const plain = guild.roles.cache.find((role) => role.name === plainName);
+  if (plain && plainName !== roleName) {
+    try {
+      const renamed = await plain.setName(roleName, 'Rôle pays: ajout des étoiles');
+      await sleep(ACTION_DELAY_MS);
+      console.log(`[CountryRoles] Rôle renommé : ${plainName} -> ${roleName}`);
+      return { role: renamed, created: false };
+    } catch (err) {
+      console.warn(`[CountryRoles] Impossible de renommer ${plainName}:`, err?.message || err);
     }
   }
 
