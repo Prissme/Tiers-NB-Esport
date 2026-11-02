@@ -9856,6 +9856,11 @@ async function syncTiersWithRoles() {
 async function onReady(readyClient) {
   log(`Connected to Discord as ${readyClient.user.tag}.`);
   await loadPlSystemSetting();
+  try {
+    await readyClient.user.setPresence({ status: 'invisible' });
+  } catch (err) {
+    warn('Unable to set bot presence to invisible:', err?.message || err);
+  }
 
   try {
     guild = await readyClient.guilds.fetch(DISCORD_GUILD_ID);
