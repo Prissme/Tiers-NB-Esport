@@ -376,6 +376,24 @@ function buildAdminSlashCommands({ localizeText, optionType, adminPermission }) 
       ]
     },
     {
+      name: 'disablepl',
+      description: localizeText({
+        fr: 'Désactive l’attribution automatique des rôles de rang PL et les commandes PL (elo, ranks, leaderboard)',
+        en: 'Disables automatic PL rank roles and PL commands (elo, ranks, leaderboard)'
+      }),
+      dm_permission: false,
+      default_member_permissions: adminPermission
+    },
+    {
+      name: 'enablepl',
+      description: localizeText({
+        fr: 'Réactive l’attribution automatique des rôles de rang PL et les commandes PL',
+        en: 'Re-enables automatic PL rank roles and PL commands'
+      }),
+      dm_permission: false,
+      default_member_permissions: adminPermission
+    },
+    {
       name: 'welcometest',
       description: localizeText({
         fr: 'T’envoie le message de bienvenue en privé (test)',
