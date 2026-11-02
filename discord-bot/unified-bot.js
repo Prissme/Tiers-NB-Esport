@@ -1692,7 +1692,9 @@ async function handleAdminSlashCommand(interaction) {
       'addearnings',
       'changecountry',
       'addgn',
-      'welcometest'
+      'welcometest',
+      'disablepl',
+      'enablepl'
     ].includes(command)
   ) {
     return false;
@@ -1815,6 +1817,36 @@ async function handleAdminSlashCommand(interaction) {
         content: localizeText({
           fr: "Erreur lors de l'annulation du match.",
           en: 'Error while cancelling the match.'
+        })
+      });
+    }
+
+    return true;
+  }
+
+  if (command === 'disablepl' || command === 'enablepl') {
+    const enable = command === 'enablepl';
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+
+    try {
+      await setPlSystemEnabled(enable);
+      await interaction.editReply({
+        content: enable
+          ? localizeText({
+              fr: '✅ Système PL réactivé : attribution automatique des rôles de rang et commandes PL rétablies.',
+              en: '✅ PL system re-enabled: automatic rank roles and PL commands are back.'
+            })
+          : localizeText({
+              fr: '⛔ Système PL désactivé : plus d’attribution automatique des rôles de rang (bronze, or, top/bottom…) et les commandes PL ne répondent plus.',
+              en: '⛔ PL system disabled: no more automatic rank roles (bronze, gold, top/bottom…) and PL commands no longer respond.'
+            })
+      });
+    } catch (err) {
+      errorLog('Failed to update PL system setting:', err);
+      await interaction.editReply({
+        content: localizeText({
+          fr: '❌ Impossible de mettre à jour le réglage PL.',
+          en: '❌ Could not update the PL setting.'
         })
       });
     }
@@ -2727,7 +2759,47 @@ function hasPLAdminAccess(source) {
   return roleCache.has(PL_ADMIN_ROLE_ID) || roleCache.has(SECONDARY_PL_ADMIN_ROLE_ID);
 }
 
+// ── Système PL (rôles de rang automatiques + commandes PL), activable via /disablepl et /enablepl ──
+const PL_SYSTEM_SETTING_KEY = 'pl_system_enabled';
+const PL_DISABLED_COMMANDS = new Set(['elo', 'ranks', 'lb', 'leaderboard']);
+let plRolesEnabled = true;
+
+async function loadPlSystemSetting() {
+  try {
+    const { data, error } = await supabase
+      .from('lfn_bot_settings')
+      .select('value')
+      .eq('key', PL_SYSTEM_SETTING_KEY)
+      .maybeSingle();
+    if (error) {
+      warn('Unable to load PL system setting (default: enabled):', error.message || error);
+      return;
+    }
+    if (typeof data?.value?.enabled === 'boolean') {
+      plRolesEnabled = data.value.enabled;
+    }
+  } catch (err) {
+    warn('Unable to load PL system setting (default: enabled):', err?.message || err);
+  }
+}
+
+async function setPlSystemEnabled(enabled) {
+  const { error } = await supabase
+    .from('lfn_bot_settings')
+    .upsert(
+      { key: PL_SYSTEM_SETTING_KEY, value: { enabled }, updated_at: new Date().toISOString() },
+      { onConflict: 'key' }
+    );
+  if (error) {
+    throw error;
+  }
+  plRolesEnabled = enabled;
+}
+
 async function syncMemberRankRole(guildContext, discordId, rating, options = {}) {
+  if (!plRolesEnabled) {
+    return;
+  }
   if (!guildContext?.members || !discordId) {
     return;
   }
@@ -2782,7 +2854,7 @@ function getPendingMatchForUser(userId) {
 }
 
 async function syncAllRankRoles(guildContext) {
-  if (!guildContext) {
+  if (!plRolesEnabled || !guildContext) {
     return { synced: 0 };
   }
 
@@ -3652,6 +3724,9 @@ async function ensureWorstPlayerRole(guildContext) {
 }
 
 async function syncWorstPlayerRole(guildContext) {
+  if (!plRolesEnabled) {
+    return;
+  }
   if (!guildContext?.members || !guildContext.roles) {
     return;
   }
@@ -9780,6 +9855,7 @@ async function syncTiersWithRoles() {
 
 async function onReady(readyClient) {
   log(`Connected to Discord as ${readyClient.user.tag}.`);
+  await loadPlSystemSetting();
 
   try {
     guild = await readyClient.guilds.fetch(DISCORD_GUILD_ID);
@@ -10055,6 +10131,17 @@ async function handleMessage(message) {
 
   const [commandName, ...args] = content.slice(1).split(/\s+/);
   const command = commandName.toLowerCase();
+
+  if (PL_DISABLED_COMMANDS.has(command) && !plRolesEnabled) {
+    await message.reply({
+      content: localizeText({
+        fr: '⛔ Le système PL est actuellement désactivé.',
+        en: '⛔ The PL system is currently disabled.'
+      }),
+      allowedMentions: { repliedUser: false }
+    });
+    return;
+  }
 
   const disabledCommands = new Set(['teams', 'lfn']);
   if (disabledCommands.has(command)) {
