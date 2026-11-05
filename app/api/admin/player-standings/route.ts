@@ -8,8 +8,8 @@ const tierOptions = ["Tier S", "Tier A", "Tier B", "Tier C", "Tier D", "Tier E"]
 /** Mêmes seuils que le bot (le Tier S des coachs/managers est attribué par le bot à sa prochaine synchro). */
 function tierForPoints(points: number): string | null {
   if (points <= 0) return null;
-  if (points >= 55) return "Tier A";
-  if (points >= 35) return "Tier B";
+  if (points >= 50) return "Tier A";
+  if (points >= 30) return "Tier B";
   if (points >= 15) return "Tier C";
   if (points >= 5) return "Tier D";
   return "Tier E";
