@@ -6435,10 +6435,10 @@ function resolveTierByPoints(points) {
   if (safePoints <= 0) {
     return null;
   }
-  if (safePoints >= 50) {
+  if (safePoints >= 55) {
     return 'Tier A';
   }
-  if (safePoints >= 30) {
+  if (safePoints >= 35) {
     return 'Tier B';
   }
   if (safePoints >= 15) {
@@ -6824,9 +6824,9 @@ function buildTierCriteriaEmbed(guild) {
   const rows = [
     { tier: 'E', criteria: '0 à 4 points' },
     { tier: 'D', criteria: '5 à 14 points' },
-    { tier: 'C', criteria: '15 à 29 points' },
-    { tier: 'B', criteria: '30 à 49 points' },
-    { tier: 'A', criteria: `50+ points • ${roleARef}` },
+    { tier: 'C', criteria: '15 à 34 points' },
+    { tier: 'B', criteria: '35 à 54 points' },
+    { tier: 'A', criteria: `55+ points • ${roleARef}` },
     { tier: 'S', criteria: `Top players du Tier A • ${roleSRef}` }
   ];
 
