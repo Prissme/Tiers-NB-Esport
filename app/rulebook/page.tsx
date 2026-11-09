@@ -72,8 +72,8 @@ const rulebooksByLocale: Record<"fr" | "en", Rulebook[]> = {
           bullets: [
             "Tier E: 1 to 4 points",
             "Tier D: 5 to 14 points",
-            "Tier C: 15 to 34 points",
-            "Tier B: 35 to 54 points",
+            "Tier C: 15 to 29 points",
+            "Tier B: 30 to 54 points",
             "Tier A: 55+ points",
             "Tier S: current Top 10% of Tier A players",
           ],
@@ -166,8 +166,8 @@ const rulebooksByLocale: Record<"fr" | "en", Rulebook[]> = {
           bullets: [
             "Tier E : 1 à 4 points",
             "Tier D : 5 à 14 points",
-            "Tier C : 15 à 34 points",
-            "Tier B : 35 à 54 points",
+            "Tier C : 15 à 29 points",
+            "Tier B : 30 à 54 points",
             "Tier A : 55+ points",
             "Tier S : Top 10% actuel des joueurs Tier A",
           ],
