@@ -63,7 +63,7 @@ function buildWelcomeMessage(ctx = {}) {
         name: '📊 Tiers',
         value: [
           'Your points decide your **tier**, and your Discord role follows it:',
-          `${TIER_EMOJIS.E} 0-4 • ${TIER_EMOJIS.D} 5-14 • ${TIER_EMOJIS.C} 15-34 • ${TIER_EMOJIS.B} 35-54 • ${TIER_EMOJIS.A} 55+ • ${TIER_EMOJIS.S} top of tier A`,
+          `${TIER_EMOJIS.E} 0-4 • ${TIER_EMOJIS.D} 5-14 • ${TIER_EMOJIS.C} 15-29 • ${TIER_EMOJIS.B} 30-54 • ${TIER_EMOJIS.A} 55+ • ${TIER_EMOJIS.S} top of tier A`,
           'More info: `!tiercriteria` and `!tier <name>`.'
         ].join('\n')
       },
