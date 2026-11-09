@@ -13,9 +13,9 @@ export const TIER_VALUE: Record<RulebookTier, number> = {
 export const TIER_POINT_RANGES: Record<Exclude<RulebookTier, "Tier S">, [number, number]> = {
   "Tier E": [1, 4],
   "Tier D": [5, 14],
-  "Tier C": [15, 29],
-  "Tier B": [30, 49],
-  "Tier A": [50, 79],
+  "Tier C": [15, 34],
+  "Tier B": [35, 54],
+  "Tier A": [55, 79],
 };
 
 export function getSeedPointsForTier(tier: RulebookTier) {
