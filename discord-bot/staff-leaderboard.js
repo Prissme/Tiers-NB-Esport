@@ -241,6 +241,22 @@ function buildStaffSlashCommands({ localizeText, optionType }) {
       name: 'managerlb',
       description: localizeText({ fr: 'Top des managers', en: 'Top managers' }),
       dm_permission: false
+    },
+    {
+      name: 'hidetier',
+      description: localizeText({
+        fr: 'Masquer ton rôle tier Discord (tu restes dans les classements)',
+        en: 'Hide your Discord tier role (you stay in the rankings)'
+      }),
+      dm_permission: false
+    },
+    {
+      name: 'showtier',
+      description: localizeText({
+        fr: 'Réafficher ton rôle tier Discord',
+        en: 'Show your Discord tier role again'
+      }),
+      dm_permission: false
     }
   ];
 }
