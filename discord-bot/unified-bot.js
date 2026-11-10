@@ -1477,12 +1477,82 @@ async function finalizeMatchOutcome(matchState, outcome, userId, clientRef, opti
   return summary;
 }
 
+// ─── /hidetier et /showtier : masque ou réaffiche le rôle tier Discord ───────
+async function handleTierVisibilityCommand(interaction, hidden) {
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+  const reply = (content) => interaction.editReply({ content, allowedMentions: { parse: [] } });
+
+  try {
+    const discordId = interaction.user.id;
+    const { data: player, error: playerError } = await supabase
+      .from('players')
+      .select('id')
+      .eq('discord_id', discordId)
+      .maybeSingle();
+
+    if (playerError) {
+      throw playerError;
+    }
+    if (!player) {
+      await reply(localizeText({
+        fr: "❌ Ton compte Discord n'est lié à aucun joueur.",
+        en: '❌ Your Discord account is not linked to any player.'
+      }));
+      return true;
+    }
+
+    const { error: updateError } = await supabase
+      .from('players')
+      .update({ hide_tier_role: hidden })
+      .eq('id', player.id);
+    if (updateError) {
+      throw updateError;
+    }
+
+    if (hidden) {
+      hiddenTierDiscordIds.add(discordId);
+      await syncSingleMemberTierRole(interaction.guild, discordId, null);
+      await reply(localizeText({
+        fr: '✅ Ton rôle tier est masqué. Tu restes présent dans les classements.',
+        en: '✅ Your tier role is hidden. You stay in the rankings.'
+      }));
+      return true;
+    }
+
+    hiddenTierDiscordIds.delete(discordId);
+    const seasonId = await getActiveSeasonId();
+    const { data: pointsRow } = seasonId
+      ? await supabase
+          .from('lfn_player_tier_points')
+          .select('tier')
+          .eq('season_id', seasonId)
+          .eq('player_id', player.id)
+          .maybeSingle()
+      : { data: null };
+    await syncSingleMemberTierRole(interaction.guild, discordId, pointsRow?.tier || null);
+    await reply(localizeText({
+      fr: '✅ Ton rôle tier est de nouveau affiché.',
+      en: '✅ Your tier role is shown again.'
+    }));
+  } catch (err) {
+    errorLog('Failed to update tier role visibility:', err);
+    await reply(localizeText({
+      fr: '❌ Impossible de modifier la visibilité de ton rôle tier.',
+      en: '❌ Could not update your tier role visibility.'
+    }));
+  }
+  return true;
+}
+
 // ─── Commandes slash publiques : /tier, /countrylb, /coachlb, /managerlb ─────
 async function handlePublicSlashCommand(interaction) {
   if (!interaction.isChatInputCommand()) {
     return false;
   }
   const name = interaction.commandName;
+  if (name === 'hidetier' || name === 'showtier') {
+    return handleTierVisibilityCommand(interaction, name === 'hidetier');
+  }
   if (!['tier', 'countrylb', 'coachlb', 'managerlb'].includes(name)) {
     return false;
   }
@@ -6480,6 +6550,29 @@ function computeTiersForSeason(pointsRows) {
   return tierMap;
 }
 
+// Joueurs ayant masqué leur rôle tier (/hidetier) : identifiés par discord_id
+const hiddenTierDiscordIds = new Set();
+
+async function loadHiddenTierRoles() {
+  try {
+    const { data, error } = await supabase
+      .from('players')
+      .select('discord_id')
+      .eq('hide_tier_role', true)
+      .not('discord_id', 'is', null);
+    if (error) {
+      warn('Unable to load hidden tier roles:', error.message || error);
+      return;
+    }
+    hiddenTierDiscordIds.clear();
+    for (const row of data || []) {
+      hiddenTierDiscordIds.add(row.discord_id);
+    }
+  } catch (err) {
+    warn('Unable to load hidden tier roles:', err?.message || err);
+  }
+}
+
 function tierLabelToLetter(tierLabel) {
   const normalized = String(tierLabel || '')
     .replace(/^tier\s*/i, '')
@@ -6505,8 +6598,10 @@ async function syncSingleMemberTierRole(targetGuild, discordId, tierLabel) {
   }
 
   const allTierRoleIds = Object.values(tierRoleMap).filter(Boolean);
-  const tierLetter = tierLabelToLetter(tierLabel);
-  const targetRoleId = tierLabel ? tierRoleMap[tierLetter] : null;
+  // Joueur masqué (/hidetier) : aucun rôle tier, il reste dans les classements
+  const effectiveTierLabel = hiddenTierDiscordIds.has(discordId) ? null : tierLabel;
+  const tierLetter = tierLabelToLetter(effectiveTierLabel);
+  const targetRoleId = effectiveTierLabel ? tierRoleMap[tierLetter] : null;
   const rolesToRemove = allTierRoleIds.filter((id) => id !== targetRoleId && member.roles.cache.has(id));
 
   if (!targetRoleId) {
@@ -9724,6 +9819,7 @@ async function syncTiersWithRoles() {
     warn('Cannot sync tiers: guild not resolved yet.');
     return;
   }
+  await loadHiddenTierRoles();
 
   const activeSeasonId = await getActiveSeasonId();
   if (!activeSeasonId) {
@@ -9856,6 +9952,7 @@ async function syncTiersWithRoles() {
 async function onReady(readyClient) {
   log(`Connected to Discord as ${readyClient.user.tag}.`);
   await loadPlSystemSetting();
+  await loadHiddenTierRoles();
   try {
     await readyClient.user.setPresence({ status: 'invisible' });
   } catch (err) {
