@@ -28,6 +28,8 @@ const COUNTRY_STARS = {
   RO: 1, // Roumanie
   PL: 1, // Pologne
   DE: 1, // Allemagne
+  GR: 1, // Grèce
+  DZ: 1, // Algérie
 };
 
 // ── État interne ────────────────────────────────────────────
