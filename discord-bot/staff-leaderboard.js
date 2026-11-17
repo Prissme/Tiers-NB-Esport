@@ -200,6 +200,20 @@ function buildStaffSlashCommands({ localizeText, optionType }) {
     ]
   };
 
+  const tierRoleOption = {
+    name: 'role',
+    description: localizeText({
+      fr: 'Optionnel : rôle coach ou manager (sans option : ton rôle tier joueur)',
+      en: 'Optional: coach or manager role (no option: your player tier role)'
+    }),
+    type: optionType.String,
+    required: false,
+    choices: [
+      { name: 'Coach', value: 'coach' },
+      { name: 'Manager', value: 'manager' }
+    ]
+  };
+
   return [
     {
       name: 'tier',
@@ -248,7 +262,8 @@ function buildStaffSlashCommands({ localizeText, optionType }) {
         fr: 'Masquer ton rôle tier Discord (tu restes dans les classements)',
         en: 'Hide your Discord tier role (you stay in the rankings)'
       }),
-      dm_permission: false
+      dm_permission: false,
+      options: [tierRoleOption]
     },
     {
       name: 'showtier',
@@ -256,7 +271,8 @@ function buildStaffSlashCommands({ localizeText, optionType }) {
         fr: 'Réafficher ton rôle tier Discord',
         en: 'Show your Discord tier role again'
       }),
-      dm_permission: false
+      dm_permission: false,
+      options: [tierRoleOption]
     }
   ];
 }
