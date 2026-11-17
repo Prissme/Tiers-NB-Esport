@@ -1478,12 +1478,31 @@ async function finalizeMatchOutcome(matchState, outcome, userId, clientRef, opti
 }
 
 // ─── /hidetier et /showtier : masque ou réaffiche le rôle tier Discord ───────
+// Sans option : rôle tier joueur. Option coach|manager : rôle coach ou manager.
+const TIER_VISIBILITY_COLUMNS = {
+  player: 'hide_tier_role',
+  coach: 'hide_coach_tier_role',
+  manager: 'hide_manager_tier_role'
+};
+
+function setHiddenTierState(kind, discordId, hidden) {
+  const set = kind === 'player' ? hiddenTierDiscordIds : hiddenStaffTierDiscordIds[kind];
+  if (hidden) {
+    set.add(discordId);
+  } else {
+    set.delete(discordId);
+  }
+}
+
 async function handleTierVisibilityCommand(interaction, hidden) {
   await interaction.deferReply({ flags: MessageFlags.Ephemeral });
   const reply = (content) => interaction.editReply({ content, allowedMentions: { parse: [] } });
 
+  const roleOption = interaction.options.getString('role');
+  const kind = isStaffKind(roleOption) ? roleOption : 'player';
+  const discordId = interaction.user.id;
+
   try {
-    const discordId = interaction.user.id;
     const { data: player, error: playerError } = await supabase
       .from('players')
       .select('id')
@@ -1503,37 +1522,46 @@ async function handleTierVisibilityCommand(interaction, hidden) {
 
     const { error: updateError } = await supabase
       .from('players')
-      .update({ hide_tier_role: hidden })
+      .update({ [TIER_VISIBILITY_COLUMNS[kind]]: hidden })
       .eq('id', player.id);
     if (updateError) {
       throw updateError;
     }
+    setHiddenTierState(kind, discordId, hidden);
 
-    if (hidden) {
-      hiddenTierDiscordIds.add(discordId);
-      await syncSingleMemberTierRole(interaction.guild, discordId, null);
-      await reply(localizeText({
-        fr: '✅ Ton rôle tier est masqué. Tu restes présent dans les classements.',
-        en: '✅ Your tier role is hidden. You stay in the rankings.'
-      }));
-      return true;
-    }
-
-    hiddenTierDiscordIds.delete(discordId);
     const seasonId = await getActiveSeasonId();
+    const selectColumns = kind === 'player' ? 'tier' : `${kind}_tier`;
     const { data: pointsRow } = seasonId
       ? await supabase
           .from('lfn_player_tier_points')
-          .select('tier')
+          .select(selectColumns)
           .eq('season_id', seasonId)
           .eq('player_id', player.id)
           .maybeSingle()
       : { data: null };
-    await syncSingleMemberTierRole(interaction.guild, discordId, pointsRow?.tier || null);
-    await reply(localizeText({
-      fr: '✅ Ton rôle tier est de nouveau affiché.',
-      en: '✅ Your tier role is shown again.'
-    }));
+
+    if (kind === 'player') {
+      await syncSingleMemberTierRole(interaction.guild, discordId, hidden ? null : pointsRow?.tier || null);
+    } else {
+      const staffTier = hidden ? null : pointsRow?.[`${kind}_tier`] || null;
+      await syncSingleMemberStaffRoles(interaction.guild, discordId, { [kind]: staffTier });
+    }
+
+    const messages = {
+      player: {
+        hidden: { fr: '✅ Ton rôle tier est masqué. Tu restes présent dans les classements.', en: '✅ Your tier role is hidden. You stay in the rankings.' },
+        shown: { fr: '✅ Ton rôle tier est de nouveau affiché.', en: '✅ Your tier role is shown again.' }
+      },
+      coach: {
+        hidden: { fr: '✅ Ton rôle Coach Tier est masqué. Tu restes dans le classement coach.', en: '✅ Your Coach Tier role is hidden. You stay in the coach ranking.' },
+        shown: { fr: '✅ Ton rôle Coach Tier est de nouveau affiché.', en: '✅ Your Coach Tier role is shown again.' }
+      },
+      manager: {
+        hidden: { fr: '✅ Ton rôle Manager Tier est masqué. Tu restes dans le classement manager.', en: '✅ Your Manager Tier role is hidden. You stay in the manager ranking.' },
+        shown: { fr: '✅ Ton rôle Manager Tier est de nouveau affiché.', en: '✅ Your Manager Tier role is shown again.' }
+      }
+    };
+    await reply(localizeText(messages[kind][hidden ? 'hidden' : 'shown']));
   } catch (err) {
     errorLog('Failed to update tier role visibility:', err);
     await reply(localizeText({
@@ -6552,21 +6580,27 @@ function computeTiersForSeason(pointsRows) {
 
 // Joueurs ayant masqué leur rôle tier (/hidetier) : identifiés par discord_id
 const hiddenTierDiscordIds = new Set();
+// Idem pour les rôles coach / manager (/hidetier coach | manager)
+const hiddenStaffTierDiscordIds = { coach: new Set(), manager: new Set() };
 
 async function loadHiddenTierRoles() {
   try {
     const { data, error } = await supabase
       .from('players')
-      .select('discord_id')
-      .eq('hide_tier_role', true)
+      .select('discord_id, hide_tier_role, hide_coach_tier_role, hide_manager_tier_role')
+      .or('hide_tier_role.eq.true,hide_coach_tier_role.eq.true,hide_manager_tier_role.eq.true')
       .not('discord_id', 'is', null);
     if (error) {
       warn('Unable to load hidden tier roles:', error.message || error);
       return;
     }
     hiddenTierDiscordIds.clear();
+    hiddenStaffTierDiscordIds.coach.clear();
+    hiddenStaffTierDiscordIds.manager.clear();
     for (const row of data || []) {
-      hiddenTierDiscordIds.add(row.discord_id);
+      if (row.hide_tier_role) hiddenTierDiscordIds.add(row.discord_id);
+      if (row.hide_coach_tier_role) hiddenStaffTierDiscordIds.coach.add(row.discord_id);
+      if (row.hide_manager_tier_role) hiddenStaffTierDiscordIds.manager.add(row.discord_id);
     }
   } catch (err) {
     warn('Unable to load hidden tier roles:', err?.message || err);
@@ -6718,7 +6752,9 @@ async function syncSingleMemberStaffRoles(targetGuild, discordId, tiers) {
     if (!Object.prototype.hasOwnProperty.call(tiers, kind)) {
       continue;
     }
-    const letter = tierLabelToLetter(tiers[kind]);
+    // Rôle masqué (/hidetier coach|manager) : on retire, on ne réattribue pas
+    const effectiveTier = hiddenStaffTierDiscordIds[kind].has(discordId) ? null : tiers[kind];
+    const letter = tierLabelToLetter(effectiveTier);
     const targetRoleId = letter ? staffRoleCache.get(`${kind}:${letter}`) : null;
     const kindRoleIds = ROOM_TIER_ORDER.map((tierLetter) => staffRoleCache.get(`${kind}:${tierLetter}`)).filter(Boolean);
     const rolesToRemove = kindRoleIds.filter((id) => id !== targetRoleId && member.roles.cache.has(id));
