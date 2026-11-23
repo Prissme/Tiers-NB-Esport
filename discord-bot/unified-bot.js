@@ -1477,6 +1477,141 @@ async function finalizeMatchOutcome(matchState, outcome, userId, clientRef, opti
   return summary;
 }
 
+// ─── !teamtiers : tier moyen de chaque équipe inscrite ──────────────────────
+// Pour chaque message du salon : seuls les 3 premiers pings comptent (joueurs ; coachs, managers
+// et subs sont mentionnés après). Les tiers viennent de la saison active.
+const TEAM_TIER_PING_LIMIT = 3;
+
+function parseOrderedMentionIds(content) {
+  const ids = [];
+  const regex = /<@!?(\d{15,25})>/g;
+  let match;
+  while ((match = regex.exec(content)) !== null) {
+    if (!ids.includes(match[1])) {
+      ids.push(match[1]);
+    }
+  }
+  return ids;
+}
+
+async function fetchAllChannelMessagesChronological(channel) {
+  const collected = [];
+  let before;
+  while (true) {
+    const batch = await channel.messages.fetch({ limit: 100, ...(before ? { before } : {}) });
+    if (batch.size === 0) break;
+    collected.push(...batch.values());
+    before = batch.last().id;
+    if (batch.size < 100) break;
+  }
+  return collected.reverse();
+}
+
+function teamLabelFromContent(content) {
+  const cleaned = String(content || '')
+    .replace(/<@!?\d+>/g, '')
+    .trim()
+    .split('\n')[0]
+    .trim();
+  return cleaned ? cleaned.slice(0, 60) : 'Sans nom';
+}
+
+async function handleTeamTiersCommand(message) {
+  const noMentions = { allowedMentions: { parse: [], repliedUser: false } };
+
+  if (!message.member?.permissions.has('ManageGuild')) {
+    await message.reply({ content: '❌ Commande réservée aux admins.', ...noMentions });
+    return;
+  }
+
+  const status = await message.reply({ content: '🔎 Analyse des inscriptions en cours...', ...noMentions });
+
+  try {
+    const messages = await fetchAllChannelMessagesChronological(message.channel);
+    const teams = [];
+
+    // messages est en ordre chronologique : on ignore le tout premier message du salon
+    for (const msg of messages.slice(1)) {
+      if (msg.id === status.id || msg.id === message.id || msg.author.bot) continue;
+      const pingIds = parseOrderedMentionIds(msg.content)
+        .filter((id) => !msg.mentions.users.get(id)?.bot)
+        .slice(0, TEAM_TIER_PING_LIMIT);
+      if (pingIds.length === 0) continue;
+      teams.push({ url: msg.url, label: teamLabelFromContent(msg.content), pingIds });
+    }
+
+    const allDiscordIds = [...new Set(teams.flatMap((team) => team.pingIds))];
+    const tierByDiscordId = new Map();
+
+    if (allDiscordIds.length > 0) {
+      const seasonId = await getActiveSeasonId();
+      const { data: players, error: playersError } = await supabase
+        .from('players')
+        .select('id, discord_id')
+        .in('discord_id', allDiscordIds);
+      if (playersError) throw playersError;
+
+      const playerIdToDiscord = new Map((players || []).map((row) => [row.id, row.discord_id]));
+      if (seasonId && playerIdToDiscord.size > 0) {
+        const { data: tierRows, error: tierError } = await supabase
+          .from('lfn_player_tier_points')
+          .select('player_id, tier')
+          .eq('season_id', seasonId)
+          .in('player_id', [...playerIdToDiscord.keys()]);
+        if (tierError) throw tierError;
+
+        for (const row of tierRows || []) {
+          const letter = tierLabelToLetter(row.tier);
+          if (letter) {
+            tierByDiscordId.set(playerIdToDiscord.get(row.player_id), letter);
+          }
+        }
+      }
+    }
+
+    const lines = teams.map((team, index) => {
+      // Joueur sans tier = tier E (score 1). Tous les pings comptent.
+      const scores = [];
+      const unranked = [];
+      for (const discordId of team.pingIds) {
+        const letter = tierByDiscordId.get(discordId);
+        if (letter) {
+          scores.push(ROOM_TIER_ORDER.indexOf(letter) + 1); // E=1 … S=6
+        } else {
+          scores.push(1);
+          unranked.push(`<@${discordId}>`);
+        }
+      }
+      const average = scores.reduce((sum, value) => sum + value, 0) / scores.length;
+      const tierLetter = ROOM_TIER_ORDER[Math.min(ROOM_TIER_ORDER.length, Math.max(1, Math.round(average))) - 1];
+      const extra = unranked.length ? ` — sans tier (comptés E) : ${unranked.join(' ')}` : '';
+      return `**${index + 1}.** [${team.label}](${team.url}) — **Tier ${tierLetter}** (moyenne ${average.toFixed(2)}, ${team.pingIds.length} joueur(s))${extra}`;
+    });
+
+    await status.edit({ content: `✅ ${teams.length} équipe(s) analysée(s).`, ...noMentions });
+
+    if (lines.length === 0) {
+      await message.channel.send({ content: 'Aucune inscription trouvée dans ce salon.', ...noMentions });
+      return;
+    }
+
+    let chunk = '';
+    for (const line of lines) {
+      if ((chunk + '\n' + line).length > 1800) {
+        await message.channel.send({ content: chunk.trim(), ...noMentions });
+        chunk = '';
+      }
+      chunk += `\n${line}`;
+    }
+    if (chunk.trim()) {
+      await message.channel.send({ content: chunk.trim(), ...noMentions });
+    }
+  } catch (err) {
+    errorLog('!teamtiers failed:', err);
+    await status.edit({ content: '❌ Impossible d’analyser les inscriptions (voir les logs).', ...noMentions });
+  }
+}
+
 // ─── /hidetier et /showtier : masque ou réaffiche le rôle tier Discord ───────
 // Sans option : rôle tier joueur. Option coach|manager : rôle coach ou manager.
 const TIER_VISIBILITY_COLUMNS = {
@@ -10269,6 +10404,11 @@ async function handleMessage(message) {
 
   const [commandName, ...args] = content.slice(1).split(/\s+/);
   const command = commandName.toLowerCase();
+
+  if (command === 'teamtiers') {
+    await handleTeamTiersCommand(message);
+    return;
+  }
 
   if (PL_DISABLED_COMMANDS.has(command) && !plRolesEnabled) {
     await message.reply({
