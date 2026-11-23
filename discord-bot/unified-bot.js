@@ -1612,6 +1612,235 @@ async function handleTeamTiersCommand(message) {
   }
 }
 
+// ─── !applyresults : applique les résultats d'un tournoi aux joueurs ───────────
+// Règles : delta d'équipe ajouté directement aux points (joueur à 0 → repart de 11, plancher 1).
+// Gagnant : +4 win streak. Les autres participants : win streak remis à 0.
+// Gagnant / finaliste : ligne d'achievement ajoutée à la description du joueur.
+const RESULT_START_POINTS = 11;
+const RESULT_MIN_POINTS = 1;
+const RESULT_WINNER_WINSTREAK = 4;
+
+function parseResultsJson(text) {
+  const start = text.indexOf('[');
+  const end = text.lastIndexOf(']');
+  if (start === -1 || end <= start) {
+    throw new Error('JSON introuvable (attendu un tableau).');
+  }
+  const parsed = JSON.parse(text.slice(start, end + 1));
+  if (!Array.isArray(parsed) || parsed.length === 0) {
+    throw new Error('Le JSON est vide.');
+  }
+  return parsed.map((row) => {
+    if (typeof row?.team !== 'string' || !Number.isInteger(row.place) || !Number.isInteger(row.total)) {
+      throw new Error(`Entrée invalide : ${JSON.stringify(row)}`);
+    }
+    return { team: row.team.trim(), place: row.place, total: row.total };
+  });
+}
+
+async function buildRegistrationTeamMap(channel, ignoreMessageId) {
+  const messages = await fetchAllChannelMessagesChronological(channel);
+  const map = new Map();
+  for (const msg of messages.slice(1)) {
+    if (msg.author.bot || msg.id === ignoreMessageId) continue;
+    const pingIds = parseOrderedMentionIds(msg.content)
+      .filter((id) => !msg.mentions.users.get(id)?.bot)
+      .slice(0, TEAM_TIER_PING_LIMIT);
+    if (pingIds.length === 0) continue;
+    map.set(teamLabelFromContent(msg.content).toLowerCase(), pingIds);
+  }
+  return map;
+}
+
+async function handleApplyResultsCommand(message, args) {
+  const noMentions = { allowedMentions: { parse: [], repliedUser: false } };
+  const reply = (content) => message.reply({ content, ...noMentions });
+
+  if (!message.member?.permissions.has('ManageGuild')) {
+    return reply('❌ Commande réservée aux admins.');
+  }
+
+  const confirm = args.some((arg) => arg.toLowerCase() === 'confirm');
+  const cupName = args.filter((arg) => arg.toLowerCase() !== 'confirm').join(' ').trim();
+  if (!cupName) {
+    return reply('Usage : `!applyresults <nom du tournoi> [confirm]` avec le JSON dans le message (ou en pièce jointe `.json`).');
+  }
+
+  try {
+    let raw = message.content;
+    const attachment = message.attachments.first();
+    if (attachment) {
+      raw = await (await fetch(attachment.url)).text();
+    }
+    const results = parseResultsJson(raw);
+
+    const { data: alreadyApplied, error: appliedError } = await supabase
+      .from('lfn_applied_cups')
+      .select('cup_name')
+      .eq('cup_name', cupName)
+      .maybeSingle();
+    if (appliedError) throw appliedError;
+    if (alreadyApplied) {
+      return reply(`❌ « ${cupName} » a déjà été appliqué. Rien n'a été modifié.`);
+    }
+
+    const seasonId = await getActiveSeasonId();
+    if (!seasonId) {
+      return reply('❌ Aucune saison active.');
+    }
+
+    const registrations = await buildRegistrationTeamMap(message.channel, message.id);
+    const unmatched = [];
+    const plan = [];
+    for (const row of results) {
+      const pingIds = registrations.get(row.team.toLowerCase());
+      if (pingIds) {
+        plan.push({ ...row, pingIds });
+      } else {
+        unmatched.push(row.team);
+      }
+    }
+    if (unmatched.length > 0) {
+      return reply(`❌ Équipe(s) introuvable(s) dans le salon : ${unmatched.join(', ')}. Rien n'a été modifié.`);
+    }
+
+    const allDiscordIds = [...new Set(plan.flatMap((team) => team.pingIds))];
+    const { data: players, error: playersError } = await supabase
+      .from('players')
+      .select('id, discord_id, name')
+      .in('discord_id', allDiscordIds);
+    if (playersError) throw playersError;
+
+    const playerByDiscord = new Map((players || []).map((row) => [row.discord_id, row]));
+    const missingPlayers = allDiscordIds.filter((id) => !playerByDiscord.has(id));
+    const playerIds = [...playerByDiscord.values()].map((row) => row.id);
+
+    const { data: pointRows, error: pointsError } = await supabase
+      .from('lfn_player_tier_points')
+      .select('player_id, points')
+      .eq('season_id', seasonId)
+      .in('player_id', playerIds);
+    if (pointsError) throw pointsError;
+
+    const { data: profileRows, error: profilesError } = await supabase
+      .from('lfn_player_profiles')
+      .select('player_id, win_streak, description')
+      .in('player_id', playerIds);
+    if (profilesError) throw profilesError;
+
+    const pointsByPlayer = new Map((pointRows || []).map((row) => [row.player_id, Number(row.points) || 0]));
+    const profileByPlayer = new Map((profileRows || []).map((row) => [row.player_id, row]));
+
+    const changes = [];
+    for (const team of plan) {
+      const memberIds = [];
+      for (const discordId of team.pingIds) {
+        const player = playerByDiscord.get(discordId);
+        if (!player) continue;
+        memberIds.push(player.id);
+
+        const before = pointsByPlayer.get(player.id) ?? 0;
+        const base = before <= 0 ? RESULT_START_POINTS : before;
+        const after = Math.max(RESULT_MIN_POINTS, base + team.total);
+
+        const profile = profileByPlayer.get(player.id) || {};
+        const winstreak = team.place === 1
+          ? Number(profile.win_streak || 0) + RESULT_WINNER_WINSTREAK
+          : 0;
+
+        let description = (profile.description || '').trim();
+        const achievement = team.place === 1
+          ? `- **TOP 1** ${cupName}`
+          : team.place === 2
+            ? `- **TOP 2** ${cupName}`
+            : null;
+        if (achievement && !description.includes(achievement)) {
+          description = description ? `${description}\n${achievement}` : achievement;
+        }
+
+        changes.push({
+          playerId: player.id,
+          name: player.name,
+          team: team.team,
+          place: team.place,
+          delta: team.total,
+          before,
+          after,
+          tier: resolveTierByPoints(after),
+          winstreak,
+          description,
+          descriptionChanged: achievement !== null && description !== (profile.description || '').trim()
+        });
+      }
+    }
+
+    const summaryLines = plan.map((team) => {
+      const members = changes
+        .filter((change) => change.team === team.team)
+        .map((change) => `${change.name}: ${change.before} → ${change.after}`)
+        .join(' · ');
+      const sign = team.total >= 0 ? '+' : '';
+      return `**${team.place}. ${team.team}** (${sign}${team.total}) — ${members || 'aucun joueur trouvé'}`;
+    });
+    const warnings = missingPlayers.length
+      ? [`⚠️ ${missingPlayers.length} Discord ID sans fiche joueur (ignorés) : ${missingPlayers.map((id) => `<@${id}>`).join(' ')}`]
+      : [];
+
+    if (!confirm) {
+      await reply(`**Aperçu « ${cupName} »** — ${changes.length} joueur(s) concerné(s). Relance avec \`confirm\` pour appliquer.`);
+      let chunk = '';
+      for (const line of [...summaryLines, ...warnings]) {
+        if ((chunk + '\n' + line).length > 1800) {
+          await message.channel.send({ content: chunk.trim(), ...noMentions });
+          chunk = '';
+        }
+        chunk += `\n${line}`;
+      }
+      if (chunk.trim()) {
+        await message.channel.send({ content: chunk.trim(), ...noMentions });
+      }
+      return;
+    }
+
+    let failures = 0;
+    for (const change of changes) {
+      const { error: pointsWriteError } = await supabase
+        .from('lfn_player_tier_points')
+        .upsert(
+          { season_id: seasonId, player_id: change.playerId, points: change.after, tier: change.tier },
+          { onConflict: 'season_id,player_id' }
+        );
+      const profilePayload = { player_id: change.playerId, win_streak: change.winstreak };
+      if (change.descriptionChanged) {
+        profilePayload.description = change.description;
+      }
+      const { error: profileWriteError } = await supabase
+        .from('lfn_player_profiles')
+        .upsert(profilePayload, { onConflict: 'player_id' });
+      if (pointsWriteError || profileWriteError) {
+        failures += 1;
+        errorLog('!applyresults write failed:', pointsWriteError || profileWriteError);
+      }
+    }
+
+    if (failures === 0) {
+      const { error: recordError } = await supabase
+        .from('lfn_applied_cups')
+        .insert({ cup_name: cupName });
+      if (recordError) throw recordError;
+    }
+
+    await reply(
+      failures === 0
+        ? `✅ « ${cupName} » appliqué : ${changes.length} joueur(s) mis à jour.`
+        : `⚠️ « ${cupName} » appliqué avec ${failures} échec(s) (voir les logs). Le tournoi n'est PAS marqué comme appliqué : vérifie avant de relancer.`
+    );
+  } catch (err) {
+    errorLog('!applyresults failed:', err);
+    await reply(`❌ Erreur : ${err?.message || err}. Rien n'a été marqué comme appliqué.`);
+  }
+}
+
 // ─── /hidetier et /showtier : masque ou réaffiche le rôle tier Discord ───────
 // Sans option : rôle tier joueur. Option coach|manager : rôle coach ou manager.
 const TIER_VISIBILITY_COLUMNS = {
@@ -10407,6 +10636,11 @@ async function handleMessage(message) {
 
   if (command === 'teamtiers') {
     await handleTeamTiersCommand(message);
+    return;
+  }
+
+  if (command === 'applyresults') {
+    await handleApplyResultsCommand(message, args);
     return;
   }
 
