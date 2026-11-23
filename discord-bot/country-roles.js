@@ -30,6 +30,7 @@ const COUNTRY_STARS = {
   DE: 1, // Allemagne
   GR: 1, // Grèce
   DZ: 1, // Algérie
+  BE: 1, // Belgique
 };
 
 // ── État interne ────────────────────────────────────────────
