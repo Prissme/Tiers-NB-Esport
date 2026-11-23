@@ -1619,6 +1619,8 @@ async function handleTeamTiersCommand(message) {
 const RESULT_START_POINTS = 11;
 const RESULT_MIN_POINTS = 1;
 const RESULT_WINNER_WINSTREAK = 4;
+const NEW_PLAYER_START_POINTS = 1; // joueur sans fiche : créé avec 1 point, puis delta
+const UNSPECIFIED_COUNTRY_CODE = 'ZZ';
 
 function parseResultsJson(text) {
   const start = text.indexOf('[');
@@ -1713,6 +1715,11 @@ async function handleApplyResultsCommand(message, args) {
 
     const playerByDiscord = new Map((players || []).map((row) => [row.discord_id, row]));
     const missingPlayers = allDiscordIds.filter((id) => !playerByDiscord.has(id));
+    const memberNames = new Map();
+    for (const discordId of missingPlayers) {
+      const member = await message.guild?.members.fetch(discordId).catch(() => null);
+      memberNames.set(discordId, member?.displayName || `Joueur ${discordId}`);
+    }
     const playerIds = [...playerByDiscord.values()].map((row) => row.id);
 
     const { data: pointRows, error: pointsError } = await supabase
@@ -1735,11 +1742,15 @@ async function handleApplyResultsCommand(message, args) {
     for (const team of plan) {
       const memberIds = [];
       for (const discordId of team.pingIds) {
-        const player = playerByDiscord.get(discordId);
-        if (!player) continue;
+        const player = playerByDiscord.get(discordId) || {
+          id: `new:${discordId}`,
+          discord_id: discordId,
+          name: memberNames.get(discordId) || `Joueur ${discordId}`,
+          isNew: true
+        };
         memberIds.push(player.id);
 
-        const before = pointsByPlayer.get(player.id) ?? 0;
+        const before = pointsByPlayer.get(player.id) ?? (player.isNew ? NEW_PLAYER_START_POINTS : 0);
         const base = before <= 0 ? RESULT_START_POINTS : before;
         const after = Math.max(RESULT_MIN_POINTS, base + team.total);
 
@@ -1760,6 +1771,8 @@ async function handleApplyResultsCommand(message, args) {
 
         changes.push({
           playerId: player.id,
+          discordId,
+          isNew: Boolean(player.isNew),
           name: player.name,
           team: team.team,
           place: team.place,
@@ -1783,7 +1796,7 @@ async function handleApplyResultsCommand(message, args) {
       return `**${team.place}. ${team.team}** (${sign}${team.total}) — ${members || 'aucun joueur trouvé'}`;
     });
     const warnings = missingPlayers.length
-      ? [`⚠️ ${missingPlayers.length} Discord ID sans fiche joueur (ignorés) : ${missingPlayers.map((id) => `<@${id}>`).join(' ')}`]
+      ? [`➕ ${missingPlayers.length} fiche(s) à créer (${NEW_PLAYER_START_POINTS} pt de départ) : ${missingPlayers.map((id) => `${memberNames.get(id)} <@${id}>`).join(' · ')}`]
       : [];
 
     if (!confirm) {
@@ -1800,6 +1813,35 @@ async function handleApplyResultsCommand(message, args) {
         await message.channel.send({ content: chunk.trim(), ...noMentions });
       }
       return;
+    }
+
+    const newChanges = changes.filter((change) => change.isNew);
+    const newDiscordIds = [...new Set(newChanges.map((change) => change.discordId))];
+    if (newDiscordIds.length > 0) {
+      const { data: createdRows, error: createError } = await supabase
+        .from('players')
+        .insert(newDiscordIds.map((discordId) => ({
+          name: String(memberNames.get(discordId) || `Joueur ${discordId}`).slice(0, 64),
+          discord_id: discordId,
+          active: true
+        })))
+        .select('id, discord_id');
+      if (createError) throw createError;
+
+      const idByDiscord = new Map((createdRows || []).map((row) => [row.discord_id, row.id]));
+      for (const change of newChanges) {
+        change.playerId = idByDiscord.get(change.discordId);
+      }
+      if (newChanges.some((change) => !change.playerId)) {
+        throw new Error('Création des fiches incomplète : rien n\'a été marqué comme appliqué.');
+      }
+      const { error: countryError } = await supabase
+        .from('lfn_player_profiles')
+        .upsert(
+          newDiscordIds.map((discordId) => ({ player_id: idByDiscord.get(discordId), country_code: UNSPECIFIED_COUNTRY_CODE })),
+          { onConflict: 'player_id' }
+        );
+      if (countryError) throw countryError;
     }
 
     let failures = 0;
