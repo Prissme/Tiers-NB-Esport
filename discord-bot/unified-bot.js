@@ -1612,15 +1612,17 @@ async function handleTeamTiersCommand(message) {
   }
 }
 
-// ─── !applyresults : applique les résultats d'un tournoi aux joueurs ───────────
-// Règles : delta d'équipe ajouté directement aux points (joueur à 0 → repart de 11, plancher 1).
-// Gagnant : +4 win streak. Les autres participants : win streak remis à 0.
-// Gagnant / finaliste : ligne d'achievement ajoutée à la description du joueur.
+// ─── !applyresults / /applyresults : applique les résultats d'un tournoi aux joueurs ──
+// Points : le total d'équipe s'ajoute directement (joueur à 0 → repart de 11, sans fiche → 1, plancher 1).
+// Win streak : +4 pour le gagnant, 0 pour les autres participants.
+// Victoires / défaites du profil : setsW / setsL de l'équipe ajoutés (c'est la base du winrate).
+// Achievement : ligne TOP 1 (gagnant) ou TOP 2 (finaliste) dans la description.
 const RESULT_START_POINTS = 11;
 const RESULT_MIN_POINTS = 1;
 const RESULT_WINNER_WINSTREAK = 4;
-const NEW_PLAYER_START_POINTS = 1; // joueur sans fiche : créé avec 1 point, puis delta
+const NEW_PLAYER_START_POINTS = 1;
 const UNSPECIFIED_COUNTRY_CODE = 'ZZ';
+const RESULT_CHUNK_LIMIT = 1800;
 
 function parseResultsJson(text) {
   const start = text.indexOf('[');
@@ -1636,7 +1638,13 @@ function parseResultsJson(text) {
     if (typeof row?.team !== 'string' || !Number.isInteger(row.place) || !Number.isInteger(row.total)) {
       throw new Error(`Entrée invalide : ${JSON.stringify(row)}`);
     }
-    return { team: row.team.trim(), place: row.place, total: row.total };
+    return {
+      team: row.team.trim(),
+      place: row.place,
+      total: row.total,
+      setsW: Number.isInteger(row.setsW) ? row.setsW : 0,
+      setsL: Number.isInteger(row.setsL) ? row.setsL : 0
+    };
   });
 }
 
@@ -1654,6 +1662,231 @@ async function buildRegistrationTeamMap(channel, ignoreMessageId) {
   return map;
 }
 
+async function sendResultLines(lines, send) {
+  let chunk = '';
+  for (const line of lines) {
+    if ((chunk + '\n' + line).length > RESULT_CHUNK_LIMIT) {
+      await send(chunk.trim());
+      chunk = '';
+    }
+    chunk += `\n${line}`;
+  }
+  if (chunk.trim()) {
+    await send(chunk.trim());
+  }
+}
+
+async function runApplyResults({ channel, guild, cupName, raw, confirm, ignoreMessageId, reply, send }) {
+  if (!cupName) {
+    return reply('Usage : `!applyresults <nom du tournoi> [confirm]` avec le JSON (ou `/applyresults`).');
+  }
+  if (cupName.length > 80 || /[\[\]{}"`]/.test(cupName)) {
+    return reply("❌ Nom de tournoi invalide (80 caractères max, sans crochets, accolades ni guillemets). Rien n'a été modifié.");
+  }
+
+  const results = parseResultsJson(raw);
+
+  const { data: alreadyApplied, error: appliedError } = await supabase
+    .from('lfn_applied_cups')
+    .select('cup_name')
+    .eq('cup_name', cupName)
+    .maybeSingle();
+  if (appliedError) throw appliedError;
+  if (alreadyApplied) {
+    return reply(`❌ « ${cupName} » a déjà été appliqué. Rien n'a été modifié.`);
+  }
+
+  const seasonId = await getActiveSeasonId();
+  if (!seasonId) {
+    return reply('❌ Aucune saison active.');
+  }
+
+  const registrations = await buildRegistrationTeamMap(channel, ignoreMessageId);
+  const unmatched = [];
+  const plan = [];
+  for (const row of results) {
+    const pingIds = registrations.get(row.team.toLowerCase());
+    if (pingIds) {
+      plan.push({ ...row, pingIds });
+    } else {
+      unmatched.push(row.team);
+    }
+  }
+  if (unmatched.length > 0) {
+    return reply(`❌ Équipe(s) introuvable(s) dans le salon : ${unmatched.join(', ')}. Rien n'a été modifié.`);
+  }
+
+  const allDiscordIds = [...new Set(plan.flatMap((team) => team.pingIds))];
+  const { data: players, error: playersError } = await supabase
+    .from('players')
+    .select('id, discord_id, name')
+    .in('discord_id', allDiscordIds);
+  if (playersError) throw playersError;
+
+  const playerByDiscord = new Map((players || []).map((row) => [row.discord_id, row]));
+  const missingPlayers = allDiscordIds.filter((id) => !playerByDiscord.has(id));
+  const memberNames = new Map();
+  for (const discordId of missingPlayers) {
+    const member = await guild?.members.fetch(discordId).catch(() => null);
+    memberNames.set(discordId, member?.displayName || `Joueur ${discordId}`);
+  }
+  const playerIds = [...playerByDiscord.values()].map((row) => row.id);
+
+  const { data: pointRows, error: pointsError } = await supabase
+    .from('lfn_player_tier_points')
+    .select('player_id, points')
+    .eq('season_id', seasonId)
+    .in('player_id', playerIds.length ? playerIds : ['00000000-0000-0000-0000-000000000000']);
+  if (pointsError) throw pointsError;
+
+  const { data: profileRows, error: profilesError } = await supabase
+    .from('lfn_player_profiles')
+    .select('player_id, win_streak, description, wins, losses')
+    .in('player_id', playerIds.length ? playerIds : ['00000000-0000-0000-0000-000000000000']);
+  if (profilesError) throw profilesError;
+
+  const pointsByPlayer = new Map((pointRows || []).map((row) => [row.player_id, Number(row.points) || 0]));
+  const profileByPlayer = new Map((profileRows || []).map((row) => [row.player_id, row]));
+
+  const changes = [];
+  for (const team of plan) {
+    for (const discordId of team.pingIds) {
+      const player = playerByDiscord.get(discordId) || {
+        id: `new:${discordId}`,
+        discord_id: discordId,
+        name: memberNames.get(discordId) || `Joueur ${discordId}`,
+        isNew: true
+      };
+
+      const before = pointsByPlayer.get(player.id) ?? (player.isNew ? NEW_PLAYER_START_POINTS : 0);
+      const base = before <= 0 ? RESULT_START_POINTS : before;
+      const after = Math.max(RESULT_MIN_POINTS, base + team.total);
+
+      const profile = profileByPlayer.get(player.id) || {};
+      const winstreak = team.place === 1 ? Number(profile.win_streak || 0) + RESULT_WINNER_WINSTREAK : 0;
+      // wins / losses du profil = sets gagnés / perdus (c'est sur eux que se calcule le winrate)
+      const wins = Number(profile.wins || 0) + team.setsW;
+      const losses = Number(profile.losses || 0) + team.setsL;
+
+      const currentDescription = (profile.description || '').trim();
+      let description = currentDescription;
+      const achievement = team.place === 1
+        ? `- **TOP 1** ${cupName}`
+        : team.place === 2
+          ? `- **TOP 2** ${cupName}`
+          : null;
+      if (achievement && !description.includes(achievement)) {
+        description = description ? `${description}\n${achievement}` : achievement;
+      }
+
+      changes.push({
+        playerId: player.id,
+        discordId,
+        isNew: Boolean(player.isNew),
+        name: player.name,
+        team: team.team,
+        place: team.place,
+        delta: team.total,
+        setsW: team.setsW,
+        setsL: team.setsL,
+        before,
+        after,
+        tier: resolveTierByPoints(after),
+        winstreak,
+        wins,
+        losses,
+        description,
+        descriptionChanged: description !== currentDescription
+      });
+    }
+  }
+
+  const summaryLines = plan.map((team) => {
+    const members = changes
+      .filter((change) => change.team === team.team)
+      .map((change) => `${change.name}: ${change.before} → ${change.after}`)
+      .join(' · ');
+    const sign = team.total >= 0 ? '+' : '';
+    return `**${team.place}. ${team.team}** (${sign}${team.total}, ${team.setsW}-${team.setsL} en sets) — ${members || 'aucun joueur trouvé'}`;
+  });
+  const warnings = missingPlayers.length
+    ? [`➕ ${missingPlayers.length} fiche(s) à créer (${NEW_PLAYER_START_POINTS} pt de départ) : ${missingPlayers.map((id) => `${memberNames.get(id)} <@${id}>`).join(' · ')}`]
+    : [];
+
+  if (!confirm) {
+    await reply(`**Aperçu « ${cupName} »** — ${changes.length} joueur(s) concerné(s). Relance avec \`confirm\` pour appliquer.`);
+    await sendResultLines([...summaryLines, ...warnings], send);
+    return;
+  }
+
+  const newChanges = changes.filter((change) => change.isNew);
+  const newDiscordIds = [...new Set(newChanges.map((change) => change.discordId))];
+  if (newDiscordIds.length > 0) {
+    const { data: createdRows, error: createError } = await supabase
+      .from('players')
+      .insert(newDiscordIds.map((discordId) => ({
+        name: String(memberNames.get(discordId) || `Joueur ${discordId}`).slice(0, 64),
+        discord_id: discordId,
+        active: true
+      })))
+      .select('id, discord_id');
+    if (createError) throw createError;
+
+    const idByDiscord = new Map((createdRows || []).map((row) => [row.discord_id, row.id]));
+    for (const change of newChanges) {
+      change.playerId = idByDiscord.get(change.discordId);
+    }
+    if (newChanges.some((change) => !change.playerId)) {
+      throw new Error("Création des fiches incomplète : rien n'a été marqué comme appliqué.");
+    }
+    const { error: countryError } = await supabase
+      .from('lfn_player_profiles')
+      .upsert(
+        newDiscordIds.map((discordId) => ({ player_id: idByDiscord.get(discordId), country_code: UNSPECIFIED_COUNTRY_CODE })),
+        { onConflict: 'player_id' }
+      );
+    if (countryError) throw countryError;
+  }
+
+  let failures = 0;
+  for (const change of changes) {
+    const { error: pointsWriteError } = await supabase
+      .from('lfn_player_tier_points')
+      .upsert(
+        { season_id: seasonId, player_id: change.playerId, points: change.after, tier: change.tier },
+        { onConflict: 'season_id,player_id' }
+      );
+    const profilePayload = {
+      player_id: change.playerId,
+      win_streak: change.winstreak,
+      wins: change.wins,
+      losses: change.losses
+    };
+    if (change.descriptionChanged) {
+      profilePayload.description = change.description;
+    }
+    const { error: profileWriteError } = await supabase
+      .from('lfn_player_profiles')
+      .upsert(profilePayload, { onConflict: 'player_id' });
+    if (pointsWriteError || profileWriteError) {
+      failures += 1;
+      errorLog('applyresults write failed:', pointsWriteError || profileWriteError);
+    }
+  }
+
+  if (failures === 0) {
+    const { error: recordError } = await supabase.from('lfn_applied_cups').insert({ cup_name: cupName });
+    if (recordError) throw recordError;
+  }
+
+  await reply(
+    failures === 0
+      ? `✅ « ${cupName} » appliqué : ${changes.length} joueur(s) mis à jour.`
+      : `⚠️ « ${cupName} » appliqué avec ${failures} échec(s) (voir les logs). Le tournoi n'est PAS marqué comme appliqué : vérifie avant de relancer.`
+  );
+}
+
+// Commande préfixée : !applyresults <nom> [confirm] + JSON (dans le message ou en pièce jointe)
 async function handleApplyResultsCommand(message, args) {
   const noMentions = { allowedMentions: { parse: [], repliedUser: false } };
   const reply = (content) => message.reply({ content, ...noMentions });
@@ -1662,11 +1895,10 @@ async function handleApplyResultsCommand(message, args) {
     return reply('❌ Commande réservée aux admins.');
   }
 
+  const jsonStart = args.findIndex((arg) => /^(\[|\{|```)/.test(arg));
+  const nameArgs = jsonStart === -1 ? args : args.slice(0, jsonStart);
   const confirm = args.some((arg) => arg.toLowerCase() === 'confirm');
-  const cupName = args.filter((arg) => arg.toLowerCase() !== 'confirm').join(' ').trim();
-  if (!cupName) {
-    return reply('Usage : `!applyresults <nom du tournoi> [confirm]` avec le JSON dans le message (ou en pièce jointe `.json`).');
-  }
+  const cupName = nameArgs.filter((arg) => arg.toLowerCase() !== 'confirm').join(' ').trim();
 
   try {
     let raw = message.content;
@@ -1674,213 +1906,136 @@ async function handleApplyResultsCommand(message, args) {
     if (attachment) {
       raw = await (await fetch(attachment.url)).text();
     }
-    const results = parseResultsJson(raw);
-
-    const { data: alreadyApplied, error: appliedError } = await supabase
-      .from('lfn_applied_cups')
-      .select('cup_name')
-      .eq('cup_name', cupName)
-      .maybeSingle();
-    if (appliedError) throw appliedError;
-    if (alreadyApplied) {
-      return reply(`❌ « ${cupName} » a déjà été appliqué. Rien n'a été modifié.`);
-    }
-
-    const seasonId = await getActiveSeasonId();
-    if (!seasonId) {
-      return reply('❌ Aucune saison active.');
-    }
-
-    const registrations = await buildRegistrationTeamMap(message.channel, message.id);
-    const unmatched = [];
-    const plan = [];
-    for (const row of results) {
-      const pingIds = registrations.get(row.team.toLowerCase());
-      if (pingIds) {
-        plan.push({ ...row, pingIds });
-      } else {
-        unmatched.push(row.team);
-      }
-    }
-    if (unmatched.length > 0) {
-      return reply(`❌ Équipe(s) introuvable(s) dans le salon : ${unmatched.join(', ')}. Rien n'a été modifié.`);
-    }
-
-    const allDiscordIds = [...new Set(plan.flatMap((team) => team.pingIds))];
-    const { data: players, error: playersError } = await supabase
-      .from('players')
-      .select('id, discord_id, name')
-      .in('discord_id', allDiscordIds);
-    if (playersError) throw playersError;
-
-    const playerByDiscord = new Map((players || []).map((row) => [row.discord_id, row]));
-    const missingPlayers = allDiscordIds.filter((id) => !playerByDiscord.has(id));
-    const memberNames = new Map();
-    for (const discordId of missingPlayers) {
-      const member = await message.guild?.members.fetch(discordId).catch(() => null);
-      memberNames.set(discordId, member?.displayName || `Joueur ${discordId}`);
-    }
-    const playerIds = [...playerByDiscord.values()].map((row) => row.id);
-
-    const { data: pointRows, error: pointsError } = await supabase
-      .from('lfn_player_tier_points')
-      .select('player_id, points')
-      .eq('season_id', seasonId)
-      .in('player_id', playerIds);
-    if (pointsError) throw pointsError;
-
-    const { data: profileRows, error: profilesError } = await supabase
-      .from('lfn_player_profiles')
-      .select('player_id, win_streak, description')
-      .in('player_id', playerIds);
-    if (profilesError) throw profilesError;
-
-    const pointsByPlayer = new Map((pointRows || []).map((row) => [row.player_id, Number(row.points) || 0]));
-    const profileByPlayer = new Map((profileRows || []).map((row) => [row.player_id, row]));
-
-    const changes = [];
-    for (const team of plan) {
-      const memberIds = [];
-      for (const discordId of team.pingIds) {
-        const player = playerByDiscord.get(discordId) || {
-          id: `new:${discordId}`,
-          discord_id: discordId,
-          name: memberNames.get(discordId) || `Joueur ${discordId}`,
-          isNew: true
-        };
-        memberIds.push(player.id);
-
-        const before = pointsByPlayer.get(player.id) ?? (player.isNew ? NEW_PLAYER_START_POINTS : 0);
-        const base = before <= 0 ? RESULT_START_POINTS : before;
-        const after = Math.max(RESULT_MIN_POINTS, base + team.total);
-
-        const profile = profileByPlayer.get(player.id) || {};
-        const winstreak = team.place === 1
-          ? Number(profile.win_streak || 0) + RESULT_WINNER_WINSTREAK
-          : 0;
-
-        let description = (profile.description || '').trim();
-        const achievement = team.place === 1
-          ? `- **TOP 1** ${cupName}`
-          : team.place === 2
-            ? `- **TOP 2** ${cupName}`
-            : null;
-        if (achievement && !description.includes(achievement)) {
-          description = description ? `${description}\n${achievement}` : achievement;
-        }
-
-        changes.push({
-          playerId: player.id,
-          discordId,
-          isNew: Boolean(player.isNew),
-          name: player.name,
-          team: team.team,
-          place: team.place,
-          delta: team.total,
-          before,
-          after,
-          tier: resolveTierByPoints(after),
-          winstreak,
-          description,
-          descriptionChanged: achievement !== null && description !== (profile.description || '').trim()
-        });
-      }
-    }
-
-    const summaryLines = plan.map((team) => {
-      const members = changes
-        .filter((change) => change.team === team.team)
-        .map((change) => `${change.name}: ${change.before} → ${change.after}`)
-        .join(' · ');
-      const sign = team.total >= 0 ? '+' : '';
-      return `**${team.place}. ${team.team}** (${sign}${team.total}) — ${members || 'aucun joueur trouvé'}`;
+    await runApplyResults({
+      channel: message.channel,
+      guild: message.guild,
+      cupName,
+      raw,
+      confirm,
+      ignoreMessageId: message.id,
+      reply,
+      send: (content) => message.channel.send({ content, ...noMentions })
     });
-    const warnings = missingPlayers.length
-      ? [`➕ ${missingPlayers.length} fiche(s) à créer (${NEW_PLAYER_START_POINTS} pt de départ) : ${missingPlayers.map((id) => `${memberNames.get(id)} <@${id}>`).join(' · ')}`]
-      : [];
-
-    if (!confirm) {
-      await reply(`**Aperçu « ${cupName} »** — ${changes.length} joueur(s) concerné(s). Relance avec \`confirm\` pour appliquer.`);
-      let chunk = '';
-      for (const line of [...summaryLines, ...warnings]) {
-        if ((chunk + '\n' + line).length > 1800) {
-          await message.channel.send({ content: chunk.trim(), ...noMentions });
-          chunk = '';
-        }
-        chunk += `\n${line}`;
-      }
-      if (chunk.trim()) {
-        await message.channel.send({ content: chunk.trim(), ...noMentions });
-      }
-      return;
-    }
-
-    const newChanges = changes.filter((change) => change.isNew);
-    const newDiscordIds = [...new Set(newChanges.map((change) => change.discordId))];
-    if (newDiscordIds.length > 0) {
-      const { data: createdRows, error: createError } = await supabase
-        .from('players')
-        .insert(newDiscordIds.map((discordId) => ({
-          name: String(memberNames.get(discordId) || `Joueur ${discordId}`).slice(0, 64),
-          discord_id: discordId,
-          active: true
-        })))
-        .select('id, discord_id');
-      if (createError) throw createError;
-
-      const idByDiscord = new Map((createdRows || []).map((row) => [row.discord_id, row.id]));
-      for (const change of newChanges) {
-        change.playerId = idByDiscord.get(change.discordId);
-      }
-      if (newChanges.some((change) => !change.playerId)) {
-        throw new Error('Création des fiches incomplète : rien n\'a été marqué comme appliqué.');
-      }
-      const { error: countryError } = await supabase
-        .from('lfn_player_profiles')
-        .upsert(
-          newDiscordIds.map((discordId) => ({ player_id: idByDiscord.get(discordId), country_code: UNSPECIFIED_COUNTRY_CODE })),
-          { onConflict: 'player_id' }
-        );
-      if (countryError) throw countryError;
-    }
-
-    let failures = 0;
-    for (const change of changes) {
-      const { error: pointsWriteError } = await supabase
-        .from('lfn_player_tier_points')
-        .upsert(
-          { season_id: seasonId, player_id: change.playerId, points: change.after, tier: change.tier },
-          { onConflict: 'season_id,player_id' }
-        );
-      const profilePayload = { player_id: change.playerId, win_streak: change.winstreak };
-      if (change.descriptionChanged) {
-        profilePayload.description = change.description;
-      }
-      const { error: profileWriteError } = await supabase
-        .from('lfn_player_profiles')
-        .upsert(profilePayload, { onConflict: 'player_id' });
-      if (pointsWriteError || profileWriteError) {
-        failures += 1;
-        errorLog('!applyresults write failed:', pointsWriteError || profileWriteError);
-      }
-    }
-
-    if (failures === 0) {
-      const { error: recordError } = await supabase
-        .from('lfn_applied_cups')
-        .insert({ cup_name: cupName });
-      if (recordError) throw recordError;
-    }
-
-    await reply(
-      failures === 0
-        ? `✅ « ${cupName} » appliqué : ${changes.length} joueur(s) mis à jour.`
-        : `⚠️ « ${cupName} » appliqué avec ${failures} échec(s) (voir les logs). Le tournoi n'est PAS marqué comme appliqué : vérifie avant de relancer.`
-    );
   } catch (err) {
     errorLog('!applyresults failed:', err);
     await reply(`❌ Erreur : ${err?.message || err}. Rien n'a été marqué comme appliqué.`);
   }
+}
+
+// Commande slash : /applyresults tournoi json [confirm]
+async function handleApplyResultsSlash(interaction) {
+  const ephemeral = { flags: MessageFlags.Ephemeral };
+  if (!interaction.memberPermissions?.has('ManageGuild')) {
+    await interaction.reply({ content: '❌ Commande réservée aux admins.', ...ephemeral });
+    return;
+  }
+
+  await interaction.deferReply(ephemeral);
+  const noMentions = { allowedMentions: { parse: [] } };
+  const reply = (content) => interaction.editReply({ content, ...noMentions });
+
+  try {
+    await runApplyResults({
+      channel: interaction.channel,
+      guild: interaction.guild,
+      cupName: interaction.options.getString('tournoi', true).trim(),
+      raw: interaction.options.getString('json', true),
+      confirm: interaction.options.getBoolean('confirm') === true,
+      ignoreMessageId: null,
+      reply,
+      send: (content) => interaction.followUp({ content, ...ephemeral, ...noMentions })
+    });
+  } catch (err) {
+    errorLog('/applyresults failed:', err);
+    await reply(`❌ Erreur : ${err?.message || err}. Rien n'a été marqué comme appliqué.`);
+  }
+}
+
+// ─── !promo on / off : message promo toutes les 50 messages dans un salon ─────
+const PROMO_INTERVAL = 50;
+const PROMO_LINK = 'https://www.exitlag.com/refer/10385273';
+const promoChannels = new Map(); // channelId -> { guildId, count }
+
+async function loadPromoChannels() {
+  try {
+    const { data, error } = await supabase
+      .from('lfn_channel_promos')
+      .select('channel_id, guild_id')
+      .eq('enabled', true);
+    if (error) {
+      warn('Unable to load promo channels:', error.message || error);
+      return;
+    }
+    promoChannels.clear();
+    for (const row of data || []) {
+      promoChannels.set(row.channel_id, { guildId: row.guild_id, count: 0 });
+    }
+  } catch (err) {
+    warn('Unable to load promo channels:', err?.message || err);
+  }
+}
+
+function buildPromoEmbed() {
+  const tierS = formatTierEmoji('S');
+  return new EmbedBuilder()
+    .setColor(0xf1c40f)
+    .setTitle(`${tierS} 𝗪𝗔𝗡𝗡𝗔 𝗛𝗔𝗩𝗘 𝗔 𝗕𝗘𝗧𝗧𝗘𝗥 𝗣𝗜𝗡𝗚 𝗜𝗡-𝗚𝗔𝗠𝗘 ? ${tierS}`)
+    .setDescription(`𝗚𝗢 𝗖𝗛𝗘𝗖𝗞 ${PROMO_LINK} !!!`);
+}
+
+async function handlePromoCommand(message, args) {
+  const noMentions = { allowedMentions: { parse: [], repliedUser: false } };
+  const reply = (content) => message.reply({ content, ...noMentions });
+
+  if (!message.member?.permissions.has('ManageGuild')) {
+    return reply('❌ Commande réservée aux admins.');
+  }
+
+  const action = (args[0] || '').toLowerCase();
+  const channelId = message.channel.id;
+
+  if (action === 'on') {
+    const { error } = await supabase
+      .from('lfn_channel_promos')
+      .upsert(
+        { channel_id: channelId, guild_id: message.guild.id, enabled: true, updated_at: new Date().toISOString() },
+        { onConflict: 'channel_id' }
+      );
+    if (error) {
+      errorLog('!promo on failed:', error);
+      return reply('❌ Impossible d’activer la promo (voir les logs).');
+    }
+    promoChannels.set(channelId, { guildId: message.guild.id, count: 0 });
+    return reply(`✅ Promo activée dans ce salon : un message toutes les ${PROMO_INTERVAL} messages.`);
+  }
+
+  if (action === 'off') {
+    const { error } = await supabase
+      .from('lfn_channel_promos')
+      .upsert(
+        { channel_id: channelId, guild_id: message.guild.id, enabled: false, updated_at: new Date().toISOString() },
+        { onConflict: 'channel_id' }
+      );
+    if (error) {
+      errorLog('!promo off failed:', error);
+      return reply('❌ Impossible de désactiver la promo (voir les logs).');
+    }
+    promoChannels.delete(channelId);
+    return reply('✅ Promo désactivée dans ce salon.');
+  }
+
+  return reply('Usage : `!promo on` ou `!promo off` (dans le salon concerné).');
+}
+
+async function handlePromoMessage(message) {
+  const state = promoChannels.get(message.channel.id);
+  if (!state) return;
+  state.count += 1;
+  if (state.count < PROMO_INTERVAL) return;
+  state.count = 0;
+  await message.channel.send({ embeds: [buildPromoEmbed()] }).catch((err) => {
+    errorLog('Promo send failed:', err?.message || err);
+  });
 }
 
 // ─── /hidetier et /showtier : masque ou réaffiche le rôle tier Discord ───────
@@ -2198,7 +2353,8 @@ async function handleAdminSlashCommand(interaction) {
       'addgn',
       'welcometest',
       'disablepl',
-      'enablepl'
+      'enablepl',
+      'applyresults'
     ].includes(command)
   ) {
     return false;
@@ -2355,6 +2511,11 @@ async function handleAdminSlashCommand(interaction) {
       });
     }
 
+    return true;
+  }
+
+  if (command === 'applyresults') {
+    await handleApplyResultsSlash(interaction);
     return true;
   }
 
@@ -10395,6 +10556,7 @@ async function onReady(readyClient) {
   log(`Connected to Discord as ${readyClient.user.tag}.`);
   await loadPlSystemSetting();
   await loadHiddenTierRoles();
+  await loadPromoChannels();
   try {
     await readyClient.user.setPresence({ status: 'invisible' });
   } catch (err) {
@@ -10614,6 +10776,8 @@ async function handleMessage(message) {
     return;
   }
 
+  await handlePromoMessage(message);
+
   const content = message.content.trim();
 
   // ==========================================
@@ -10675,6 +10839,11 @@ async function handleMessage(message) {
 
   const [commandName, ...args] = content.slice(1).split(/\s+/);
   const command = commandName.toLowerCase();
+
+  if (command === 'promo') {
+    await handlePromoCommand(message, args);
+    return;
+  }
 
   if (command === 'teamtiers') {
     await handleTeamTiersCommand(message);
