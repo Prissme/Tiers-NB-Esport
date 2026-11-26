@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import MatchesTable, { type MatchRecord } from "./components/MatchesTable";
 import TeamsPanel from "./components/TeamsPanel";
 import TournamentsPanel from "./components/TournamentsPanel";
+import NwcPanel from "./components/NwcPanel";
 import { supabase } from "../../lib/supabaseClient";
 import { COUNTRIES, CountrySearch } from "./components/CountrySearch";
 import { FlagInsertButton } from "./components/FlagInsertButton";
@@ -14,6 +15,7 @@ const tabs = [
   { id: "matchs", label: "Matchs" },
   { id: "teams", label: "Teams" },
   { id: "tournois", label: "Tournois" },
+  { id: "nwc", label: "NWC" },
   { id: "classement", label: "Classement" },
   { id: "joueurs", label: "Joueurs" },
 ];
@@ -519,6 +521,12 @@ export default function AdminPage() {
       {activeTab === "tournois" && (
         <div className="secondary-section">
           <TournamentsPanel />
+        </div>
+      )}
+
+      {activeTab === "nwc" && (
+        <div className="secondary-section">
+          <NwcPanel />
         </div>
       )}
 
