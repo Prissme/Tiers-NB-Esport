@@ -19,12 +19,14 @@ const navLinks = {
     { label: "Leaderboard", href: "/leaderboard" },
     { label: "Chat", href: "/chat" },
     { label: "Évènements", href: "/events" },
+    { label: "NWC", href: "/nwc" },
     { label: "Règlement", href: "/rulebook" },
   ],
   en: [
     { label: "Leaderboard", href: "/leaderboard" },
     { label: "Chat", href: "/chat" },
     { label: "Events", href: "/events" },
+    { label: "NWC", href: "/nwc" },
     { label: "Rulebook", href: "/rulebook" },
   ],
 };
