@@ -304,6 +304,46 @@ const slashCommands = [
         ]
       }
     ]
+  },
+  {
+    // Commande staff : ajouter ou retirer des PrissCoins à un joueur
+    name: 'prisscoins',
+    description: 'Add or remove PrissCoins from a player',
+    dm_permission: false,
+    default_member_permissions: String(PermissionsBitField.Flags.ManageGuild),
+    options: [
+      {
+        name: 'action',
+        description: 'Add or remove coins',
+        type: ApplicationCommandOptionType.String,
+        required: true,
+        choices: [
+          { name: '➕ Add', value: 'add' },
+          { name: '➖ Remove', value: 'remove' }
+        ]
+      },
+      {
+        name: 'player',
+        description: 'Player to credit / debit',
+        type: ApplicationCommandOptionType.User,
+        required: true
+      },
+      {
+        name: 'amount',
+        description: 'Amount of PrissCoins',
+        type: ApplicationCommandOptionType.Integer,
+        required: true,
+        min_value: 1,
+        max_value: MAX_BET
+      },
+      {
+        name: 'reason',
+        description: 'Reason (shown in the confirmation)',
+        type: ApplicationCommandOptionType.String,
+        required: false,
+        max_length: 150
+      }
+    ]
   }
 ];
 
@@ -625,6 +665,67 @@ async function handleValidateCommand(interaction) {
   return true;
 }
 
+// Commande staff /prisscoins : crédite ou débite le wallet d'un joueur.
+// Les stats (total misé / gagné / perdu) ne sont pas touchées : c'est un ajustement manuel.
+async function handlePrissCoinsCommand(interaction) {
+  if (!interaction.isChatInputCommand() || interaction.commandName !== 'prisscoins') return false;
+
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+
+  // Sécurité en plus des permissions Discord : seul le staff (Manage Server) peut l'utiliser
+  if (!interaction.memberPermissions?.has(PermissionsBitField.Flags.ManageGuild)) {
+    await interaction.editReply({ content: '❌ You are not allowed to use this command.' });
+    return true;
+  }
+
+  const action = interaction.options.getString('action', true);
+  const target = interaction.options.getUser('player', true);
+  const amount = interaction.options.getInteger('amount', true);
+  const reason = interaction.options.getString('reason')?.trim();
+
+  if (target.bot) {
+    await interaction.editReply({ content: '❌ You cannot give or take PrissCoins from a bot.' });
+    return true;
+  }
+
+  try {
+    const guildId = interaction.guild.id;
+    const wallet = await getOrCreateWallet(guildId, target.id);
+    const before = wallet.balance;
+
+    // Pour un retrait, on ne descend jamais sous 0 : on retire au maximum le solde dispo
+    const delta = action === 'add' ? amount : -Math.min(amount, before);
+    const after = await adjustWallet(guildId, target.id, delta);
+    const applied = Math.abs(after - before);
+
+    const isAdd = action === 'add';
+    const capped = !isAdd && applied < amount;
+
+    const embed = new EmbedBuilder()
+      .setColor(isAdd ? 0x2ecc71 : 0xe74c3c)
+      .setTitle(isAdd ? '➕ PrissCoins added' : '➖ PrissCoins removed')
+      .addFields(
+        { name: 'Player', value: `<@${target.id}>`, inline: true },
+        { name: isAdd ? 'Added' : 'Removed', value: `**${applied} PrissCoins**`, inline: true },
+        { name: 'Balance', value: `${before} → **${after}** PrissCoins`, inline: true }
+      )
+      .setFooter({ text: `By ${interaction.user.username}` })
+      .setTimestamp(new Date());
+
+    if (reason) embed.addFields({ name: 'Reason', value: reason });
+    if (capped) embed.setDescription(`⚠️ The player only had ${before} PrissCoins, so the balance was set to 0.`);
+
+    ctx.log(`${interaction.user.id} ${action} ${applied} PrissCoins -> ${target.id} (${before} -> ${after})${reason ? ` | ${reason}` : ''}`);
+
+    await interaction.editReply({ embeds: [embed] });
+  } catch (err) {
+    ctx.error('Failed to adjust PrissCoins:', err);
+    await interaction.editReply({ content: '❌ Error while updating the PrissCoins balance.' });
+  }
+
+  return true;
+}
+
 async function handleAutocomplete(interaction) {
   if (!interaction.isAutocomplete() || interaction.commandName !== 'validate_predictions') return false;
 
@@ -672,6 +773,7 @@ async function handleInteraction(interaction) {
   if (await handleAutocomplete(interaction)) return true;
   if (await handleCreateCommand(interaction)) return true;
   if (await handleValidateCommand(interaction)) return true;
+  if (await handlePrissCoinsCommand(interaction)) return true;
 
   if (interaction.isButton() && interaction.customId?.startsWith(`${BET_BUTTON_PREFIX}:`)) {
     await handleBetButton(interaction);
